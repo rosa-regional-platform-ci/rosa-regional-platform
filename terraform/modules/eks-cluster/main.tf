@@ -1,9 +1,8 @@
 # =============================================================================
 # EKS Cluster Configuration
 #
-# Creates a fully private EKS cluster with Auto Mode enabled. 
-# Includes KMS encryption for secrets, proper networking,
-# and managed addons for a complete cluster deployment.
+# Creates a fully private EKS cluster with Auto Mode enabled.
+# VPC and networking are provided as inputs from the vpc module.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -17,24 +16,18 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
 
 # -----------------------------------------------------------------------------
 # EKS Cluster
-#
-# Fully private EKS cluster with Auto Mode for simplified node management.
-# Auto Mode requires specific configurations for authentication and bootstrapping.
 # -----------------------------------------------------------------------------
 resource "aws_eks_cluster" "main" {
   name     = local.cluster_id
   role_arn = aws_iam_role.eks_cluster.arn
   version  = var.cluster_version
 
-  # Required for EKS Auto Mode - disable self-managed addon bootstrapping
   bootstrap_self_managed_addons = false
 
-  # Required for EKS Auto Mode - specify authentication mode
   access_config {
     authentication_mode = "API_AND_CONFIG_MAP"
   }
 
-  # Encryption at rest for Kubernetes secrets using customer-managed KMS key
   encryption_config {
     resources = ["secrets"]
     provider {
@@ -43,22 +36,16 @@ resource "aws_eks_cluster" "main" {
   }
 
   vpc_config {
-    subnet_ids              = aws_subnet.private[*].id
+    subnet_ids              = var.private_subnet_ids
     endpoint_private_access = true
     endpoint_public_access  = false
-    security_group_ids      = [aws_security_group.eks_cluster.id]
+    security_group_ids      = [var.cluster_security_group_id]
   }
 
   compute_config {
     enabled       = true
     node_pools    = ["general-purpose"]
     node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
   }
 
   kubernetes_network_config {
@@ -75,7 +62,6 @@ resource "aws_eks_cluster" "main" {
 
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
-  # Explicit dependencies ensure IAM is ready before cluster creation starts
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_managed,
     aws_cloudwatch_log_group.eks_cluster,
@@ -85,11 +71,6 @@ resource "aws_eks_cluster" "main" {
 
 # -----------------------------------------------------------------------------
 # EKS Managed Addons
-#
-# Essential addons for cluster functionality:
-# - CoreDNS: DNS resolution for pods and services
-# - Pod Identity Agent: AWS IAM integration for workloads
-# - AWS Secrets Store CSI Driver Provider: Secret mounting
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_addon" "coredns" {

@@ -28,7 +28,9 @@ resource "aws_db_subnet_group" "maestro" {
   )
 }
 
-# Security Group for RDS - only allow access from EKS cluster
+# Security Group for RDS
+# Ingress rules are standalone resources so the SG (and RDS) can provision
+# in parallel with EKS, rather than waiting for EKS security group IDs.
 resource "aws_security_group" "maestro_db" {
   name        = "${var.regional_id}-maestro-db"
   description = "Security group for Maestro PostgreSQL database"
@@ -36,36 +38,6 @@ resource "aws_security_group" "maestro_db" {
 
   # Prevent Terraform from trying to detach RDS-managed ENIs
   revoke_rules_on_delete = false
-
-  # Allow from EKS cluster additional security group
-  ingress {
-    description     = "PostgreSQL from EKS cluster additional security group"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.eks_cluster_security_group_id]
-  }
-
-  # Allow from EKS cluster primary security group (used by Auto Mode nodes)
-  ingress {
-    description     = "PostgreSQL from EKS cluster primary security group (Auto Mode)"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.eks_cluster_primary_security_group_id]
-  }
-
-  # Allow from bastion security group (if bastion is enabled)
-  dynamic "ingress" {
-    for_each = var.bastion_security_group_id != null ? [1] : []
-    content {
-      description     = "PostgreSQL from bastion"
-      from_port       = 5432
-      to_port         = 5432
-      protocol        = "tcp"
-      security_groups = [var.bastion_security_group_id]
-    }
-  }
 
   egress {
     description = "Allow all outbound traffic"
@@ -82,6 +54,41 @@ resource "aws_security_group" "maestro_db" {
       Component = "maestro-server"
     }
   )
+}
+
+# Ingress rules as standalone resources — these depend on EKS SG IDs but
+# do NOT block the RDS instance from provisioning.
+
+resource "aws_security_group_rule" "maestro_db_eks_cluster" {
+  type                     = "ingress"
+  description              = "PostgreSQL from EKS cluster additional security group"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.maestro_db.id
+  source_security_group_id = var.eks_cluster_security_group_id
+}
+
+resource "aws_security_group_rule" "maestro_db_eks_primary" {
+  type                     = "ingress"
+  description              = "PostgreSQL from EKS cluster primary security group (Auto Mode)"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.maestro_db.id
+  source_security_group_id = var.eks_cluster_primary_security_group_id
+}
+
+resource "aws_security_group_rule" "maestro_db_bastion" {
+  count = var.bastion_enabled ? 1 : 0
+
+  type                     = "ingress"
+  description              = "PostgreSQL from bastion"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.maestro_db.id
+  source_security_group_id = var.bastion_security_group_id
 }
 
 # RDS PostgreSQL Instance
