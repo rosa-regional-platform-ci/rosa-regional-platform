@@ -33,17 +33,17 @@ output "cluster_certificate_authority_data" {
 # =============================================================================
 
 output "cluster_security_group_id" {
-  description = "Security group ID attached to the EKS cluster"
-  value       = aws_security_group.eks_cluster.id
+  description = "Security group ID attached to the EKS cluster (pass-through from VPC module)"
+  value       = var.cluster_security_group_id
 }
 
 output "vpc_endpoints_security_group_id" {
-  description = "Security group ID for VPC endpoints"
-  value       = aws_security_group.vpc_endpoints.id
+  description = "Security group ID for VPC endpoints (pass-through from VPC module)"
+  value       = var.vpc_endpoints_security_group_id
 }
 
 output "node_security_group_id" {
-  description = "EKS node security group ID (for Auto Mode, this is the cluster primary SG)"
+  description = "EKS node security group ID (Auto Mode primary SG - only available after EKS creation)"
   value       = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
 }
 
@@ -58,33 +58,23 @@ output "kms_key_alias" {
 }
 
 # =============================================================================
-# Network outputs
+# Network outputs (pass-through from VPC module for backward compatibility)
 # =============================================================================
 
 output "vpc_id" {
-  description = "ID of the VPC"
-  value       = aws_vpc.main.id
+  description = "ID of the VPC (pass-through)"
+  value       = var.vpc_id
 }
 
 output "private_subnet_ids" {
-  description = "IDs of private subnets"
-  value       = aws_subnet.private[*].id
+  description = "IDs of private subnets (pass-through)"
+  value       = var.private_subnet_ids
 }
 
-output "public_subnet_ids" {
-  description = "IDs of public subnets"
-  value       = aws_subnet.public[*].id
-}
-
-output "nat_gateway_ids" {
-  description = "IDs of NAT Gateways for high availability"
-  value       = aws_nat_gateway.main[*].id
-}
-
-# Legacy compatibility outputs
+# Legacy compatibility
 output "private_subnets" {
-  description = "Private subnet IDs where worker nodes are deployed (legacy compatibility)"
-  value       = aws_subnet.private[*].id
+  description = "Private subnet IDs (legacy compatibility, pass-through)"
+  value       = var.private_subnet_ids
 }
 
 # =============================================================================
@@ -100,4 +90,3 @@ output "node_iam_role_arn" {
   description = "IAM role ARN of the EKS Auto Mode nodes"
   value       = aws_iam_role.eks_auto_mode_node.arn
 }
-

@@ -83,7 +83,7 @@ case "$CLUSTER_TYPE" in
 esac
 
 ENVIRONMENT="$1"
-REGION="$2"
+REGION_DEPLOYMENT="$2"
 shift 2
 
 # Parse optional flags
@@ -184,7 +184,7 @@ else
 fi
 
 echo "    Environment: $ENVIRONMENT"
-echo "    Region:      $REGION"
+echo "    Region:      $REGION_DEPLOYMENT"
 echo "    Alias:       $ALIAS"
 echo ""
 
@@ -270,7 +270,7 @@ echo ""
 echo "==> Done! Terraform is now configured against remote state."
 echo "    Cluster type: $CLUSTER_TYPE"
 echo "    Environment:  $ENVIRONMENT"
-echo "    Region:       $REGION"
+echo "    Region:       $REGION_DEPLOYMENT"
 echo "    Alias:        $ALIAS"
 echo "    State:        s3://${TF_STATE_BUCKET}/${STATE_KEY}"
 echo ""
