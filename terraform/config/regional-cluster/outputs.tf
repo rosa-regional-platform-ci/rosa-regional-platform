@@ -27,17 +27,17 @@ output "cluster_certificate_authority_data" {
 # Networking
 output "vpc_id" {
   description = "VPC ID where cluster is deployed"
-  value       = module.regional_cluster.vpc_id
+  value       = module.vpc.vpc_id
 }
 
 output "private_subnets" {
   description = "Private subnet IDs where worker nodes are deployed"
-  value       = module.regional_cluster.private_subnets
+  value       = module.vpc.private_subnet_ids
 }
 
 output "cluster_security_group_id" {
   description = "EKS cluster security group ID"
-  value       = module.regional_cluster.cluster_security_group_id
+  value       = module.vpc.cluster_security_group_id
 }
 
 output "node_security_group_id" {

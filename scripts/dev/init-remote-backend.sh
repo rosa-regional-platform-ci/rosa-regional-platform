@@ -83,7 +83,7 @@ case "$CLUSTER_TYPE" in
 esac
 
 ENVIRONMENT="$1"
-REGION="$2"
+REGION_DEPLOYMENT="$2"
 shift 2
 
 # Parse optional flags

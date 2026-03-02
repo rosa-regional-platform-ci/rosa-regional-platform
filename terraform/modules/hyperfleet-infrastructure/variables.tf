@@ -38,6 +38,12 @@ variable "eks_cluster_primary_security_group_id" {
   type        = string
 }
 
+variable "bastion_enabled" {
+  description = "Whether the bastion host is enabled (used for count to avoid unknown value issues)"
+  type        = bool
+  default     = false
+}
+
 variable "bastion_security_group_id" {
   description = "Optional bastion security group ID for RDS and MQ access (if bastion is enabled)"
   type        = string

@@ -1,9 +1,6 @@
 provider "aws" {
   region = var.region
 
-  # Conditionally assume role for cross-account deployment (local dev only)
-  # When target_account_id is set, assume OrganizationAccountAccessRole in target account
-  # In pipelines, target_account_id is empty - ambient creds are already the target account
   dynamic "assume_role" {
     for_each = var.target_account_id != "" ? [1] : []
     content {
@@ -23,33 +20,52 @@ provider "aws" {
   }
 }
 
-# Call the EKS cluster module for management cluster infrastructure
+# =============================================================================
+# VPC Module
+# =============================================================================
+
+module "vpc" {
+  source = "../../modules/vpc"
+
+  resource_name_base = var.management_id
+}
+
+# =============================================================================
+# EKS Cluster
+# =============================================================================
+
 module "management_cluster" {
   source = "../../modules/eks-cluster"
 
   # Required variables
-  cluster_type = "management-cluster"
-  cluster_id   = var.management_id
+  cluster_type                    = "management-cluster"
+  cluster_id                      = var.management_id
+  vpc_id                          = module.vpc.vpc_id
+  vpc_cidr                        = module.vpc.vpc_cidr
+  private_subnet_ids              = module.vpc.private_subnet_ids
+  cluster_security_group_id       = module.vpc.cluster_security_group_id
+  vpc_endpoints_security_group_id = module.vpc.vpc_endpoints_security_group_id
 
-  # Management cluster sizing
   node_group_min_size     = 1
   node_group_max_size     = 2
   node_group_desired_size = 1
 }
 
-# Call the ECS bootstrap module for external bootstrap execution
+# =============================================================================
+# ECS Bootstrap
+# =============================================================================
+
 module "ecs_bootstrap" {
   source = "../../modules/ecs-bootstrap"
 
-  vpc_id                        = module.management_cluster.vpc_id
-  private_subnets               = module.management_cluster.private_subnets
+  vpc_id                        = module.vpc.vpc_id
+  private_subnets               = module.vpc.private_subnet_ids
   eks_cluster_arn               = module.management_cluster.cluster_arn
   eks_cluster_name              = module.management_cluster.cluster_name
-  eks_cluster_security_group_id = module.management_cluster.cluster_security_group_id
+  eks_cluster_security_group_id = module.vpc.cluster_security_group_id
   cluster_id                    = var.management_id
   container_image               = var.container_image
 
-  # ArgoCD bootstrap configuration
   repository_url    = var.repository_url
   repository_branch = var.repository_branch
 }
@@ -65,9 +81,9 @@ module "bastion" {
   cluster_id                = var.management_id
   cluster_name              = module.management_cluster.cluster_name
   cluster_endpoint          = module.management_cluster.cluster_endpoint
-  cluster_security_group_id = module.management_cluster.cluster_security_group_id
-  vpc_id                    = module.management_cluster.vpc_id
-  private_subnet_ids        = module.management_cluster.private_subnets
+  cluster_security_group_id = module.vpc.cluster_security_group_id
+  vpc_id                    = module.vpc.vpc_id
+  private_subnet_ids        = module.vpc.private_subnet_ids
   container_image           = var.container_image
 }
 
