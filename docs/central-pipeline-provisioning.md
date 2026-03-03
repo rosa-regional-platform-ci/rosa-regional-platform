@@ -52,7 +52,7 @@ aws iam update-assume-role-policy \
 
 ### 2.1 Store account IDs in SSM
 
-Push the Regional and Management account IDs to SSM Parameter Store in the Central account. The default config resolves account IDs from the path `ssm:///infra/<environment>/<region>/account_id`.
+Push the Regional and Management account IDs to SSM Parameter Store in the Central account. The default config uses the resolver URI `ssm:///infra/<environment>/<region>/account_id` to look up account IDs at runtime; the actual SSM parameter name stored in Parameter Store is `/infra/<environment>/<region>/account_id` (the `ssm://` prefix is stripped by the resolver).
 
 ```bash
 ENV=my-env

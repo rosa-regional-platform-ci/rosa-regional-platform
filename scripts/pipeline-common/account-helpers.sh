@@ -61,35 +61,42 @@ use_mc_account() {
 }
 
 # =============================================================================
+# _resolve_rc_account - Resolve and cache the RC account ID
+# =============================================================================
+# Resolves SSM parameter references (ssm:///path) on first call and caches the result.
+_resolve_rc_account() {
+    if [ -n "$_RESOLVED_RC_ACCOUNT_ID" ]; then
+        return
+    fi
+
+    _RESOLVED_RC_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
+
+    if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:// ]]; then
+        local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm://}"
+        echo "Resolving SSM parameter: $ssm_param" >&2
+
+        # Use central creds to resolve SSM (parameter is in central or target account)
+        _RESOLVED_RC_ACCOUNT_ID=$(
+            AWS_ACCESS_KEY_ID="$_CENTRAL_AWS_ACCESS_KEY_ID" \
+            AWS_SECRET_ACCESS_KEY="$_CENTRAL_AWS_SECRET_ACCESS_KEY" \
+            AWS_SESSION_TOKEN="$_CENTRAL_AWS_SESSION_TOKEN" \
+            aws ssm get-parameter \
+                --name "$ssm_param" \
+                --with-decryption \
+                --query 'Parameter.Value' \
+                --output text \
+                --region "${TARGET_REGION}")
+
+        echo "Resolved RC account: $_RESOLVED_RC_ACCOUNT_ID" >&2
+    fi
+}
+
+# =============================================================================
 # use_rc_account - Switch to Regional Cluster account
 # =============================================================================
 # Assumes OrganizationAccountAccessRole in REGIONAL_AWS_ACCOUNT_ID using central creds.
-# Resolves SSM parameter references (ssm:///path) on first call and caches the result.
 use_rc_account() {
-    # Resolve REGIONAL_AWS_ACCOUNT_ID if it's an SSM reference
-    if [ -z "$_RESOLVED_RC_ACCOUNT_ID" ]; then
-        _RESOLVED_RC_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-
-        if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:// ]]; then
-            local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm://}"
-            echo "Resolving SSM parameter: $ssm_param"
-
-            # Use central creds to resolve SSM (parameter is in central or target account)
-            _RESOLVED_RC_ACCOUNT_ID=$(
-                AWS_ACCESS_KEY_ID="$_CENTRAL_AWS_ACCESS_KEY_ID" \
-                AWS_SECRET_ACCESS_KEY="$_CENTRAL_AWS_SECRET_ACCESS_KEY" \
-                AWS_SESSION_TOKEN="$_CENTRAL_AWS_SESSION_TOKEN" \
-                aws ssm get-parameter \
-                    --name "$ssm_param" \
-                    --with-decryption \
-                    --query 'Parameter.Value' \
-                    --output text \
-                    --region "${TARGET_REGION}")
-
-            echo "Resolved RC account: $_RESOLVED_RC_ACCOUNT_ID"
-        fi
-    fi
-
+    _resolve_rc_account
     _assume_account "$_RESOLVED_RC_ACCOUNT_ID" "rc-${TARGET_ALIAS:-pipeline}"
 }
 
@@ -107,23 +114,7 @@ use_central_account() {
 # get_rc_account_id - Return the resolved RC account ID
 # =============================================================================
 get_rc_account_id() {
-    if [ -z "$_RESOLVED_RC_ACCOUNT_ID" ]; then
-        # Force resolution by calling use_rc_account logic
-        _RESOLVED_RC_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-        if [[ "$_RESOLVED_RC_ACCOUNT_ID" =~ ^ssm:// ]]; then
-            local ssm_param="${_RESOLVED_RC_ACCOUNT_ID#ssm://}"
-            _RESOLVED_RC_ACCOUNT_ID=$(
-                AWS_ACCESS_KEY_ID="$_CENTRAL_AWS_ACCESS_KEY_ID" \
-                AWS_SECRET_ACCESS_KEY="$_CENTRAL_AWS_SECRET_ACCESS_KEY" \
-                AWS_SESSION_TOKEN="$_CENTRAL_AWS_SESSION_TOKEN" \
-                aws ssm get-parameter \
-                    --name "$ssm_param" \
-                    --with-decryption \
-                    --query 'Parameter.Value' \
-                    --output text \
-                    --region "${TARGET_REGION}")
-        fi
-    fi
+    _resolve_rc_account
     echo "$_RESOLVED_RC_ACCOUNT_ID"
 }
 
