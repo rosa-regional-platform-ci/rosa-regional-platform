@@ -20,11 +20,6 @@ phases:
         echo "  Alias: ${TARGET_ALIAS}"
         echo ""
 
-        # =====================================================================
-        # Phase 1: Read IoT cert/config outputs from RC account state
-        # =====================================================================
-        echo "Reading IoT certificate data from RC account state..."
-
         # Resolve REGIONAL_AWS_ACCOUNT_ID (supports SSM parameter references)
         RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
         if [[ "$RESOLVED_REGIONAL_ACCOUNT_ID" =~ ^ssm:// ]]; then
@@ -44,13 +39,23 @@ phases:
             exit 1
         fi
 
-        use_rc_account
-
-        # Read IoT cert/config from RC account terraform state
-        source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
+        # =====================================================================
+        # Phase 1: Read IoT cert/config outputs from RC account state
+        # (skipped on destroy — IoT resources already cleaned up by Mint-IoT stage)
+        # =====================================================================
+        if [ "${IS_DESTROY:-false}" == "true" ]; then
+            # Terraform still evaluates file() during destroy; provide empty placeholders.
+            # (Can't use /dev/null — the cleanup line below would rm it in the container.)
+            export TF_VAR_maestro_agent_cert_file=$(mktemp)
+            export TF_VAR_maestro_agent_config_file=$(mktemp)
+        else
+            echo "Reading IoT certificate data from RC account state..."
+            use_rc_account
+            source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
+        fi
 
         # =====================================================================
-        # Phase 2: Apply MC infrastructure with IoT cert data
+        # Phase 2: Apply/Destroy MC infrastructure
         # =====================================================================
         use_mc_account
 
@@ -123,32 +128,27 @@ phases:
 
         set +e
         if [ "${IS_DESTROY:-false}" == "true" ]; then
-            echo "⚠️ DESTRUCTION MODE ENABLED"
+            echo "Destroying management cluster"
             make pipeline-destroy-management
         else
             make pipeline-provision-management
         fi
-        PROVISION_STATUS=$?
+        MAKE_TARGET_STATUS=$?
         set -e
 
-        if [ $PROVISION_STATUS -ne 0 ]; then
-            echo "❌ Infrastructure action failed with exit code $PROVISION_STATUS"
-            exit $PROVISION_STATUS
+        if [ $MAKE_TARGET_STATUS -ne 0 ]; then
+            echo "Infrastructure action failed with exit code $MAKE_TARGET_STATUS"
+            exit $MAKE_TARGET_STATUS
         fi
 
         # Clean up temp cert files
         rm -f "${TF_VAR_maestro_agent_cert_file:-}" "${TF_VAR_maestro_agent_config_file:-}"
 
-        echo "✅ Infrastructure action complete."
         if [ "${IS_DESTROY:-false}" == "true" ]; then
-             echo "✅ Management cluster destroyed successfully."
+             echo "Management cluster destroyed successfully."
         else
-             echo "✅ Management cluster provisioned successfully."
+             echo "Management cluster provisioned successfully."
         fi
-
-  post_build:
-    commands:
-      - echo "Infrastructure deployment complete."
 artifacts:
   files:
     - '**/*'

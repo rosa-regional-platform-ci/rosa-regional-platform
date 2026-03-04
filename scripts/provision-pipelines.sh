@@ -190,6 +190,14 @@ destroy_pipeline() {
     fi
 }
 
+# --- BEGIN TEMPORARY CI HACK (remove when e2e uses a dedicated config with per-cluster delete flags) ---
+# FORCE_DELETE_ALL_PIPELINES=true force-sets DELETE_FLAG=true for ALL clusters, bypassing
+# per-cluster config. This exists solely to let e2e teardown destroy everything without a
+# custom config. Passed as a CodePipeline variable from ci/e2e.sh.
+FORCE_DELETE_ALL_PIPELINES="${FORCE_DELETE_ALL_PIPELINES:-false}"
+echo "Force delete all pipelines: $FORCE_DELETE_ALL_PIPELINES"
+# --- END TEMPORARY CI HACK ---
+
 echo "Processing environment: $ENVIRONMENT"
 echo ""
 
@@ -246,6 +254,10 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         COST_CENTER=$(jq -r '.cost_center // "000"' "$REGIONAL_CONFIG")
         ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$REGIONAL_CONFIG")
         DELETE_FLAG=$(jq -r '.delete // false' "$REGIONAL_CONFIG")
+
+        # TEMPORARY CI HACK (see top of file)
+        # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
+        [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
 
         echo "  AWS Region: $AWS_REGION"
         [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
@@ -353,6 +365,10 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$mc_config")
             ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$mc_config")
             DELETE_FLAG=$(jq -r '.delete // false' "$mc_config")
+
+            # TEMPORARY CI HACK (see top of file)
+            # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
+            [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
 
             # Use TARGET_ALIAS as cluster_id default if not specified
             [ -z "$CLUSTER_ID" ] && CLUSTER_ID="${TARGET_ALIAS}"
