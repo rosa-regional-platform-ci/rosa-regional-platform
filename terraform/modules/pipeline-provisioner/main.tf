@@ -5,7 +5,7 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
-# Use shared GitHub Connection (created in bootstrap-pipeline)
+# Use shared GitHub Connection (created in central-account-bootstrap)
 data "aws_codestarconnections_connection" "github" {
   arn = var.github_connection_arn
 }
@@ -100,7 +100,7 @@ resource "aws_codebuild_project" "provisioner" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-provisioner/buildspec.yml"
+    buildspec = "terraform/modules/pipeline-provisioner/buildspec.yml"
   }
 }
 
@@ -124,7 +124,7 @@ resource "aws_codebuild_project" "build_platform_image" {
 
   source {
     type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-provisioner/buildspec-build-image.yml"
+    buildspec = "terraform/modules/pipeline-provisioner/buildspec-build-image.yml"
   }
 }
 

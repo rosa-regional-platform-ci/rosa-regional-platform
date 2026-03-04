@@ -7,7 +7,7 @@
   "account_id": "ssm:///infra/brian/us-east-1/account_id",
   "region": "us-east-1",
   "alias": "regional-us-east-1",
-  "delete": true,
+  "enable_bastion": true,
   "management_cluster_account_ids": [
     "ssm:///infra/brian/us-east-1/mc01/account_id"
   ]

@@ -57,7 +57,7 @@ graph TB
 flowchart LR
     subgraph events ["Events"]
         direction TB
-        TF["terraform apply<br/>bootstrap-pipeline/"]
+        TF["terraform apply<br/>central-account-bootstrap/"]
         G1["git push<br/>deploy/**"]
         G2["git push<br/>deploy/‹env›/‹region›/**"]
         G3["git push<br/>deploy/‹env›/‹region›/terraform/management/**"]
@@ -161,7 +161,7 @@ TARGET_ENVIRONMENT=staging \
 ./scripts/bootstrap-central-account.sh
 ```
 
-This runs `scripts/bootstrap-state.sh` (creates S3 state bucket) and then `terraform apply` on `terraform/config/bootstrap-pipeline/` (creates the CodePipeline, CodeBuild project, CodeStar connection, IAM roles, and ECR repository).
+This runs `scripts/bootstrap-state.sh` (creates S3 state bucket) and then `terraform apply` on `terraform/config/central-account-bootstrap/` (creates the CodePipeline, CodeBuild project, CodeStar connection, IAM roles, and ECR repository).
 
 After bootstrap, you must manually authorize the GitHub CodeStar connection in the AWS Console.
 
@@ -179,7 +179,7 @@ After bootstrap, the pipeline-provisioner runs automatically when changes are pu
 
 This is the terraform state for the CodePipeline/CodeBuild resources themselves (not the cluster infrastructure).
 
-See: `terraform/config/pipeline-provisioner/`, `scripts/provision-pipelines.sh`
+See: `terraform/modules/pipeline-provisioner/`, `scripts/provision-pipelines.sh`
 
 ## Layer 2: Cluster Pipelines
 
@@ -333,8 +333,8 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 
 | File                                     | Purpose                                             |
 | ---------------------------------------- | --------------------------------------------------- |
-| `terraform/config/bootstrap-pipeline/`   | One-time bootstrap terraform config                 |
-| `terraform/config/pipeline-provisioner/` | Pipeline provisioner definition and buildspecs      |
+| `terraform/config/central-account-bootstrap/`   | One-time bootstrap terraform config                 |
+| `terraform/modules/pipeline-provisioner/` | Pipeline provisioner definition and buildspecs      |
 | `scripts/bootstrap-central-account.sh`   | One-time bootstrap script                           |
 | `scripts/provision-pipelines.sh`         | Reads deploy/ and creates/updates/deletes pipelines |
 

@@ -106,8 +106,10 @@ environments:
   brian:
     region_deployments:
       us-east-1:
+        account_id: {}
         terraform_vars:
-          delete: true
+          enable_bastion: true
+          # delete: true
         management_clusters:
           mc01: {}
 

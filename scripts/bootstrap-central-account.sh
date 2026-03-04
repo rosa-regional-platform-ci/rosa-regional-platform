@@ -162,13 +162,13 @@ echo "==================================================="
 echo "Step 2: Deploying Pipeline Infrastructure"
 echo "==================================================="
 
-cd "${REPO_ROOT}/terraform/config/bootstrap-pipeline"
+cd "${REPO_ROOT}/terraform/config/central-account-bootstrap"
 
 # Initialize Terraform
 echo "Initializing Terraform..."
 terraform init -reconfigure \
     -backend-config="bucket=${STATE_BUCKET}" \
-    -backend-config="key=bootstrap-pipeline/terraform.tfstate" \
+    -backend-config="key=central-account-bootstrap/terraform.tfstate" \
     -backend-config="region=${REGION}" \
     -backend-config="use_lockfile=true"
 

@@ -32,7 +32,7 @@ module "platform_image" {
 }
 
 module "pipeline_provisioner" {
-  source = "../pipeline-provisioner"
+  source = "../../modules/pipeline-provisioner"
 
   github_repository     = var.github_repository
   github_branch         = var.github_branch

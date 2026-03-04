@@ -6,7 +6,7 @@
 flowchart LR
     subgraph events ["Events"]
         direction TB
-        TF["terraform apply<br/>bootstrap-pipeline/"]
+        TF["terraform apply<br/>central-account-bootstrap/"]
         G1["git push<br/>deploy/**"]
         G2["git push<br/>deploy/‹env›/‹region›/**"]
         G3["git push<br/>deploy/‹env›/‹region›/terraform/management/**"]
@@ -35,7 +35,7 @@ flowchart LR
     style MC_PIPE fill:#e0f0ff,stroke:#4a90d9
 ```
 
-### `bootstrap-pipeline/`
+### `central-account-bootstrap/`
 
 Seeds the initial CodePipeline that watches the `deploy/` directory in the repository. When cluster configuration files are added or updated, it triggers the pipeline provisioner to dynamically create the corresponding CodePipelines.
 
