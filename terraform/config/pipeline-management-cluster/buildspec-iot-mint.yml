@@ -33,6 +33,14 @@ phases:
         echo "  Region: $TARGET_REGION"
         echo ""
 
+        # Read delete flag from config (GitOps-driven deletion)
+        ENVIRONMENT="${ENVIRONMENT:-staging}"
+        MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${TARGET_ALIAS}.json"
+        DELETE_FLAG="false"
+        if [ -f "$MC_CONFIG_FILE" ]; then
+            DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
+        fi
+
         # Generate temporary tfvars for the IoT provisioning
         TEMP_TFVARS=$(mktemp /tmp/maestro-iot-XXXXXX.tfvars)
         cat > "$TEMP_TFVARS" <<EOF
@@ -52,7 +60,7 @@ phases:
             -backend-config="region=${TARGET_REGION}" \
             -backend-config="use_lockfile=true"
 
-        if [ "${IS_DESTROY:-false}" == "true" ]; then
+        if [ "${DELETE_FLAG}" == "true" ]; then
             echo "Destroying IoT resources"
             terraform destroy -var-file="$TEMP_TFVARS" -auto-approve
             echo "IoT resources destroyed successfully"

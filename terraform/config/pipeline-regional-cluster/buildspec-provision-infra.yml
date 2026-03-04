@@ -87,6 +87,7 @@ phases:
             exit 1
         fi
 
+
         # Extract regional_id, environment, and sector from rendered config
         export TF_VAR_regional_id=$(jq -r '.regional_id' "$RC_CONFIG_FILE")
         export TF_VAR_environment=$(jq -r '.environment' "$RC_CONFIG_FILE")
@@ -95,7 +96,9 @@ phases:
         echo "  Environment: $TF_VAR_environment"
         echo "  Sector: $TF_VAR_sector"
 
-        if [ "${IS_DESTROY:-false}" == "true" ]; then
+        # Read delete flag from config (GitOps-driven deletion)
+        DELETE_FLAG=$(jq -r '.delete // false' "$RC_CONFIG_FILE")
+        if [ "${DELETE_FLAG}" == "true" ]; then
             make pipeline-destroy-regional
         else
             make pipeline-provision-regional
