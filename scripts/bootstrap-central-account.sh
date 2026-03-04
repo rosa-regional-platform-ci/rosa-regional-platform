@@ -109,6 +109,9 @@ if [[ -z "$ACCOUNT_ID" || ! "$ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
     exit 1
 fi
 
+REGION=$(aws configure get region 2>/dev/null || echo "")
+REGION=${REGION:-us-east-1}
+
 echo "✅ Authenticated as:"
 echo "$AWS_IDENTITY"
 echo ""
