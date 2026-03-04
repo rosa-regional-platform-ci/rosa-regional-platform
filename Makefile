@@ -390,8 +390,27 @@ check-rendered-files:
 	fi
 	@echo "✅ Rendered files are up to date"
 
-# Run end-to-end tests
+# Run end-to-end tests in a container
+# Usage:
+#   make test-e2e CREDS_DIR=~/.rosa-credentials
+#   make test-e2e CREDS_DIR=~/.rosa-credentials E2E_REPO=myuser/rosa-regional-platform E2E_BRANCH=my-feature
+CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || echo docker)
+E2E_IMAGE ?= rosa-rrp-e2e
+E2E_REPO ?= openshift-online/rosa-regional-platform
+E2E_BRANCH ?= main
+CREDS_DIR ?=
+
 test-e2e:
-	@echo "🧪 Running end-to-end tests..."
-	@echo "✅ End-to-end tests complete"
+ifndef CREDS_DIR
+	$(error CREDS_DIR is required — set it to a directory containing ci_access_key, ci_secret_key, ci_assume_role_arn, git_token, regional_access_key, regional_secret_key, management_access_key, management_secret_key)
+endif
+	@echo "Building e2e container image..."
+	$(CONTAINER_ENGINE) build -t $(E2E_IMAGE) -f ci/Containerfile ci/
+	@echo "Running e2e tests..."
+	$(CONTAINER_ENGINE) run --rm \
+		-e PYTHONUNBUFFERED=1 \
+		-v $(abspath $(CREDS_DIR)):/var/run/rosa-credentials:ro \
+		-v $(PWD)/ci:/ci:ro \
+		$(E2E_IMAGE) \
+		/ci/e2e.py --repo $(E2E_REPO) --branch $(E2E_BRANCH)
 
