@@ -12,13 +12,21 @@ phases:
       - |
         set -euo pipefail
 
-        if [ "${IS_DESTROY:-false}" == "true" ]; then
-            echo "IS_DESTROY=true — skipping MC registration (cluster is being destroyed)"
-            exit 0
-        fi
-
         # Pre-flight setup (validates env vars, inits account helpers)
         source scripts/pipeline-common/setup-apply-preflight.sh
+
+        # Read delete flag from config (GitOps-driven deletion)
+        ENVIRONMENT="${ENVIRONMENT:-staging}"
+        MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${TARGET_ALIAS}.json"
+        DELETE_FLAG="false"
+        if [ -f "$MC_CONFIG_FILE" ]; then
+            DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
+        fi
+
+        if [ "${DELETE_FLAG}" == "true" ]; then
+            echo "delete=true in config — skipping MC registration (cluster is being destroyed)"
+            exit 0
+        fi
 
         # =====================================================================
         # Read API Gateway URL from RC terraform state

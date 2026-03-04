@@ -87,7 +87,9 @@ phases:
             exit 1
         fi
 
-        if [ "${IS_DESTROY:-false}" == "true" ]; then
+        # Read delete flag from config (GitOps-driven deletion)
+        DELETE_FLAG=$(jq -r '.delete // false' "$RC_CONFIG_FILE")
+        if [ "${DELETE_FLAG}" == "true" ]; then
             make pipeline-destroy-regional
         else
             make pipeline-provision-regional
