@@ -16,8 +16,7 @@ class GitManager:
     """Manages git operations for CI branch lifecycle.
 
     Creates a CI-owned branch from a source repo/branch, handles commits and
-    pushes, and cleans up the branch on exit. Acts as a context manager to
-    ensure cleanup always runs.
+    pushes. CI branches are intentionally kept for post-run troubleshooting.
     """
 
     def __init__(self, creds_dir: str, repo: str, branch: str):
@@ -27,14 +26,6 @@ class GitManager:
         self.work_dir = None
         self.ci_branch = None
         self.fork_repo = None
-        self._tmpdir = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.cleanup()
-        return False
 
     def _github_token(self) -> str:
         """Read the git token from credentials directory or environment."""
@@ -71,15 +62,15 @@ class GitManager:
 
         Branch naming: <short-hash>-<sanitized-branch>-ci
         """
-        short_hash = "dca1ae" # uuid.uuid4().hex[:6]
+        short_hash =uuid.uuid4().hex[:6]
         sanitized = re.sub(r"[/]", "-", self.source_branch)
         self.ci_branch = f"{short_hash}-{sanitized}-ci"
 
         token = self._github_token()
         clone_url = f"https://x-access-token:{token}@github.com/{self.source_repo}.git"
 
-        self._tmpdir = tempfile.mkdtemp(prefix="e2e-")
-        self.work_dir = Path(self._tmpdir) / "repo"
+        tmpdir = tempfile.mkdtemp(prefix="e2e-")
+        self.work_dir = Path(tmpdir) / "repo"
 
         log.info("Cloning %s (branch: %s)", self.source_repo, self.source_branch)
         self._run_git(
@@ -146,14 +137,3 @@ class GitManager:
 
         self.render_and_push("ci: update config.yaml")
 
-    def cleanup(self):
-        """Delete the remote CI branch and clean up the temp directory."""
-        if self.ci_branch and self.work_dir and self.work_dir.exists():
-            log.info("Cleaning up CI branch: %s", self.ci_branch)
-            self._run_git("push", "ci", "--delete", self.ci_branch, check=False)
-
-        if self._tmpdir:
-            import shutil
-
-            shutil.rmtree(self._tmpdir, ignore_errors=True)
-            self._tmpdir = None

@@ -26,30 +26,30 @@ class E2EOrchestrator:
         self.provision_start = None
 
     def run(self):
-        """Run the full e2e lifecycle: provision -> test -> teardown -> cleanup."""
-        with GitManager(self.creds_dir, self.repo, self.branch) as git:
-            self.git = git
+        """Run the full e2e lifecycle: provision -> test -> teardown."""
+        git = GitManager(self.creds_dir, self.repo, self.branch)
+        self.git = git
 
-            # Phase 1: Create CI branch and render deploy files
-            git.create_ci_branch()
-            git.render_and_push("ci: render deploy files for e2e environment")
+        # Phase 1: Create CI branch and render deploy files
+        git.create_ci_branch()
+        git.render_and_push("ci: render deploy files for e2e environment")
 
-            # Phase 1 continued: AWS setup and bootstrap
-            self._setup_aws()
-            self.monitor = PipelineMonitor(self.aws.session)
-            self.provision_start = datetime.now(timezone.utc)
-            self._bootstrap_pipeline_provisioner(git)
+        # Phase 1 continued: AWS setup and bootstrap
+        self._setup_aws()
+        self.monitor = PipelineMonitor(self.aws.session)
+        self.provision_start = datetime.now(timezone.utc)
+        self._bootstrap_pipeline_provisioner(git)
 
+        # Teardown must run even if provision/test fails, to clean up infrastructure
+        try:
             # Phase 2: Provision via GitOps
             self._provision(git)
 
             # Phase 3: Test (placeholder)
             self._test()
-
+        finally:
             # Phase 4: Teardown (GitOps-driven)
             self._teardown(git)
-
-        # Phase 5: Cleanup happens automatically via GitManager context manager
 
     def _setup_aws(self):
         """Set up AWS credentials and trust policies."""

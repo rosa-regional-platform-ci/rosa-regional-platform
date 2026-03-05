@@ -575,14 +575,24 @@ resource "aws_codebuild_project" "register" {
   }
 }
 
+# Allow time for IAM policy propagation before creating the pipeline.
+# Pipelines auto-trigger on creation; without this delay the Source action
+# can fail with "Access Denied" on the CodeStar connection.
+resource "time_sleep" "iam_propagation" {
+  depends_on = [
+    aws_iam_role_policy.codebuild_policy,
+    aws_iam_role_policy.codepipeline_policy,
+  ]
+  create_duration = "15s"
+}
+
 # CodePipeline
 resource "aws_codepipeline" "regional_pipeline" {
   name          = local.pipeline_name
   role_arn      = aws_iam_role.codepipeline_role.arn
   pipeline_type = "V2"
 
-  # Ensure IAM policy is attached before creating pipeline
-  depends_on = [aws_iam_role_policy.codepipeline_policy]
+  depends_on = [time_sleep.iam_propagation]
 
   variable {
     name          = "IS_DESTROY"

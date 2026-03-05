@@ -128,12 +128,27 @@ resource "aws_codebuild_project" "build_platform_image" {
   }
 }
 
+# Allow time for IAM policy propagation before creating the pipeline.
+# Pipelines auto-trigger on creation; without this delay the Source action
+# can fail with "Access Denied" on the CodeStar connection.
+resource "time_sleep" "iam_propagation" {
+  depends_on = [
+    aws_iam_role_policy.codepipeline_policy,
+    aws_iam_role_policy.codebuild_policy,
+    aws_iam_role_policy.codebuild_state_bootstrap,
+    aws_iam_role_policy.build_platform_image_policy,
+  ]
+  create_duration = "15s"
+}
+
 # CodePipeline - Pipeline Provisioner
 resource "aws_codepipeline" "provisioner" {
   name           = "pipeline-provisioner"
   role_arn       = aws_iam_role.codepipeline_role.arn
   pipeline_type  = "V2"
   execution_mode = "QUEUED" # Prevent parallel executions that could cause lock conflicts
+
+  depends_on = [time_sleep.iam_propagation]
 
   variable {
     name          = "FORCE_DELETE_ALL_PIPELINES"
