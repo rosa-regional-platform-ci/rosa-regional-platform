@@ -128,6 +128,7 @@ fi
 GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-openshift-online/rosa-regional-platform}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 TARGET_ENVIRONMENT="${TARGET_ENVIRONMENT:-staging}"
+NAME_PREFIX="${NAME_PREFIX:-}"
 
 # Validate repository format (must be owner/name)
 if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
@@ -143,6 +144,7 @@ echo "  AWS Region:         $REGION"
 echo "  GitHub Repo:        $GITHUB_REPOSITORY"
 echo "  GitHub Branch:      $GITHUB_BRANCH"
 echo "  Target Environment: $TARGET_ENVIRONMENT"
+echo "  Name Prefix:        ${NAME_PREFIX:-<none>}"
 echo ""
 echo "✅ Proceeding with bootstrap..."
 
@@ -234,7 +236,7 @@ cd "${REPO_ROOT}/terraform/config/central-account-bootstrap"
 echo "Initializing Terraform..."
 terraform init -reconfigure \
     -backend-config="bucket=${STATE_BUCKET}" \
-    -backend-config="key=central-account-bootstrap/terraform.tfstate" \
+    -backend-config="key=${NAME_PREFIX:+${NAME_PREFIX}-}central-account-bootstrap/terraform.tfstate" \
     -backend-config="region=${REGION}" \
     -backend-config="use_lockfile=true"
 
@@ -245,6 +247,7 @@ github_branch        = "${GITHUB_BRANCH}"
 region               = "${REGION}"
 environment          = "${TARGET_ENVIRONMENT}"
 github_connection_arn = "${GITHUB_CONNECTION_ARN}"
+name_prefix          = "${NAME_PREFIX}"
 EOF
 
 echo "Terraform configuration created:"

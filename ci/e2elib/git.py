@@ -25,6 +25,7 @@ class GitManager:
         self.source_branch = branch
         self.work_dir = None
         self.ci_branch = None
+        self.ci_prefix = None
         self.fork_repo = None
 
     def _github_token(self) -> str:
@@ -62,9 +63,10 @@ class GitManager:
 
         Branch naming: <short-hash>-<sanitized-branch>-ci
         """
-        short_hash =uuid.uuid4().hex[:6]
+        build_id = os.environ.get("BUILD_ID", "")
+        self.ci_prefix = build_id[:6] if build_id else uuid.uuid4().hex[:6]
         sanitized = re.sub(r"[/]", "-", self.source_branch)
-        self.ci_branch = f"{short_hash}-{sanitized}-ci"
+        self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
 
         token = self._github_token()
         clone_url = f"https://x-access-token:{token}@github.com/{self.source_repo}.git"
@@ -112,10 +114,14 @@ class GitManager:
     def render_and_push(self, message: str):
         """Run render.py in the work directory, then commit and push."""
         render_script = self.work_dir / "scripts" / "render.py"
-        log.info("Running render.py")
+        log.info("Running render.py (ci_prefix=%s)", self.ci_prefix)
+        env = os.environ.copy()
+        if self.ci_prefix:
+            env["CI_PREFIX"] = self.ci_prefix
         subprocess.run(
             ["uv", "run", str(render_script)],
             cwd=self.work_dir,
+            env=env,
             check=True,
         )
         self.push(message)

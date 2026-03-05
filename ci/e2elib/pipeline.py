@@ -1,6 +1,5 @@
 import logging
 import time
-from datetime import datetime, timezone
 
 import boto3
 
@@ -18,38 +17,78 @@ class PipelineMonitor:
     def __init__(self, session: boto3.Session):
         self.client = session.client("codepipeline")
 
-    def wait_for_auto_trigger(
+    def get_execution_ids(self, pipeline_name: str) -> set[str]:
+        """Return the set of current execution IDs for a pipeline."""
+        try:
+            response = self.client.list_pipeline_executions(
+                pipelineName=pipeline_name,
+                maxResults=10,
+            )
+            return {
+                e["pipelineExecutionId"]
+                for e in response.get("pipelineExecutionSummaries", [])
+            }
+        except self.client.exceptions.PipelineNotFoundException:
+            return set()
+
+    def wait_for_new_execution(
         self,
         pipeline_name: str,
-        after_timestamp: datetime,
+        known_ids: set[str],
         timeout: int = PIPELINE_TRIGGER_TIMEOUT,
     ) -> str:
-        """Poll for a new pipeline execution that started after the given timestamp.
+        """Poll until a new execution appears that isn't in known_ids.
 
-        Returns the execution ID once found.
+        Snapshot known_ids via get_execution_ids() before the action that
+        triggers the pipeline, then call this to wait for the new execution.
         """
-        log.info("Waiting for auto-trigger on pipeline '%s'...", pipeline_name)
+        log.info("Waiting for new execution on pipeline '%s' (known: %d)...", pipeline_name, len(known_ids))
+        deadline = time.time() + timeout
+
+        while time.time() < deadline:
+            current_ids = self.get_execution_ids(pipeline_name)
+            new_ids = current_ids - known_ids
+            if new_ids:
+                exec_id = new_ids.pop()
+                log.info("Pipeline '%s' new execution: %s", pipeline_name, exec_id)
+                return exec_id
+
+            log.info("No new execution on '%s' yet — waiting %ds...", pipeline_name, POLL_INTERVAL)
+            time.sleep(POLL_INTERVAL)
+
+        raise TimeoutError(f"Pipeline '{pipeline_name}' did not trigger a new execution within {timeout}s")
+
+    def wait_for_any_execution(
+        self,
+        pipeline_name: str,
+        timeout: int = PIPELINE_TRIGGER_TIMEOUT,
+    ) -> str:
+        """Poll until the pipeline has at least one execution, return its ID.
+
+        Use when the pipeline is unique to this run (e.g., prefixed with a CI hash)
+        so any execution on it belongs to us — no timestamp filtering needed.
+        """
+        log.info("Waiting for execution on pipeline '%s'...", pipeline_name)
         deadline = time.time() + timeout
 
         while time.time() < deadline:
             try:
                 response = self.client.list_pipeline_executions(
                     pipelineName=pipeline_name,
-                    maxResults=5,
+                    maxResults=1,
                 )
-                for execution in response.get("pipelineExecutionSummaries", []):
-                    start_time = execution.get("startTime")
-                    if start_time and start_time.replace(tzinfo=timezone.utc) > after_timestamp:
-                        exec_id = execution["pipelineExecutionId"]
-                        log.info("Pipeline '%s' auto-triggered: %s", pipeline_name, exec_id)
-                        return exec_id
+                executions = response.get("pipelineExecutionSummaries", [])
+                if executions:
+                    exec_id = executions[0]["pipelineExecutionId"]
+                    log.info("Pipeline '%s' execution found: %s", pipeline_name, exec_id)
+                    return exec_id
             except self.client.exceptions.PipelineNotFoundException:
                 pass
 
-            log.info("No new execution on '%s' yet — waiting %ds...", pipeline_name, POLL_INTERVAL)
+            log.info("No execution on '%s' yet — waiting %ds...", pipeline_name, POLL_INTERVAL)
             time.sleep(POLL_INTERVAL)
 
-        raise TimeoutError(f"Pipeline '{pipeline_name}' did not auto-trigger within {timeout}s")
+        raise TimeoutError(f"Pipeline '{pipeline_name}' had no execution within {timeout}s")
 
     def wait_for_completion(
         self,
@@ -87,10 +126,14 @@ class PipelineMonitor:
     def discover_pipelines(
         self,
         prefix: str,
-        after_timestamp: datetime,
+        known_exec_ids: dict[str, set[str]] | None = None,
         timeout: int = PIPELINE_DISCOVERY_TIMEOUT,
     ) -> list[tuple[str, str]]:
-        """Find pipelines matching prefix with executions after the given timestamp.
+        """Find pipelines matching prefix, returning the latest execution for each.
+
+        When known_exec_ids is provided (a dict of pipeline_name -> set of known IDs),
+        only returns executions that are NOT in the known set — useful for detecting
+        new executions triggered by a config push.
 
         Returns list of (pipeline_name, execution_id) tuples.
         """
@@ -107,12 +150,18 @@ class PipelineMonitor:
 
                 execs = self.client.list_pipeline_executions(
                     pipelineName=name,
-                    maxResults=1,
+                    maxResults=5,
                 )
                 for execution in execs.get("pipelineExecutionSummaries", []):
-                    start_time = execution.get("startTime")
-                    if start_time and start_time.replace(tzinfo=timezone.utc) > after_timestamp:
-                        results.append((name, execution["pipelineExecutionId"]))
+                    exec_id = execution["pipelineExecutionId"]
+                    if known_exec_ids is not None:
+                        known = known_exec_ids.get(name, set())
+                        if exec_id not in known:
+                            results.append((name, exec_id))
+                            break
+                    elif execution.get("startTime"):
+                        results.append((name, exec_id))
+                        break
 
             if results:
                 for name, exec_id in results:
@@ -123,3 +172,21 @@ class PipelineMonitor:
             time.sleep(POLL_INTERVAL)
 
         raise TimeoutError(f"No pipelines with prefix '{prefix}' found within {timeout}s")
+
+    def snapshot_pipeline_executions(self, prefix: str) -> dict[str, set[str]]:
+        """Snapshot current execution IDs for all pipelines matching prefix.
+
+        Use before a config push, then pass the result to discover_pipelines()
+        to find only the new executions.
+        """
+        result = {}
+        try:
+            response = self.client.list_pipelines()
+            for pipeline in response.get("pipelines", []):
+                name = pipeline["name"]
+                if not name.startswith(prefix):
+                    continue
+                result[name] = self.get_execution_ids(name)
+        except Exception:
+            pass
+        return result

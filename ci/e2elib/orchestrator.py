@@ -2,7 +2,6 @@ import logging
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
 
 import yaml
 
@@ -25,7 +24,6 @@ class E2EOrchestrator:
         self.aws: AWSCredentials | None = None
         self.monitor: PipelineMonitor | None = None
         self.git = None
-        self.provision_start = None
 
     def run(self):
         """Run the full e2e lifecycle: provision -> test -> teardown."""
@@ -35,6 +33,7 @@ class E2EOrchestrator:
         # Phase 1: Setup
         self._setup_aws()
         git.create_ci_branch()
+        self.provisioner_name = f"{git.ci_prefix}-pipeline-provisioner" if git.ci_prefix else "pipeline-provisioner"
 
         # Inject e2e environment into config.yaml (not checked into the repo)
         self._inject_e2e_config(git)
@@ -42,7 +41,6 @@ class E2EOrchestrator:
 
         # Bootstrap pipeline provisioner
         self.monitor = PipelineMonitor(self.aws.session)
-        self.provision_start = datetime.now(timezone.utc)
         self._bootstrap_pipeline_provisioner(git)
 
         # Teardown must run even if provision/test fails, to clean up infrastructure
@@ -120,6 +118,7 @@ class E2EOrchestrator:
         env["GITHUB_REPOSITORY"] = git.fork_repo
         env["GITHUB_BRANCH"] = git.ci_branch
         env["TARGET_ENVIRONMENT"] = TARGET_ENVIRONMENT
+        env["NAME_PREFIX"] = git.ci_prefix
 
         log.info("Executing: %s", bootstrap_script)
         log.info("Env: REPO=%s, BRANCH=%s", git.fork_repo, git.ci_branch)
@@ -151,16 +150,13 @@ class E2EOrchestrator:
         log.info("Phase 2: Provision via GitOps")
         log.info("==========================================")
 
-        # Wait for pipeline-provisioner to auto-trigger
-        provisioner_exec_id = self.monitor.wait_for_auto_trigger(
-            "pipeline-provisioner",
-            self.provision_start,
-        )
-        self.monitor.wait_for_completion("pipeline-provisioner", provisioner_exec_id)
+        # Wait for pipeline-provisioner (newly created, so any execution is ours)
+        provisioner_exec_id = self.monitor.wait_for_any_execution(self.provisioner_name)
+        self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
-        # Discover and wait for RC/MC pipelines
-        rc_pipelines = self.monitor.discover_pipelines("rc-pipe-", self.provision_start)
-        mc_pipelines = self.monitor.discover_pipelines("mc-pipe-", self.provision_start)
+        # Discover RC/MC pipelines (also newly created by the provisioner)
+        rc_pipelines = self.monitor.discover_pipelines("rc-pipe-")
+        mc_pipelines = self.monitor.discover_pipelines("mc-pipe-")
 
         all_pipelines = rc_pipelines + mc_pipelines
         if not all_pipelines:
@@ -196,7 +192,10 @@ class E2EOrchestrator:
         log.info("Phase 4a: Infrastructure Teardown")
         log.info("==========================================")
 
-        teardown_start = datetime.now(timezone.utc)
+        # Snapshot known executions before pushing delete flags
+        provisioner_known = self.monitor.get_execution_ids(self.provisioner_name)
+        rc_known = self.monitor.snapshot_pipeline_executions("rc-pipe-")
+        mc_known = self.monitor.snapshot_pipeline_executions("mc-pipe-")
 
         def set_delete_flag(config):
             e2e_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
@@ -212,14 +211,14 @@ class E2EOrchestrator:
         git.modify_config(set_delete_flag)
 
         # Wait for pipeline-provisioner to pick up the change
-        provisioner_exec_id = self.monitor.wait_for_auto_trigger(
-            "pipeline-provisioner", teardown_start
+        provisioner_exec_id = self.monitor.wait_for_new_execution(
+            self.provisioner_name, provisioner_known
         )
-        self.monitor.wait_for_completion("pipeline-provisioner", provisioner_exec_id)
+        self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
         # Discover and wait for RC/MC pipeline executions (infra destroy)
-        rc_pipelines = self.monitor.discover_pipelines("rc-pipe-", teardown_start)
-        mc_pipelines = self.monitor.discover_pipelines("mc-pipe-", teardown_start)
+        rc_pipelines = self.monitor.discover_pipelines("rc-pipe-", rc_known)
+        mc_pipelines = self.monitor.discover_pipelines("mc-pipe-", mc_known)
 
         # Wait for MC pipelines first (destroy MCs before RC)
         for name, exec_id in mc_pipelines:
@@ -234,7 +233,8 @@ class E2EOrchestrator:
         log.info("Phase 4b: Pipeline Teardown")
         log.info("==========================================")
 
-        pipeline_teardown_start = datetime.now(timezone.utc)
+        # Snapshot again before pushing delete_pipeline flags
+        provisioner_known = self.monitor.get_execution_ids(self.provisioner_name)
 
         def set_delete_pipeline_flag(config):
             e2e_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
@@ -250,10 +250,10 @@ class E2EOrchestrator:
         git.modify_config(set_delete_pipeline_flag)
 
         # Wait for pipeline-provisioner to destroy the pipelines
-        provisioner_exec_id = self.monitor.wait_for_auto_trigger(
-            "pipeline-provisioner", pipeline_teardown_start
+        provisioner_exec_id = self.monitor.wait_for_new_execution(
+            self.provisioner_name, provisioner_known
         )
-        self.monitor.wait_for_completion("pipeline-provisioner", provisioner_exec_id)
+        self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
         # Phase 5: Destroy pipeline-provisioner via terraform destroy
         log.info("Destroying pipeline-provisioner...")
@@ -267,6 +267,7 @@ class E2EOrchestrator:
 
         account_id = self.aws.session.client("sts").get_caller_identity()["Account"]
         state_bucket = f"terraform-state-{account_id}"
+        state_key = f"{git.ci_prefix}-central-account-bootstrap/terraform.tfstate"
 
         env = os.environ.copy()
         env.update(self.aws.subprocess_env)
@@ -277,7 +278,7 @@ class E2EOrchestrator:
                 "init",
                 "-reconfigure",
                 f"-backend-config=bucket={state_bucket}",
-                "-backend-config=key=central-account-bootstrap/terraform.tfstate",
+                f"-backend-config=key={state_key}",
                 f"-backend-config=region={self.region}",
                 "-backend-config=use_lockfile=true",
             ],

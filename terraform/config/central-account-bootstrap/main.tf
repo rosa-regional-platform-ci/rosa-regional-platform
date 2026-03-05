@@ -39,4 +39,5 @@ module "pipeline_provisioner" {
   environment           = var.environment
   github_connection_arn = data.aws_codestarconnections_connection.github_shared.arn
   codebuild_image       = module.platform_image.container_image
+  name_prefix           = var.name_prefix
 }

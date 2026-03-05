@@ -509,6 +509,11 @@ resource "aws_codebuild_project" "iot_mint" {
       name  = "COST_CENTER"
       value = var.cost_center
     }
+    # Environment name (staging/production/e2e)
+    environment_variable {
+      name  = "ENVIRONMENT"
+      value = var.target_environment
+    }
     environment_variable {
       name  = "PLATFORM_IMAGE"
       value = var.codebuild_image
