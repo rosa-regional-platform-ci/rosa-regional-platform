@@ -40,6 +40,11 @@ variable "name_prefix" {
   default     = ""
 }
 
+variable "platform_ecr_repo" {
+  type        = string
+  description = "Public ECR repository URI for the platform image"
+}
+
 variable "codebuild_image" {
   type        = string
   description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"
