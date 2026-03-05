@@ -4,7 +4,6 @@ import os
 import re
 import subprocess
 import tempfile
-import uuid
 from pathlib import Path
 
 import yaml
@@ -55,24 +54,24 @@ class GitManager:
             data = json.loads(resp.read())
         return data["login"]
 
-    def create_ci_branch(self):
+    def create_ci_branch(self, ci_prefix: str):
         """Clone source repo/branch and create a CI branch.
 
         Clones from the source (upstream) repo, then adds the token owner's
         fork as a 'ci' remote and pushes the CI branch there.
 
-        Branch naming: <short-hash>-<sanitized-branch>-ci
+        Args:
+            ci_prefix: Unique prefix for this run (e.g. 'ci-a1b2c3').
+                       Used in branch name, resource names, and state keys.
         """
-        build_id = os.environ.get("BUILD_ID", "")
-        short_id = build_id[:6] if build_id else uuid.uuid4().hex[:6]
-        self.ci_prefix = f"ci-{short_id}"
+        self.ci_prefix = ci_prefix
         sanitized = re.sub(r"[/]", "-", self.source_branch)
         self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
 
         token = self._github_token()
         clone_url = f"https://x-access-token:{token}@github.com/{self.source_repo}.git"
 
-        tmpdir = tempfile.mkdtemp(prefix="e2e-")
+        tmpdir = tempfile.mkdtemp(prefix="ephemeral-")
         self.work_dir = Path(tmpdir) / "repo"
 
         log.info("Cloning %s (branch: %s)", self.source_repo, self.source_branch)
@@ -98,6 +97,44 @@ class GitManager:
         self._run_git("push", "-u", "ci", self.ci_branch)
 
         log.info("Created CI branch: %s on %s", self.ci_branch, self.fork_repo)
+
+    def checkout_ci_branch(self, ci_prefix: str):
+        """Clone the fork and check out an existing CI branch.
+
+        Used for reconnecting to a previously provisioned environment (e.g. teardown).
+
+        Args:
+            ci_prefix: The CI prefix used during provisioning (e.g. 'ci-a1b2c3').
+        """
+        self.ci_prefix = ci_prefix
+        sanitized = re.sub(r"[/]", "-", self.source_branch)
+        self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
+
+        token = self._github_token()
+
+        # Resolve fork
+        fork_owner = self._resolve_fork_owner(token)
+        repo_name = self.source_repo.split("/")[-1]
+        self.fork_repo = f"{fork_owner}/{repo_name}"
+        fork_url = f"https://x-access-token:{token}@github.com/{self.fork_repo}.git"
+
+        tmpdir = tempfile.mkdtemp(prefix="ephemeral-")
+        self.work_dir = Path(tmpdir) / "repo"
+
+        log.info("Cloning %s (branch: %s)", self.fork_repo, self.ci_branch)
+        self._run_git(
+            "clone", "--branch", self.ci_branch, "--single-branch", fork_url, str(self.work_dir),
+            cwd=".",
+        )
+
+        # Configure git identity
+        self._run_git("config", "user.email", "ci-bot@rosa-regional-platform.dev")
+        self._run_git("config", "user.name", "ROSA CI Bot")
+
+        # Add fork as push remote (same repo for CI branches)
+        self._run_git("remote", "add", "ci", fork_url)
+
+        log.info("Checked out existing CI branch: %s on %s", self.ci_branch, self.fork_repo)
 
     def push(self, message: str):
         """Stage all changes, commit, and push to the CI branch."""

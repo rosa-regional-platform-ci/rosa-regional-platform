@@ -34,7 +34,7 @@ phases:
         echo ""
 
         # Read delete flag from config (GitOps-driven deletion)
-        ENVIRONMENT="${ENVIRONMENT:-staging}"
+        ENVIRONMENT="${ENVIRONMENT}"
         MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${TARGET_ALIAS}.json"
         DELETE_FLAG="false"
         if [ -f "$MC_CONFIG_FILE" ]; then

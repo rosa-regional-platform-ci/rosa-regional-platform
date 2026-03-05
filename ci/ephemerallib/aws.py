@@ -52,7 +52,7 @@ class AWSCredentials:
 
         response = sts.assume_role(
             RoleArn=assume_role_arn,
-            RoleSessionName=f"e2e-test-{int(time.time())}",
+            RoleSessionName=f"ci-test-{int(time.time())}",
         )
 
         creds = response["Credentials"]

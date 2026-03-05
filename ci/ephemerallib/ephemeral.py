@@ -13,55 +13,78 @@ from .pipeline import PipelineMonitor
 log = logging.getLogger(__name__)
 
 
-class E2EOrchestrator:
-    """Main orchestration logic for the full e2e lifecycle."""
+class EphemeralEnvOrchestrator:
+    """Orchestrates an ephemeral environment lifecycle.
 
-    def __init__(self, repo: str, branch: str, creds_dir: str, region: str):
+    Provision and teardown are independent operations that can run in separate
+    processes. They share state via the ci_prefix (which determines branch names,
+    pipeline names, and terraform state keys).
+
+    Usage from CI steps:
+        # Step 1: provision
+        env = EphemeralEnvOrchestrator(repo, branch, creds_dir, region, ci_prefix)
+        env.provision()
+
+        # Step 2: run tests (separate process, same ci_prefix)
+
+        # Step 3: teardown
+        env = EphemeralEnvOrchestrator(repo, branch, creds_dir, region, ci_prefix)
+        env.teardown()
+    """
+
+    def __init__(self, repo: str, branch: str, creds_dir: str, region: str, ci_prefix: str):
         self.repo = repo
         self.branch = branch
         self.creds_dir = creds_dir
         self.region = region
-        self.aws: AWSCredentials | None = None
-        self.monitor: PipelineMonitor | None = None
-        self.git = None
-
-    def run(self):
-        """Run the full e2e lifecycle: provision -> test -> teardown."""
-        git = GitManager(self.creds_dir, self.repo, self.branch)
-        self.git = git
-
-        # Phase 1: Setup
-        self._setup_aws()
-        git.create_ci_branch()
-        self.provisioner_name = f"{git.ci_prefix}-pipeline-provisioner" if git.ci_prefix else "pipeline-provisioner"
+        self.ci_prefix = ci_prefix
+        self.provisioner_name = f"{ci_prefix}-pipeline-provisioner"
         # TODO: compute deterministic RC/MC pipeline names from rendered config
         # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
-        self.pipeline_prefix = f"{git.ci_prefix}-"
+        self.pipeline_prefix = f"{ci_prefix}-"
+        self.aws: AWSCredentials | None = None
+        self.monitor: PipelineMonitor | None = None
+        self.git: GitManager | None = None
 
-        # Inject e2e environment into config.yaml (not checked into the repo)
-        self._inject_e2e_config(git)
-        git.render_and_push("ci: add e2e environment and render deploy files")
+    def provision(self):
+        """Provision the ephemeral environment (setup + bootstrap + wait for pipelines)."""
+        self._setup_aws()
+
+        git = GitManager(self.creds_dir, self.repo, self.branch)
+        self.git = git
+        git.create_ci_branch(self.ci_prefix)
+
+        # Inject ephemeral environment into config.yaml (not checked into the repo)
+        self._inject_ephemeral_config(git)
+        git.render_and_push("ci: add ephemeral environment and render deploy files")
 
         # Bootstrap pipeline provisioner
         self.monitor = PipelineMonitor(self.aws.session)
         self._bootstrap_pipeline_provisioner(git)
 
-        # Teardown must run even if provision/test fails, to clean up infrastructure
-        try:
-            # Phase 2: Provision via GitOps
-            self._provision(git)
+        # Wait for provisioning pipelines
+        self._wait_for_provision()
 
-            # Phase 3: Test (placeholder)
-            self._test()
-        finally:
-            # Phase 4: Teardown (GitOps-driven)
-            self._teardown(git)
+    def teardown(self):
+        """Tear down a previously provisioned ephemeral environment.
+
+        Can run independently of provision() — reconnects to the existing
+        CI branch and pipeline resources using the ci_prefix.
+        """
+        self._setup_aws()
+
+        git = GitManager(self.creds_dir, self.repo, self.branch)
+        self.git = git
+        git.checkout_ci_branch(self.ci_prefix)
+
+        self.monitor = PipelineMonitor(self.aws.session)
+        self._run_teardown(git)
 
     def _setup_aws(self):
         """Set up AWS credentials and trust policies."""
         log.info("")
         log.info("==========================================")
-        log.info("Phase 1: Setup")
+        log.info("Setup: AWS Credentials")
         log.info("==========================================")
 
         self.aws = AWSCredentials(self.creds_dir, self.region)
@@ -69,19 +92,19 @@ class E2EOrchestrator:
         self.aws.setup_target_account_trust("regional")
         self.aws.setup_target_account_trust("management")
 
-    def _inject_e2e_config(self, git: GitManager):
-        """Inject the e2e environment into config.yaml using discovered account IDs."""
+    def _inject_ephemeral_config(self, git: GitManager):
+        """Inject the ephemeral environment into config.yaml using discovered account IDs."""
         regional_account_id = self.aws.get_target_account_id("regional")
         management_account_id = self.aws.get_target_account_id("management")
 
         log.info(
-            "Injecting e2e environment: region=%s, regional=%s, management=%s",
+            "Injecting ephemeral environment: region=%s, regional=%s, management=%s",
             self.region,
             regional_account_id,
             management_account_id,
         )
 
-        def add_e2e_env(config):
+        def add_env(config):
             config.setdefault("environments", {})[TARGET_ENVIRONMENT] = {
                 "region_deployments": {
                     self.region: {
@@ -99,7 +122,7 @@ class E2EOrchestrator:
         with open(config_path) as f:
             config = yaml.safe_load(f)
 
-        add_e2e_env(config)
+        add_env(config)
 
         with open(config_path, "w") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
@@ -146,11 +169,11 @@ class E2EOrchestrator:
             )
         log.info("Pipeline provisioner bootstrapped with branch: %s", git.ci_branch)
 
-    def _provision(self, git: GitManager):
-        """Provision infrastructure via GitOps (push config, wait for pipelines)."""
+    def _wait_for_provision(self):
+        """Wait for provisioning pipelines to complete."""
         log.info("")
         log.info("==========================================")
-        log.info("Phase 2: Provision via GitOps")
+        log.info("Provision: Waiting for Pipelines")
         log.info("==========================================")
 
         # Wait for pipeline-provisioner (newly created, so any execution is ours)
@@ -179,21 +202,13 @@ class E2EOrchestrator:
 
         log.info("All pipelines completed successfully.")
 
-    def _test(self):
-        """Run the testing suite (placeholder for future integration)."""
-        log.info("")
-        log.info("==========================================")
-        log.info("Phase 3: Test (placeholder)")
-        log.info("==========================================")
-        log.info("Testing suite not yet integrated — skipping.")
-
-    def _teardown(self, git: GitManager):
+    def _run_teardown(self, git: GitManager):
         """Tear down infrastructure via GitOps and destroy the pipeline-provisioner."""
 
-        # Phase 4a: Infrastructure teardown
+        # Phase 1: Infrastructure teardown
         log.info("")
         log.info("==========================================")
-        log.info("Phase 4a: Infrastructure Teardown")
+        log.info("Teardown: Infrastructure Destroy")
         log.info("==========================================")
 
         # Snapshot known executions before pushing delete flags
@@ -201,10 +216,10 @@ class E2EOrchestrator:
         pipeline_known = self.monitor.snapshot_pipeline_executions(self.pipeline_prefix)
 
         def set_delete_flag(config):
-            e2e_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
-            for rd_name, rd_config in e2e_env.get("region_deployments", {}).items():
+            ci_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
+            for rd_name, rd_config in ci_env.get("region_deployments", {}).items():
                 if rd_config is None:
-                    e2e_env["region_deployments"][rd_name] = rd_config = {}
+                    ci_env["region_deployments"][rd_name] = rd_config = {}
                 rd_config["delete"] = True
                 for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
                     if mc_config is None:
@@ -229,20 +244,20 @@ class E2EOrchestrator:
         for name, exec_id in teardown_pipelines:
             self.monitor.wait_for_completion(name, exec_id)
 
-        # Phase 4b: Pipeline teardown
+        # Phase 2: Pipeline teardown
         log.info("")
         log.info("==========================================")
-        log.info("Phase 4b: Pipeline Teardown")
+        log.info("Teardown: Pipeline Destroy")
         log.info("==========================================")
 
         # Snapshot again before pushing delete_pipeline flags
         provisioner_known = self.monitor.get_execution_ids(self.provisioner_name)
 
         def set_delete_pipeline_flag(config):
-            e2e_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
-            for rd_name, rd_config in e2e_env.get("region_deployments", {}).items():
+            ci_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
+            for rd_name, rd_config in ci_env.get("region_deployments", {}).items():
                 if rd_config is None:
-                    e2e_env["region_deployments"][rd_name] = rd_config = {}
+                    ci_env["region_deployments"][rd_name] = rd_config = {}
                 rd_config["delete_pipeline"] = True
                 for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
                     if mc_config is None:
@@ -257,8 +272,11 @@ class E2EOrchestrator:
         )
         self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
-        # Phase 5: Destroy pipeline-provisioner via terraform destroy
-        log.info("Destroying pipeline-provisioner...")
+        # Phase 3: Destroy pipeline-provisioner via terraform destroy
+        log.info("")
+        log.info("==========================================")
+        log.info("Teardown: Pipeline Provisioner Destroy")
+        log.info("==========================================")
         self._destroy_pipeline_provisioner(git)
 
         log.info("Teardown complete.")
