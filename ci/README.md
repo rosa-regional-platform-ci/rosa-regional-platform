@@ -51,7 +51,7 @@ Credentials are stored in Vault at `kv/selfservice/cluster-secrets-rosa-regional
 - `ci_access_key`, `ci_secret_key`, `ci_assume_role_arn` — Central account (base credentials + AssumeRole)
 - `regional_access_key`, `regional_secret_key` — Regional sub-account
 - `management_access_key`, `management_secret_key` — Management sub-account
-- `git_token` — GitHub token with push access for creating CI branches
+- `github_token` — GitHub token with push access for creating CI branches
 
 ### Where things are defined
 

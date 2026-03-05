@@ -253,7 +253,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$REGIONAL_CONFIG")
         COST_CENTER=$(jq -r '.cost_center // "000"' "$REGIONAL_CONFIG")
         ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$REGIONAL_CONFIG")
-        DELETE_FLAG=$(jq -r '.delete // false' "$REGIONAL_CONFIG")
+        DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$REGIONAL_CONFIG")
 
         # TEMPORARY CI HACK (see top of file)
         # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
@@ -364,7 +364,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             CLUSTER_ID=$(jq -r '.cluster_id // ""' "$mc_config")
             REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$mc_config")
             ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$mc_config")
-            DELETE_FLAG=$(jq -r '.delete // false' "$mc_config")
+            DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$mc_config")
 
             # TEMPORARY CI HACK (see top of file)
             # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
