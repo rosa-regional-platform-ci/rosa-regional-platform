@@ -33,8 +33,10 @@ environments:
           mc01:
             account_id: 018092638725
             delete: true
+            delete_pipeline: true
         terraform_vars:
           delete: true
+          delete_pipeline: true
   cdoan-central:
     region_deployments:
       us-east-2:
