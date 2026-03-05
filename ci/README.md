@@ -1,6 +1,33 @@
 # CI
 
-## Triggering the Nightly Job Manually
+## Pre-merge / Ephemeral Environment
+
+The `ci/pre-merge.py` script manages ephemeral environments for CI testing. It supports two modes — provision and teardown — designed to run as separate CI steps with tests in between.
+
+1. Creates a CI-owned git branch from the source repo/branch
+2. Bootstraps the pipeline-provisioner pointing at the CI branch
+3. Pushes rendered deploy files to trigger pipelines via GitOps
+4. Waits for RC/MC pipelines to provision infrastructure
+5. (Separate CI step) Runs the testing suite against the provisioned environment
+6. Tears down infrastructure via GitOps (`delete: true` in config.yaml)
+7. Destroys the pipeline-provisioner
+8. CI branch is retained for post-run troubleshooting (delete manually via `git push ci --delete <branch>`)
+
+### Running locally
+
+```bash
+# Requires uv (https://docs.astral.sh/uv/)
+
+# Provision
+BUILD_ID=abc123 ./ci/pre-merge.py --repo owner/repo --branch my-feature --creds-dir /path/to/credentials
+
+# Run tests (separate step, same BUILD_ID)
+
+# Teardown
+BUILD_ID=abc123 ./ci/pre-merge.py --teardown --repo owner/repo --branch my-feature --creds-dir /path/to/credentials
+```
+
+### Triggering the E2E Job Manually
 
 1. Obtain an API token by visiting <https://oauth-openshift.apps.ci.l2s4.p1.openshiftapps.com/oauth/token/request>
 2. Log in with `oc login`
@@ -25,9 +52,13 @@ Open the `job_url` from the response to watch the job in Prow.
 
 ## AWS Credentials
 
-The nightly job (`periodic-ci-openshift-online-rosa-regional-platform-main-nightly`) uses two AWS accounts (regional and management). It runs on a daily cron (`0 7 * * *`).
+The e2e job uses three sets of AWS credentials (central, regional, and management accounts).
 
-Credentials are stored in Vault at `kv/selfservice/cluster-secrets-rosa-regional-platform-int/nightly-static-aws-credentials` and mounted at `/var/run/rosa-credentials/` with keys `regional_access_key`, `regional_secret_key`, `management_access_key`, `management_secret_key`.
+Credentials are stored in Vault at `kv/selfservice/cluster-secrets-rosa-regional-platform-int/nightly-static-aws-credentials` and mounted at `/var/run/rosa-credentials/` with keys:
+- `ci_access_key`, `ci_secret_key`, `ci_assume_role_arn` — Central account (base credentials + AssumeRole)
+- `regional_access_key`, `regional_secret_key` — Regional sub-account
+- `management_access_key`, `management_secret_key` — Management sub-account
+- `github_token` — GitHub token with push access for creating CI branches
 
 ### Where things are defined
 
@@ -35,7 +66,7 @@ Credentials are stored in Vault at `kv/selfservice/cluster-secrets-rosa-regional
 
 ## Nightly Resources Janitor
 
-The nightly e2e tests create AWS resources across two accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **nightly-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
+The e2e tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **nightly-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
 
 ### What is preserved
 

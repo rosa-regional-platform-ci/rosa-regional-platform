@@ -6,22 +6,17 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  # Create unique names per regional pipeline using target_alias
-  # Fallback to region if alias not provided
-  name_suffix = var.target_alias != "" ? var.target_alias : var.region
-
-  # Use hash-based naming for all resources to avoid length limits
-  # Hash of full alias ensures uniqueness while keeping names short
-  resource_hash  = substr(md5("regional-${local.name_suffix}-${data.aws_caller_identity.current.account_id}"), 0, 12)
+  # Use target_alias (regional_id) directly — already unique per environment/CI run
+  name_prefix    = var.target_alias
   account_suffix = substr(data.aws_caller_identity.current.account_id, -8, 8)
 
-  # Resource naming patterns (all under 32 chars)
-  artifact_bucket_name   = "rc-${local.resource_hash}-${local.account_suffix}" # 24 chars
-  codebuild_role_name    = "rc-cb-${local.resource_hash}"                      # 18 chars
-  codepipeline_role_name = "rc-cp-${local.resource_hash}"                      # 18 chars
-  apply_project_name     = "rc-app-${local.resource_hash}"                     # 19 chars
-  bootstrap_project_name = "rc-boot-${local.resource_hash}"                    # 21 chars
-  pipeline_name          = "rc-pipe-${local.resource_hash}"                    # 20 chars
+  # Resource naming: {name_prefix}-{resource-type}
+  artifact_bucket_name   = "${local.name_prefix}-artifacts-${local.account_suffix}"
+  codebuild_role_name    = "${local.name_prefix}-codebuild-role"
+  codepipeline_role_name = "${local.name_prefix}-codepipeline-role"
+  apply_project_name     = "${local.name_prefix}-apply"
+  bootstrap_project_name = "${local.name_prefix}-bootstrap"
+  pipeline_name          = "${local.name_prefix}-pipe"
 
   # Repository URL constructed from github_repository variable
   repository_url = "https://github.com/${var.github_repository}.git"
@@ -353,11 +348,24 @@ resource "aws_codebuild_project" "regional_bootstrap" {
   }
 }
 
+# Allow time for IAM policy propagation before creating the pipeline.
+# Pipelines auto-trigger on creation; without this delay the Source action
+# can fail with "Access Denied" on the CodeStar connection.
+resource "time_sleep" "iam_propagation" {
+  depends_on = [
+    aws_iam_role_policy.codebuild_policy,
+    aws_iam_role_policy.codepipeline_policy,
+  ]
+  create_duration = "15s"
+}
+
 # CodePipeline
 resource "aws_codepipeline" "central_pipeline" {
   name          = local.pipeline_name
   role_arn      = aws_iam_role.codepipeline_role.arn
   pipeline_type = "V2"
+
+  depends_on = [time_sleep.iam_propagation]
 
   variable {
     name          = "IS_DESTROY"

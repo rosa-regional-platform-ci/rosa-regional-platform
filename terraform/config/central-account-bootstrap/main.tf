@@ -10,10 +10,9 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
-# Shared GitHub Connection - authorize once, use everywhere
-resource "aws_codestarconnections_connection" "github_shared" {
-  name          = "rosa-regional-github-shared"
-  provider_type = "GitHub"
+# Shared GitHub Connection - created/reused by bootstrap script, looked up here
+data "aws_codestarconnections_connection" "github_shared" {
+  arn = var.github_connection_arn
 }
 
 # Platform Image ECR Repository
@@ -25,6 +24,7 @@ module "platform_image" {
   }
 
   resource_name_base = "rosa-regional"
+  name_prefix        = var.name_prefix
   tags = {
     Name        = "rosa-regional-platform-image"
     Environment = var.environment
@@ -38,6 +38,8 @@ module "pipeline_provisioner" {
   github_branch         = var.github_branch
   region                = var.region
   environment           = var.environment
-  github_connection_arn = aws_codestarconnections_connection.github_shared.arn
+  github_connection_arn = data.aws_codestarconnections_connection.github_shared.arn
   codebuild_image       = module.platform_image.container_image
+  platform_ecr_repo     = module.platform_image.ecr_repository_url
+  name_prefix           = var.name_prefix
 }
