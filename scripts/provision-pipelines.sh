@@ -246,7 +246,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-        TARGET_ALIAS=$(jq -r '.alias // ""' "$REGIONAL_CONFIG")
+        TARGET_ALIAS=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
 
         # Extract terraform vars with defaults
         APP_CODE=$(jq -r '.app_code // "infra"' "$REGIONAL_CONFIG")
@@ -355,7 +355,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
             TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
             TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-            TARGET_ALIAS=$(jq -r '.alias // ""' "$mc_config")
+            TARGET_ALIAS=$(jq -r '.management_id // ""' "$mc_config")
 
             # Extract terraform vars with defaults
             APP_CODE=$(jq -r '.app_code // "infra"' "$mc_config")
