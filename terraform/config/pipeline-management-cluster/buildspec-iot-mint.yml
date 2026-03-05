@@ -40,6 +40,8 @@ phases:
         if [ -f "$MC_CONFIG_FILE" ]; then
             DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
         fi
+        # Manual override: IS_DESTROY pipeline variable takes precedence
+        [ "${IS_DESTROY:-false}" == "true" ] && DELETE_FLAG="true"
 
         # Generate temporary tfvars for the IoT provisioning
         TEMP_TFVARS=$(mktemp /tmp/maestro-iot-XXXXXX.tfvars)

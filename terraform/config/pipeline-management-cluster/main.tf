@@ -584,6 +584,11 @@ resource "aws_codepipeline" "regional_pipeline" {
   # Ensure IAM policy is attached before creating pipeline
   depends_on = [aws_iam_role_policy.codepipeline_policy]
 
+  variable {
+    name          = "IS_DESTROY"
+    default_value = "false"
+  }
+
   artifact_store {
     location = aws_s3_bucket.pipeline_artifact.bucket
     type     = "S3"
@@ -637,6 +642,13 @@ resource "aws_codepipeline" "regional_pipeline" {
 
       configuration = {
         ProjectName = aws_codebuild_project.iot_mint.name
+        EnvironmentVariables = jsonencode([
+          {
+            name  = "IS_DESTROY"
+            value = "#{variables.IS_DESTROY}"
+            type  = "PLAINTEXT"
+          }
+        ])
       }
     }
   }
@@ -655,6 +667,13 @@ resource "aws_codepipeline" "regional_pipeline" {
 
       configuration = {
         ProjectName = aws_codebuild_project.management_apply.name
+        EnvironmentVariables = jsonencode([
+          {
+            name  = "IS_DESTROY"
+            value = "#{variables.IS_DESTROY}"
+            type  = "PLAINTEXT"
+          }
+        ])
       }
     }
   }
@@ -672,6 +691,13 @@ resource "aws_codepipeline" "regional_pipeline" {
 
       configuration = {
         ProjectName = aws_codebuild_project.management_bootstrap.name
+        EnvironmentVariables = jsonencode([
+          {
+            name  = "IS_DESTROY"
+            value = "#{variables.IS_DESTROY}"
+            type  = "PLAINTEXT"
+          }
+        ])
       }
     }
   }
@@ -689,6 +715,13 @@ resource "aws_codepipeline" "regional_pipeline" {
 
       configuration = {
         ProjectName = aws_codebuild_project.register.name
+        EnvironmentVariables = jsonencode([
+          {
+            name  = "IS_DESTROY"
+            value = "#{variables.IS_DESTROY}"
+            type  = "PLAINTEXT"
+          }
+        ])
       }
     }
   }
