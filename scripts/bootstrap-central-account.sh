@@ -159,7 +159,73 @@ STATE_BUCKET="terraform-state-${ACCOUNT_ID}"
 echo ""
 
 echo "==================================================="
-echo "Step 2: Deploying Pipeline Infrastructure"
+echo "Step 2: Ensuring GitHub CodeStar Connection"
+echo "==================================================="
+
+CODESTAR_CONNECTION_NAME="rosa-regional-github-shared"
+
+# Check if connection already exists
+EXISTING_ARN=$(aws codestar-connections list-connections \
+    --provider-type-filter GitHub \
+    --query "Connections[?ConnectionName=='${CODESTAR_CONNECTION_NAME}'].ConnectionArn | [0]" \
+    --output text --no-cli-pager 2>/dev/null)
+
+if [[ -n "$EXISTING_ARN" && "$EXISTING_ARN" != "None" ]]; then
+    echo "✅ Found existing CodeStar connection: $EXISTING_ARN"
+    GITHUB_CONNECTION_ARN="$EXISTING_ARN"
+else
+    echo "Creating new CodeStar connection: ${CODESTAR_CONNECTION_NAME}"
+    GITHUB_CONNECTION_ARN=$(aws codestar-connections create-connection \
+        --provider-type GitHub \
+        --connection-name "${CODESTAR_CONNECTION_NAME}" \
+        --query "ConnectionArn" \
+        --output text --no-cli-pager)
+    echo "✅ Created CodeStar connection: $GITHUB_CONNECTION_ARN"
+    echo ""
+    echo "⚠️  The connection is in PENDING state. You must authorize it before continuing:"
+    echo "   1. Open AWS Console: https://console.aws.amazon.com/codesuite/settings/connections"
+    echo "   2. Find '${CODESTAR_CONNECTION_NAME}' in PENDING state"
+    echo "   3. Click 'Update pending connection' and authorize with GitHub"
+fi
+
+# Verify connection is AVAILABLE before proceeding
+CONNECTION_STATUS=$(aws codestar-connections get-connection \
+    --connection-arn "$GITHUB_CONNECTION_ARN" \
+    --query "Connection.ConnectionStatus" \
+    --output text --no-cli-pager)
+
+if [[ "$CONNECTION_STATUS" != "AVAILABLE" ]]; then
+    echo ""
+    echo "⚠️  Connection status is: $CONNECTION_STATUS"
+    echo "   The pipeline provisioner requires an AVAILABLE connection to function."
+    echo "   Please authorize the connection in the AWS Console before continuing."
+    echo ""
+
+    POLL_INTERVAL=15
+    MAX_WAIT=300
+    WAITED=0
+    echo "   Polling every ${POLL_INTERVAL}s (timeout: ${MAX_WAIT}s)..."
+    while [[ "$CONNECTION_STATUS" != "AVAILABLE" && "$WAITED" -lt "$MAX_WAIT" ]]; do
+        sleep "$POLL_INTERVAL"
+        WAITED=$((WAITED + POLL_INTERVAL))
+        CONNECTION_STATUS=$(aws codestar-connections get-connection \
+            --connection-arn "$GITHUB_CONNECTION_ARN" \
+            --query "Connection.ConnectionStatus" \
+            --output text --no-cli-pager)
+        echo "   [$WAITED/${MAX_WAIT}s] Connection status: $CONNECTION_STATUS"
+    done
+
+    if [[ "$CONNECTION_STATUS" != "AVAILABLE" ]]; then
+        echo "❌ Timed out waiting for connection to become AVAILABLE (status: $CONNECTION_STATUS)."
+        exit 1
+    fi
+fi
+
+echo "✅ CodeStar connection is AVAILABLE"
+
+echo ""
+echo "==================================================="
+echo "Step 3: Deploying Pipeline Infrastructure"
 echo "==================================================="
 
 cd "${REPO_ROOT}/terraform/config/central-account-bootstrap"
@@ -174,10 +240,11 @@ terraform init -reconfigure \
 
 # Create tfvars file
 cat > terraform.tfvars <<EOF
-github_repository = "${GITHUB_REPOSITORY}"
-github_branch     = "${GITHUB_BRANCH}"
-region            = "${REGION}"
-environment       = "${TARGET_ENVIRONMENT}"
+github_repository    = "${GITHUB_REPOSITORY}"
+github_branch        = "${GITHUB_BRANCH}"
+region               = "${REGION}"
+environment          = "${TARGET_ENVIRONMENT}"
+github_connection_arn = "${GITHUB_CONNECTION_ARN}"
 EOF
 
 echo "Terraform configuration created:"
@@ -196,11 +263,6 @@ echo ""
 echo "==================================================="
 echo "✅ Bootstrap Complete!"
 echo "==================================================="
-echo ""
-echo "🔗 GitHub Connection Authorization:"
-echo "   1. Open AWS Console: https://console.aws.amazon.com/codesuite/settings/connections"
-echo "   2. Find connections in PENDING state"
-echo "   3. Click 'Update pending connection' and authorize with GitHub"
 echo ""
 echo "To deploy clusters, add region deployments to config.yaml and run scripts/render.py."
 echo "Generated files will appear under deploy/<env>/<name>/."
