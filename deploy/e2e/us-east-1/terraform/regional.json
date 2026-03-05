@@ -10,6 +10,7 @@
   "regional_id": "ci-6d0551-regional",
   "sector": "e2e",
   "delete": true,
+  "delete_pipeline": true,
   "management_cluster_account_ids": [
     "018092638725"
   ]
