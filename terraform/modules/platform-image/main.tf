@@ -15,6 +15,7 @@ terraform {
 }
 
 locals {
+  name_prefix     = var.name_prefix != "" ? "${var.name_prefix}-" : ""
   dockerfile_hash = substr(sha256(file("${path.module}/Dockerfile")), 0, 12)
   container_image = "${aws_ecrpublic_repository.platform.repository_uri}:${local.dockerfile_hash}"
 }
@@ -26,7 +27,7 @@ locals {
 resource "aws_ecrpublic_repository" "platform" {
   provider = aws.us_east_1
 
-  repository_name = "${var.resource_name_base}/platform"
+  repository_name = "${local.name_prefix}${var.resource_name_base}/platform"
   force_destroy   = true
 
   tags = var.tags

@@ -34,6 +34,17 @@ variable "github_connection_arn" {
   description = "ARN of the shared GitHub CodeStar connection"
 }
 
+variable "name_prefix" {
+  type        = string
+  description = "Optional prefix for resource names (e.g., CI run hash for parallel e2e runs)"
+  default     = ""
+}
+
+variable "platform_ecr_repo" {
+  type        = string
+  description = "Public ECR repository URI for the platform image"
+}
+
 variable "codebuild_image" {
   type        = string
   description = "ECR image URI for CodeBuild projects (platform image with pre-installed tools)"

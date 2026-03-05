@@ -246,14 +246,14 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-        TARGET_ALIAS=$(jq -r '.alias // ""' "$REGIONAL_CONFIG")
+        TARGET_ALIAS=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
 
         # Extract terraform vars with defaults
         APP_CODE=$(jq -r '.app_code // "infra"' "$REGIONAL_CONFIG")
         SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$REGIONAL_CONFIG")
         COST_CENTER=$(jq -r '.cost_center // "000"' "$REGIONAL_CONFIG")
         ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$REGIONAL_CONFIG")
-        DELETE_FLAG=$(jq -r '.delete // false' "$REGIONAL_CONFIG")
+        DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$REGIONAL_CONFIG")
 
         # TEMPORARY CI HACK (see top of file)
         # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
@@ -355,7 +355,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
             TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
             TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-            TARGET_ALIAS=$(jq -r '.alias // ""' "$mc_config")
+            TARGET_ALIAS=$(jq -r '.management_id // ""' "$mc_config")
 
             # Extract terraform vars with defaults
             APP_CODE=$(jq -r '.app_code // "infra"' "$mc_config")
@@ -364,7 +364,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             CLUSTER_ID=$(jq -r '.management_id // ""' "$mc_config")
             REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$mc_config")
             ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$mc_config")
-            DELETE_FLAG=$(jq -r '.delete // false' "$mc_config")
+            DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$mc_config")
 
             # TEMPORARY CI HACK (see top of file)
             # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true

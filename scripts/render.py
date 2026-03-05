@@ -270,6 +270,12 @@ def resolve_region_deployments(config: Dict[str, Any], ci_prefix: str = '') -> L
                     mc_list.append(mc_entry)
                 rd['management_clusters'] = mc_list
 
+                # Lifecycle flags (control teardown behavior)
+                if rd_config.get('delete'):
+                    rd['delete'] = True
+                if rd_config.get('delete_pipeline'):
+                    rd['delete_pipeline'] = True
+
                 # Inherit revision (scalar override: most-specific non-None wins)
                 rd['revision'] = (
                     rd_config.get('revision')
@@ -480,6 +486,12 @@ def render_region_deployment_terraform(
 
     # Add sector for tagging
     regional_data['sector'] = rd.get('sector', environment)
+
+    # Lifecycle flags (consistent with MC pattern — top-level, not in terraform_vars)
+    if rd.get('delete'):
+        regional_data['delete'] = True
+    if rd.get('delete_pipeline'):
+        regional_data['delete_pipeline'] = True
 
     # Extract all management cluster account IDs for cross-account access configuration
     management_clusters = rd.get('management_clusters', [])

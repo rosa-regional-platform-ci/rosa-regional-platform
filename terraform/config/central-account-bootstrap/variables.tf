@@ -17,6 +17,17 @@ variable "github_branch" {
   default     = "main"
 }
 
+variable "github_connection_arn" {
+  type        = string
+  description = "ARN of the shared GitHub CodeStar connection (created by bootstrap script)"
+}
+
+variable "name_prefix" {
+  type        = string
+  description = "Optional prefix for resource names (e.g., CI run hash for parallel e2e runs)"
+  default     = ""
+}
+
 # =============================================================================
 # AWS Configuration
 # =============================================================================
