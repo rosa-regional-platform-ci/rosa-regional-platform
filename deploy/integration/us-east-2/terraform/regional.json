@@ -7,7 +7,7 @@
   "account_id": "ssm:///infra/integration/us-east-2/account_id",
   "region": "us-east-2",
   "alias": "regional-us-east-2",
-  "regional_id": "regional",
+  "regional_id": "ci-952982-regional",
   "sector": "integration",
   "management_cluster_account_ids": [
     "ssm:///infra/integration/us-east-2/mc01/account_id"
