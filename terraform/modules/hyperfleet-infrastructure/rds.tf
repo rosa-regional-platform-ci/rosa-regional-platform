@@ -14,13 +14,13 @@ resource "random_password" "db_password" {
 
 # DB Subnet Group spanning multiple AZs
 resource "aws_db_subnet_group" "hyperfleet" {
-  name       = "${var.resource_name_base}-hyperfleet-db"
+  name       = "${var.regional_id}-hyperfleet-db"
   subnet_ids = var.private_subnets
 
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-db-subnet-group"
+      Name      = "${var.regional_id}-hyperfleet-db-subnet-group"
       Component = "hyperfleet-api"
     }
   )
@@ -28,7 +28,7 @@ resource "aws_db_subnet_group" "hyperfleet" {
 
 # Security Group for RDS - only allow access from EKS cluster
 resource "aws_security_group" "hyperfleet_db" {
-  name        = "${var.resource_name_base}-hyperfleet-db"
+  name        = "${var.regional_id}-hyperfleet-db"
   description = "Security group for HyperFleet PostgreSQL database"
   vpc_id      = var.vpc_id
 
@@ -76,7 +76,7 @@ resource "aws_security_group" "hyperfleet_db" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-db-sg"
+      Name      = "${var.regional_id}-hyperfleet-db-sg"
       Component = "hyperfleet-api"
     }
   )
@@ -84,7 +84,7 @@ resource "aws_security_group" "hyperfleet_db" {
 
 # RDS PostgreSQL Instance
 resource "aws_db_instance" "hyperfleet" {
-  identifier = "${var.resource_name_base}-hyperfleet"
+  identifier = "${var.regional_id}-hyperfleet"
 
   # Engine configuration
   engine         = "postgres"
@@ -117,7 +117,7 @@ resource "aws_db_instance" "hyperfleet" {
 
   # Snapshot configuration
   skip_final_snapshot       = var.db_skip_final_snapshot
-  final_snapshot_identifier = var.db_deletion_protection ? "${var.resource_name_base}-hyperfleet-final-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
+  final_snapshot_identifier = var.db_deletion_protection ? "${var.regional_id}-hyperfleet-final-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
   deletion_protection       = var.db_deletion_protection
 
   # Monitoring and logging
@@ -134,7 +134,7 @@ resource "aws_db_instance" "hyperfleet" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-db"
+      Name      = "${var.regional_id}-hyperfleet-db"
       Component = "hyperfleet-api"
     }
   )

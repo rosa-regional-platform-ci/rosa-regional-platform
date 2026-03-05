@@ -15,7 +15,7 @@
 # -----------------------------------------------------------------------------
 
 resource "aws_iam_role" "eks_cluster" {
-  name = "${local.resource_name_base}-cluster-role"
+  name = "${local.cluster_id}-cluster-role"
 
   # Auto Mode REQUIRES sts:TagSession to propagate tags to managed infra
   assume_role_policy = jsonencode({
@@ -48,7 +48,7 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_managed" {
 # See: https://docs.aws.amazon.com/eks/latest/userguide/automode-get-started-cli.html#auto-mode-create-roles
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "eks_auto_mode_node" {
-  name = "${local.resource_name_base}-auto-node-role"
+  name = "${local.cluster_id}-auto-node-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

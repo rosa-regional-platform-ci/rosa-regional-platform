@@ -45,12 +45,6 @@ output "node_security_group_id" {
   value       = module.regional_cluster.node_security_group_id
 }
 
-# Resource naming
-output "resource_name_base" {
-  description = "Base name for resources (cluster_type-random_suffix)"
-  value       = module.regional_cluster.resource_name_base
-}
-
 # =============================================================================
 # ECS Bootstrap Outputs for External Script Usage
 # =============================================================================

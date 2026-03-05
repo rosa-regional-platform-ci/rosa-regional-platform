@@ -65,7 +65,7 @@ Each cluster uses a **rendered ApplicationSet** that's customized per environmen
 **Integration Environment (Live Config)**:
 
 ```yaml
-# deploy/integration/eu-west-1/argocd/management-cluster-manifests/applicationset.yaml
+# deploy/integration/integration/eu-west-1/argocd/management-cluster-manifests/applicationset.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -107,7 +107,7 @@ spec:
 **Staging/Production (Hash-Pinned Config)**:
 
 ```yaml
-# deploy/staging/eu-west-1/argocd/management-cluster-manifests/applicationset.yaml
+# deploy/staging/staging/eu-west-1/argocd/management-cluster-manifests/applicationset.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -449,10 +449,11 @@ metadata:
     argocd.argoproj.io/secret-type: cluster
     cluster_type: management-cluster
     environment: staging
+    sector: staging
     region_deployment: us-west-1
     aws_region: us-west-1
+    cluster_name: mc01
   annotations:
-    cluster_name: management-cluster-us-west-1-staging
     git_repo: https://github.com/openshift-online/rosa-platform
     git_revision: HEAD  # Allows changes for dev
 type: Opaque

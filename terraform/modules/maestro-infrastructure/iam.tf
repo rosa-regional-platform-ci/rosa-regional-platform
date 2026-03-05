@@ -12,7 +12,7 @@
 # =============================================================================
 
 resource "aws_iam_role" "maestro_server" {
-  name        = "${var.resource_name_base}-maestro-server"
+  name        = "${var.regional_id}-maestro-server"
   description = "IAM role for Maestro Server with access to RDS, IoT, and Secrets Manager"
 
   assume_role_policy = jsonencode({
@@ -32,7 +32,7 @@ resource "aws_iam_role" "maestro_server" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-server-role"
+      Name      = "${var.regional_id}-maestro-server-role"
       Component = "maestro-server"
     }
   )
@@ -40,7 +40,7 @@ resource "aws_iam_role" "maestro_server" {
 
 # Maestro Server Policy - IoT Core publish permissions
 resource "aws_iam_role_policy" "maestro_server_iot" {
-  name = "${var.resource_name_base}-maestro-server-iot-policy"
+  name = "${var.regional_id}-maestro-server-iot-policy"
   role = aws_iam_role.maestro_server.id
 
   policy = jsonencode({
@@ -55,7 +55,7 @@ resource "aws_iam_role_policy" "maestro_server_iot" {
           "iot:Receive"
         ]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/${var.resource_name_base}-maestro-server-*",
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/${var.regional_id}-maestro-server-*",
           "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/${var.mqtt_topic_prefix}/*",
           "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/${var.mqtt_topic_prefix}/*"
         ]
@@ -66,7 +66,7 @@ resource "aws_iam_role_policy" "maestro_server_iot" {
 
 # Maestro Server Policy - Secrets Manager read access
 resource "aws_iam_role_policy" "maestro_server_secrets" {
-  name = "${var.resource_name_base}-maestro-server-secrets-policy"
+  name = "${var.regional_id}-maestro-server-secrets-policy"
   role = aws_iam_role.maestro_server.id
 
   policy = jsonencode({
@@ -98,7 +98,7 @@ resource "aws_eks_pod_identity_association" "maestro_server" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-server-pod-identity"
+      Name      = "${var.regional_id}-maestro-server-pod-identity"
       Component = "maestro-server"
     }
   )

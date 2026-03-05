@@ -12,7 +12,7 @@ data "aws_region" "current" {}
 # =============================================================================
 
 resource "aws_cloudwatch_log_group" "bastion" {
-  name              = "/ecs/${var.resource_name_base}/bastion"
+  name              = "/ecs/${var.cluster_id}/bastion"
   retention_in_days = var.log_retention_days
 
   tags = var.tags
@@ -23,7 +23,7 @@ resource "aws_cloudwatch_log_group" "bastion" {
 # =============================================================================
 
 resource "aws_security_group" "bastion" {
-  name        = "${var.resource_name_base}-bastion"
+  name        = "${var.cluster_id}-bastion"
   description = "Security group for bastion ECS tasks"
   vpc_id      = var.vpc_id
 
@@ -37,7 +37,7 @@ resource "aws_security_group" "bastion" {
   }
 
   tags = merge(var.tags, {
-    Name = "${var.resource_name_base}-bastion"
+    Name = "${var.cluster_id}-bastion"
   })
 }
 
@@ -57,7 +57,7 @@ resource "aws_security_group_rule" "eks_ingress_from_bastion" {
 # =============================================================================
 
 resource "aws_ecs_cluster" "bastion" {
-  name = "${var.resource_name_base}-bastion"
+  name = "${var.cluster_id}-bastion"
 
   setting {
     name  = "containerInsights"
@@ -115,7 +115,7 @@ resource "null_resource" "stop_bastion_tasks" {
 # =============================================================================
 
 resource "aws_ecs_task_definition" "bastion" {
-  family                   = "${var.resource_name_base}-bastion"
+  family                   = "${var.cluster_id}-bastion"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = var.cpu
@@ -164,7 +164,7 @@ resource "aws_ecs_task_definition" "bastion" {
             echo ""
             echo "Connect using:"
             echo "  aws ecs execute-command \\"
-            echo "    --cluster ${var.resource_name_base}-bastion \\"
+            echo "    --cluster ${var.cluster_id}-bastion \\"
             echo "    --task <TASK_ID> \\"
             echo "    --container bastion \\"
             echo "    --interactive \\"

@@ -71,13 +71,23 @@ variable "enable_bastion" {
 # Maestro Configuration Variables
 # =============================================================================
 
-variable "cluster_id" {
-  description = "Logical cluster ID for Maestro registration (must match entry in regional cluster's management_cluster_ids)"
+variable "management_id" {
+  description = "Management cluster identifier for resource naming (e.g., 'mc01' or 'xg4y-mc01' in CI)"
   type        = string
   validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.cluster_id))
-    error_message = "cluster_id must contain only lowercase letters, numbers, and hyphens"
+    condition     = can(regex("^[a-z0-9-]+$", var.management_id))
+    error_message = "management_id must contain only lowercase letters, numbers, and hyphens"
   }
+}
+
+variable "environment" {
+  description = "Environment name for tagging (e.g., 'integration', 'staging', 'production')"
+  type        = string
+}
+
+variable "sector" {
+  description = "Sector name for tagging (e.g., 'integration', 'us-gov')"
+  type        = string
 }
 
 variable "regional_aws_account_id" {

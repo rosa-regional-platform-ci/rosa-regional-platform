@@ -6,8 +6,8 @@
 # - IAM roles for Pod Identity access to DynamoDB and AVP
 # =============================================================================
 
-variable "resource_name_base" {
-  description = "Base name for all resources (e.g., regional-x8k2)"
+variable "regional_id" {
+  description = "Regional cluster identifier for resource naming"
   type        = string
 }
 

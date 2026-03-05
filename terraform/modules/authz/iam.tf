@@ -10,7 +10,7 @@
 # =============================================================================
 
 resource "aws_iam_role" "frontend_api" {
-  name        = "${var.resource_name_base}-authz-platform-api"
+  name        = "${var.regional_id}-authz-platform-api"
   description = "IAM role for ROSA Frontend API with access to DynamoDB and AVP"
 
   assume_role_policy = jsonencode({
@@ -30,7 +30,7 @@ resource "aws_iam_role" "frontend_api" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-authz-platform-api-role"
+      Name      = "${var.regional_id}-authz-platform-api-role"
       Component = "authz"
     }
   )
@@ -41,7 +41,7 @@ resource "aws_iam_role" "frontend_api" {
 # =============================================================================
 
 resource "aws_iam_role_policy" "frontend_api_dynamodb" {
-  name = "${var.resource_name_base}-authz-dynamodb-policy"
+  name = "${var.regional_id}-authz-dynamodb-policy"
   role = aws_iam_role.frontend_api.id
 
   policy = jsonencode({
@@ -88,7 +88,7 @@ resource "aws_iam_role_policy" "frontend_api_dynamodb" {
 # =============================================================================
 
 resource "aws_iam_role_policy" "frontend_api_avp" {
-  name = "${var.resource_name_base}-authz-avp-policy"
+  name = "${var.regional_id}-authz-avp-policy"
   role = aws_iam_role.frontend_api.id
 
   policy = jsonencode({
@@ -146,7 +146,7 @@ resource "aws_eks_pod_identity_association" "frontend_api" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-authz-platform-api-pod-identity"
+      Name      = "${var.regional_id}-authz-platform-api-pod-identity"
       Component = "authz"
     }
   )

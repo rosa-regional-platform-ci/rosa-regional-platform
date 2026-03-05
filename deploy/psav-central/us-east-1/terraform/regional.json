@@ -8,6 +8,8 @@
   "region": "us-east-1",
   "alias": "regional-us-east-1",
   "enable_bastion": true,
+  "regional_id": "regional",
+  "sector": "psav-central",
   "management_cluster_account_ids": [
     "ssm:///infra/psav-central/us-east-1/mc01/account_id"
   ]

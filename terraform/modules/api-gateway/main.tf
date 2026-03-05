@@ -16,7 +16,7 @@ data "aws_region" "current" {}
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_rest_api" "main" {
-  name        = "${var.resource_name_base}-api"
+  name        = "${var.regional_id}-api"
   description = var.api_description
 
   endpoint_configuration {
@@ -24,7 +24,7 @@ resource "aws_api_gateway_rest_api" "main" {
   }
 
   tags = {
-    Name = "${var.resource_name_base}-api"
+    Name = "${var.regional_id}-api"
   }
 }
 
@@ -107,6 +107,6 @@ resource "aws_api_gateway_stage" "main" {
   stage_name    = var.stage_name
 
   tags = {
-    Name = "${var.resource_name_base}-api-${var.stage_name}"
+    Name = "${var.regional_id}-api-${var.stage_name}"
   }
 }

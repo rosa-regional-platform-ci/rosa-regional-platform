@@ -6,11 +6,11 @@
 # =============================================================================
 
 resource "aws_apigatewayv2_vpc_link" "main" {
-  name               = "${var.resource_name_base}-api"
+  name               = "${var.regional_id}-api"
   security_group_ids = [aws_security_group.vpc_link.id]
   subnet_ids         = var.private_subnet_ids
 
   tags = {
-    Name = "${var.resource_name_base}-api"
+    Name = "${var.regional_id}-api"
   }
 }

@@ -96,7 +96,7 @@ phases:
           "name": "${CLUSTER_ID}",
           "labels": {
             "cluster_type": "management",
-            "cluster_id": "${CLUSTER_ID}",
+            "management_id": "${CLUSTER_ID}",
             "region": "${TARGET_REGION}",
             "alias": "${TARGET_ALIAS}"
           }

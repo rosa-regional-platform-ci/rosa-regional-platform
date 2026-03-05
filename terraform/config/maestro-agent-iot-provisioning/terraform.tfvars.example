@@ -9,7 +9,7 @@
 # =============================================================================
 
 # Management Cluster Configuration
-management_cluster_id = "management-01"
+management_cluster_id = "mc01"
 
 # AWS Configuration
 region_name = "us-east-1"

@@ -10,14 +10,14 @@
 # =============================================================================
 
 resource "aws_secretsmanager_secret" "hyperfleet_db_credentials" {
-  name                    = "hyperfleet/db-credentials"
+  name                    = "${var.regional_id}-hyperfleet-db-credentials"
   description             = "PostgreSQL database credentials for HyperFleet API"
   recovery_window_in_days = 0 # Force immediate deletion to allow quick recreation
 
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-db-credentials"
+      Name      = "${var.regional_id}-hyperfleet-db-credentials"
       Component = "hyperfleet-api"
     }
   )
@@ -40,14 +40,14 @@ resource "aws_secretsmanager_secret_version" "hyperfleet_db_credentials" {
 # =============================================================================
 
 resource "aws_secretsmanager_secret" "hyperfleet_mq_credentials" {
-  name                    = "hyperfleet/mq-credentials"
+  name                    = "${var.regional_id}-hyperfleet-mq-credentials"
   description             = "Amazon MQ credentials for HyperFleet Sentinel and Adapter"
   recovery_window_in_days = 0 # Force immediate deletion to allow quick recreation
 
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-mq-credentials"
+      Name      = "${var.regional_id}-hyperfleet-mq-credentials"
       Component = "hyperfleet-sentinel"
     }
   )

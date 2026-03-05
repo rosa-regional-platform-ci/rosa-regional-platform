@@ -6,7 +6,7 @@
 #       <aws_region>:                 # dict key → {{ aws_region }}
 #         account_id: "..."           # → {{ account_id }}
 #         management_clusters:
-#           <cluster_prefix>:         # dict key → cluster_id = "<prefix>-<aws_region>"
+#           <cluster_prefix>:         # dict key → management_id = "<prefix>" (e.g., "mc01")
 #                                     #           → {{ cluster_prefix }} (inside MC templates only)
 #
 # ── Inheritance (deep merge, most-specific wins) ──────────────────────────────
@@ -33,8 +33,8 @@
 #     final resolved value.
 #
 #   ² cluster_prefix is only available inside management_cluster entries.
-#     It is the dict key of the MC (e.g. "mc01"). The derived cluster_id is
-#     always "{cluster_prefix}-{aws_region}" (e.g. "mc01-us-east-1").
+#     It is the dict key of the MC (e.g. "mc01"). The derived management_id
+#     is the dict key itself (e.g. "mc01").
 #
 
 defaults:

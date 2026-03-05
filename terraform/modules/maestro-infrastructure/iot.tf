@@ -28,7 +28,7 @@ resource "aws_iot_certificate" "maestro_server" {
 
 # IoT Policy for Maestro Server (Publisher/Subscriber)
 resource "aws_iot_policy" "maestro_server" {
-  name = "${var.resource_name_base}-maestro-server-policy"
+  name = "${var.regional_id}-maestro-server-policy"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -68,7 +68,7 @@ resource "aws_iot_policy" "maestro_server" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-server-policy"
+      Name      = "${var.regional_id}-maestro-server-policy"
       Component = "maestro-server"
     }
   )

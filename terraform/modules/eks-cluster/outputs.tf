@@ -101,11 +101,3 @@ output "node_iam_role_arn" {
   value       = aws_iam_role.eks_auto_mode_node.arn
 }
 
-# =============================================================================
-# Resource naming outputs
-# =============================================================================
-
-output "resource_name_base" {
-  description = "Base name for resources (cluster_type-random_suffix)"
-  value       = local.resource_name_base
-}

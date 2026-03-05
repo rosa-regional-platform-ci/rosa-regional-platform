@@ -10,7 +10,7 @@ data "aws_region" "current" {}
 
 # ECS Cluster for bootstrap tasks
 resource "aws_ecs_cluster" "bootstrap" {
-  name = "${var.resource_name_base}-bootstrap"
+  name = "${var.cluster_id}-bootstrap"
 
   setting {
     name  = "containerInsights"
@@ -20,13 +20,13 @@ resource "aws_ecs_cluster" "bootstrap" {
 
 # CloudWatch Log Group for bootstrap tasks
 resource "aws_cloudwatch_log_group" "bootstrap" {
-  name              = "/ecs/${var.resource_name_base}/bootstrap"
+  name              = "/ecs/${var.cluster_id}/bootstrap"
   retention_in_days = 30
 }
 
 # ECS Task Definition for bootstrap execution
 resource "aws_ecs_task_definition" "bootstrap" {
-  family                   = "${var.resource_name_base}-bootstrap"
+  family                   = "${var.cluster_id}-bootstrap"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
@@ -87,6 +87,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
           echo "  ENVIRONMENT: $ENVIRONMENT"
           echo "  AWS_REGION: $AWS_REGION"
           echo "  REGION_DEPLOYMENT: $REGION_DEPLOYMENT"
+          echo "  CLUSTER_NAME: $CLUSTER_NAME"
           echo "  CLUSTER_TYPE: $CLUSTER_TYPE"
           echo "  REPOSITORY_URL: $REPOSITORY_URL"
           echo "  REPOSITORY_BRANCH: $REPOSITORY_BRANCH"
@@ -103,6 +104,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               region_deployment: "$REGION_DEPLOYMENT"
               aws_region: "$AWS_REGION"
               cluster_type: "$CLUSTER_TYPE"
+              cluster_name: "$CLUSTER_NAME"
             annotations:
               git_repo: "$REPOSITORY_URL"
               git_revision: "$REPOSITORY_BRANCH"

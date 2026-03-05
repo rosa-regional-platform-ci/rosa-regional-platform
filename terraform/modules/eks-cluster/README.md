@@ -4,7 +4,7 @@ Creates private EKS clusters with security-first configuration and standardized 
 
 ## Features
 
-- **Automatic Resource Naming**: Generates unique resource names with cluster type + random suffix
+- **Deterministic Resource Naming**: Uses `cluster_id` for all resource names (e.g., `regional`, `mc01`)
 - **Provider-Level Tagging**: Enforces required organizational tags via AWS provider default_tags
 - **Fully Private Clusters**: EKS control plane with private endpoint only
 - **GitOps Bootstrap**: Automated ArgoCD installation via Lambda for self-management
@@ -28,16 +28,16 @@ Creates private EKS clusters with security-first configuration and standardized 
 
 ## Naming Convention
 
-All resources are automatically named using the pattern: `{cluster_type}-{random_suffix}`
+All resources are named using the `cluster_id` variable passed to the module (e.g., `regional`, `mc01`, or `xg4y-regional` in CI).
 
 **Examples:**
 
-- EKS Cluster: `management-x8k2`
-- VPC: `management-x8k2-vpc`
-- Node Group: `management-x8k2-main-node-group`
-- IAM Roles: `management-x8k2-ebs-csi-driver`
+- EKS Cluster: `mc01`
+- VPC: `mc01-vpc`
+- IAM Roles: `mc01-cluster-role`
+- KMS Alias: `alias/mc01-eks-secrets`
 
-The random suffix (4 lowercase alphanumeric characters) prevents naming conflicts and is automatically generated.
+Resource names are deterministic — no random suffixes. An optional CI prefix (e.g., `xg4y-`) provides isolation when multiple clusters share the same AWS account. Environment and sector are applied as tags, not embedded in resource names.
 
 ## Required Provider Configuration
 
@@ -65,12 +65,8 @@ provider "aws" {
 module "management_cluster" {
   source = "./terraform/modules/eks-cluster"
 
-  cluster_type = "management"
-
-  # Bootstrap configuration for management cluster
-  bootstrap_enabled           = true
-  bootstrap_repository_url    = "https://github.com/openshift-online/rosa-regional-platform"
-  bootstrap_repository_branch = "main"
+  cluster_id   = var.management_id
+  cluster_type = "management-cluster"
 
   # Optional cluster configuration
   cluster_version         = "1.34"
@@ -87,12 +83,8 @@ module "management_cluster" {
 module "regional_cluster" {
   source = "./terraform/modules/eks-cluster"
 
-  cluster_type = "regional"
-
-  # Bootstrap configuration for regional cluster
-  bootstrap_enabled           = true
-  bootstrap_repository_url    = "https://github.com/openshift-online/rosa-regional-platform"
-  bootstrap_repository_branch = "main"
+  cluster_id   = var.regional_id
+  cluster_type = "regional-cluster"
 
   # Optional cluster configuration
   node_group_desired_size = 2
@@ -103,31 +95,32 @@ module "regional_cluster" {
 
 ## Variables
 
-| Name                            | Description                                         | Type           | Default                                                        | Required |
-| ------------------------------- | --------------------------------------------------- | -------------- | -------------------------------------------------------------- | -------- |
-| `cluster_type`                  | Type of cluster: `regional` or `management`         | `string`       | n/a                                                            | yes      |
-| `cluster_version`               | Kubernetes version                                  | `string`       | `"1.34"`                                                       | no       |
-| `vpc_cidr`                      | VPC CIDR block                                      | `string`       | `"10.0.0.0/16"`                                                | no       |
-| `availability_zones`            | List of availability zones (auto-detected if empty) | `list(string)` | `[]`                                                           | no       |
-| `private_subnet_cidrs`          | CIDR blocks for private subnets                     | `list(string)` | `["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]`                | no       |
-| `public_subnet_cidrs`           | CIDR blocks for public subnets                      | `list(string)` | `["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]`          | no       |
-| `node_instance_types`           | EC2 instance types for nodes                        | `list(string)` | `["t3.medium", "t3a.medium"]`                                  | no       |
-| `node_group_desired_size`       | Desired number of nodes                             | `number`       | `2`                                                            | no       |
-| `node_group_min_size`           | Minimum number of nodes                             | `number`       | `1`                                                            | no       |
-| `node_group_max_size`           | Maximum number of nodes                             | `number`       | `4`                                                            | no       |
-| `node_disk_size`                | EBS volume size for nodes (GiB)                     | `number`       | `20`                                                           | no       |
-| `enable_pod_security_standards` | Enable Pod Security Standards                       | `bool`         | `true`                                                         | no       |
-| `bootstrap_enabled`             | Enable ArgoCD bootstrap for GitOps management       | `bool`         | `true`                                                         | no       |
-| `argocd_namespace`              | Kubernetes namespace for ArgoCD installation        | `string`       | `"argocd"`                                                     | no       |
-| `argocd_chart_version`          | ArgoCD Helm chart version                           | `string`       | `"9.3.0"`                                                      | no       |
-| `bootstrap_repository_url`      | Git repository URL for ArgoCD configuration         | `string`       | `"https://github.com/openshift-online/rosa-regional-platform"` | no       |
-| `bootstrap_repository_branch`   | Git branch to track                                 | `string`       | `"main"`                                                       | no       |
+| Name                            | Description                                                                     | Type           | Default                                                        | Required |
+| ------------------------------- | ------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------- | -------- |
+| `cluster_id`                    | Deterministic cluster identifier for resource naming (e.g., `regional`, `mc01`) | `string`       | n/a                                                            | yes      |
+| `cluster_type`                  | Type of cluster: `regional-cluster` or `management-cluster`                     | `string`       | n/a                                                            | yes      |
+| `cluster_version`               | Kubernetes version                                                              | `string`       | `"1.34"`                                                       | no       |
+| `vpc_cidr`                      | VPC CIDR block                                                                  | `string`       | `"10.0.0.0/16"`                                                | no       |
+| `availability_zones`            | List of availability zones (auto-detected if empty)                             | `list(string)` | `[]`                                                           | no       |
+| `private_subnet_cidrs`          | CIDR blocks for private subnets                                                 | `list(string)` | `["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]`                | no       |
+| `public_subnet_cidrs`           | CIDR blocks for public subnets                                                  | `list(string)` | `["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]`          | no       |
+| `node_instance_types`           | EC2 instance types for nodes                                                    | `list(string)` | `["t3.medium", "t3a.medium"]`                                  | no       |
+| `node_group_desired_size`       | Desired number of nodes                                                         | `number`       | `2`                                                            | no       |
+| `node_group_min_size`           | Minimum number of nodes                                                         | `number`       | `1`                                                            | no       |
+| `node_group_max_size`           | Maximum number of nodes                                                         | `number`       | `4`                                                            | no       |
+| `node_disk_size`                | EBS volume size for nodes (GiB)                                                 | `number`       | `20`                                                           | no       |
+| `enable_pod_security_standards` | Enable Pod Security Standards                                                   | `bool`         | `true`                                                         | no       |
+| `bootstrap_enabled`             | Enable ArgoCD bootstrap for GitOps management                                   | `bool`         | `true`                                                         | no       |
+| `argocd_namespace`              | Kubernetes namespace for ArgoCD installation                                    | `string`       | `"argocd"`                                                     | no       |
+| `argocd_chart_version`          | ArgoCD Helm chart version                                                       | `string`       | `"9.3.0"`                                                      | no       |
+| `bootstrap_repository_url`      | Git repository URL for ArgoCD configuration                                     | `string`       | `"https://github.com/openshift-online/rosa-regional-platform"` | no       |
+| `bootstrap_repository_branch`   | Git branch to track                                                             | `string`       | `"main"`                                                       | no       |
 
 ## Outputs
 
 | Name                                 | Description                                        |
 | ------------------------------------ | -------------------------------------------------- |
-| `cluster_name`                       | EKS cluster name (includes random suffix)          |
+| `cluster_name`                       | EKS cluster name (same as `cluster_id`)            |
 | `cluster_endpoint`                   | EKS cluster API endpoint                           |
 | `cluster_certificate_authority_data` | Base64 encoded certificate data                    |
 | `vpc_id`                             | VPC ID where cluster is deployed                   |
@@ -159,5 +152,4 @@ The Lambda function:
 
 - Terraform >= 1.14.3
 - AWS Provider >= 6.0
-- Random Provider >= 3.4
 - Required provider `default_tags` configuration

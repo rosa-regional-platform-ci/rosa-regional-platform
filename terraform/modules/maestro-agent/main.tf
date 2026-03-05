@@ -8,14 +8,14 @@ data "aws_region" "current" {}
 
 # Secret names for Maestro Agent
 locals {
-  agent_cert_secret_name   = "maestro/agent-cert"
-  agent_config_secret_name = "maestro/agent-config"
+  agent_cert_secret_name   = "${var.management_id}-maestro-agent-cert"
+  agent_config_secret_name = "${var.management_id}-maestro-agent-config"
 
   common_tags = merge(
     var.tags,
     {
       Component         = "maestro-agent"
-      ManagementCluster = var.cluster_id
+      ManagementCluster = var.management_id
       ManagedBy         = "terraform"
     }
   )
@@ -26,10 +26,9 @@ locals {
 # =============================================================================
 
 resource "aws_secretsmanager_secret" "maestro_agent_cert" {
-  name        = local.agent_cert_secret_name
-  description = "Maestro Agent MQTT certificate material for ${var.cluster_id}"
-  # TODO(typeid): set back to 30 once we have unique secret names to prevent collisions in e2e runs
-  recovery_window_in_days = 0
+  name                    = local.agent_cert_secret_name
+  description             = "Maestro Agent MQTT certificate material for ${var.management_id}"
+  recovery_window_in_days = 30
 }
 
 resource "aws_secretsmanager_secret_version" "maestro_agent_cert" {
@@ -38,10 +37,9 @@ resource "aws_secretsmanager_secret_version" "maestro_agent_cert" {
 }
 
 resource "aws_secretsmanager_secret" "maestro_agent_config" {
-  name        = local.agent_config_secret_name
-  description = "Maestro Agent MQTT configuration for ${var.cluster_id}"
-  # TODO(typeid): set back to 30 once we have unique secret names to prevent collisions in e2e runs
-  recovery_window_in_days = 0
+  name                    = local.agent_config_secret_name
+  description             = "Maestro Agent MQTT configuration for ${var.management_id}"
+  recovery_window_in_days = 30
 }
 
 resource "aws_secretsmanager_secret_version" "maestro_agent_config" {

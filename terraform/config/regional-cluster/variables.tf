@@ -2,6 +2,25 @@
 # Regional Cluster Infrastructure Variables
 # =============================================================================
 
+variable "regional_id" {
+  description = "Deterministic regional cluster identifier for resource naming (e.g., 'regional' or 'xg4y-regional' in CI)"
+  type        = string
+  validation {
+    condition     = can(regex("^[a-z0-9-]+$", var.regional_id))
+    error_message = "regional_id must contain only lowercase letters, numbers, and hyphens"
+  }
+}
+
+variable "environment" {
+  description = "Environment name for tagging (e.g., 'integration', 'staging', 'production')"
+  type        = string
+}
+
+variable "sector" {
+  description = "Sector name for tagging (e.g., 'integration', 'us-gov')"
+  type        = string
+}
+
 variable "region" {
   description = "AWS Region for infrastructure deployment"
   type        = string

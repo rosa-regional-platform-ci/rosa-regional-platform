@@ -12,7 +12,7 @@
 # =============================================================================
 
 resource "aws_iam_role" "hyperfleet_api" {
-  name        = "${var.resource_name_base}-hyperfleet-api"
+  name        = "${var.regional_id}-hyperfleet-api"
   description = "IAM role for HyperFleet API with access to database credentials"
 
   assume_role_policy = jsonencode({
@@ -32,7 +32,7 @@ resource "aws_iam_role" "hyperfleet_api" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-api-role"
+      Name      = "${var.regional_id}-hyperfleet-api-role"
       Component = "hyperfleet-api"
     }
   )
@@ -40,7 +40,7 @@ resource "aws_iam_role" "hyperfleet_api" {
 
 # HyperFleet API Policy - Secrets Manager read access for database credentials
 resource "aws_iam_role_policy" "hyperfleet_api_secrets" {
-  name = "${var.resource_name_base}-hyperfleet-api-secrets-policy"
+  name = "${var.regional_id}-hyperfleet-api-secrets-policy"
   role = aws_iam_role.hyperfleet_api.id
 
   policy = jsonencode({
@@ -70,7 +70,7 @@ resource "aws_eks_pod_identity_association" "hyperfleet_api" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-api-pod-identity"
+      Name      = "${var.regional_id}-hyperfleet-api-pod-identity"
       Component = "hyperfleet-api"
     }
   )
@@ -81,7 +81,7 @@ resource "aws_eks_pod_identity_association" "hyperfleet_api" {
 # =============================================================================
 
 resource "aws_iam_role" "hyperfleet_sentinel" {
-  name        = "${var.resource_name_base}-hyperfleet-sentinel"
+  name        = "${var.regional_id}-hyperfleet-sentinel"
   description = "IAM role for HyperFleet Sentinel with access to message queue credentials"
 
   assume_role_policy = jsonencode({
@@ -101,7 +101,7 @@ resource "aws_iam_role" "hyperfleet_sentinel" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-sentinel-role"
+      Name      = "${var.regional_id}-hyperfleet-sentinel-role"
       Component = "hyperfleet-sentinel"
     }
   )
@@ -109,7 +109,7 @@ resource "aws_iam_role" "hyperfleet_sentinel" {
 
 # HyperFleet Sentinel Policy - Secrets Manager read access for MQ credentials
 resource "aws_iam_role_policy" "hyperfleet_sentinel_secrets" {
-  name = "${var.resource_name_base}-hyperfleet-sentinel-secrets-policy"
+  name = "${var.regional_id}-hyperfleet-sentinel-secrets-policy"
   role = aws_iam_role.hyperfleet_sentinel.id
 
   policy = jsonencode({
@@ -139,7 +139,7 @@ resource "aws_eks_pod_identity_association" "hyperfleet_sentinel" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-sentinel-pod-identity"
+      Name      = "${var.regional_id}-hyperfleet-sentinel-pod-identity"
       Component = "hyperfleet-sentinel"
     }
   )
@@ -150,7 +150,7 @@ resource "aws_eks_pod_identity_association" "hyperfleet_sentinel" {
 # =============================================================================
 
 resource "aws_iam_role" "hyperfleet_adapter" {
-  name        = "${var.resource_name_base}-hyperfleet-adapter"
+  name        = "${var.regional_id}-hyperfleet-adapter"
   description = "IAM role for HyperFleet Adapter with access to message queue credentials"
 
   assume_role_policy = jsonencode({
@@ -170,7 +170,7 @@ resource "aws_iam_role" "hyperfleet_adapter" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-adapter-role"
+      Name      = "${var.regional_id}-hyperfleet-adapter-role"
       Component = "hyperfleet-adapter"
     }
   )
@@ -178,7 +178,7 @@ resource "aws_iam_role" "hyperfleet_adapter" {
 
 # HyperFleet Adapter Policy - Secrets Manager read access for MQ credentials
 resource "aws_iam_role_policy" "hyperfleet_adapter_secrets" {
-  name = "${var.resource_name_base}-hyperfleet-adapter-secrets-policy"
+  name = "${var.regional_id}-hyperfleet-adapter-secrets-policy"
   role = aws_iam_role.hyperfleet_adapter.id
 
   policy = jsonencode({
@@ -208,7 +208,7 @@ resource "aws_eks_pod_identity_association" "hyperfleet_adapter" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-adapter-pod-identity"
+      Name      = "${var.regional_id}-hyperfleet-adapter-pod-identity"
       Component = "hyperfleet-adapter"
     }
   )

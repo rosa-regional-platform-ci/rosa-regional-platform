@@ -14,7 +14,7 @@ locals {
 # =============================================================================
 
 resource "aws_iam_role" "execution" {
-  name = "${var.resource_name_base}-bastion-execution"
+  name = "${var.cluster_id}-bastion-execution"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -42,7 +42,7 @@ resource "aws_iam_role_policy_attachment" "execution_managed" {
 # =============================================================================
 
 resource "aws_iam_role" "task" {
-  name = "${var.resource_name_base}-bastion-task"
+  name = "${var.cluster_id}-bastion-task"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

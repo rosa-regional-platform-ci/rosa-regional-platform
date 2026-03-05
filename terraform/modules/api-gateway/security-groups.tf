@@ -11,7 +11,7 @@
 # -----------------------------------------------------------------------------
 
 resource "aws_security_group" "vpc_link" {
-  name        = "${var.resource_name_base}-api-vpc-link"
+  name        = "${var.regional_id}-api-vpc-link"
   description = "Security group for API Gateway VPC Link"
   vpc_id      = var.vpc_id
 
@@ -19,7 +19,7 @@ resource "aws_security_group" "vpc_link" {
   revoke_rules_on_delete = false
 
   tags = {
-    Name = "${var.resource_name_base}-api-vpc-link"
+    Name = "${var.regional_id}-api-vpc-link"
   }
 }
 
@@ -37,7 +37,7 @@ resource "aws_vpc_security_group_egress_rule" "vpc_link_to_alb" {
 # -----------------------------------------------------------------------------
 
 resource "aws_security_group" "alb" {
-  name        = "${var.resource_name_base}-api-alb"
+  name        = "${var.regional_id}-api-alb"
   description = "Security group for internal API ALB"
   vpc_id      = var.vpc_id
 
@@ -45,7 +45,7 @@ resource "aws_security_group" "alb" {
   revoke_rules_on_delete = false
 
   tags = {
-    Name = "${var.resource_name_base}-api-alb"
+    Name = "${var.regional_id}-api-alb"
   }
 }
 

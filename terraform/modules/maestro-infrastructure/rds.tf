@@ -16,13 +16,13 @@ resource "random_password" "db_password" {
 
 # DB Subnet Group spanning multiple AZs
 resource "aws_db_subnet_group" "maestro" {
-  name       = "${var.resource_name_base}-maestro-db"
+  name       = "${var.regional_id}-maestro-db"
   subnet_ids = var.private_subnets
 
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-db-subnet-group"
+      Name      = "${var.regional_id}-maestro-db-subnet-group"
       Component = "maestro-server"
     }
   )
@@ -30,7 +30,7 @@ resource "aws_db_subnet_group" "maestro" {
 
 # Security Group for RDS - only allow access from EKS cluster
 resource "aws_security_group" "maestro_db" {
-  name        = "${var.resource_name_base}-maestro-db"
+  name        = "${var.regional_id}-maestro-db"
   description = "Security group for Maestro PostgreSQL database"
   vpc_id      = var.vpc_id
 
@@ -78,7 +78,7 @@ resource "aws_security_group" "maestro_db" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-db-sg"
+      Name      = "${var.regional_id}-maestro-db-sg"
       Component = "maestro-server"
     }
   )
@@ -86,7 +86,7 @@ resource "aws_security_group" "maestro_db" {
 
 # RDS PostgreSQL Instance
 resource "aws_db_instance" "maestro" {
-  identifier = "${var.resource_name_base}-maestro"
+  identifier = "${var.regional_id}-maestro"
 
   # Engine configuration
   engine         = "postgres"
@@ -120,7 +120,7 @@ resource "aws_db_instance" "maestro" {
 
   # Snapshot configuration
   skip_final_snapshot       = var.db_skip_final_snapshot
-  final_snapshot_identifier = var.db_deletion_protection ? "${var.resource_name_base}-maestro-final-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
+  final_snapshot_identifier = var.db_deletion_protection ? "${var.regional_id}-maestro-final-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
   deletion_protection       = var.db_deletion_protection
 
   # Monitoring and logging
@@ -137,7 +137,7 @@ resource "aws_db_instance" "maestro" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-db"
+      Name      = "${var.regional_id}-maestro-db"
       Component = "maestro-server"
     }
   )

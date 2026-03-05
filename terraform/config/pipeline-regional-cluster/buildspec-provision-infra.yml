@@ -87,6 +87,14 @@ phases:
             exit 1
         fi
 
+        # Extract regional_id, environment, and sector from rendered config
+        export TF_VAR_regional_id=$(jq -r '.regional_id' "$RC_CONFIG_FILE")
+        export TF_VAR_environment=$(jq -r '.environment' "$RC_CONFIG_FILE")
+        export TF_VAR_sector=$(jq -r '.sector' "$RC_CONFIG_FILE")
+        echo "  Regional ID: $TF_VAR_regional_id"
+        echo "  Environment: $TF_VAR_environment"
+        echo "  Sector: $TF_VAR_sector"
+
         if [ "${IS_DESTROY:-false}" == "true" ]; then
             make pipeline-destroy-regional
         else

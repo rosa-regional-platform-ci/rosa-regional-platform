@@ -32,7 +32,7 @@ deploy/                                  # Generated outputs (DO NOT EDIT)
     └── terraform/
         ├── regional.json
         └── management/
-            └── {cluster_id}.json
+            └── {management_id}.json
 ```
 
 ## Configuration Modes
@@ -60,7 +60,7 @@ region_deployments:
     sector: "integration"
     account_id: "123456789"
     management_clusters:
-      - cluster_id: "mc01-eu-west-1"
+      - id: "mc01"
         account_id: "987654321"
     # No config_revision = uses current git revision
     values:
@@ -73,7 +73,7 @@ region_deployments:
     sector: "staging"
     account_id: "123456789"
     management_clusters:
-      - cluster_id: "mc01-eu-west-1"
+      - id: "mc01"
         account_id: "987654321"
     config_revision: # Pinned commits for stability
       management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"

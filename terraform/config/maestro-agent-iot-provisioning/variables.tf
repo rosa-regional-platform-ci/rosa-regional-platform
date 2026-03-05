@@ -4,7 +4,7 @@
 
 # Management Cluster Identification
 variable "management_cluster_id" {
-  description = "Management cluster identifier (e.g., 'management-01')"
+  description = "Management cluster identifier (e.g., 'mc01')"
   type        = string
 }
 

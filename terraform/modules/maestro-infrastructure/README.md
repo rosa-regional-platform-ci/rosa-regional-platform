@@ -19,7 +19,7 @@ module "maestro_infrastructure" {
   source = "../../modules/maestro-infrastructure"
 
   # Cluster integration
-  resource_name_base            = module.regional_cluster.resource_name_base
+  regional_id                   = var.regional_id
   vpc_id                        = module.regional_cluster.vpc_id
   private_subnets               = module.regional_cluster.private_subnets
   eks_cluster_name              = module.regional_cluster.cluster_name
@@ -27,7 +27,7 @@ module "maestro_infrastructure" {
 
   # Management clusters
   management_cluster_count = 2
-  management_cluster_ids   = ["management-01", "management-02"]
+  management_cluster_ids   = ["mc01", "mc02"]
 
   # Database configuration (optional)
   db_instance_class       = "db.t4g.micro"
@@ -42,20 +42,20 @@ module "maestro_infrastructure" {
 
 ## Variables
 
-| Name                            | Description                        | Type           | Default          | Required |
-| ------------------------------- | ---------------------------------- | -------------- | ---------------- | -------- |
-| `resource_name_base`            | Base name for resource naming      | `string`       | n/a              | yes      |
-| `vpc_id`                        | VPC ID for RDS and security groups | `string`       | n/a              | yes      |
-| `private_subnets`               | Private subnet IDs for RDS         | `list(string)` | n/a              | yes      |
-| `eks_cluster_name`              | EKS cluster name for Pod Identity  | `string`       | n/a              | yes      |
-| `eks_cluster_security_group_id` | EKS security group for RDS access  | `string`       | n/a              | yes      |
-| `management_cluster_count`      | Number of management clusters      | `number`       | n/a              | yes      |
-| `management_cluster_ids`        | List of management cluster IDs     | `list(string)` | n/a              | yes      |
-| `db_instance_class`             | RDS instance class                 | `string`       | `"db.t4g.micro"` | no       |
-| `db_allocated_storage`          | RDS storage in GB                  | `number`       | `20`             | no       |
-| `db_multi_az`                   | Enable Multi-AZ deployment         | `bool`         | `false`          | no       |
-| `db_deletion_protection`        | Enable deletion protection         | `bool`         | `false`          | no       |
-| `tags`                          | Additional resource tags           | `map(string)`  | `{}`             | no       |
+| Name                            | Description                                                        | Type           | Default          | Required |
+| ------------------------------- | ------------------------------------------------------------------ | -------------- | ---------------- | -------- |
+| `regional_id`                   | Regional cluster identifier for resource naming (e.g., `regional`) | `string`       | n/a              | yes      |
+| `vpc_id`                        | VPC ID for RDS and security groups                                 | `string`       | n/a              | yes      |
+| `private_subnets`               | Private subnet IDs for RDS                                         | `list(string)` | n/a              | yes      |
+| `eks_cluster_name`              | EKS cluster name for Pod Identity                                  | `string`       | n/a              | yes      |
+| `eks_cluster_security_group_id` | EKS security group for RDS access                                  | `string`       | n/a              | yes      |
+| `management_cluster_count`      | Number of management clusters                                      | `number`       | n/a              | yes      |
+| `management_cluster_ids`        | List of management cluster IDs                                     | `list(string)` | n/a              | yes      |
+| `db_instance_class`             | RDS instance class                                                 | `string`       | `"db.t4g.micro"` | no       |
+| `db_allocated_storage`          | RDS storage in GB                                                  | `number`       | `20`             | no       |
+| `db_multi_az`                   | Enable Multi-AZ deployment                                         | `bool`         | `false`          | no       |
+| `db_deletion_protection`        | Enable deletion protection                                         | `bool`         | `false`          | no       |
+| `tags`                          | Additional resource tags                                           | `map(string)`  | `{}`             | no       |
 
 ## Outputs
 

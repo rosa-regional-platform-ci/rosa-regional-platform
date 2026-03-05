@@ -12,10 +12,9 @@ variable "cluster_type" {
   }
 }
 
-variable "cluster_name_override" {
-  description = "Optional override for cluster name. If not set, uses auto-generated name (cluster_type-random). Use this to specify a deterministic cluster name."
+variable "cluster_id" {
+  description = "Unique identifier for the cluster, used as the base name for all resources."
   type        = string
-  default     = null
 }
 
 # =============================================================================

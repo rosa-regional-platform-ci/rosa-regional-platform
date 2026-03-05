@@ -8,6 +8,8 @@
   "region": "us-east-1",
   "alias": "regional-us-east-1",
   "enable_bastion": true,
+  "regional_id": "regional",
+  "sector": "brian",
   "management_cluster_account_ids": [
     "ssm:///infra/brian/us-east-1/mc01/account_id"
   ]

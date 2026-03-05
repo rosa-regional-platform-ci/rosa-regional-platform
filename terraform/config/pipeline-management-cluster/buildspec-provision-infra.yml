@@ -75,7 +75,8 @@ phases:
         export TF_VAR_app_code="${APP_CODE}"
         export TF_VAR_service_phase="${SERVICE_PHASE}"
         export TF_VAR_cost_center="${COST_CENTER}"
-        export TF_VAR_cluster_id="${CLUSTER_ID:-mgmt-cluster-01}"
+        export TF_VAR_management_id="${CLUSTER_ID:-mgmt-cluster-01}"
+        export TF_VAR_environment="${ENVIRONMENT:-staging}"
         export TF_VAR_regional_aws_account_id="${RESOLVED_REGIONAL_ACCOUNT_ID}"
 
         # TF_VAR_maestro_agent_cert_file and TF_VAR_maestro_agent_config_file
@@ -104,7 +105,7 @@ phases:
         echo "Terraform variables:"
         echo "  Region: $TF_VAR_region"
         echo "  Target Account: $TARGET_ACCOUNT_ID"
-        echo "  Cluster ID: $TF_VAR_cluster_id"
+        echo "  Management ID: $TF_VAR_management_id"
         echo "  Regional AWS Account: $TF_VAR_regional_aws_account_id"
         echo "  Enable Bastion: $TF_VAR_enable_bastion"
         echo "  App Code: $TF_VAR_app_code"
@@ -125,6 +126,7 @@ phases:
         export REGION_DEPLOYMENT=$(jq -r '.region' "$MC_CONFIG_FILE")
         echo "Extracted REGION_DEPLOYMENT from config: $REGION_DEPLOYMENT"
         export ENVIRONMENT="${ENVIRONMENT:-staging}"
+        export TF_VAR_sector="${SECTOR:-${ENVIRONMENT}}"
 
         set +e
         if [ "${IS_DESTROY:-false}" == "true" ]; then

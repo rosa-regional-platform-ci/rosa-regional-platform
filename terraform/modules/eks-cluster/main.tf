@@ -11,7 +11,7 @@
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "eks_cluster" {
-  name              = "/aws/eks/${local.resource_name_base}/cluster"
+  name              = "/aws/eks/${local.cluster_id}/cluster"
   retention_in_days = 30
 }
 
@@ -22,7 +22,7 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
 # Auto Mode requires specific configurations for authentication and bootstrapping.
 # -----------------------------------------------------------------------------
 resource "aws_eks_cluster" "main" {
-  name     = local.resource_name_base
+  name     = local.cluster_id
   role_arn = aws_iam_role.eks_cluster.arn
   version  = var.cluster_version
 

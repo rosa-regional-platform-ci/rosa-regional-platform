@@ -17,8 +17,8 @@ variable "private_subnet_ids" {
   }
 }
 
-variable "resource_name_base" {
-  description = "Base name for resources (e.g., 'regional-x8k2')"
+variable "regional_id" {
+  description = "Regional cluster identifier for resource naming"
   type        = string
 }
 

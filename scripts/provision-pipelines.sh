@@ -361,7 +361,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             APP_CODE=$(jq -r '.app_code // "infra"' "$mc_config")
             SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$mc_config")
             COST_CENTER=$(jq -r '.cost_center // "000"' "$mc_config")
-            CLUSTER_ID=$(jq -r '.cluster_id // ""' "$mc_config")
+            CLUSTER_ID=$(jq -r '.management_id // ""' "$mc_config")
             REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$mc_config")
             ENABLE_BASTION=$(jq -r '.enable_bastion // false' "$mc_config")
             DELETE_FLAG=$(jq -r '.delete // false' "$mc_config")
@@ -425,7 +425,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
             [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
             [ -n "$COST_CENTER" ] && TF_ARGS+=( -var="cost_center=${COST_CENTER}" )
-            [ -n "$CLUSTER_ID" ] && TF_ARGS+=( -var="cluster_id=${CLUSTER_ID}" )
+            [ -n "$CLUSTER_ID" ] && TF_ARGS+=( -var="management_id=${CLUSTER_ID}" )
             [ -n "$REGIONAL_AWS_ACCOUNT_ID" ] && TF_ARGS+=( -var="regional_aws_account_id=${REGIONAL_AWS_ACCOUNT_ID}" )
             # Handle enable_bastion (boolean, convert to Terraform boolean)
             if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then

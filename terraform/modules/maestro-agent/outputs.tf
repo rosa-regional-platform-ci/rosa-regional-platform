@@ -24,7 +24,7 @@ output "maestro_agent_config_secret_name" {
 
 output "cluster_id" {
   description = "Management cluster identifier"
-  value       = var.cluster_id
+  value       = var.management_id
 }
 
 output "pod_identity_association_id" {

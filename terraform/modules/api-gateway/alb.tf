@@ -12,14 +12,14 @@
 # -----------------------------------------------------------------------------
 
 resource "aws_lb" "platform" {
-  name               = "${var.resource_name_base}-api"
+  name               = "${var.regional_id}-api"
   internal           = true
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = var.private_subnet_ids
 
   tags = {
-    Name = "${var.resource_name_base}-api"
+    Name = "${var.regional_id}-api"
   }
 }
 
@@ -36,7 +36,7 @@ resource "aws_lb" "platform" {
 # -----------------------------------------------------------------------------
 
 resource "aws_lb_target_group" "platform" {
-  name        = "${var.resource_name_base}-api"
+  name        = "${var.regional_id}-api"
   port        = var.target_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -55,7 +55,7 @@ resource "aws_lb_target_group" "platform" {
   }
 
   tags = {
-    Name                   = "${var.resource_name_base}-api"
+    Name                   = "${var.regional_id}-api"
     "eks:eks-cluster-name" = var.cluster_name
   }
 }

@@ -374,7 +374,7 @@ resource "aws_codebuild_project" "management_apply" {
     # Logical ID for registering with Regional Cluster
     environment_variable {
       name  = "CLUSTER_ID"
-      value = var.cluster_id
+      value = var.management_id
     }
     # AWS account hosting the Regional Cluster
     environment_variable {
@@ -477,7 +477,7 @@ resource "aws_codebuild_project" "iot_mint" {
     # Management cluster identifier (used for IoT policy naming and SM secret paths)
     environment_variable {
       name  = "CLUSTER_ID"
-      value = var.cluster_id
+      value = var.management_id
     }
     # AWS account hosting the Regional Cluster (where IoT resources are created)
     environment_variable {
@@ -555,7 +555,7 @@ resource "aws_codebuild_project" "register" {
     # Logical ID for registering with Regional Cluster
     environment_variable {
       name  = "CLUSTER_ID"
-      value = var.cluster_id
+      value = var.management_id
     }
     # AWS account hosting the Regional Cluster
     environment_variable {

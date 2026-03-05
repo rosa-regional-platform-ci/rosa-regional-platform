@@ -1,5 +1,5 @@
-variable "resource_name_base" {
-  description = "Base name for all resources (e.g., 'regional-x8k2')"
+variable "cluster_id" {
+  description = "Unique identifier for the cluster, used as the base name for all resources."
   type        = string
 }
 

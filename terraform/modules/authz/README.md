@@ -53,7 +53,7 @@ The module provisions:
 module "authz" {
   source = "../../modules/authz"
 
-  resource_name_base = module.regional_cluster.resource_name_base
+  regional_id        = var.regional_id
   eks_cluster_name   = module.regional_cluster.cluster_name
 
   # Optional: Production settings
@@ -72,16 +72,16 @@ module "authz" {
 
 ## Inputs
 
-| Name                            | Description                       | Type          | Default             | Required |
-| ------------------------------- | --------------------------------- | ------------- | ------------------- | :------: |
-| `resource_name_base`            | Base name for all resources       | `string`      | -                   |   yes    |
-| `eks_cluster_name`              | EKS cluster name for Pod Identity | `string`      | -                   |   yes    |
-| `billing_mode`                  | DynamoDB billing mode             | `string`      | `"PAY_PER_REQUEST"` |    no    |
-| `enable_point_in_time_recovery` | Enable PITR for tables            | `bool`        | `false`             |    no    |
-| `enable_deletion_protection`    | Enable deletion protection        | `bool`        | `false`             |    no    |
-| `platform_api_namespace`        | K8s namespace for Platform API    | `string`      | `"platform-api"`    |    no    |
-| `platform_api_service_account`  | K8s service account name          | `string`      | `"platform-api-sa"` |    no    |
-| `tags`                          | Additional tags                   | `map(string)` | `{}`                |    no    |
+| Name                            | Description                                                        | Type          | Default             | Required |
+| ------------------------------- | ------------------------------------------------------------------ | ------------- | ------------------- | :------: |
+| `regional_id`                   | Regional cluster identifier for resource naming (e.g., `regional`) | `string`      | -                   |   yes    |
+| `eks_cluster_name`              | EKS cluster name for Pod Identity                                  | `string`      | -                   |   yes    |
+| `billing_mode`                  | DynamoDB billing mode                                              | `string`      | `"PAY_PER_REQUEST"` |    no    |
+| `enable_point_in_time_recovery` | Enable PITR for tables                                             | `bool`        | `false`             |    no    |
+| `enable_deletion_protection`    | Enable deletion protection                                         | `bool`        | `false`             |    no    |
+| `platform_api_namespace`        | K8s namespace for Platform API                                     | `string`      | `"platform-api"`    |    no    |
+| `platform_api_service_account`  | K8s service account name                                           | `string`      | `"platform-api-sa"` |    no    |
+| `tags`                          | Additional tags                                                    | `map(string)` | `{}`                |    no    |
 
 ## Outputs
 

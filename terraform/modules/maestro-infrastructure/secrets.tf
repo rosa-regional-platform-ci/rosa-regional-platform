@@ -11,7 +11,7 @@
 
 # MQTT Certificate Material for Maestro Server (sensitive)
 resource "aws_secretsmanager_secret" "maestro_server_cert" {
-  name                    = "maestro/server-cert"
+  name                    = "${var.regional_id}-maestro-server-cert"
   description             = "MQTT certificate material for Maestro Server"
   recovery_window_in_days = 0 # Force immediate deletion to allow quick recreation
 
@@ -36,7 +36,7 @@ resource "aws_secretsmanager_secret_version" "maestro_server_cert" {
 
 # MQTT Configuration for Maestro Server (non-sensitive)
 resource "aws_secretsmanager_secret" "maestro_server_config" {
-  name                    = "maestro/server-config"
+  name                    = "${var.regional_id}-maestro-server-config"
   description             = "MQTT configuration for Maestro Server"
   recovery_window_in_days = 0 # Force immediate deletion to allow quick recreation
 
@@ -73,14 +73,14 @@ resource "aws_secretsmanager_secret_version" "maestro_server_config" {
 
 # Database Credentials for Maestro Server
 resource "aws_secretsmanager_secret" "maestro_db_credentials" {
-  name                    = "maestro/db-credentials"
+  name                    = "${var.regional_id}-maestro-db-credentials"
   description             = "PostgreSQL database credentials for Maestro Server"
   recovery_window_in_days = 0 # Force immediate deletion to allow quick recreation
 
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-maestro-db-credentials"
+      Name      = "${var.regional_id}-maestro-db-credentials"
       Component = "maestro-server"
     }
   )

@@ -2,13 +2,13 @@
 # Maestro Agent Module - Input Variables
 # =============================================================================
 
-variable "cluster_id" {
-  description = "Management cluster identifier (e.g., 'management-01')"
+variable "management_id" {
+  description = "Management cluster identifier for resource naming (e.g., 'mc01')"
   type        = string
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.cluster_id))
-    error_message = "cluster_id must contain only lowercase letters, numbers, and hyphens"
+    condition     = can(regex("^[a-z0-9-]+$", var.management_id))
+    error_message = "management_id must contain only lowercase letters, numbers, and hyphens"
   }
 }
 

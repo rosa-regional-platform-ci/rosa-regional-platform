@@ -3,7 +3,7 @@
 # =============================================================================
 
 variable "management_cluster_id" {
-  description = "Management cluster identifier (e.g., 'management-01'). This is used as the consumer name and for IoT resource naming."
+  description = "Management cluster identifier (e.g., 'mc01'). This is used as the consumer name and for IoT resource naming."
   type        = string
 
   validation {

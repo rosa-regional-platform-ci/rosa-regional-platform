@@ -17,7 +17,7 @@ Provisions IAM roles and Pod Identity for Maestro Agent in management clusters t
 # 1. Receive cert.json from regional cluster operator
 # 2. Create secret in management cluster account
 aws secretsmanager create-secret \
-  --name "management-01/maestro/agent-mqtt-cert" \
+  --name "mc01-maestro-agent-cert" \
   --secret-string file://cert.json
 
 # 3. Securely delete local copy
@@ -34,7 +34,7 @@ shred -u cert.json
 module "maestro_agent" {
   source = "../../modules/maestro-agent"
 
-  cluster_id              = "management-01"
+  management_id           = "mc01"
   regional_aws_account_id = "123456789012"  # Regional cluster account
   eks_cluster_name        = module.management_cluster.cluster_name
 
@@ -56,14 +56,14 @@ output "maestro_agent_helm_values" {
 
 ## Variables
 
-| Name                      | Description                     | Type          | Default                                | Required |
-| ------------------------- | ------------------------------- | ------------- | -------------------------------------- | -------- |
-| `cluster_id`              | Management cluster identifier   | `string`      | n/a                                    | yes      |
-| `regional_aws_account_id` | Regional cluster AWS account ID | `string`      | n/a                                    | yes      |
-| `eks_cluster_name`        | EKS cluster name                | `string`      | n/a                                    | yes      |
-| `mqtt_cert_secret_name`   | Override default secret path    | `string`      | `{cluster_id}/maestro/agent-mqtt-cert` | no       |
-| `mqtt_topic_prefix`       | MQTT topic prefix               | `string`      | `sources/maestro/consumers`            | no       |
-| `tags`                    | Additional resource tags        | `map(string)` | `{}`                                   | no       |
+| Name                      | Description                                  | Type          | Default                              | Required |
+| ------------------------- | -------------------------------------------- | ------------- | ------------------------------------ | -------- |
+| `management_id`           | Management cluster identifier (e.g., `mc01`) | `string`      | n/a                                  | yes      |
+| `regional_aws_account_id` | Regional cluster AWS account ID              | `string`      | n/a                                  | yes      |
+| `eks_cluster_name`        | EKS cluster name                             | `string`      | n/a                                  | yes      |
+| `mqtt_cert_secret_name`   | Override default secret path                 | `string`      | `{management_id}-maestro-agent-cert` | no       |
+| `mqtt_topic_prefix`       | MQTT topic prefix                            | `string`      | `sources/maestro/consumers`          | no       |
+| `tags`                    | Additional resource tags                     | `map(string)` | `{}`                                 | no       |
 
 ## Outputs
 
@@ -86,7 +86,7 @@ output "maestro_agent_helm_values" {
 
 ```bash
 cd terraform/config/regional-cluster
-terraform output -json maestro_agent_certificates | jq '.["management-01"]' > cert.json
+terraform output -json maestro_agent_certificates | jq '.["mc01"]' > cert.json
 ```
 
 ### 2. Secure Transfer
@@ -97,7 +97,7 @@ Transfer `cert.json` to management operator via encrypted channel (GPG, AWS Secr
 
 ```bash
 aws secretsmanager create-secret \
-  --name "management-01/maestro/agent-mqtt-cert" \
+  --name "mc01-maestro-agent-cert" \
   --secret-string file://cert.json
 shred -u cert.json
 ```
@@ -130,7 +130,7 @@ terraform apply
 
 # 3. Management operator: Update secret (no Terraform needed)
 aws secretsmanager update-secret \
-  --secret-id "management-01/maestro/agent-mqtt-cert" \
+  --secret-id "mc01-maestro-agent-cert" \
   --secret-string file://new-cert.json
 
 # 4. AWS Secrets CSI Driver auto-remounts (~30s)

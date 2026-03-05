@@ -17,6 +17,8 @@ provider "aws" {
       app-code      = var.app_code
       service-phase = var.service_phase
       cost-center   = var.cost_center
+      environment   = var.environment
+      sector        = var.sector
     }
   }
 }
@@ -33,6 +35,7 @@ module "regional_cluster" {
 
   # Required variables
   cluster_type = "regional-cluster"
+  cluster_id   = var.regional_id
 }
 
 # Call the ECS bootstrap module for external bootstrap execution
@@ -44,7 +47,7 @@ module "ecs_bootstrap" {
   eks_cluster_arn               = module.regional_cluster.cluster_arn
   eks_cluster_name              = module.regional_cluster.cluster_name
   eks_cluster_security_group_id = module.regional_cluster.cluster_security_group_id
-  resource_name_base            = module.regional_cluster.resource_name_base
+  cluster_id                    = var.regional_id
   container_image               = var.container_image
 
   # ArgoCD bootstrap configuration
@@ -60,7 +63,7 @@ module "bastion" {
   count  = var.enable_bastion ? 1 : 0
   source = "../../modules/bastion"
 
-  resource_name_base        = module.regional_cluster.resource_name_base
+  cluster_id                = var.regional_id
   cluster_name              = module.regional_cluster.cluster_name
   cluster_endpoint          = module.regional_cluster.cluster_endpoint
   cluster_security_group_id = module.regional_cluster.cluster_security_group_id
@@ -78,7 +81,7 @@ module "api_gateway" {
 
   vpc_id                 = module.regional_cluster.vpc_id
   private_subnet_ids     = module.regional_cluster.private_subnets
-  resource_name_base     = module.regional_cluster.resource_name_base
+  regional_id            = var.regional_id
   node_security_group_id = module.regional_cluster.node_security_group_id
   cluster_name           = module.regional_cluster.cluster_name
 }
@@ -91,7 +94,7 @@ module "maestro_infrastructure" {
   source = "../../modules/maestro-infrastructure"
 
   # Required variables from EKS cluster
-  resource_name_base                    = module.regional_cluster.resource_name_base
+  regional_id                           = var.regional_id
   vpc_id                                = module.regional_cluster.vpc_id
   private_subnets                       = module.regional_cluster.private_subnets
   eks_cluster_name                      = module.regional_cluster.cluster_name
@@ -118,8 +121,8 @@ module "maestro_infrastructure" {
 module "authz" {
   source = "../../modules/authz"
 
-  resource_name_base = module.regional_cluster.resource_name_base
-  eks_cluster_name   = module.regional_cluster.cluster_name
+  regional_id      = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
 
   # DynamoDB configuration
   billing_mode                  = var.authz_billing_mode
@@ -144,7 +147,7 @@ module "hyperfleet_infrastructure" {
   source = "../../modules/hyperfleet-infrastructure"
 
   # Required variables from EKS cluster
-  resource_name_base                    = module.regional_cluster.resource_name_base
+  regional_id                           = var.regional_id
   vpc_id                                = module.regional_cluster.vpc_id
   private_subnets                       = module.regional_cluster.private_subnets
   eks_cluster_name                      = module.regional_cluster.cluster_name

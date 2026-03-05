@@ -16,12 +16,12 @@ resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr # Recommended: 10.0.0.0/16
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags                 = { Name = "${local.resource_name_base}-vpc" }
+  tags                 = { Name = "${local.cluster_id}-vpc" }
 }
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
-  tags   = { Name = "${local.resource_name_base}-igw" }
+  tags   = { Name = "${local.cluster_id}-igw" }
 }
 
 # -----------------------------------------------------------------------------
@@ -39,7 +39,7 @@ resource "aws_subnet" "public" {
   availability_zone = local.azs[count.index]
 
   tags = {
-    Name                     = "${local.resource_name_base}-public-${local.azs[count.index]}"
+    Name                     = "${local.cluster_id}-public-${local.azs[count.index]}"
     "kubernetes.io/role/elb" = "1"
   }
 }
@@ -52,9 +52,9 @@ resource "aws_subnet" "private" {
   availability_zone = local.azs[count.index]
 
   tags = {
-    Name                                                = "${local.resource_name_base}-private-${local.azs[count.index]}"
-    "kubernetes.io/role/internal-elb"                   = "1"
-    "kubernetes.io/cluster/${local.resource_name_base}" = "owned"
+    Name                                        = "${local.cluster_id}-private-${local.azs[count.index]}"
+    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/cluster/${local.cluster_id}" = "owned"
   }
 }
 
@@ -71,7 +71,7 @@ resource "aws_eip" "nat" {
   count  = length(aws_subnet.public)
   domain = "vpc"
   tags = {
-    Name = "${local.resource_name_base}-nat-eip-${local.azs[count.index]}"
+    Name = "${local.cluster_id}-nat-eip-${local.azs[count.index]}"
   }
 }
 
@@ -81,7 +81,7 @@ resource "aws_nat_gateway" "main" {
   subnet_id     = aws_subnet.public[count.index].id
   depends_on    = [aws_internet_gateway.main]
   tags = {
-    Name = "${local.resource_name_base}-nat-gw-${local.azs[count.index]}"
+    Name = "${local.cluster_id}-nat-gw-${local.azs[count.index]}"
   }
 }
 
@@ -100,7 +100,7 @@ resource "aws_vpc_endpoint" "s3" {
   service_name      = "com.amazonaws.${data.aws_region.current.id}.s3"
   vpc_endpoint_type = "Gateway"
   route_table_ids   = aws_route_table.private[*].id
-  tags              = { Name = "${local.resource_name_base}-s3-endpoint" }
+  tags              = { Name = "${local.cluster_id}-s3-endpoint" }
 }
 
 # Interface Endpoints (Keep EKS, ECR, and STS traffic off the NAT)
@@ -116,7 +116,7 @@ resource "aws_vpc_endpoint" "interfaces" {
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
-  tags                = { Name = "${local.resource_name_base}-${each.value}-endpoint" }
+  tags                = { Name = "${local.cluster_id}-${each.value}-endpoint" }
 }
 
 # -----------------------------------------------------------------------------
@@ -133,7 +133,7 @@ resource "aws_route_table" "public" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
-  tags = { Name = "${local.resource_name_base}-public-rt" }
+  tags = { Name = "${local.cluster_id}-public-rt" }
 }
 
 # Create separate route table for each AZ to route to its local NAT Gateway
@@ -147,7 +147,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = {
-    Name = "${local.resource_name_base}-private-rt-${local.azs[count.index]}"
+    Name = "${local.cluster_id}-private-rt-${local.azs[count.index]}"
   }
 }
 
@@ -173,18 +173,18 @@ resource "aws_route_table_association" "private" {
 # -----------------------------------------------------------------------------
 
 resource "aws_security_group" "eks_cluster" {
-  name        = "${local.resource_name_base}-cluster-sg"
+  name        = "${local.cluster_id}-cluster-sg"
   description = "EKS cluster control plane security group"
   vpc_id      = aws_vpc.main.id
-  tags        = { Name = "${local.resource_name_base}-cluster-sg" }
+  tags        = { Name = "${local.cluster_id}-cluster-sg" }
 }
 
 # Dedicated security group for VPC endpoints
 resource "aws_security_group" "vpc_endpoints" {
-  name        = "${local.resource_name_base}-vpc-endpoints-sg"
+  name        = "${local.cluster_id}-vpc-endpoints-sg"
   description = "Security group for VPC interface endpoints"
   vpc_id      = aws_vpc.main.id
-  tags        = { Name = "${local.resource_name_base}-vpc-endpoints-sg" }
+  tags        = { Name = "${local.cluster_id}-vpc-endpoints-sg" }
 }
 
 resource "aws_vpc_security_group_ingress_rule" "vpc_endpoints_https" {

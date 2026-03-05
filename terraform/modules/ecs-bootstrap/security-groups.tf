@@ -2,7 +2,7 @@
 
 # Security group for bootstrap ECS tasks
 resource "aws_security_group" "bootstrap_task" {
-  name_prefix = "${var.resource_name_base}-bootstrap-task"
+  name_prefix = "${var.cluster_id}-bootstrap-task"
   description = "Security group for ArgoCD bootstrap ECS tasks"
   vpc_id      = var.vpc_id
 }

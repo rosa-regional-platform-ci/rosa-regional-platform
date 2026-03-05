@@ -17,6 +17,8 @@ provider "aws" {
       app-code      = var.app_code
       service-phase = var.service_phase
       cost-center   = var.cost_center
+      environment   = var.environment
+      sector        = var.sector
     }
   }
 }
@@ -26,8 +28,8 @@ module "management_cluster" {
   source = "../../modules/eks-cluster"
 
   # Required variables
-  cluster_type          = "management-cluster"
-  cluster_name_override = var.cluster_id
+  cluster_type = "management-cluster"
+  cluster_id   = var.management_id
 
   # Management cluster sizing
   node_group_min_size     = 1
@@ -44,7 +46,7 @@ module "ecs_bootstrap" {
   eks_cluster_arn               = module.management_cluster.cluster_arn
   eks_cluster_name              = module.management_cluster.cluster_name
   eks_cluster_security_group_id = module.management_cluster.cluster_security_group_id
-  resource_name_base            = module.management_cluster.resource_name_base
+  cluster_id                    = var.management_id
   container_image               = var.container_image
 
   # ArgoCD bootstrap configuration
@@ -60,7 +62,7 @@ module "bastion" {
   count  = var.enable_bastion ? 1 : 0
   source = "../../modules/bastion"
 
-  resource_name_base        = module.management_cluster.resource_name_base
+  cluster_id                = var.management_id
   cluster_name              = module.management_cluster.cluster_name
   cluster_endpoint          = module.management_cluster.cluster_endpoint
   cluster_security_group_id = module.management_cluster.cluster_security_group_id
@@ -72,7 +74,7 @@ module "bastion" {
 module "maestro_agent" {
   source = "../../modules/maestro-agent"
 
-  cluster_id              = var.cluster_id
+  management_id           = var.management_id
   regional_aws_account_id = var.regional_aws_account_id
   eks_cluster_name        = module.management_cluster.cluster_name
 

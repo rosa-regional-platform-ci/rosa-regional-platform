@@ -15,7 +15,7 @@ resource "random_password" "mq_password" {
 
 # Security Group for Amazon MQ - only allow access from EKS cluster
 resource "aws_security_group" "hyperfleet_mq" {
-  name        = "${var.resource_name_base}-hyperfleet-mq"
+  name        = "${var.regional_id}-hyperfleet-mq"
   description = "Security group for HyperFleet Amazon MQ broker"
   vpc_id      = var.vpc_id
 
@@ -63,7 +63,7 @@ resource "aws_security_group" "hyperfleet_mq" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-mq-sg"
+      Name      = "${var.regional_id}-hyperfleet-mq-sg"
       Component = "hyperfleet-sentinel"
     }
   )
@@ -71,7 +71,7 @@ resource "aws_security_group" "hyperfleet_mq" {
 
 # Amazon MQ Broker
 resource "aws_mq_broker" "hyperfleet" {
-  broker_name = "${var.resource_name_base}-hyperfleet"
+  broker_name = "${var.regional_id}-hyperfleet"
 
   # Engine configuration
   engine_type    = "RabbitMQ"
@@ -118,7 +118,7 @@ resource "aws_mq_broker" "hyperfleet" {
   tags = merge(
     local.common_tags,
     {
-      Name      = "${var.resource_name_base}-hyperfleet-mq"
+      Name      = "${var.regional_id}-hyperfleet-mq"
       Component = "hyperfleet-sentinel"
     }
   )

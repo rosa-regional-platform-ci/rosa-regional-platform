@@ -4,7 +4,7 @@
 
 # IAM role for Maestro Agent with Pod Identity
 resource "aws_iam_role" "maestro_agent" {
-  name        = "${var.cluster_id}-maestro-agent"
+  name        = "${var.management_id}-maestro-agent"
   description = "IAM role for Maestro Agent with access to local Secrets Manager and regional IoT Core"
 
   assume_role_policy = jsonencode({
@@ -24,14 +24,14 @@ resource "aws_iam_role" "maestro_agent" {
   tags = merge(
     local.common_tags,
     {
-      Name = "${var.cluster_id}-maestro-agent-role"
+      Name = "${var.management_id}-maestro-agent-role"
     }
   )
 }
 
 # Policy: Read local Secrets Manager (certificate and configuration)
 resource "aws_iam_role_policy" "maestro_agent_secrets" {
-  name = "${var.cluster_id}-maestro-agent-secrets"
+  name = "${var.management_id}-maestro-agent-secrets"
   role = aws_iam_role.maestro_agent.id
 
   policy = jsonencode({
@@ -52,7 +52,7 @@ resource "aws_iam_role_policy" "maestro_agent_secrets" {
 
 # Policy: Connect to regional IoT Core
 resource "aws_iam_role_policy" "maestro_agent_iot" {
-  name = "${var.cluster_id}-maestro-agent-iot"
+  name = "${var.management_id}-maestro-agent-iot"
   role = aws_iam_role.maestro_agent.id
 
   policy = jsonencode({
@@ -67,9 +67,9 @@ resource "aws_iam_role_policy" "maestro_agent_iot" {
       ]
       Resource = [
         # IoT Core resources are in the REGIONAL account
-        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:client/${var.cluster_id}-maestro-agent-*",
-        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topic/${var.mqtt_topic_prefix}/${var.cluster_id}/*",
-        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topicfilter/${var.mqtt_topic_prefix}/${var.cluster_id}/*"
+        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:client/${var.management_id}-maestro-agent-*",
+        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topic/${var.mqtt_topic_prefix}/${var.management_id}/*",
+        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topicfilter/${var.mqtt_topic_prefix}/${var.management_id}/*"
       ]
     }]
   })
@@ -85,7 +85,7 @@ resource "aws_eks_pod_identity_association" "maestro_agent" {
   tags = merge(
     local.common_tags,
     {
-      Name = "${var.cluster_id}-maestro-agent-pod-identity"
+      Name = "${var.management_id}-maestro-agent-pod-identity"
     }
   )
 }

@@ -78,9 +78,9 @@ variable "repository_branch" {
   default     = "main"
 }
 
-variable "cluster_id" {
+variable "management_id" {
   type        = string
-  description = "Logical cluster ID for Maestro registration"
+  description = "Management cluster identifier for resource naming (e.g., 'mc01')"
 }
 
 variable "regional_aws_account_id" {

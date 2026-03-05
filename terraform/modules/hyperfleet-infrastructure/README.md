@@ -56,9 +56,9 @@ HyperFleet is the cluster lifecycle management system that orchestrates ROSA HCP
 
 ### Secrets Management
 
-- **DB Credentials Secret**: `hyperfleet/db-credentials`
+- **DB Credentials Secret**: `{regional_id}-hyperfleet-db-credentials`
   - Contains: username, password, host, port, database
-- **MQ Credentials Secret**: `hyperfleet/mq-credentials`
+- **MQ Credentials Secret**: `{regional_id}-hyperfleet-mq-credentials`
   - Contains: username, password, host, port, url (amqps://)
 - **Recovery**: 0-day recovery window for quick recreation in dev
 
@@ -83,10 +83,10 @@ module "hyperfleet_infrastructure" {
   source = "../../modules/hyperfleet-infrastructure"
 
   # Required from EKS cluster
-  resource_name_base                    = "regional-x8k2"
+  regional_id                           = "regional"
   vpc_id                                = "vpc-xxxxx"
   private_subnets                       = ["subnet-xxxxx", "subnet-yyyyy"]
-  eks_cluster_name                      = "regional-x8k2"
+  eks_cluster_name                      = "regional"
   eks_cluster_security_group_id         = "sg-xxxxx"
   eks_cluster_primary_security_group_id = "sg-yyyyy"
 }
@@ -116,20 +116,20 @@ module "hyperfleet_infrastructure" {
 
 ## Inputs
 
-| Name                                  | Description                             | Type         | Default         | Required |
-| ------------------------------------- | --------------------------------------- | ------------ | --------------- | -------- |
-| resource_name_base                    | Base name for all resources             | string       | -               | yes      |
-| vpc_id                                | VPC ID where resources will be deployed | string       | -               | yes      |
-| private_subnets                       | List of private subnet IDs              | list(string) | -               | yes      |
-| eks_cluster_name                      | EKS cluster name for Pod Identity       | string       | -               | yes      |
-| eks_cluster_security_group_id         | EKS cluster additional SG ID            | string       | -               | yes      |
-| eks_cluster_primary_security_group_id | EKS cluster primary SG ID               | string       | -               | yes      |
-| bastion_security_group_id             | Optional bastion SG ID                  | string       | null            | no       |
-| db_instance_class                     | RDS instance class                      | string       | db.t4g.micro    | no       |
-| db_multi_az                           | Enable Multi-AZ for RDS                 | bool         | false           | no       |
-| db_deletion_protection                | Enable deletion protection              | bool         | false           | no       |
-| mq_instance_type                      | Amazon MQ instance type                 | string       | mq.t3.micro     | no       |
-| mq_deployment_mode                    | Amazon MQ deployment mode               | string       | SINGLE_INSTANCE | no       |
+| Name                                  | Description                                                        | Type         | Default         | Required |
+| ------------------------------------- | ------------------------------------------------------------------ | ------------ | --------------- | -------- |
+| regional_id                           | Regional cluster identifier for resource naming (e.g., `regional`) | string       | -               | yes      |
+| vpc_id                                | VPC ID where resources will be deployed                            | string       | -               | yes      |
+| private_subnets                       | List of private subnet IDs                                         | list(string) | -               | yes      |
+| eks_cluster_name                      | EKS cluster name for Pod Identity                                  | string       | -               | yes      |
+| eks_cluster_security_group_id         | EKS cluster additional SG ID                                       | string       | -               | yes      |
+| eks_cluster_primary_security_group_id | EKS cluster primary SG ID                                          | string       | -               | yes      |
+| bastion_security_group_id             | Optional bastion SG ID                                             | string       | null            | no       |
+| db_instance_class                     | RDS instance class                                                 | string       | db.t4g.micro    | no       |
+| db_multi_az                           | Enable Multi-AZ for RDS                                            | bool         | false           | no       |
+| db_deletion_protection                | Enable deletion protection                                         | bool         | false           | no       |
+| mq_instance_type                      | Amazon MQ instance type                                            | string       | mq.t3.micro     | no       |
+| mq_deployment_mode                    | Amazon MQ deployment mode                                          | string       | SINGLE_INSTANCE | no       |
 
 ## Outputs
 

@@ -23,8 +23,7 @@ module "ecs_bootstrap" {
   eks_cluster_arn              = module.eks_cluster.cluster_arn
   eks_cluster_name             = module.eks_cluster.cluster_name
   eks_cluster_security_group_id = module.eks_cluster.cluster_security_group_id
-  resource_name_base           = module.eks_cluster.resource_name_base
-  environment                  = var.environment
+  cluster_id                   = var.regional_id  # or var.management_id
 }
 ```
 
@@ -48,15 +47,15 @@ module "ecs_bootstrap" {
 
 ## Inputs
 
-| Name                          | Description                                  | Type           | Default | Required |
-| ----------------------------- | -------------------------------------------- | -------------- | ------- | :------: |
-| resource_name_base            | Base name for all resources                  | `string`       | n/a     |   yes    |
-| vpc_id                        | VPC ID for ECS task execution                | `string`       | n/a     |   yes    |
-| private_subnets               | Private subnet IDs for task execution        | `list(string)` | n/a     |   yes    |
-| eks_cluster_arn               | EKS cluster ARN for bootstrap configuration  | `string`       | n/a     |   yes    |
-| eks_cluster_name              | EKS cluster name for bootstrap configuration | `string`       | n/a     |   yes    |
-| eks_cluster_security_group_id | EKS cluster security group ID                | `string`       | n/a     |   yes    |
-| environment                   | Environment name for tagging                 | `string`       | `"dev"` |    no    |
+| Name                          | Description                                                       | Type           | Default | Required |
+| ----------------------------- | ----------------------------------------------------------------- | -------------- | ------- | :------: |
+| cluster_id                    | Cluster identifier for resource naming (e.g., `regional`, `mc01`) | `string`       | n/a     |   yes    |
+| vpc_id                        | VPC ID for ECS task execution                                     | `string`       | n/a     |   yes    |
+| private_subnets               | Private subnet IDs for task execution                             | `list(string)` | n/a     |   yes    |
+| eks_cluster_arn               | EKS cluster ARN for bootstrap configuration                       | `string`       | n/a     |   yes    |
+| eks_cluster_name              | EKS cluster name for bootstrap configuration                      | `string`       | n/a     |   yes    |
+| eks_cluster_security_group_id | EKS cluster security group ID                                     | `string`       | n/a     |   yes    |
+| environment                   | Environment name for tagging                                      | `string`       | `"dev"` |    no    |
 
 ## Outputs
 

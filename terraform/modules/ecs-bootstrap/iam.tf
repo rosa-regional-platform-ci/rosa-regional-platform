@@ -2,7 +2,7 @@
 
 # ECS Task Execution Role - for pulling images and writing logs
 resource "aws_iam_role" "execution" {
-  name = "${var.resource_name_base}-bootstrap-execution"
+  name = "${var.cluster_id}-bootstrap-execution"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -26,7 +26,7 @@ resource "aws_iam_role_policy_attachment" "execution" {
 
 # ECS Task Role - for accessing EKS and other AWS services during bootstrap
 resource "aws_iam_role" "task" {
-  name = "${var.resource_name_base}-bootstrap-task"
+  name = "${var.cluster_id}-bootstrap-task"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -44,7 +44,7 @@ resource "aws_iam_role" "task" {
 
 # Policy for EKS cluster access and ArgoCD bootstrap operations
 resource "aws_iam_role_policy" "task_bootstrap" {
-  name = "${var.resource_name_base}-bootstrap-policy"
+  name = "${var.cluster_id}-bootstrap-policy"
   role = aws_iam_role.task.id
 
   policy = jsonencode({
@@ -71,7 +71,7 @@ resource "aws_iam_role_policy" "task_bootstrap" {
           "ssm:GetParametersByPath"
         ]
         Resource = [
-          "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.resource_name_base}/*",
+          "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/${var.cluster_id}/*",
           "arn:aws:ssm:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:parameter/argocd/*"
         ]
       },
@@ -81,7 +81,7 @@ resource "aws_iam_role_policy" "task_bootstrap" {
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = "arn:aws:secretsmanager:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:secret:${var.resource_name_base}/*"
+        Resource = "arn:aws:secretsmanager:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:secret:${var.cluster_id}/*"
       }
     ]
   })

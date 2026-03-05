@@ -111,7 +111,7 @@ The following diagram shows all AWS components and their relationships across Re
 graph TB
     subgraph Regional["Regional AWS Account (123456789012)"]
         subgraph RegVPC["VPC: 10.0.0.0/16"]
-            subgraph RegEKS["EKS Cluster: regional-us-east-1"]
+            subgraph RegEKS["EKS Cluster: regional"]
                 Server["Maestro Server<br/>───────────<br/>Replicas: 2<br/>Ports: 8080(HTTP), 8090(gRPC)<br/>ServiceAccount: maestro-server"]
                 ASCP_S["AWS Secrets Store<br/>CSI Driver<br/>Mount: /mnt/secrets-store"]
 
@@ -128,12 +128,12 @@ graph TB
         IoT["AWS IoT Core<br/>───────────<br/>Endpoint: *.iot.us-east-1.amazonaws.com:8883<br/>Auth: X.509 Certificates<br/>Protocol: MQTT TLS"]
 
         subgraph SM_Reg["AWS Secrets Manager"]
-            SM_Server["regional-us-east-1/maestro/<br/>server-mqtt-cert<br/>(cert + key)"]
-            SM_DB["regional-us-east-1/maestro/<br/>db-credentials<br/>(host, port, user, pass)"]
-            SM_Consumers["regional-us-east-1/maestro/<br/>consumers<br/>(pre-provisioned metadata)"]
+            SM_Server["regional-maestro-server-cert<br/>(cert + key)"]
+            SM_DB["regional-maestro-db-credentials<br/>(host, port, user, pass)"]
+            SM_Consumers["regional-maestro-consumers<br/>(pre-provisioned metadata)"]
         end
 
-        IAM_Server["IAM Role<br/>regional-us-east-1-maestro-server<br/>───────────<br/>Permissions:<br/>• IoT: Connect, Publish, Subscribe<br/>• RDS: Connect<br/>• Secrets: GetSecretValue"]
+        IAM_Server["IAM Role<br/>regional-maestro-server<br/>───────────<br/>Permissions:<br/>• IoT: Connect, Publish, Subscribe<br/>• RDS: Connect<br/>• Secrets: GetSecretValue"]
 
         Server -->|Pod Identity| IAM_Server
         IAM_Server -->|Read| SM_Server
@@ -148,17 +148,17 @@ graph TB
 
     subgraph Mgmt1["Management AWS Account (987654321098)"]
         subgraph MgmtVPC1["VPC: 10.1.0.0/16"]
-            subgraph MgmtEKS1["EKS Cluster: management-01"]
-                Agent1["Maestro Agent<br/>───────────<br/>Replicas: 1<br/>Consumer: management-01<br/>ServiceAccount: maestro-agent"]
+            subgraph MgmtEKS1["EKS Cluster: mc01"]
+                Agent1["Maestro Agent<br/>───────────<br/>Replicas: 1<br/>Consumer: mc01<br/>ServiceAccount: maestro-agent"]
                 ASCP_A1["AWS Secrets Store<br/>CSI Driver<br/>Mount: /mnt/secrets-store"]
 
                 Agent1 -->|Mounts| ASCP_A1
             end
         end
 
-        SM_Agent1["AWS Secrets Manager<br/>management-01/maestro/<br/>agent-mqtt-cert<br/>(manually created)"]
+        SM_Agent1["AWS Secrets Manager<br/>mc01-maestro-agent-cert<br/>(manually created)"]
 
-        IAM_Agent1["IAM Role<br/>management-01-maestro-agent<br/>───────────<br/>Permissions:<br/>• IoT: Connect to Regional IoT (cross-account)<br/>• Secrets: GetSecretValue (local)<br/>Trust: pods.eks.amazonaws.com (same account)"]
+        IAM_Agent1["IAM Role<br/>mc01-maestro-agent<br/>───────────<br/>Permissions:<br/>• IoT: Connect to Regional IoT (cross-account)<br/>• Secrets: GetSecretValue (local)<br/>Trust: pods.eks.amazonaws.com (same account)"]
 
         Agent1 -->|Pod Identity<br/>Same Account| IAM_Agent1
         IAM_Agent1 -->|Read<br/>Local Secret| SM_Agent1
@@ -168,17 +168,17 @@ graph TB
 
     subgraph Mgmt2["Management AWS Account (234567890123)"]
         subgraph MgmtVPC2["VPC: 10.2.0.0/16"]
-            subgraph MgmtEKS2["EKS Cluster: management-02"]
-                Agent2["Maestro Agent<br/>───────────<br/>Replicas: 1<br/>Consumer: management-02<br/>ServiceAccount: maestro-agent"]
+            subgraph MgmtEKS2["EKS Cluster: mc02"]
+                Agent2["Maestro Agent<br/>───────────<br/>Replicas: 1<br/>Consumer: mc02<br/>ServiceAccount: maestro-agent"]
                 ASCP_A2["AWS Secrets Store<br/>CSI Driver"]
 
                 Agent2 -->|Mounts| ASCP_A2
             end
         end
 
-        SM_Agent2["AWS Secrets Manager<br/>management-02/maestro/<br/>agent-mqtt-cert<br/>(manually created)"]
+        SM_Agent2["AWS Secrets Manager<br/>mc02-maestro-agent-cert<br/>(manually created)"]
 
-        IAM_Agent2["IAM Role<br/>management-02-maestro-agent<br/>───────────<br/>Trust: pods.eks.amazonaws.com (same account)"]
+        IAM_Agent2["IAM Role<br/>mc02-maestro-agent<br/>───────────<br/>Trust: pods.eks.amazonaws.com (same account)"]
 
         Agent2 -->|Pod Identity<br/>Same Account| IAM_Agent2
         IAM_Agent2 -->|Read<br/>Local Secret| SM_Agent2
@@ -229,7 +229,7 @@ sequenceDiagram
     Note over Agent: Agent reads from Management account Secrets Manager
     Agent->>Agent: Read agent MQTT cert via ASCP (local)
     Agent->>IoT: Connect with X.509 cert (cross-account via IAM)
-    Agent->>IoT: Subscribe to topic:<br/>sources/maestro/consumers/management-01/sourceevents
+    Agent->>IoT: Subscribe to topic:<br/>sources/maestro/consumers/mc01/sourceevents
 
     Note over User,K8s: ManifestWork Creation
     User->>API: POST /api/maestro/v1/resources<br/>ManifestWork manifest
@@ -237,7 +237,7 @@ sequenceDiagram
     Server->>DB: Store ManifestWork (status: pending)
     DB-->>Server: Stored (ID: abc123)
     Server->>Server: Wrap in CloudEvent envelope
-    Server->>IoT: Publish to topic:<br/>sources/maestro/consumers/management-01/sourceevents
+    Server->>IoT: Publish to topic:<br/>sources/maestro/consumers/mc01/sourceevents
 
     Note over User,K8s: Message Delivery
     IoT->>Agent: Deliver MQTT message
@@ -249,7 +249,7 @@ sequenceDiagram
 
     Note over User,K8s: Status Reporting
     Agent->>Agent: Wrap status in CloudEvent
-    Agent->>IoT: Publish to topic:<br/>sources/maestro/consumers/management-01/agentevents
+    Agent->>IoT: Publish to topic:<br/>sources/maestro/consumers/mc01/agentevents
     IoT->>Server: Deliver status message
     Server->>Server: Parse status CloudEvent
     Server->>DB: Update ManifestWork<br/>(status: Applied)
@@ -312,9 +312,9 @@ graph TB
 
 **Topic Examples:**
 
-- **Server publishes to**: `sources/maestro/consumers/management-01/sourceevents`
-- **Agent subscribes to**: `sources/maestro/consumers/management-01/sourceevents`
-- **Agent publishes to**: `sources/maestro/consumers/management-01/agentevents`
+- **Server publishes to**: `sources/maestro/consumers/mc01/sourceevents`
+- **Agent subscribes to**: `sources/maestro/consumers/mc01/sourceevents`
+- **Agent publishes to**: `sources/maestro/consumers/mc01/agentevents`
 - **Server subscribes to**: `sources/maestro/consumers/+/agentevents` (wildcard)
 
 **Topic Security Model:**
@@ -354,22 +354,22 @@ The following diagram shows detailed IAM role configuration, Pod Identity associ
 ```mermaid
 graph TB
     subgraph "Regional AWS Account (123456789012)"
-        subgraph "Regional EKS Cluster (regional-us-east-1)"
+        subgraph "Regional EKS Cluster (regional)"
             MS[Maestro Server<br/>ServiceAccount]
             ASCP_RC[AWS Secrets Store<br/>CSI Driver]
 
-            MS -->|Pod Identity| MSRole[IAM Role:<br/>regional-us-east-1-maestro-server]
+            MS -->|Pod Identity| MSRole[IAM Role:<br/>regional-maestro-server]
             MS -->|Volume Mount| ASCP_RC
         end
 
         subgraph "AWS Secrets Manager (Regional Account)"
-            SecretDB[(Secret:<br/>regional-us-east-1/maestro/db-credentials)]
-            SecretMQTTServer[(Secret:<br/>regional-us-east-1/maestro/server-mqtt-cert)]
+            SecretDB[(Secret:<br/>regional-maestro-db-credentials)]
+            SecretMQTTServer[(Secret:<br/>regional-maestro-server-cert)]
         end
 
         subgraph "AWS IoT Core (Regional Account)"
-            IoTThing1[IoT Thing:<br/>regional-us-east-1-maestro-server]
-            IoTThing2[IoT Thing:<br/>management-01-maestro-agent]
+            IoTThing1[IoT Thing:<br/>regional-maestro-server]
+            IoTThing2[IoT Thing:<br/>mc01-maestro-agent]
             IoTBroker[MQTT Broker<br/>Port 8883]
 
             IoTThing1 -->|publishes to| IoTBroker
@@ -387,16 +387,16 @@ graph TB
     end
 
     subgraph "Management AWS Account (987654321098)"
-        subgraph "Management EKS Cluster (management-01)"
+        subgraph "Management EKS Cluster (mc01)"
             MA[Maestro Agent<br/>ServiceAccount]
             ASCP_MC[AWS Secrets Store<br/>CSI Driver]
 
-            MA -->|Pod Identity| MARole[IAM Role:<br/>management-01-maestro-agent<br/>SAME ACCOUNT]
+            MA -->|Pod Identity| MARole[IAM Role:<br/>mc01-maestro-agent<br/>SAME ACCOUNT]
             MA -->|Volume Mount| ASCP_MC
         end
 
         subgraph "AWS Secrets Manager (Management Account)"
-            SecretMQTTAgentLocal[(Secret:<br/>management-01/maestro/agent-mqtt-cert<br/>Manually Created)]
+            SecretMQTTAgentLocal[(Secret:<br/>mc01-maestro-agent-cert<br/>Manually Created)]
         end
 
         MARole -->|GetSecretValue<br/>Same Account| SecretMQTTAgentLocal
@@ -427,7 +427,7 @@ sequenceDiagram
     Note over MC,SM: Pod Identity Same-Account Flow
 
     MC->>ASCP: Mount secret volume
-    ASCP->>STS: AssumeRole(management-01-maestro-agent)<br/>Source Account: 987654321098
+    ASCP->>STS: AssumeRole(mc01-maestro-agent)<br/>Source Account: 987654321098
 
     STS->>STS: Verify Pod Identity Token
 
@@ -435,7 +435,7 @@ sequenceDiagram
 
     STS-->>ASCP: Temporary credentials for role
 
-    ASCP->>SM: GetSecretValue(management-01/maestro/agent-mqtt-cert)<br/>Same Account
+    ASCP->>SM: GetSecretValue(mc01-maestro-agent-cert)<br/>Same Account
 
     Note over SM: No resource policy needed:<br/>Same-account IAM permissions apply
 
@@ -486,7 +486,7 @@ graph LR
 
 **Regional Account (123456789012)**
 
-**IAM Role:** `regional-us-east-1-maestro-server`
+**IAM Role:** `regional-maestro-server`
 
 - Access to IoT Core (connect, publish, subscribe)
 - Access to RDS (connect, read, write)
@@ -517,7 +517,7 @@ graph LR
 
 **Management Account (987654321098)**
 
-**IAM Role:** `management-01-maestro-agent`
+**IAM Role:** `mc01-maestro-agent`
 
 - Created in **Management Account** (same account as cluster)
 - Accesses local Secrets Manager (same-account)
@@ -534,10 +534,10 @@ graph LR
 ```hcl
 # In Management Cluster Terraform
 resource "aws_eks_pod_identity_association" "maestro_agent" {
-  cluster_name    = "management-01"
+  cluster_name    = "mc01"
   namespace       = "maestro"
   service_account = "maestro-agent"
-  role_arn        = "arn:aws:iam::987654321098:role/management-01-maestro-agent"
+  role_arn        = "arn:aws:iam::987654321098:role/mc01-maestro-agent"
   # ↑ Role is in SAME account as management cluster
 }
 ```
@@ -553,15 +553,15 @@ resource "aws_eks_pod_identity_association" "maestro_agent" {
         "secretsmanager:GetSecretValue",
         "secretsmanager:DescribeSecret"
       ],
-      "Resource": "arn:aws:secretsmanager:*:987654321098:secret:management-01/maestro/agent-mqtt-cert*"
+      "Resource": "arn:aws:secretsmanager:*:987654321098:secret:mc01-maestro-agent-cert*"
     },
     {
       "Effect": "Allow",
       "Action": ["iot:Connect", "iot:Subscribe", "iot:Receive", "iot:Publish"],
       "Resource": [
-        "arn:aws:iot:us-east-1:123456789012:client/management-01-*",
-        "arn:aws:iot:us-east-1:123456789012:topic/sources/maestro/consumers/management-01/*",
-        "arn:aws:iot:us-east-1:123456789012:topicfilter/sources/maestro/consumers/management-01/*"
+        "arn:aws:iot:us-east-1:123456789012:client/mc01-*",
+        "arn:aws:iot:us-east-1:123456789012:topic/sources/maestro/consumers/mc01/*",
+        "arn:aws:iot:us-east-1:123456789012:topicfilter/sources/maestro/consumers/mc01/*"
       ]
     }
   ]
@@ -637,8 +637,8 @@ sequenceDiagram
 
     Note over RegOp,AWS_M: Phase 2: Certificate Extraction
     RegOp->>RegTF: terraform output -json<br/>maestro_agent_certificates
-    RegTF-->>RegOp: {"management-01": {<br/>"certificateArn": "...",<br/>"certificatePem": "...",<br/>"privateKey": "...",<br/>"endpoint": "..."}}
-    RegOp->>RegOp: jq '["management-01"]' > cert.json
+    RegTF-->>RegOp: {"mc01": {<br/>"certificateArn": "...",<br/>"certificatePem": "...",<br/>"privateKey": "...",<br/>"endpoint": "..."}}
+    RegOp->>RegOp: jq '["mc01"]' > cert.json
     RegOp->>RegOp: Encrypt cert.json
 
     Note over RegOp,AWS_M: Phase 3: Secure Transfer
@@ -647,7 +647,7 @@ sequenceDiagram
     MgmtOp->>MgmtOp: Decrypt cert.json
 
     Note over RegOp,AWS_M: Phase 4: Management Cluster Secret
-    MgmtOp->>MgmtCLI: aws secretsmanager create-secret<br/>--name management-01/maestro/agent-mqtt-cert<br/>--secret-string file://cert.json
+    MgmtOp->>MgmtCLI: aws secretsmanager create-secret<br/>--name mc01-maestro-agent-cert<br/>--secret-string file://cert.json
     MgmtCLI->>AWS_M: Create secret in Secrets Manager
     AWS_M-->>MgmtCLI: Secret created
     MgmtOp->>MgmtOp: shred -u cert.json
@@ -668,7 +668,7 @@ sequenceDiagram
 
     MgmtOp->>MgmtTF: terraform output helm_values
     MgmtTF-->>MgmtOp: Helm values
-    MgmtOp->>AWS_M: helm install maestro-agent<br/>--set maestro.consumerName=management-01<br/>--set broker.endpoint=...
+    MgmtOp->>AWS_M: helm install maestro-agent<br/>--set maestro.consumerName=mc01<br/>--set broker.endpoint=...
     AWS_M-->>MgmtOp: Agent deployed
 
     Note over RegOp,AWS_M: Phase 7: Verification
@@ -704,7 +704,7 @@ graph LR
 
     subgraph Extract["Regional Operator Actions"]
         Cmd1["terraform output -json<br/>maestro_agent_certificates"]
-        JQ["jq '.&#91;&quot;management-01&quot;&#93;'<br/>> cert.json"]
+        JQ["jq '.&#91;&quot;mc01&quot;&#93;'<br/>> cert.json"]
         Encrypt["gpg --encrypt<br/>--recipient management-op<br/>cert.json"]
 
         Cmd1 --> JQ
@@ -727,7 +727,7 @@ graph LR
     end
 
     subgraph Management["Management AWS Account<br/>(987654321098)"]
-        SM["AWS Secrets Manager<br/>management-01/maestro/<br/>agent-mqtt-cert"]
+        SM["AWS Secrets Manager<br/>mc01-maestro-agent-cert"]
         TF2["Terraform Apply<br/>maestro-agent<br/>(references secret)"]
 
         SM --> TF2
@@ -754,7 +754,7 @@ graph LR
   "privateKey": "-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----",
   "endpoint": "abc123.iot.us-east-1.amazonaws.com",
   "port": 8883,
-  "consumerName": "management-01"
+  "consumerName": "mc01"
 }
 ```
 

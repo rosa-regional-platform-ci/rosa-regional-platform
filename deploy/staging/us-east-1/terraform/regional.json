@@ -7,6 +7,8 @@
   "account_id": "ssm:///infra/staging/us-east-1/account_id",
   "region": "us-east-1",
   "alias": "regional-us-east-1",
+  "regional_id": "regional",
+  "sector": "staging",
   "management_cluster_account_ids": [
     "ssm:///infra/staging/us-east-1/mc01/account_id"
   ]

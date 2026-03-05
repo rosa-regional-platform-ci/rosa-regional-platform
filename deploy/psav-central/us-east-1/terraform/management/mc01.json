@@ -6,8 +6,9 @@
   "environment": "psav-central",
   "account_id": "ssm:///infra/psav-central/us-east-1/mc01/account_id",
   "region": "us-east-1",
-  "alias": "mc01-us-east-1",
+  "alias": "mc01",
   "enable_bastion": true,
-  "cluster_id": "mc01-us-east-1",
+  "sector": "psav-central",
+  "management_id": "mc01",
   "regional_aws_account_id": "ssm:///infra/psav-central/us-east-1/account_id"
 }

@@ -51,11 +51,11 @@ resource "aws_kms_key" "eks_secrets" {
   })
 
   tags = {
-    Name = "${local.resource_name_base}-eks-secrets"
+    Name = "${local.cluster_id}-eks-secrets"
   }
 }
 
 resource "aws_kms_alias" "eks_secrets" {
-  name          = "alias/${local.resource_name_base}-eks-secrets"
+  name          = "alias/${local.cluster_id}-eks-secrets"
   target_key_id = aws_kms_key.eks_secrets.key_id
 }

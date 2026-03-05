@@ -6,7 +6,8 @@
   "environment": "e2e",
   "account_id": "018092638725",
   "region": "us-east-1",
-  "alias": "mc01-us-east-1",
-  "cluster_id": "mc01-us-east-1",
+  "alias": "mc01",
+  "sector": "e2e",
+  "management_id": "mc01",
   "regional_aws_account_id": "633630779107"
 }

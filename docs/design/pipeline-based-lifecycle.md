@@ -355,3 +355,4 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 | MC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate` |
 | RC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `regional-cluster/${TARGET_ALIAS}.tfstate`                                         |
 | MC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `management-cluster/${TARGET_ALIAS}.tfstate`                                       |
+

@@ -1,7 +1,7 @@
 # Variables for ECS Bootstrap Module
 
-variable "resource_name_base" {
-  description = "Base name for all resources created by this module"
+variable "cluster_id" {
+  description = "Unique identifier for the cluster, used as the base name for all resources."
   type        = string
 }
 

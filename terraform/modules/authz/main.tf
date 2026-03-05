@@ -27,13 +27,13 @@ locals {
     }
   )
 
-  # Table names following the pattern: ${resource_name_base}-authz-${purpose}
+  # Table names following the pattern: ${regional_id}-authz-${purpose}
   table_names = {
-    accounts    = "${var.resource_name_base}-authz-accounts"
-    admins      = "${var.resource_name_base}-authz-admins"
-    groups      = "${var.resource_name_base}-authz-groups"
-    members     = "${var.resource_name_base}-authz-group-members"
-    policies    = "${var.resource_name_base}-authz-policies"
-    attachments = "${var.resource_name_base}-authz-attachments"
+    accounts    = "${var.regional_id}-authz-accounts"
+    admins      = "${var.regional_id}-authz-admins"
+    groups      = "${var.regional_id}-authz-groups"
+    members     = "${var.regional_id}-authz-group-members"
+    policies    = "${var.regional_id}-authz-policies"
+    attachments = "${var.regional_id}-authz-attachments"
   }
 }

@@ -43,7 +43,7 @@ region_deployments:
     sector: "integration" # ← Sector (inherits environment + defaults)
     account_id: "123456789" # ← Regional cluster AWS account ID
     management_clusters:
-      - cluster_id: "mc01-us-west-2" # ← Management cluster identifier
+      mc01: # ← Management cluster key (becomes management_id)
         account_id: "987654321" # ← Management cluster AWS account ID
 ```
 
@@ -58,7 +58,7 @@ Run the rendering script to generate the required files:
 **Verify rendered files were created:**
 
 ```bash
-ls -la deploy/integration/us-west-2/  # Replace with your environment/name
+ls -la deploy/integration/us-west-2/  # Replace with your environment/region
 ```
 
 You should see `argocd/` and `terraform/` subdirectories with generated configs.
@@ -232,7 +232,7 @@ awscurl -X POST $API_GATEWAY_URL/api/v0/management_clusters \
 --service execute-api \
 --region $REGION \
 -H "Content-Type: application/json" \
--d '{"name": "management-01", "labels": {"cluster_type": "management", "cluster_id": "management-01"}}'
+-d '{"name": "mc01", "labels": {"cluster_type": "management", "cluster_id": "mc01"}}'
 ```
 
 ---
@@ -349,7 +349,7 @@ echo "Created ManifestWork file: maestro-payload-test-${TIMESTAMP}"
 
 cat > payload.json << EOF
 {
-  "cluster_id": "management-01",
+  "cluster_id": "mc01",
   "data": $(cat /tmp/maestro-test-manifestwork.json )
 }
 EOF

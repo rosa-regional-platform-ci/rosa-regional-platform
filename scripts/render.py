@@ -17,7 +17,9 @@ This script renders configuration values by:
 5. Generating terraform pipeline configs to deploy/{environment}/{region_deployment}/terraform/
 """
 
+import argparse
 import json
+import os
 import sys
 import shutil
 from pathlib import Path
@@ -164,7 +166,7 @@ def resolve_templates(value: Any, context: Dict[str, Any]) -> Any:
     return value
 
 
-def resolve_region_deployments(config: Dict[str, Any]) -> List[Dict[str, Any]]:
+def resolve_region_deployments(config: Dict[str, Any], ci_prefix: str = '') -> List[Dict[str, Any]]:
     """Resolve region deployments by walking the nested config hierarchy.
 
     Walks environments → [sectors →] region_deployments, deep-merging inheritable
@@ -178,7 +180,7 @@ def resolve_region_deployments(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     (most-specific non-None wins).
 
     Management clusters are converted from dict form to list form with auto-derived
-    cluster_id = "{mc_key}-{rd_name}".  If an MC entry omits account_id, the
+    management_id = mc_key (e.g., "mc01").  If an MC entry omits account_id, the
     defaults.management_cluster_account_id template is applied with
     ``cluster_prefix`` (the MC dict key) available in the Jinja2 context.
 
@@ -219,6 +221,10 @@ def resolve_region_deployments(config: Dict[str, Any]) -> List[Dict[str, Any]]:
                 rd['region'] = rd_name
                 rd['region_deployment'] = rd_name
                 rd['environment'] = env_name
+                rd['sector'] = sector_name if sector_name != 'default' else env_name
+
+                # Compute deterministic regional_id
+                rd['regional_id'] = f"{ci_prefix}-regional" if ci_prefix else "regional"
 
                 # Resolve account_id: rd → sector → env → defaults (first non-None wins)
                 raw_account_id = (
@@ -247,13 +253,13 @@ def resolve_region_deployments(config: Dict[str, Any]) -> List[Dict[str, Any]]:
                 values = deep_merge(values, rd_config.get('values', {}))
                 rd['values'] = values
 
-                # Convert management_clusters dict → list with auto-derived cluster_id
+                # Convert management_clusters dict → list with auto-derived management_id
                 mc_dict = rd_config.get('management_clusters') or {}
                 default_mc_account_id = defaults.get('management_cluster_account_id')
                 mc_list = []
                 for mc_key, mc_val in mc_dict.items():
                     mc_entry = dict(mc_val) if mc_val else {}
-                    mc_entry['cluster_id'] = f"{mc_key}-{rd_name}"
+                    mc_entry['management_id'] = f"{ci_prefix}-{mc_key}" if ci_prefix else mc_key
                     # Apply default MC account_id if not specified
                     if 'account_id' not in mc_entry and default_mc_account_id:
                         mc_entry['account_id'] = default_mc_account_id
@@ -453,7 +459,7 @@ def render_region_deployment_terraform(
 
     Creates:
     - deploy/<env>/<region_deployment>/terraform/regional.json
-    - deploy/<env>/<region_deployment>/terraform/management/<cluster_id>.json
+    - deploy/<env>/<region_deployment>/terraform/management/<management_id>.json
 
     Args:
         rd: Region deployment configuration
@@ -468,6 +474,12 @@ def render_region_deployment_terraform(
     # Generate regional.json from region deployment terraform_vars (already merged with sector)
     regional_file = terraform_dir / 'regional.json'
     regional_data = rd.get('terraform_vars', {}).copy()
+
+    # Add deterministic regional_id for resource naming
+    regional_data['regional_id'] = rd['regional_id']
+
+    # Add sector for tagging
+    regional_data['sector'] = rd.get('sector', environment)
 
     # Extract all management cluster account IDs for cross-account access configuration
     management_clusters = rd.get('management_clusters', [])
@@ -496,18 +508,19 @@ def render_region_deployment_terraform(
         management_dir.mkdir(parents=True, exist_ok=True)
 
         for mc in management_clusters:
-            # Validate cluster_id is present and non-empty
-            cluster_id = mc.get('cluster_id')
-            if not cluster_id:
+            # Validate management_id is present and non-empty
+            management_id = mc.get('management_id')
+            if not management_id:
                 raise ValueError(
-                    f"Management cluster missing 'cluster_id' in region deployment {environment}/{region_deployment}. "
+                    f"Management cluster missing 'management_id' in region deployment {environment}/{region_deployment}. "
                     f"Management cluster config: {mc}"
                 )
 
-            mc_file = management_dir / f'{cluster_id}.json'
+            mc_file = management_dir / f'{management_id}.json'
 
             # Build MC terraform_vars by merging region deployment terraform_vars with MC-specific overrides
             rd_tf_vars = rd.get('terraform_vars', {}).copy()
+            rd_tf_vars['sector'] = rd.get('sector', environment)
 
             # MC-specific overrides (these override region deployment values)
             # This allows additional fields to be captured such as delete: true
@@ -516,8 +529,8 @@ def render_region_deployment_terraform(
             # Then apply standard overrides that we always set
             mc_overrides.update({
                 'account_id': mc.get('account_id'),
-                'alias': cluster_id,
-                'cluster_id': cluster_id,
+                'alias': management_id,
+                'management_id': management_id,
                 'regional_aws_account_id': rd.get('account_id'),
             })
 
@@ -533,7 +546,7 @@ def render_region_deployment_terraform(
                 json.dump(mc_data_with_metadata, f, indent=2)
                 f.write('\n')  # Add trailing newline
 
-            print(f"  [OK] deploy/{environment}/{region_deployment}/terraform/management/{cluster_id}.json")
+            print(f"  [OK] deploy/{environment}/{region_deployment}/terraform/management/{management_id}.json")
 
 
 def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Path) -> None:
@@ -553,8 +566,8 @@ def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Pa
     rd_mc_map = {}
     for rd in region_deployments:
         key = (rd['environment'], rd['region_deployment'])
-        # Only include non-empty cluster IDs
-        mc_ids = {mc['cluster_id'] for mc in rd.get('management_clusters', []) if mc.get('cluster_id')}
+        # Only include non-empty management IDs
+        mc_ids = {mc['management_id'] for mc in rd.get('management_clusters', []) if mc.get('management_id')}
         rd_mc_map[key] = mc_ids
 
     removed_count = 0
@@ -587,10 +600,10 @@ def cleanup_stale_files(region_deployments: List[Dict[str, Any]], deploy_dir: Pa
                 valid_mc_ids = rd_mc_map.get(rd_key, set())
 
                 for mc_file in mc_dir.glob('*.json'):
-                    # Extract cluster_id from filename (e.g., mc01-us-east-1.json -> mc01-us-east-1)
-                    cluster_id = mc_file.stem
+                    # Extract management_id from filename (e.g., mc01.json -> mc01)
+                    management_id = mc_file.stem
 
-                    if cluster_id not in valid_mc_ids:
+                    if management_id not in valid_mc_ids:
                         print(f"  [CLEANUP] Removing stale MC: deploy/{environment}/{region_deployment}/terraform/management/{mc_file.name}")
                         mc_file.unlink()
                         removed_count += 1
@@ -605,6 +618,13 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    # Parse CLI arguments
+    parser = argparse.ArgumentParser(description='Render configuration values from config.yaml')
+    parser.add_argument('--ci-prefix', default=os.environ.get('CI_PREFIX', ''),
+                        help='Optional prefix for resource names in CI/test environments (e.g., "xg4y")')
+    args = parser.parse_args()
+    ci_prefix = args.ci_prefix
+
     # Determine script location and project root
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
@@ -617,11 +637,14 @@ def main() -> int:
         print(f"Error: Config file not found: {config_file}", file=sys.stderr)
         return 1
 
+    if ci_prefix:
+        print(f"CI prefix: {ci_prefix}")
+
     # Load config
     config = load_yaml(config_file)
 
     # Resolve region deployments from config (merge sector defaults + template processing)
-    region_deployments = resolve_region_deployments(config)
+    region_deployments = resolve_region_deployments(config, ci_prefix=ci_prefix)
     if not region_deployments:
         print("Error: No region deployments found in config.yaml", file=sys.stderr)
         return 1

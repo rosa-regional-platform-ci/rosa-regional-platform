@@ -8,6 +8,8 @@
   "region": "us-east-2",
   "alias": "regional-us-east-2",
   "enable_bastion": true,
+  "regional_id": "regional",
+  "sector": "cdoan-central",
   "management_cluster_account_ids": [
     "910485845704"
   ]
