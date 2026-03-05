@@ -4,7 +4,7 @@
 
 # IAM Role for CodeBuild
 resource "aws_iam_role" "codebuild_role" {
-  name = "${local.p}provisioner-codebuild-role"
+  name = "${local.name_prefix}provisioner-codebuild-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -95,7 +95,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
 # Policy: Bootstrap state buckets in target accounts
 # Scoped to assume OrganizationAccountAccessRole for state bucket creation
 resource "aws_iam_role_policy" "codebuild_state_bootstrap" {
-  name = "${local.p}provisioner-state-bootstrap"
+  name = "${local.name_prefix}provisioner-state-bootstrap"
   role = aws_iam_role.codebuild_role.name
 
   policy = jsonencode({
@@ -120,7 +120,7 @@ resource "aws_iam_role_policy" "codebuild_state_bootstrap" {
 # IAM Role for Build Platform Image CodeBuild Project
 # Scoped to minimum permissions for building and pushing container images
 resource "aws_iam_role" "build_platform_image_role" {
-  name = "${local.p}build-image-role"
+  name = "${local.name_prefix}build-image-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -150,7 +150,7 @@ resource "aws_iam_role_policy" "build_platform_image_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${local.p}build-platform-image*"
+        Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${local.name_prefix}build-platform-image*"
       },
       {
         Sid    = "S3PipelineArtifacts"
@@ -187,7 +187,7 @@ resource "aws_iam_role_policy" "build_platform_image_policy" {
 
 # IAM Role for CodePipeline
 resource "aws_iam_role" "codepipeline_role" {
-  name = "${local.p}provisioner-pipeline-role"
+  name = "${local.name_prefix}provisioner-pipeline-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

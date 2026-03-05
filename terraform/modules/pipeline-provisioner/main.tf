@@ -7,7 +7,7 @@ data "aws_region" "current" {}
 
 locals {
   # When name_prefix is set (e.g., "abc123"), names become "abc123-provisioner-artifacts", etc.
-  p = var.name_prefix != "" ? "${var.name_prefix}-" : ""
+  name_prefix = var.name_prefix != "" ? "${var.name_prefix}-" : ""
 }
 
 # Use shared GitHub Connection (created in central-account-bootstrap)
@@ -17,7 +17,7 @@ data "aws_codestarconnections_connection" "github" {
 
 # S3 Bucket for Artifacts
 resource "aws_s3_bucket" "pipeline_artifact" {
-  bucket        = "${local.p}provisioner-artifacts-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${local.name_prefix}provisioner-artifacts-${data.aws_caller_identity.current.account_id}"
   force_destroy = true # Allow deletion even if bucket contains objects
 }
 
@@ -67,7 +67,7 @@ resource "aws_s3_bucket_public_access_block" "pipeline_artifact" {
 
 # CodeBuild Project - Pipeline Provisioner
 resource "aws_codebuild_project" "provisioner" {
-  name          = "${local.p}provisioner-project"
+  name          = "${local.name_prefix}provisioner-project"
   service_role  = aws_iam_role.codebuild_role.arn
   build_timeout = 60
 
@@ -111,7 +111,7 @@ resource "aws_codebuild_project" "provisioner" {
 
 # CodeBuild Project - Build Platform Image
 resource "aws_codebuild_project" "build_platform_image" {
-  name          = "${local.p}build-platform-image"
+  name          = "${local.name_prefix}build-platform-image"
   service_role  = aws_iam_role.build_platform_image_role.arn
   build_timeout = 30
 
@@ -148,7 +148,7 @@ resource "time_sleep" "iam_propagation" {
 
 # CodePipeline - Pipeline Provisioner
 resource "aws_codepipeline" "provisioner" {
-  name           = "${local.p}pipeline-provisioner"
+  name           = "${local.name_prefix}pipeline-provisioner"
   role_arn       = aws_iam_role.codepipeline_role.arn
   pipeline_type  = "V2"
   execution_mode = "QUEUED" # Prevent parallel executions that could cause lock conflicts
