@@ -23,6 +23,9 @@ phases:
             DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
         fi
 
+        # Manual override: IS_DESTROY pipeline variable takes precedence
+        [ "${IS_DESTROY:-false}" == "true" ] && DELETE_FLAG="true"
+
         if [ "${DELETE_FLAG}" == "true" ]; then
             echo "delete=true in config — skipping MC registration (cluster is being destroyed)"
             exit 0
