@@ -75,6 +75,25 @@ class AWSCredentials:
         self.central_account_id = identity["Account"]
         log.info("Access set up to Central CI Account ID: %s", self.central_account_id)
 
+    def get_target_account_id(self, prefix: str) -> str:
+        """Get the AWS account ID for a target account using its credentials.
+
+        Args:
+            prefix: Account prefix ('regional' or 'management') used to find credentials.
+
+        Returns:
+            The 12-digit AWS account ID.
+        """
+        access_key = self._read_credential(f"{prefix}_access_key")
+        secret_key = self._read_credential(f"{prefix}_secret_key")
+
+        sts = boto3.client(
+            "sts",
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+        )
+        return sts.get_caller_identity()["Account"]
+
     def setup_target_account_trust(self, prefix: str):
         """Set up trust policy in a sub-account.
 

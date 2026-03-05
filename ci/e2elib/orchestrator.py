@@ -4,6 +4,8 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+import yaml
+
 from . import TARGET_ENVIRONMENT
 from .aws import AWSCredentials
 from .git import GitManager
@@ -30,12 +32,15 @@ class E2EOrchestrator:
         git = GitManager(self.creds_dir, self.repo, self.branch)
         self.git = git
 
-        # Phase 1: Create CI branch and render deploy files
-        git.create_ci_branch()
-        git.render_and_push("ci: render deploy files for e2e environment")
-
-        # Phase 1 continued: AWS setup and bootstrap
+        # Phase 1: Setup
         self._setup_aws()
+        git.create_ci_branch()
+
+        # Inject e2e environment into config.yaml (not checked into the repo)
+        self._inject_e2e_config(git)
+        git.render_and_push("ci: add e2e environment and render deploy files")
+
+        # Bootstrap pipeline provisioner
         self.monitor = PipelineMonitor(self.aws.session)
         self.provision_start = datetime.now(timezone.utc)
         self._bootstrap_pipeline_provisioner(git)
@@ -62,6 +67,41 @@ class E2EOrchestrator:
         self.aws.setup_central_account()
         self.aws.setup_target_account_trust("regional")
         self.aws.setup_target_account_trust("management")
+
+    def _inject_e2e_config(self, git: GitManager):
+        """Inject the e2e environment into config.yaml using discovered account IDs."""
+        regional_account_id = self.aws.get_target_account_id("regional")
+        management_account_id = self.aws.get_target_account_id("management")
+
+        log.info(
+            "Injecting e2e environment: region=%s, regional=%s, management=%s",
+            self.region,
+            regional_account_id,
+            management_account_id,
+        )
+
+        def add_e2e_env(config):
+            config.setdefault("environments", {})[TARGET_ENVIRONMENT] = {
+                "region_deployments": {
+                    self.region: {
+                        "account_id": regional_account_id,
+                        "management_clusters": {
+                            "mc01": {
+                                "account_id": management_account_id,
+                            },
+                        },
+                    },
+                },
+            }
+
+        config_path = git.work_dir / "config.yaml"
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        add_e2e_env(config)
+
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     def _bootstrap_pipeline_provisioner(self, git: GitManager):
         """Bootstrap the pipeline-provisioner pointing at the CI branch."""
@@ -163,8 +203,7 @@ class E2EOrchestrator:
             for rd_name, rd_config in e2e_env.get("region_deployments", {}).items():
                 if rd_config is None:
                     e2e_env["region_deployments"][rd_name] = rd_config = {}
-                rd_config["terraform_vars"] = rd_config.get("terraform_vars", {})
-                rd_config["terraform_vars"]["delete"] = True
+                rd_config["delete"] = True
                 for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
                     if mc_config is None:
                         rd_config["management_clusters"][mc_name] = mc_config = {}
@@ -202,8 +241,7 @@ class E2EOrchestrator:
             for rd_name, rd_config in e2e_env.get("region_deployments", {}).items():
                 if rd_config is None:
                     e2e_env["region_deployments"][rd_name] = rd_config = {}
-                rd_config["terraform_vars"] = rd_config.get("terraform_vars", {})
-                rd_config["terraform_vars"]["delete_pipeline"] = True
+                rd_config["delete_pipeline"] = True
                 for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
                     if mc_config is None:
                         rd_config["management_clusters"][mc_name] = mc_config = {}
@@ -225,7 +263,7 @@ class E2EOrchestrator:
 
     def _destroy_pipeline_provisioner(self, git: GitManager):
         """Destroy the pipeline-provisioner via terraform destroy."""
-        bootstrap_dir = git.work_dir / "terraform" / "config" / "bootstrap-pipeline"
+        bootstrap_dir = git.work_dir / "terraform" / "config" / "central-account-bootstrap"
 
         account_id = self.aws.session.client("sts").get_caller_identity()["Account"]
         state_bucket = f"terraform-state-{account_id}"
@@ -239,7 +277,7 @@ class E2EOrchestrator:
                 "init",
                 "-reconfigure",
                 f"-backend-config=bucket={state_bucket}",
-                "-backend-config=key=bootstrap-pipeline/terraform.tfstate",
+                "-backend-config=key=central-account-bootstrap/terraform.tfstate",
                 f"-backend-config=region={self.region}",
                 "-backend-config=use_lockfile=true",
             ],
