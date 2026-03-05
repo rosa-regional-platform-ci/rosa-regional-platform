@@ -6,8 +6,8 @@
   "environment": "integration",
   "account_id": "ssm:///infra/integration/eu-west-1/mc01/account_id",
   "region": "eu-west-1",
-  "alias": "mc01",
+  "alias": "6b167f-mc01",
   "sector": "integration",
-  "management_id": "mc01",
+  "management_id": "6b167f-mc01",
   "regional_aws_account_id": "ssm:///infra/integration/eu-west-1/account_id"
 }
