@@ -36,12 +36,12 @@ class GitManager:
         self.cleanup()
         return False
 
-    def _git_token(self) -> str:
+    def _github_token(self) -> str:
         """Read the git token from credentials directory or environment."""
-        env_token = os.environ.get("GIT_TOKEN")
+        env_token = os.environ.get("GITHUB_TOKEN")
         if env_token:
             return env_token
-        return (self.creds_dir / "git_token").read_text().strip()
+        return (self.creds_dir / "github_token").read_text().strip()
 
     def _run_git(self, *args, cwd=None, check=True) -> subprocess.CompletedProcess:
         """Run a git command. Stderr flows to the terminal for visibility."""
@@ -75,7 +75,7 @@ class GitManager:
         sanitized = re.sub(r"[/]", "-", self.source_branch)
         self.ci_branch = f"{short_hash}-{sanitized}-ci"
 
-        token = self._git_token()
+        token = self._github_token()
         clone_url = f"https://x-access-token:{token}@github.com/{self.source_repo}.git"
 
         self._tmpdir = tempfile.mkdtemp(prefix="e2e-")

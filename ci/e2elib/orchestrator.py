@@ -149,9 +149,11 @@ class E2EOrchestrator:
 
     def _teardown(self, git: GitManager):
         """Tear down infrastructure via GitOps and destroy the pipeline-provisioner."""
+
+        # Phase 4a: Infrastructure teardown
         log.info("")
         log.info("==========================================")
-        log.info("Phase 4: Teardown")
+        log.info("Phase 4a: Infrastructure Teardown")
         log.info("==========================================")
 
         teardown_start = datetime.now(timezone.utc)
@@ -170,7 +172,13 @@ class E2EOrchestrator:
 
         git.modify_config(set_delete_flag)
 
-        # Wait for RC/MC pipeline executions triggered by the delete push
+        # Wait for pipeline-provisioner to pick up the change
+        provisioner_exec_id = self.monitor.wait_for_auto_trigger(
+            "pipeline-provisioner", teardown_start
+        )
+        self.monitor.wait_for_completion("pipeline-provisioner", provisioner_exec_id)
+
+        # Discover and wait for RC/MC pipeline executions (infra destroy)
         rc_pipelines = self.monitor.discover_pipelines("rc-pipe-", teardown_start)
         mc_pipelines = self.monitor.discover_pipelines("mc-pipe-", teardown_start)
 
@@ -181,7 +189,35 @@ class E2EOrchestrator:
         for name, exec_id in rc_pipelines:
             self.monitor.wait_for_completion(name, exec_id)
 
-        # Destroy pipeline-provisioner via terraform destroy
+        # Phase 4b: Pipeline teardown
+        log.info("")
+        log.info("==========================================")
+        log.info("Phase 4b: Pipeline Teardown")
+        log.info("==========================================")
+
+        pipeline_teardown_start = datetime.now(timezone.utc)
+
+        def set_delete_pipeline_flag(config):
+            e2e_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
+            for rd_name, rd_config in e2e_env.get("region_deployments", {}).items():
+                if rd_config is None:
+                    e2e_env["region_deployments"][rd_name] = rd_config = {}
+                rd_config["terraform_vars"] = rd_config.get("terraform_vars", {})
+                rd_config["terraform_vars"]["delete_pipeline"] = True
+                for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
+                    if mc_config is None:
+                        rd_config["management_clusters"][mc_name] = mc_config = {}
+                    mc_config["delete_pipeline"] = True
+
+        git.modify_config(set_delete_pipeline_flag)
+
+        # Wait for pipeline-provisioner to destroy the pipelines
+        provisioner_exec_id = self.monitor.wait_for_auto_trigger(
+            "pipeline-provisioner", pipeline_teardown_start
+        )
+        self.monitor.wait_for_completion("pipeline-provisioner", provisioner_exec_id)
+
+        # Phase 5: Destroy pipeline-provisioner via terraform destroy
         log.info("Destroying pipeline-provisioner...")
         self._destroy_pipeline_provisioner(git)
 
