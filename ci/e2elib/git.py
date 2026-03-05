@@ -64,7 +64,8 @@ class GitManager:
         Branch naming: <short-hash>-<sanitized-branch>-ci
         """
         build_id = os.environ.get("BUILD_ID", "")
-        self.ci_prefix = build_id[:6] if build_id else uuid.uuid4().hex[:6]
+        short_id = build_id[:6] if build_id else uuid.uuid4().hex[:6]
+        self.ci_prefix = f"ci-{short_id}"
         sanitized = re.sub(r"[/]", "-", self.source_branch)
         self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
 
