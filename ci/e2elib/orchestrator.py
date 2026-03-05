@@ -34,6 +34,9 @@ class E2EOrchestrator:
         self._setup_aws()
         git.create_ci_branch()
         self.provisioner_name = f"{git.ci_prefix}-pipeline-provisioner" if git.ci_prefix else "pipeline-provisioner"
+        # TODO: compute deterministic RC/MC pipeline names from rendered config
+        # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
+        self.pipeline_prefix = f"{git.ci_prefix}-"
 
         # Inject e2e environment into config.yaml (not checked into the repo)
         self._inject_e2e_config(git)
@@ -154,11 +157,12 @@ class E2EOrchestrator:
         provisioner_exec_id = self.monitor.wait_for_any_execution(self.provisioner_name)
         self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
-        # Discover RC/MC pipelines (also newly created by the provisioner)
-        rc_pipelines = self.monitor.discover_pipelines("rc-pipe-")
-        mc_pipelines = self.monitor.discover_pipelines("mc-pipe-")
-
-        all_pipelines = rc_pipelines + mc_pipelines
+        # Discover RC/MC pipelines by CI prefix, excluding the provisioner itself
+        all_pipelines = [
+            (name, exec_id)
+            for name, exec_id in self.monitor.discover_pipelines(self.pipeline_prefix)
+            if name != self.provisioner_name
+        ]
         if not all_pipelines:
             raise RuntimeError("No RC/MC pipelines found after provisioner completed.")
 
@@ -194,8 +198,7 @@ class E2EOrchestrator:
 
         # Snapshot known executions before pushing delete flags
         provisioner_known = self.monitor.get_execution_ids(self.provisioner_name)
-        rc_known = self.monitor.snapshot_pipeline_executions("rc-pipe-")
-        mc_known = self.monitor.snapshot_pipeline_executions("mc-pipe-")
+        pipeline_known = self.monitor.snapshot_pipeline_executions(self.pipeline_prefix)
 
         def set_delete_flag(config):
             e2e_env = config.get("environments", {}).get(TARGET_ENVIRONMENT, {})
@@ -217,14 +220,13 @@ class E2EOrchestrator:
         self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
         # Discover and wait for RC/MC pipeline executions (infra destroy)
-        rc_pipelines = self.monitor.discover_pipelines("rc-pipe-", rc_known)
-        mc_pipelines = self.monitor.discover_pipelines("mc-pipe-", mc_known)
+        teardown_pipelines = [
+            (name, exec_id)
+            for name, exec_id in self.monitor.discover_pipelines(self.pipeline_prefix, pipeline_known)
+            if name != self.provisioner_name
+        ]
 
-        # Wait for MC pipelines first (destroy MCs before RC)
-        for name, exec_id in mc_pipelines:
-            self.monitor.wait_for_completion(name, exec_id)
-
-        for name, exec_id in rc_pipelines:
+        for name, exec_id in teardown_pipelines:
             self.monitor.wait_for_completion(name, exec_id)
 
         # Phase 4b: Pipeline teardown
