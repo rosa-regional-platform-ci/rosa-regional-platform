@@ -12,6 +12,7 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+_BUILD_FAILED_RE = re.compile(r"Phase complete: \S+ State: FAILED")
 
 
 def download_codebuild_logs(session, prefix: str, output_dir: str | Path) -> list[Path]:
@@ -74,12 +75,13 @@ def download_codebuild_logs(session, prefix: str, output_dir: str | Path) -> lis
                 else:
                     ts_label = "unknown"
 
-                out_file = output_path / f"{project_name}.{ts_label}.log"
-
                 events = _fetch_all_events(logs_client, group_name, stream_name)
                 lines = [e["message"].rstrip("\n") for e in events]
                 content = "\n".join(lines)
                 content = _ANSI_RE.sub("", content)
+
+                suffix = ".FAILED" if _BUILD_FAILED_RE.search(content) else ""
+                out_file = output_path / f"{project_name}.{ts_label}{suffix}.log"
 
                 out_file.write_text(content)
                 downloaded.append(out_file)
