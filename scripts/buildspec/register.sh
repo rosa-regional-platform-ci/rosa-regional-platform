@@ -91,10 +91,60 @@ echo ""
         -backend-config="use_lockfile=true"
 )
 
-API_GATEWAY_URL=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url)
+# Retry loop: wait for RC terraform outputs to be available (race condition)
+# RC may still be applying when this job starts
+MAX_RETRIES=10
+RETRY_DELAY=30
+RETRY_COUNT=0
+API_GATEWAY_URL=""
+
+echo "Waiting for Regional Cluster terraform outputs to be available..."
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+
+    # Refresh terraform state to ensure we have the latest outputs
+    # Suppress output unless this is the last attempt
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+        (cd terraform/config/regional-cluster && terraform refresh -auto-approve)
+    else
+        (cd terraform/config/regional-cluster && terraform refresh -auto-approve >/dev/null 2>&1)
+    fi
+
+    # Try to get the API Gateway URL - suppress stderr during retries
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+        OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>&1)
+    else
+        OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>/dev/null)
+    fi
+
+    # Validate output is a proper URL (starts with https://)
+    # This is more reliable than checking for warning text patterns
+    if [[ "$OUTPUT" =~ ^https://[a-zA-Z0-9.-]+\.execute-api\. ]]; then
+        API_GATEWAY_URL="$OUTPUT"
+        echo "✓ Successfully retrieved API Gateway URL after attempt $RETRY_COUNT/$MAX_RETRIES"
+        break
+    fi
+
+    # Failed to get valid output
+    if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+        echo "Attempt $RETRY_COUNT/$MAX_RETRIES: RC outputs not ready yet (got: ${OUTPUT:0:50}...)"
+        echo "Waiting ${RETRY_DELAY}s before retry..."
+        sleep $RETRY_DELAY
+    else
+        echo "Attempt $RETRY_COUNT/$MAX_RETRIES: Still no valid output"
+        echo "Last output received: $OUTPUT"
+    fi
+done
 
 if [ -z "$API_GATEWAY_URL" ]; then
-    echo "ERROR: Failed to read api_gateway_invoke_url from RC terraform state"
+    echo ""
+    echo "ERROR: Failed to read api_gateway_invoke_url from RC terraform state after $MAX_RETRIES attempts"
+    echo "  This likely means:"
+    echo "    - Regional Cluster terraform apply failed or is stuck"
+    echo "    - Regional Cluster was never fully provisioned"
+    echo "    - API Gateway module is not enabled in the Regional Cluster config"
+    echo ""
+    echo "  Check the Regional Cluster terraform state and apply logs"
     exit 1
 fi
 
