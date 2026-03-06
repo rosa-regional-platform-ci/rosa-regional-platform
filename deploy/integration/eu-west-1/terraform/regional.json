@@ -7,7 +7,7 @@
   "account_id": "ssm:///infra/integration/eu-west-1/account_id",
   "region": "eu-west-1",
   "alias": "regional-eu-west-1",
-  "regional_id": "regional",
+  "regional_id": "ci-203003-regional",
   "sector": "integration",
   "management_cluster_account_ids": [
     "ssm:///infra/integration/eu-west-1/mc01/account_id"
