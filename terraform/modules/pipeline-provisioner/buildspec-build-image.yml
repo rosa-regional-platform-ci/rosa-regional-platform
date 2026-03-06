@@ -7,11 +7,5 @@ phases:
   build:
     on-failure: RETRY-1
     commands:
-      - |
-        echo "=========================================="
-        echo "Building Platform Image"
-        echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-        echo "=========================================="
-
-        chmod +x ./scripts/build-platform-image.sh
-        ./scripts/build-platform-image.sh
+      - chmod +x ./scripts/build-platform-image.sh
+      - ./scripts/build-platform-image.sh

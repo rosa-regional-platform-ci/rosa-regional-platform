@@ -7,14 +7,8 @@ phases:
   build:
     on-failure: RETRY-1
     commands:
-      - |
-        echo "=========================================="
-        echo "Provisioning Pipelines"
-        echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-        echo "=========================================="
-
-        chmod +x ./scripts/provision-pipelines.sh
-        ./scripts/provision-pipelines.sh
+      - chmod +x ./scripts/provision-pipelines.sh
+      - ./scripts/provision-pipelines.sh
 
   post_build:
     commands:

@@ -14,6 +14,11 @@
 set -euo pipefail
 trap 'echo "FAILED: line $LINENO, exit code $?" >&2' ERR
 
+echo "=========================================="
+echo "Provisioning Pipelines"
+echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
+echo "=========================================="
+
 # Get central account ID for state bucket
 CENTRAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"

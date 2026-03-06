@@ -13,6 +13,11 @@
 
 set -euo pipefail
 
+echo "=========================================="
+echo "Building Platform Image"
+echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
+echo "=========================================="
+
 # Detect container runtime: honor CONTAINER_RUNTIME env var, otherwise auto-detect
 if [ -n "${CONTAINER_RUNTIME:-}" ]; then
   if ! command -v "$CONTAINER_RUNTIME" &>/dev/null; then
