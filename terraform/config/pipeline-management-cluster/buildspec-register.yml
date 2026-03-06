@@ -88,10 +88,39 @@ phases:
                 -backend-config="use_lockfile=true"
         )
 
-        API_GATEWAY_URL=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url)
+        # Retry loop: wait for RC terraform outputs to be available (race condition)
+        # RC may still be applying when this job starts
+        MAX_RETRIES=10
+        RETRY_DELAY=30
+        RETRY_COUNT=0
+        API_GATEWAY_URL=""
+
+        echo "Waiting for Regional Cluster terraform outputs to be available..."
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            # Capture both stdout and stderr to detect warnings
+            OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>&1)
+
+            # Check if output is valid (not empty and doesn't contain terraform warnings)
+            if [ -n "$OUTPUT" ] && [[ "$OUTPUT" != *"No outputs found"* ]] && [[ "$OUTPUT" != *"Warning"* ]]; then
+                API_GATEWAY_URL="$OUTPUT"
+                echo "Successfully retrieved API Gateway URL: $API_GATEWAY_URL"
+                break
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Attempt $RETRY_COUNT/$MAX_RETRIES: RC outputs not ready yet (terraform may still be applying)"
+                echo "Waiting ${RETRY_DELAY}s before retry..."
+                sleep $RETRY_DELAY
+            fi
+        done
 
         if [ -z "$API_GATEWAY_URL" ]; then
-            echo "ERROR: Failed to read api_gateway_invoke_url from RC terraform state"
+            echo "ERROR: Failed to read api_gateway_invoke_url from RC terraform state after $MAX_RETRIES attempts"
+            echo "  This likely means:"
+            echo "    - Regional Cluster terraform apply failed or is stuck"
+            echo "    - Regional Cluster was never fully provisioned"
+            echo "    - API Gateway module is not enabled in the Regional Cluster config"
             exit 1
         fi
 
