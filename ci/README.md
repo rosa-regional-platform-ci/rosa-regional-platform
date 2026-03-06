@@ -50,6 +50,20 @@ curl -X GET \
 
 Open the `job_url` from the response to watch the job in Prow.
 
+## Download CodeBuild Logs
+
+`ci/download-codebuild-logs.sh` downloads CloudWatch logs for all CodeBuild projects matching a CI prefix. It fetches every log stream (build run) per project and names files chronologically (`.0.log` = oldest run, `.1.log` = next, etc.). ANSI color codes are stripped from the output.
+
+```bash
+# Download all logs for a CI run
+./ci/download-codebuild-logs.sh ci-202982
+
+# Specify a region (default: us-east-1)
+./ci/download-codebuild-logs.sh ci-202982 eu-west-1
+```
+
+Logs are saved to `codebuild-logs-<ci-prefix>/`.
+
 ## AWS Credentials
 
 The e2e job uses three sets of AWS credentials (central, regional, and management accounts).

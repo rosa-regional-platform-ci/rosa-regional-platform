@@ -1,7 +1,9 @@
 import logging
 import os
+import re
 import subprocess
 import sys
+from pathlib import Path
 
 PROVISION_TIMEOUT = 3600  # seconds (1 hour); total time for provisioning
 TEARDOWN_TIMEOUT = 3600  # seconds (1 hour); total time for teardown
@@ -76,12 +78,105 @@ class EphemeralEnvOrchestrator:
         """
         self._setup_aws()
 
+        # Collect CodeBuild logs before teardown destroys infrastructure.
+        # In Prow, teardown runs as a separate step — this captures logs
+        # from the provisioning phase that would otherwise be lost.
+        self.collect_codebuild_logs()
+
         git = GitManager(self.creds_dir, self.repo, self.branch)
         self.git = git
         git.checkout_ci_branch(self.ci_prefix)
 
         self.monitor = PipelineMonitor(self.aws.session)
         self._run_teardown(git)
+
+    def collect_codebuild_logs(self):
+        """Download CloudWatch logs for all CodeBuild projects matching our CI prefix.
+
+        Writes each log group to a separate file in ARTIFACT_DIR (set by Prow)
+        so they appear in the Prow artifacts UI. Sensitive values (AWS keys,
+        session tokens) are redacted before writing.
+        """
+        artifact_dir = os.environ.get("ARTIFACT_DIR")
+        if not artifact_dir:
+            log.warning("ARTIFACT_DIR not set — skipping CodeBuild log collection")
+            return
+
+        artifact_path = Path(artifact_dir) / "codebuild-logs"
+        artifact_path.mkdir(parents=True, exist_ok=True)
+
+        if not self.aws or not self.aws.session:
+            log.warning("AWS session not available — skipping log collection")
+            return
+
+        logs_client = self.aws.session.client("logs")
+        prefix = f"/aws/codebuild/{self.ci_prefix}-"
+
+        try:
+            response = logs_client.describe_log_groups(logGroupNamePrefix=prefix)
+        except Exception:
+            log.exception("Failed to list CloudWatch log groups")
+            return
+
+        log_groups = response.get("logGroups", [])
+        if not log_groups:
+            log.info("No CloudWatch log groups found with prefix '%s'", prefix)
+            return
+
+        log.info("Collecting logs from %d CodeBuild log group(s)...", len(log_groups))
+
+        for lg in log_groups:
+            group_name = lg["logGroupName"]
+            project_name = group_name.rsplit("/", 1)[-1]
+
+            try:
+                streams_resp = logs_client.describe_log_streams(
+                    logGroupName=group_name,
+                    orderBy="LastEventTime",
+                    descending=True,
+                )
+                stream_list = streams_resp.get("logStreams", [])
+                if not stream_list:
+                    log.info("  %s: no log streams", group_name)
+                    continue
+
+                # Reverse so index 0 = oldest (chronological order)
+                stream_list.reverse()
+
+                for idx, stream_info in enumerate(stream_list):
+                    stream_name = stream_info["logStreamName"]
+                    safe_name = f"{project_name}.{idx}.log"
+                    out_file = artifact_path / safe_name
+
+                    events = []
+                    kwargs = {
+                        "logGroupName": group_name,
+                        "logStreamName": stream_name,
+                        "startFromHead": True,
+                    }
+                    while True:
+                        resp = logs_client.get_log_events(**kwargs)
+                        batch = resp.get("events", [])
+                        if not batch:
+                            break
+                        events.extend(batch)
+                        next_token = resp.get("nextForwardToken")
+                        if next_token == kwargs.get("nextToken"):
+                            break
+                        kwargs["nextToken"] = next_token
+
+                    lines = [e["message"] for e in events]
+                    content = "\n".join(lines)
+                    content = _strip_ansi(content)
+                    content = _redact_sensitive(content)
+
+                    out_file.write_text(content)
+                    log.info("  %s: %d events -> %s", group_name, len(events), out_file)
+
+            except Exception:
+                log.exception("  Failed to collect logs from %s", group_name)
+
+        log.info("CodeBuild logs written to %s", artifact_path)
 
     def _setup_aws(self):
         """Set up AWS credentials and trust policies."""
@@ -206,6 +301,7 @@ class EphemeralEnvOrchestrator:
                 failed += 1
 
         if failed > 0:
+            self.collect_codebuild_logs()
             raise RuntimeError(f"{failed} pipeline(s) failed during provisioning.")
 
         log.info("All pipelines completed successfully.")
@@ -347,3 +443,24 @@ class EphemeralEnvOrchestrator:
                 f"Terraform teardown timed out after {TEARDOWN_TIMEOUT}s"
             )
         log.info("Pipeline-provisioner destroyed.")
+
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
+
+# Patterns that match AWS secrets we don't want in Prow artifacts
+_SENSITIVE_PATTERNS = [
+    (re.compile(r"(?:AKIA|ASIA)[A-Z0-9]{16}"), "[REDACTED_AWS_KEY]"),
+    (re.compile(r"(?i)(aws_secret_access_key|secret_key)\s*[=:]\s*\S+"), r"\1=[REDACTED]"),
+    (re.compile(r"(?i)(aws_session_token|security_token)\s*[=:]\s*\S+"), r"\1=[REDACTED]"),
+]
+
+
+def _redact_sensitive(text: str) -> str:
+    for pattern, replacement in _SENSITIVE_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
