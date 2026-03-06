@@ -105,7 +105,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     # Refresh terraform state to ensure we have the latest outputs
     # Suppress output unless this is the last attempt
-    (cd terraform/config/regional-cluster && terraform refresh -auto-approve || :)
+    # (cd terraform/config/regional-cluster && terraform refresh -auto-approve || :)
 
     # Try to get the API Gateway URL - suppress stderr during retries
     OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>&1 || :) 
