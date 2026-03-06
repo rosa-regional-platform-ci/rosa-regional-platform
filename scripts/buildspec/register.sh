@@ -88,7 +88,7 @@ echo ""
         -backend-config="bucket=${RC_STATE_BUCKET}" \
         -backend-config="key=${RC_STATE_KEY}" \
         -backend-config="region=${TARGET_REGION}" \
-        -backend-config="use_lockfile=true"
+        -backend-config="use_lockfile=false"
 )
 
 # Retry loop: wait for RC terraform outputs to be available (race condition)
