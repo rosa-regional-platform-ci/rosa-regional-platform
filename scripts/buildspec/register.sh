@@ -101,21 +101,14 @@ API_GATEWAY_URL=""
 echo "Waiting for Regional Cluster terraform outputs to be available..."
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "Retry attempt $RETRY_COUNT/$MAX_RETRIES..."
 
     # Refresh terraform state to ensure we have the latest outputs
     # Suppress output unless this is the last attempt
-    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-        (cd terraform/config/regional-cluster && terraform refresh -auto-approve)
-    else
-        (cd terraform/config/regional-cluster && terraform refresh -auto-approve >/dev/null 2>&1)
-    fi
+    (cd terraform/config/regional-cluster && terraform refresh -auto-approve || :)
 
     # Try to get the API Gateway URL - suppress stderr during retries
-    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-        OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>&1)
-    else
-        OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>/dev/null)
-    fi
+    OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>&1 || :) 
 
     # Validate output is a proper URL (starts with https://)
     # This is more reliable than checking for warning text patterns
@@ -123,6 +116,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         API_GATEWAY_URL="$OUTPUT"
         echo "✓ Successfully retrieved API Gateway URL after attempt $RETRY_COUNT/$MAX_RETRIES"
         break
+    else
+        echo "Invalid terraform output: ${OUTPUT}"
     fi
 
     # Failed to get valid output
