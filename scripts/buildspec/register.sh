@@ -93,7 +93,7 @@ echo ""
 
 # Retry loop: wait for RC terraform outputs to be available (race condition)
 # RC may still be applying when this job starts
-MAX_RETRIES=10
+MAX_RETRIES=20
 RETRY_DELAY=30
 RETRY_COUNT=0
 API_GATEWAY_URL=""
@@ -109,6 +109,10 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     # Try to get the API Gateway URL - suppress stderr during retries
     OUTPUT=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>&1 || :) 
+
+    echo "✅ ----------------------------------------"
+    echo "$OUTPUT" | grep api_gateway
+    echo "✅ ----------------------------------------"
 
     # Validate output is a proper URL (starts with https://)
     # This is more reliable than checking for warning text patterns
