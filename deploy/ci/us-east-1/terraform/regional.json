@@ -9,6 +9,7 @@
   "alias": "regional-us-east-1",
   "regional_id": "ci-203023-regional",
   "sector": "ci",
+  "delete": true,
   "management_cluster_account_ids": [
     "018092638725"
   ]
