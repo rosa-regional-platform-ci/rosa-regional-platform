@@ -3,14 +3,13 @@
   "app_code": "infra",
   "service_phase": "dev",
   "cost_center": "000",
-  "environment": "psav-central",
-  "account_id": "ssm:///infra/psav-central/us-east-1/account_id",
+  "environment": "ci",
+  "account_id": "633630779107",
   "region": "us-east-1",
   "alias": "regional-us-east-1",
-  "enable_bastion": true,
   "regional_id": "ci-203021-regional",
-  "sector": "psav-central",
+  "sector": "ci",
   "management_cluster_account_ids": [
-    "ssm:///infra/psav-central/us-east-1/mc01/account_id"
+    "018092638725"
   ]
 }
