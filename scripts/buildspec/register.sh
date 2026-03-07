@@ -140,7 +140,8 @@ set -e
 
 if [ "$LIVE_OK" != "true" ]; then
     echo "ERROR: API Gateway /live did not return 200 after $MAX_RETRIES attempts"
-    # exit 1
+    exit 1
+fi
 fi
 
 # =====================================================================
