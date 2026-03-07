@@ -121,6 +121,8 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     fi
 
     HTTP_CODE=$(curl -s -o /tmp/register-response.json -w "%{http_code}" \
+        --connect-timeout 10 \
+        --max-time 30 \
         --aws-sigv4 "aws:amz:${TARGET_REGION}:execute-api" \
         --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
         "${SECURITY_TOKEN_HEADER[@]}" \
