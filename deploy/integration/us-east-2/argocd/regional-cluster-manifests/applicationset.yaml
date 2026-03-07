@@ -69,15 +69,24 @@ spec:
                 args:
                   dynamodbRegion: '{{ .metadata.annotations.dynamodb_region }}'
                   dynamodbPrefix: '{{ .metadata.annotations.dynamodb_prefix }}'
-            hyperfleetApi:
-              aws:
-                region: '{{ .metadata.labels.aws_region }}'
-            hyperfleetSentinel:
-              aws:
-                region: '{{ .metadata.labels.aws_region }}'
-            hyperfleetAdapter:
-              aws:
-                region: '{{ .metadata.labels.aws_region }}'
+            hyperfleetApiChart:
+              values:
+                database:
+                  external:
+                    aws:
+                      region: '{{ .metadata.labels.aws_region }}'
+            hyperfleetSentinel1Chart:
+              values:
+                broker:
+                  external:
+                    aws:
+                      region: '{{ .metadata.labels.aws_region }}'
+            hyperfleetAdapter1Chart:
+              values:
+                broker:
+                  external:
+                    aws:
+                      region: '{{ .metadata.labels.aws_region }}'
         path: '{{ .path.path }}'
         repoURL: '{{ .metadata.annotations.git_repo }}'
         targetRevision: 826fa76d08fc2ce87c863196e52d5a4fa9259a82
