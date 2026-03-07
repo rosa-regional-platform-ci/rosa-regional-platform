@@ -5,4 +5,6 @@ region_deployments:
       mc01:
         account_id: 018092638725
         delete: true
+        delete_pipeline: true
     delete: true
+    delete_pipeline: true
