@@ -388,6 +388,9 @@ check-rendered-files:
 		echo "   Run 'uv run scripts/render.py' and 'git add' the new files."; \
 		exit 1; \
 	fi
+	@echo ""
+	@echo "🔍 Validating Terraform provider versions..."
+	@python3 scripts/validate-provider-versions.py
 	@echo "✅ Rendered files are up to date"
 
 # Run end-to-end tests
