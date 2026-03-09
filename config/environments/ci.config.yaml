@@ -4,3 +4,5 @@ region_deployments:
     management_clusters:
       mc01:
         account_id: 018092638725
+        delete: true
+    delete: true
