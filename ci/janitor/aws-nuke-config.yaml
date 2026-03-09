@@ -14,34 +14,38 @@ blocklist:
 bypass-alias-check-accounts:
   - "018092638725"
   - "633630779107"
+  - "791666871613"
+  - "855246887846"
+  - "599476212575"
 
 accounts:
+  # Sandbox 05
   "018092638725":
     filters: &preserve-filters
       # ---------------------------------------------------------------
-      # Preserve CI identity: IAM User "nightly-e2e"
+      # Preserve CI identity: IAM User "e2e"
       # ---------------------------------------------------------------
       IAMUser:
-        - "nightly-e2e"
+        - "e2e"
 
       IAMUserAccessKey:
         - property: UserName
-          value: "nightly-e2e"
+          value: "e2e"
 
       IAMUserPolicyAttachment:
         - property: UserName
-          value: "nightly-e2e"
+          value: "e2e"
 
       IAMUserPolicy:
         - property: UserName
-          value: "nightly-e2e"
+          value: "e2e"
 
       IAMUserGroupAttachment:
         - property: UserName
-          value: "nightly-e2e"
+          value: "e2e"
 
       IAMLoginProfile:
-        - "nightly-e2e"
+        - "e2e"
 
       # ---------------------------------------------------------------
       # Preserve OrganizationAccountAccessRole (AWS Organizations)
@@ -74,7 +78,20 @@ accounts:
           type: glob
           value: "e2e-platform-*"
 
+  # Int Control Account
   "633630779107":
+    filters: *preserve-filters
+
+  # Dev Control Account
+  "791666871613":
+    filters: *preserve-filters
+
+  # e2e-dev-regional-cluster
+  "599476212575":
+    filters: *preserve-filters
+
+  # e2e-dev-management-cluster-0
+  "855246887846":
     filters: *preserve-filters
 
 settings:
