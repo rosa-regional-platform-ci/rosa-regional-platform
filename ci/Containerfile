@@ -20,6 +20,7 @@ RUN dnf install -y \
         findutils \
         gnupg2 \
         openssl \
+        golang \
     && dnf clean all
 
 # Terraform (GPG-verified)
@@ -86,12 +87,14 @@ RUN arch=$(uname -m) && \
     aws-nuke --version
 
 # Pre-create cache directories writable by any UID (OpenShift runs as random UID)
-RUN mkdir -p /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d && \
-    chmod -R 777 /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d
+RUN mkdir -p /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d /tmp/.cache/go-build /tmp/gopath && \
+    chmod -R 777 /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d /tmp/.cache/go-build /tmp/gopath
 
 ENV UV_CACHE_DIR=/tmp/.uv-cache
 ENV UV_PYTHON_INSTALL_DIR=/tmp/.uv-python
 ENV UV_NO_PROGRESS=true
+ENV GOPATH=/tmp/gopath
+ENV GOCACHE=/tmp/.cache/go-build
 
 # Python packages (awscurl for API Gateway testing)
 RUN uv pip install --system awscurl
