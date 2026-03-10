@@ -9,6 +9,7 @@
   "alias": "ci-d68435-mc01",
   "sector": "ci",
   "delete": true,
+  "delete_pipeline": true,
   "management_id": "ci-d68435-mc01",
   "regional_aws_account_id": "599476212575"
 }
