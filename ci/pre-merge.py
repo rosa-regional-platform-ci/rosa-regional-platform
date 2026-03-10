@@ -30,6 +30,8 @@ import sys
 import uuid
 from pathlib import Path
 
+import boto3
+
 # Allow importing ephemerallib as a sibling package
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -120,6 +122,39 @@ def main():
             log.info("==========================================")
             log.info("Provisioning completed successfully!")
             log.info("==========================================")
+
+            log.info("")
+            log.info("==========================================")
+            log.info("Assuming role into the regional account to query API Gateway")
+            log.info("==========================================")
+            # Assume role into the regional account to query API Gateway
+            env.aws.setup_target_account_via_assume_role("regional")
+            # Discover the API Gateway URL and write it to SHARED_DIR so the
+            # test step can pick it up.
+            shared_dir = os.environ.get("SHARED_DIR")
+            if shared_dir:
+                try:
+                    # Use the regional session to query API Gateway
+                    client = env.aws.session.client("apigateway", region_name=args.region)
+                    response = client.get_rest_apis()
+
+                    # Find the first API Gateway whose name starts with 'regional-cluster-'
+                    api_id = None
+                    for api in response.get("items", []):
+                        if api["name"].startswith("regional-cluster-"):
+                            api_id = api["id"]
+                            break
+
+                    if api_id:
+                        api_url = f"https://{api_id}.execute-api.{args.region}.amazonaws.com/prod"
+                        api_url_file = Path(shared_dir) / "api-url"
+                        api_url_file.write_text(api_url)
+                        log.info("API Gateway URL written to %s", api_url_file)
+                    else:
+                        log.warning("No API Gateway found with name starting with 'regional-cluster-'")
+                except Exception as e:
+                    log.warning("Failed to discover API Gateway URL: %s", e)
+
             if not os.environ.get("BUILD_ID"):
                 log.info("")
                 log.info("BUILD_ID was not set — a random ID was used.")

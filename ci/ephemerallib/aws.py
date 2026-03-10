@@ -96,6 +96,79 @@ class AWSCredentials:
         )
         return sts.get_caller_identity()["Account"]
 
+    def setup_target_account(self, prefix: str):
+        """Set up direct access to a target account (regional or management).
+
+        Args:
+            prefix: Account prefix ('regional' or 'management') used to find credentials.
+        """
+        log.info("Setting up %s account access", prefix)
+
+        access_key = self._read_credential(f"{prefix}_access_key")
+        secret_key = self._read_credential(f"{prefix}_secret_key")
+
+        self.subprocess_env = {
+            "AWS_ACCESS_KEY_ID": access_key,
+            "AWS_SECRET_ACCESS_KEY": secret_key,
+            "AWS_DEFAULT_REGION": self.region,
+            "AWS_REGION": self.region,
+        }
+
+        self.session = boto3.Session(
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name=self.region,
+        )
+
+        identity = self.session.client("sts").get_caller_identity()
+        account_id = identity["Account"]
+        log.info("Access set up to %s Account ID: %s", prefix.capitalize(), account_id)
+
+    def setup_target_account_via_assume_role(self, prefix: str):
+        """Set up access to a target account by assuming OrganizationAccountAccessRole.
+
+        This is more secure than direct access keys as it uses temporary credentials.
+        Requires setup_central_account() to be called first.
+
+        Args:
+            prefix: Account prefix ('regional' or 'management') used to find credentials.
+        """
+        if not self.session or not self.central_account_id:
+            raise RuntimeError(
+                "Central account session not available — setup_central_account() must be called first"
+            )
+
+        log.info("Setting up %s account access via assume role", prefix)
+
+        # Get the target account ID
+        target_account_id = self.get_target_account_id(prefix)
+        role_arn = f"arn:aws:iam::{target_account_id}:role/OrganizationAccountAccessRole"
+
+        # Assume role using central account credentials
+        sts = self.session.client("sts")
+        response = sts.assume_role(
+            RoleArn=role_arn,
+            RoleSessionName=f"ci-e2e-test-{prefix}-{int(time.time())}",
+        )
+
+        creds = response["Credentials"]
+        self.subprocess_env = {
+            "AWS_ACCESS_KEY_ID": creds["AccessKeyId"],
+            "AWS_SECRET_ACCESS_KEY": creds["SecretAccessKey"],
+            "AWS_SESSION_TOKEN": creds["SessionToken"],
+            "AWS_DEFAULT_REGION": self.region,
+            "AWS_REGION": self.region,
+        }
+
+        self.session = boto3.Session(
+            aws_access_key_id=creds["AccessKeyId"],
+            aws_secret_access_key=creds["SecretAccessKey"],
+            aws_session_token=creds["SessionToken"],
+            region_name=self.region,
+        )
+
+        log.info("Assumed role in %s Account ID: %s", prefix.capitalize(), target_account_id)
+
     def setup_target_account_trust(self, prefix: str):
         """Set up trust policy in a sub-account.
 
