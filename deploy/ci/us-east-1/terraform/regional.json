@@ -3,14 +3,13 @@
   "app_code": "infra",
   "service_phase": "dev",
   "cost_center": "000",
-  "environment": "cdoan-central",
-  "account_id": "754250776154",
-  "region": "us-east-2",
-  "alias": "regional-us-east-2",
-  "enable_bastion": true,
+  "environment": "ci",
+  "account_id": "599476212575",
+  "region": "us-east-1",
+  "alias": "regional-us-east-1",
   "regional_id": "ci-589717-regional",
-  "sector": "cdoan-central",
+  "sector": "ci",
   "management_cluster_account_ids": [
-    "910485845704"
+    "855246887846"
   ]
 }
