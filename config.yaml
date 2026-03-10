@@ -75,3 +75,5 @@ environments:
         management_clusters:
           mc01:
             account_id: '855246887846'
+            delete: true
+        delete: true
