@@ -12,7 +12,7 @@ if [[ "${1:-}" == "--teardown" ]]; then
 else
     SAVE_STATE_ARGS=()
     if [[ -n "${SHARED_DIR:-}" ]]; then
-        SAVE_STATE_ARGS=(--save-state "${SHARED_DIR}/terraform-outputs.json")
+        SAVE_STATE_ARGS=(--save-state "${SHARED_DIR}/regional-terraform-outputs.json")
     fi
     uv run --no-cache ci/pre-merge.py "${SAVE_STATE_ARGS[@]}"
 fi

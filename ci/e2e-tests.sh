@@ -1,10 +1,10 @@
 #!/bin/bash
 # Run e2e API tests from rosa-regional-platform-api against the provisioned environment.
-# Expects SHARED_DIR/terraform-outputs.json to exist (written by pre-merge.py --save-state).
+# Expects SHARED_DIR/regional-terraform-outputs.json to exist (written by pre-merge.py --save-state).
 
 set -euo pipefail
 
-TF_OUTPUTS="${SHARED_DIR}/terraform-outputs.json"
+TF_OUTPUTS="${SHARED_DIR}/regional-terraform-outputs.json"
 if [[ ! -r "${TF_OUTPUTS}" ]]; then
   echo "ERROR: ${TF_OUTPUTS} does not exist or is not readable" >&2
   exit 1
