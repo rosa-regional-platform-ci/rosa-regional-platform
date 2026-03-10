@@ -390,8 +390,3 @@ check-rendered-files:
 	fi
 	@echo "✅ Rendered files are up to date"
 
-# Run end-to-end tests
-test-e2e:
-	@echo "🧪 Running end-to-end tests..."
-	@echo "✅ End-to-end tests complete"
-

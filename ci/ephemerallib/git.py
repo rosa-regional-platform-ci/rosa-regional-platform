@@ -114,6 +114,8 @@ class GitManager:
             "clone", "--branch", self.source_branch, "--single-branch", clone_url, str(self.work_dir),
             cwd=".", auth=True,
         )
+        head = self._run_git("rev-parse", "HEAD")
+        log.info("Cloned at %s (https://github.com/%s/tree/%s)", head.stdout.strip(), self.source_repo, head.stdout.strip())
 
         # Configure git identity
         self._run_git("config", "user.email", "ci-bot@rosa-regional-platform.dev")

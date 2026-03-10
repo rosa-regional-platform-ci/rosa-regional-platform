@@ -13,6 +13,17 @@ BASE_URL="$(jq -r '.api_gateway_invoke_url.value' "${TF_OUTPUTS}")"
 export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
+# Set up AWS credentials for authenticated API calls (e.g. aws sts get-caller-identity)
+CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
+if [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
+  export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
+  export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
+  export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+  echo "AWS credentials loaded from ${CREDS_DIR}"
+else
+  echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
+fi
+
 API_REF="${API_REF:-main}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
