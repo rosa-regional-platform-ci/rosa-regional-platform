@@ -89,9 +89,9 @@ The e2e jobs use credentials mounted at `/var/run/rosa-credentials/`. Credential
 - `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral`, `on-demand-e2e`, and `ephemeral-resources-janitor`.
 - `rosa-regional-platform-integration-creds` — grants access to AWS credentials for testing against the API gateway in the regional integration account. Used by `nightly-integration`.
 
-## Nightly Resources Janitor
+## Ephemeral Resources Janitor
 
-The e2e tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **ephemeral-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
+The ephemeral tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **ephemeral-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
 
 ### What is preserved
 
