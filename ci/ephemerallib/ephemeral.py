@@ -83,6 +83,14 @@ class EphemeralEnvOrchestrator:
 
         Can run independently of provision() — reconnects to the existing
         CI branch and pipeline resources using the ci_prefix.
+
+        Args:
+            fire_and_forget: If True, only pushes the initial infrastructure
+                delete flags (Phase 1) and exits immediately without waiting
+                for pipelines to complete. Phase 2 (delete_pipeline flags) and
+                Phase 3 (pipeline-provisioner destruction) are intentionally
+                skipped — teardown is expected to be driven to completion by
+                external means (a periodic janitor job).
         """
         self._setup_aws()
 
@@ -334,7 +342,11 @@ class EphemeralEnvOrchestrator:
         git.modify_config(TARGET_ENVIRONMENT, set_delete_flag)
 
         if fire_and_forget:
-            log.info("Fire-and-forget mode enabled — not waiting for pipelines to complete.")
+            log.info(
+                "Fire-and-forget mode: pushed infrastructure delete flags (Phase 1) "
+                "and exiting. Phases 2 (delete_pipeline) and 3 (pipeline-provisioner "
+                "destroy) will NOT run — complete teardown must be triggered separately."
+            )
             return
 
         # Wait for pipeline-provisioner to pick up the change
