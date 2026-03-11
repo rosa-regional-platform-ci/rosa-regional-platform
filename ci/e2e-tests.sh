@@ -1,20 +1,27 @@
 #!/bin/bash
 # Run e2e API tests from rosa-regional-platform-api against the provisioned environment.
-# Expects SHARED_DIR/regional-terraform-outputs.json to exist (written by pre-merge.py --save-state).
+# API URL is read from ${CREDS_DIR}/api_url if available, otherwise from
+# SHARED_DIR/regional-terraform-outputs.json (written by pre-merge.py --save-state).
 
 set -euo pipefail
 
-TF_OUTPUTS="${SHARED_DIR}/regional-terraform-outputs.json"
-if [[ ! -r "${TF_OUTPUTS}" ]]; then
-  echo "ERROR: ${TF_OUTPUTS} does not exist or is not readable" >&2
-  exit 1
+CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
+if [[ -r "${CREDS_DIR}/api_url" ]]; then
+  echo "Using API URL from ${CREDS_DIR}/api_url (pre-existing environment)"
+  BASE_URL="$(cat "${CREDS_DIR}/api_url")"
+else
+  echo "No ${CREDS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
+  TF_OUTPUTS="${SHARED_DIR}/regional-terraform-outputs.json"
+  if [[ ! -r "${TF_OUTPUTS}" ]]; then
+    echo "ERROR: ${TF_OUTPUTS} does not exist or is not readable" >&2
+    exit 1
+  fi
+  BASE_URL="$(jq -r '.api_gateway_invoke_url.value' "${TF_OUTPUTS}")"
 fi
-BASE_URL="$(jq -r '.api_gateway_invoke_url.value' "${TF_OUTPUTS}")"
 export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
 # Set up AWS credentials for authenticated API calls (e.g. aws sts get-caller-identity)
-CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
 if [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
   export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
   export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
