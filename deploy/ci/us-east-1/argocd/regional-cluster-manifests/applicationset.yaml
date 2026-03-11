@@ -5,8 +5,8 @@
 # - Edit config.yaml for config_revision references
 # - Then run: scripts/render.py
 #
-# Cluster Type: management-cluster
-# Region Deployment: us-east-1 (psav-central)
+# Cluster Type: regional-cluster
+# Region Deployment: us-east-1 (ci)
 # Config Revision: metadata.annotations.git_revision
 # Generated: render.py
 #
