@@ -3,6 +3,10 @@ kind: Application
 metadata:
   name: {{ .Values.hyperfleetApiChart.name }}
   namespace: {{ .Values.hyperfleetApiChart.namespace }}
+  {{- if .Values.hyperfleetApiChart.annotations }}
+  annotations:
+    {{- toYaml .Values.hyperfleetApiChart.annotations | nindent 4 }}
+  {{- end }}
   labels:
     {{- include "hyperfleet-api-chart.labels" . | nindent 4 }}
 spec:

@@ -8,6 +8,10 @@ hyperfleetAdapter1Chart:
   # Namespace where the ArgoCD Application resource will be created
   namespace: argocd
 
+  # Annotations for the ArgoCD Application resource (e.g., syncWave for ordering)
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+
   # Target namespace where the HyperFleet Adapter will be deployed
   targetNamespace: hyperfleet-system
 
@@ -77,9 +81,9 @@ hyperfleetAdapter1Chart:
             version: "0.1.0"
 
           # Log the full merged configuration after load (default: false)
-          debugConfig: true
+          debugConfig: false
           log:
-            level: debug
+            level: info
 
           clients:
             hyperfleetApi:

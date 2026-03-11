@@ -3,6 +3,10 @@ kind: Application
 metadata:
   name: {{ .Values.hyperfleetSentinel1Chart.name }}
   namespace: {{ .Values.hyperfleetSentinel1Chart.namespace }}
+  {{- if .Values.hyperfleetSentinel1Chart.annotations }}
+  annotations:
+    {{- toYaml .Values.hyperfleetSentinel1Chart.annotations | nindent 4 }}
+  {{- end }}
   labels:
     {{- include "hyperfleet-sentinel1-chart.labels" . | nindent 4 }}
 spec:

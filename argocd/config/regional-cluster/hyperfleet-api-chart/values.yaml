@@ -1,4 +1,4 @@
-  # Default values for hyperfleet-api-chart
+# Default values for hyperfleet-api-chart
 # This chart creates an ArgoCD Application that deploys the HyperFleet API Helm chart
 
 hyperfleetApiChart:
@@ -7,6 +7,10 @@ hyperfleetApiChart:
 
   # Namespace where the ArgoCD Application resource will be created
   namespace: argocd
+
+  # Annotations for the ArgoCD Application resource (e.g., syncWave for ordering)
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 
   # Target namespace where the HyperFleet API will be deployed
   targetNamespace: hyperfleet-system
@@ -74,8 +78,3 @@ hyperfleetApiChart:
         - adapter2
       nodepool:
         - adapter3      
-    aws:
-      region: us-east-2
-      podIdentity:
-        enabled: true
-        roleArn: ""

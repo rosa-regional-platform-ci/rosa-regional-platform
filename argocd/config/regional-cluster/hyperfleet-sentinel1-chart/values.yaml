@@ -1,5 +1,5 @@
-# Default values for hyperfleet-adapter1-chart
-# This chart creates an ArgoCD Application that deploys the HyperFleet Adapter Helm chart
+# Default values for hyperfleet-sentinel1-chart
+# This chart creates an ArgoCD Application that deploys the HyperFleet Sentinel Helm chart
 
 hyperfleetSentinel1Chart:
   # Name of the ArgoCD Application
@@ -7,6 +7,10 @@ hyperfleetSentinel1Chart:
 
   # Namespace where the ArgoCD Application resource will be created
   namespace: argocd
+
+  # Annotations for the ArgoCD Application resource (e.g., syncWave for ordering)
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 
   # Target namespace where the HyperFleet Adapter will be deployed
   targetNamespace: hyperfleet-system

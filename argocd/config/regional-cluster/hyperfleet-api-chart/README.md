@@ -16,44 +16,20 @@ ApplicationSet (base-applicationset.yaml)
               └─> Kubernetes Resources
 ```
 
-## Configuration
+## Sync Waves
 
-### Default Values
+hyperfleet-api-chart (syncWave: "-1"):
+- Deploys first in wave -1
+- Has CreateNamespace=true to create the hyperfleet-system namespace
 
-```yaml
-hyperfleetApiChart:
-  name: hyperfleet-api-external
-  namespace: argocd
-  targetNamespace: hyperfleet-system
-  source:
-    repoURL: https://github.com/openshift-hyperfleet/hyperfleet-api
-    targetRevision: main
-    path: charts
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - ServerSideApply=true
-```
+hyperfleet-adapter1-chart (syncWave: "1"):
+- Deploys after in wave 1
+- Has CreateNamespace=false (namespace already exists)
 
-### Customization
+hyperfleet-sentinel1-chart (syncWave: "1"):
+- Deploys after in wave 1
+- Has CreateNamespace=false (namespace already exists)
 
-You can customize the deployment by overriding values:
-
-- `hyperfleetApiChart.name` - Name of the ArgoCD Application resource
-- `hyperfleetApiChart.targetNamespace` - Where HyperFleet API will be deployed
-- `hyperfleetApiChart.source.targetRevision` - Git branch/tag to deploy from
-- `hyperfleetApiChart.values` - Additional Helm values to pass to the external chart
-
-### External database
-
-When `hyperfleetApiChart.values.database.external.enabled` is true, the external chart expects a Kubernetes Secret in the target namespace. Set `hyperfleetApiChart.values.database.external.secretName` to the name of that Secret. The Secret must contain keys: `db.host`, `db.port`, `db.name`, `db.user`, `db.password`. Create it via SecretProviderClass `secretObjects`, External Secrets Operator, or manually.
-
-## Deployment
-
-This chart is automatically deployed by the ArgoCD ApplicationSet when placed in the `argocd/config/regional-cluster/` directory. The ApplicationSet will create an ArgoCD Application that renders this Helm chart, which in turn creates another ArgoCD Application pointing to the external repository.
 
 ## Source Repository
 

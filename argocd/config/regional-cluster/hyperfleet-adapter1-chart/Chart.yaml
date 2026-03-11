@@ -1,5 +1,5 @@
 apiVersion: v2
-name: hyperfleetAdapter1Chart
+name: hyperfleet-adapter1-chart
 description: ArgoCD Application wrapper for HyperFleet Adapter from external Git repository
 type: application
 version: 0.1.0
