@@ -1,4 +1,4 @@
-  # Default values for hyperfleet-api-chart
+# Default values for hyperfleet-api-chart
 # This chart creates an ArgoCD Application that deploys the HyperFleet API Helm chart
 
 hyperfleetApiChart:
@@ -74,8 +74,3 @@ hyperfleetApiChart:
         - adapter2
       nodepool:
         - adapter3      
-    aws:
-      region: us-east-2
-      podIdentity:
-        enabled: true
-        roleArn: ""

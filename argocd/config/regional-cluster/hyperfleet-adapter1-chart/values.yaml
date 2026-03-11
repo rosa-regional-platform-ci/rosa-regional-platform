@@ -77,9 +77,9 @@ hyperfleetAdapter1Chart:
             version: "0.1.0"
 
           # Log the full merged configuration after load (default: false)
-          debugConfig: true
+          debugConfig: false
           log:
-            level: debug
+            level: info
 
           clients:
             hyperfleetApi:
