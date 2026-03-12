@@ -14,7 +14,7 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  oidc_bucket_name = "hypershift-${var.cluster_id}-oidc"
+  oidc_bucket_name = "hypershift-${data.aws_caller_identity.current.account_id}-${var.cluster_id}-oidc"
 
   common_tags = merge(
     var.tags,
