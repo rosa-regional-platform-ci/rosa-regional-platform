@@ -5,16 +5,14 @@
 # All values are namespaced under 'hypershift' to maintain consistency
 # with the rendering system and avoid conflicts with other charts
 hypershift:
-  # S3 bucket configuration, please update the name here before execute
-  oidcStorageS3Bucket:
-    name: hypershift-mc-bucket
-    region: us-east-1
+  # AWS region — used by the ASCP SecretProviderClass to fetch from Secrets Manager
+  region: us-east-1
 
   # External DNS configuration
   externalDns:
     image: registry.redhat.io/edo/external-dns-rhel9@sha256:591de53fdaae236c8d384deb6c927f4f397bf44ce4580bbc70b57c112cf22315
-    domain: "."
+    domain: ".example.com"
 
   # Hypershift configuration
   hypershift:
-    image: quay.io/acm-d/rhtap-hypershift-operator:latest
+    image: quay.io/psav/hypershift:test20

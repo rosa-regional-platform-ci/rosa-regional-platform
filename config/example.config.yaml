@@ -53,9 +53,7 @@ defaults:
   values:
     management-cluster:
       hypershift:
-        oidcStorageS3Bucket:
-          name: "hypershift-mc-{{ aws_region }}"
-          region: "{{ aws_region }}"
+        region: "{{ aws_region }}"
         externalDns:
           domain: "dev.{{ aws_region }}.rosa.example.com"
     regional-cluster:

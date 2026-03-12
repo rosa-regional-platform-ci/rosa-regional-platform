@@ -4,18 +4,38 @@ metadata:
   name: hypershift-install
   namespace: hypershift-install
   annotations:
-    # 1. Run this during the sync process
     argocd.argoproj.io/hook: Sync
-    # 2. Delete the old job before starting the new one
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   activeDeadlineSeconds: 1800
   backoffLimit: 1
   template:
     spec:
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: hypershift-config
       containers:
       - name: install
         image: {{ .Values.hypershift.hypershift.image }}
+        volumeMounts:
+          - name: secrets-store
+            mountPath: /mnt/secrets-store
+            readOnly: true
+        env:
+          - name: OIDC_BUCKET_NAME
+            valueFrom:
+              secretKeyRef:
+                name: hypershift-config-env
+                key: OIDC_BUCKET_NAME
+          - name: OIDC_BUCKET_REGION
+            valueFrom:
+              secretKeyRef:
+                name: hypershift-config-env
+                key: OIDC_BUCKET_REGION
         command:
         - /bin/sh
         - -c
@@ -25,13 +45,13 @@ spec:
             --enable-conversion-webhook=false \
             --hypershift-image {{ .Values.hypershift.hypershift.image }} \
             --limit-crd-install AWS \
-            --oidc-storage-provider-s3-bucket-name {{ .Values.hypershift.oidcStorageS3Bucket.name }} \
-            --oidc-storage-provider-s3-region {{ .Values.hypershift.oidcStorageS3Bucket.region }} \
-            --oidc-storage-provider-s3-secret oidc-discover \
+            --oidc-storage-provider-s3-bucket-name $(OIDC_BUCKET_NAME) \
+            --oidc-storage-provider-s3-region $(OIDC_BUCKET_REGION) \
             --external-dns-provider aws \
             --external-dns-domain-filter {{ .Values.hypershift.externalDns.domain }} \
             --external-dns-secret external-dns \
-            --external-dns-image {{ .Values.hypershift.externalDns.image }}
+            --external-dns-image {{ .Values.hypershift.externalDns.image }} \
+            --private-platform=AWS \
+            --aws-private-region {{ .Values.hypershift.region }}
       restartPolicy: Never
       serviceAccountName: hypershift-installer
-
