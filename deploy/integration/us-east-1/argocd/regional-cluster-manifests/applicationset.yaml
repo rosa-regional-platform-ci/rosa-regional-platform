@@ -69,6 +69,8 @@ spec:
                 args:
                   dynamodbRegion: '{{ .metadata.annotations.dynamodb_region }}'
                   dynamodbPrefix: '{{ .metadata.annotations.dynamodb_prefix }}'
+            hypershift:
+              region: '{{ .metadata.labels.aws_region }}'
             hyperfleetApi:
               aws:
                 region: '{{ .metadata.labels.aws_region }}'
