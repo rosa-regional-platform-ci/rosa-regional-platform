@@ -1,0 +1,14 @@
+apiVersion: v2
+name: clusters-namespace
+description: Creates the clusters namespace on management clusters
+type: application
+version: 0.1.0
+appVersion: "1.0"
+keywords:
+  - namespace
+  - rosa
+  - clusters
+maintainers:
+  - name: ROSA Regional Platform Team
+sources:
+  - https://github.com/openshift-online/rosa-regional-platform
