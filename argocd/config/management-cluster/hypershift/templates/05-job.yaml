@@ -52,6 +52,6 @@ spec:
             --external-dns-secret external-dns \
             --external-dns-image {{ .Values.hypershift.externalDns.image }} \
             --private-platform=AWS \
-            --aws-private-region {{ .Values.hypershift.region }}
+            --aws-private-region {{ .Values.global.aws_region }}
       restartPolicy: Never
       serviceAccountName: hypershift-installer
