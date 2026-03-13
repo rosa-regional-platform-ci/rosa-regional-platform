@@ -10,6 +10,7 @@
   "regional_id": "ci-c685e4-regional",
   "sector": "ci",
   "delete": true,
+  "delete_pipeline": true,
   "management_cluster_account_ids": [
     "855246887846"
   ]
