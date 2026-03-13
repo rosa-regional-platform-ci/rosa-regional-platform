@@ -8,6 +8,7 @@
   "region": "us-east-1",
   "alias": "ci-c685e4-mc01",
   "sector": "ci",
+  "delete": true,
   "management_id": "ci-c685e4-mc01",
   "regional_aws_account_id": "599476212575"
 }
