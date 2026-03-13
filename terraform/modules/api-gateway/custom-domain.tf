@@ -32,19 +32,13 @@ resource "aws_acm_certificate" "api" {
 # -----------------------------------------------------------------------------
 
 resource "aws_route53_record" "cert_validation" {
-  for_each = var.api_domain_name != null && var.regional_hosted_zone_id != null ? {
-    for dvo in aws_acm_certificate.api[0].domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  } : {}
+  count = var.api_domain_name != null && var.regional_hosted_zone_id != null ? 1 : 0
 
   zone_id         = var.regional_hosted_zone_id
-  name            = each.value.name
-  type            = each.value.type
+  name            = tolist(aws_acm_certificate.api[0].domain_validation_options)[0].resource_record_name
+  type            = tolist(aws_acm_certificate.api[0].domain_validation_options)[0].resource_record_type
   ttl             = 300
-  records         = [each.value.record]
+  records         = [tolist(aws_acm_certificate.api[0].domain_validation_options)[0].resource_record_value]
   allow_overwrite = true
 }
 
@@ -52,7 +46,7 @@ resource "aws_acm_certificate_validation" "api" {
   count = var.api_domain_name != null && var.regional_hosted_zone_id != null ? 1 : 0
 
   certificate_arn         = aws_acm_certificate.api[0].arn
-  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+  validation_record_fqdns = [aws_route53_record.cert_validation[0].fqdn]
 }
 
 # -----------------------------------------------------------------------------
