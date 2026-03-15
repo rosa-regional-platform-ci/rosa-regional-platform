@@ -102,10 +102,13 @@ accounts:
       # ---------------------------------------------------------------
       IAMUser:
         - "e2e"
+        - "ci"
 
       IAMUserAccessKey: &e2e-user-filters
         - property: UserName
           value: "e2e"
+        - property: UserName
+          value: "ci"
       IAMUserPolicyAttachment: *e2e-user-filters
       IAMUserPolicy: *glob-all
       IAMUserGroupAttachment: *e2e-user-filters
