@@ -6,9 +6,9 @@
   "environment": "brian",
   "account_id": "ssm:///infra/brian/us-east-1/mc01/account_id",
   "region": "us-east-1",
-  "alias": "mc01",
+  "alias": "ci-5bf6e1-mc01",
   "enable_bastion": true,
   "sector": "brian",
-  "management_id": "mc01",
+  "management_id": "ci-5bf6e1-mc01",
   "regional_aws_account_id": "ssm:///infra/brian/us-east-1/account_id"
 }
