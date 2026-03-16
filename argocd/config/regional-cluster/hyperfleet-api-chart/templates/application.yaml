@@ -17,8 +17,6 @@ spec:
     path: {{ .Values.hyperfleetApiChart.source.path }}
     {{- if .Values.hyperfleetApiChart.values }}
     helm:
-      valuesFiles:
-        - values.yaml
       valuesObject: |
         {{- toYaml .Values.hyperfleetApiChart.values | nindent 8 }}
         database:
