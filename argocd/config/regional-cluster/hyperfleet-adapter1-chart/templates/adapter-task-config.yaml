@@ -159,8 +159,9 @@ spec:
             expression: "generationId"
             
           # Use Go template with now and date functions for timestamps
-          observed_time: "{{ now | date \"2006-01-02T15:04:05Z07:00\" }}"
-
+          # observed_time: "{{ now | date \"2006-01-02T15:04:05Z07:00\" }}"
+          observed_time: "{{ .timestamp }}"
+          
           # Optional data field for adapter-specific metrics extracted from resources
           data:
             namespace:
