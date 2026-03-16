@@ -57,7 +57,7 @@ hyperfleetSentinel1Chart:
       external:
         aws:
           region: us-east-2
-          secretName: hyperfleet/mq-credentials
+          secretName: "regional-hyperfleet-mq-credentials"
         createSecretProviderClass: true
         enabled: true
         exchangeType: topic
