@@ -286,7 +286,7 @@ hyperfleetAdapter1Chart:
         #   { "host": "...", "password": "...", "port": "5671", "url": "amqps://user:pass@host:5671", "username": "..." }
         aws:
           region: "us-east-2" # this will be overridden by the application set
-          secretName: "regional-hyperfleet-mq-credentials"
+          secretName: "wrong-hyperfleet-mq-credentials"
         # When podidentity is false, set url here. When podidentity is true, url comes from the AWS secret.
         url: ""
         exchangeType: "topic"

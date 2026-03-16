@@ -19,6 +19,12 @@ spec:
     helm:
       values: |
         {{- toYaml .Values.hyperfleetSentinel1Chart.values | nindent 8 }}
+    valuesObject:
+      broker:
+        external:
+          aws:
+            region: {{ .Values.global.aws_region }}
+            secretName: "{{ .Values.global.cluster_name }}-hyperfleet-mq-credentials"
     {{- end }}
   destination:
     server: https://kubernetes.default.svc

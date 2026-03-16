@@ -70,7 +70,7 @@ hyperfleetApiChart:
           region: "us-east-2"
           # Secrets Manager secret name or ARN (objectName in SecretProviderClass)
           # secretName: "hyperfleet/db-credentials"
-          secretName: "regional-hyperfleet-db-credentials"
+          secretName: "wrong-hyperfleet-db-credentials"
         # PostgreSQL SSL mode: disable | require | verify-ca | verify-full
         sslMode: require
 
