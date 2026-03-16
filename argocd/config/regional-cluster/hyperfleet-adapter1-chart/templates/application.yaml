@@ -17,8 +17,71 @@ spec:
     path: {{ .Values.hyperfleetAdapter1Chart.source.path }}
     {{- if .Values.hyperfleetAdapter1Chart.values }}
     helm:
-      values: |
-        {{- toYaml .Values.hyperfleetAdapter1Chart.values | nindent 8 }}
+      valuesObject:
+        replicaCount: 1
+        image:
+          registry: quay.io/openshift-hyperfleet
+          repository: hyperfleet-adapter
+          tag: v0.1.0
+          pullPolicy: Always
+        serviceAccount:
+          create: true
+          name: hyperfleet-adapter-sa
+          annotations: {}
+        broker:
+          create: true
+          rabbitmq:
+            enabled: false
+            url: "amqp://placeholder:placeholder@localhost:5672/"
+            queue: "hyperfleet-clusters-landing-zone"
+            exchange: "hyperfleet-clusters"
+            exchangeType: "topic"
+            routingKey: "#"
+          external:
+            enabled: true
+            podidentity: true
+            secretMountPath: /mnt/secrets-store
+            createSecretProviderClass: true
+            secretProviderClass: "hyperfleet-adapter-mq-secrets"
+            aws:
+              region: {{ .Values.global.aws_region }}
+              secretName: "{{ .Values.global.cluster_name }}-hyperfleet-mq-credentials"
+            url: ""
+            exchangeType: "topic"
+            queue: "hyperfleet-clusters-landing-zone"
+            exchange: "hyperfleet-clusters"
+            routingKey: "#"
+        adapterConfig:
+            create: true
+            hyperfleetApi:
+              baseUrl: "http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000"
+              version: "v1"
+            maestro:
+              # Enable Maestro client for advanced resource management
+              enabled: true
+              grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
+              httpServerAddress: "http://maestro-http.maestro-server.svc.cluster.local:8080"
+              sourceId: "hyperfleet-adapter"
+              clientId: "hyperfleet-adapter-client"
+              timeout: "30s"
+              retryAttempts: 3
+              retryBackoff: "exponential"
+              # TLS configuration (set insecure: true for development)
+              insecure: true
+              auth:
+                type: "none"  # Use "tls" for production with certificates
+                tlsConfig:
+                  caFile: ""
+                  certFile: ""
+                  keyFile: ""
+            log:
+              level: info
+            yaml: |
+              {{ $.Files.Get "templates/adapter-config.yaml" | nindent 12 }}
+        adapterTaskConfig:
+            create: true
+            yaml: |
+              {{ $.Files.Get "templates/adapter-task-config.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc

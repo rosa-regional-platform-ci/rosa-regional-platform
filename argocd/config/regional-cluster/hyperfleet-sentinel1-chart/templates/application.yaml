@@ -17,8 +17,46 @@ spec:
     path: {{ .Values.hyperfleetSentinel1Chart.source.path }}
     {{- if .Values.hyperfleetSentinel1Chart.values }}
     helm:
-      values: |
-        {{- toYaml .Values.hyperfleetSentinel1Chart.values | nindent 8 }}
+      valuesObject:
+        replicaCount: 1
+        image:
+          registry: quay.io/cdoan0
+          repository: sentinel
+          tag: v0.1.0-dev
+          pullPolicy: Always
+        serviceAccount:
+          create: true
+          name: sentinel-sa
+          annotations: {}
+        config:
+          resourceType: clusters
+          resourceSelector: []
+          hyperfleetApi:
+            baseUrl: "http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000"
+          log_config: true
+          messageData:
+            id: "resource.id"
+            kind: "resource.kind"
+            href: "resource.href"
+            generation: "resource.generation"
+        broker:
+          external:
+            aws:
+              region: {{ .Values.global.aws_region }}
+              secretName: "{{ .Values.global.cluster_name }}-hyperfleet-mq-credentials"
+            createSecretProviderClass: true
+            enabled: true
+            exchangeType: topic
+            podidentity: true
+            secretMountPath: /mnt/secrets-store
+            secretProviderClass: hyperfleet-sentinel-mq-secrets
+            url: "amqp://placeholder:placeholder@localhost:5672/"
+          rabbitmq:
+            enabled: false
+            exchangeType: topic
+            url: "amqp://placeholder:placeholder@localhost:5672/"
+          topic: clusters
+          type: rabbitmq
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
