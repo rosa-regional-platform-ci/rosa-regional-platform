@@ -76,12 +76,13 @@ spec:
                   keyFile: ""
             log:
               level: info
-            yaml: |
-              {{ $.Files.Get "templates/adapter-config.yaml" | nindent 12 }}
+            files: |
+              adapter-config.yaml: {{ $.Files.Get "templates/adapter-config.yaml" | nindent 12 }}
         adapterTaskConfig:
             create: true
-            yaml: |
-              {{ $.Files.Get "templates/adapter-task-config.yaml" | nindent 12 }}
+            files: |
+              adapter-task-config.yaml: {{ $.Files.Get "templates/adapter-task-config.yaml" | nindent 12 }}
+              manifestwork.yaml: {{ $.Files.Get "templates/adapter-task-resource-manifestwork.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
