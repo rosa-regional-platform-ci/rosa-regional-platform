@@ -17,15 +17,15 @@ spec:
     path: {{ .Values.hyperfleetApiChart.source.path }}
     {{- if .Values.hyperfleetApiChart.values }}
     helm:
-      values: |
+      valuesFiles:
+        - values.yaml
+      valuesObject: |
         {{- toYaml .Values.hyperfleetApiChart.values | nindent 8 }}
-      valuesObject:
-        values:
-          database:
-            external:
-              aws:
-                region: {{ .Values.global.aws_region }}
-                secretName: "{{ .Values.global.cluster_name }}-hyperfleet-db-credentials"
+        database:
+          external:
+            aws:
+              region: {{ .Values.global.aws_region }}
+              secretName: "{{ .Values.global.cluster_name }}-hyperfleet-db-credentials"
     {{- end }}
   destination:
     server: https://kubernetes.default.svc

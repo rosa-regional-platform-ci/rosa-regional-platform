@@ -66,11 +66,9 @@ hyperfleetApiChart:
         # Create a SecretProviderClass from the chart (uses database.external.aws when true)
         createSecretProviderClass: true
         # AWS Secrets Manager config when createSecretProviderClass is true
-        # aws:
-        #   region: "us-east-2"
-        #   # Secrets Manager secret name or ARN (objectName in SecretProviderClass)
-        #   # secretName: "hyperfleet/db-credentials"
-        #   secretName: "regional-hyperfleet-db-credentials"
+        aws:
+          region: "us-east-2"
+          secretName: "regional-hyperfleet-db-credentials"
         # PostgreSQL SSL mode: disable | require | verify-ca | verify-full
         sslMode: require
 
