@@ -22,7 +22,7 @@ from render import (
     get_cluster_types,
     load_config,
     load_yaml,
-    render_environment_accounts,
+    render_environment_config,
     resolve_config_path,
     render_region_deployment_applicationsets,
     render_region_deployment_terraform,
@@ -635,12 +635,12 @@ class TestResolveRegionDeployments:
         result = resolve_region_deployments(config)
         assert result[0]["revision"] == "main"
 
-    def test_environment_domain_inheritance(self):
+    def test_domain_inheritance(self):
         config = {
             "defaults": {},
             "environments": {
                 "integration": {
-                    "environment_domain": "int0.rosa.devshift.net",
+                    "environment": {"domain": "int0.rosa.devshift.net"},
                     "region_deployments": {
                         "us-east-1": {"management_clusters": {}}
                     },
@@ -648,11 +648,11 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_domain"] == "int0.rosa.devshift.net"
+        assert result[0]["environment_config"]["domain"] == "int0.rosa.devshift.net"
 
-    def test_environment_domain_falls_back_to_defaults(self):
+    def test_domain_falls_back_to_defaults(self):
         config = {
-            "defaults": {"environment_domain": "rosa.devshift.net"},
+            "defaults": {"environment": {"domain": "rosa.devshift.net"}},
             "environments": {
                 "staging": {
                     "region_deployments": {
@@ -662,15 +662,15 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_domain"] == "rosa.devshift.net"
+        assert result[0]["environment_config"]["domain"] == "rosa.devshift.net"
 
-    def test_environment_domain_override(self):
+    def test_domain_override(self):
         """Most-specific non-None wins: region_deployment > env > defaults."""
         config = {
-            "defaults": {"environment_domain": "rosa.devshift.net"},
+            "defaults": {"environment": {"domain": "rosa.devshift.net"}},
             "environments": {
                 "integration": {
-                    "environment_domain": "int0.rosa.devshift.net",
+                    "environment": {"domain": "int0.rosa.devshift.net"},
                     "region_deployments": {
                         "us-east-1": {"management_clusters": {}}
                     },
@@ -678,9 +678,9 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_domain"] == "int0.rosa.devshift.net"
+        assert result[0]["environment_config"]["domain"] == "int0.rosa.devshift.net"
 
-    def test_environment_domain_none_when_not_set(self):
+    def test_domain_none_when_not_set(self):
         config = {
             "defaults": {},
             "environments": {
@@ -692,7 +692,7 @@ class TestResolveRegionDeployments:
             },
         }
         result = resolve_region_deployments(config)
-        assert result[0]["environment_domain"] is None
+        assert result[0].get("environment_config", {}).get("domain") is None
 
     def test_sector_support(self):
         config = {
@@ -845,6 +845,186 @@ class TestResolveRegionDeployments:
         values = result[0]["values"]
         assert values["regional-cluster"]["setting"] == "env-override"
         assert values["global"]["shared"] == "from-defaults"
+
+    def test_arbitrary_field_inherits_without_code_changes(self):
+        """Any field (not just known ones) inherits through the full chain."""
+        config = {
+            "defaults": {"custom_field": "from-defaults", "only_in_defaults": True},
+            "environments": {
+                "staging": {
+                    "custom_field": "from-env",
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["custom_field"] == "from-env"
+        assert result[0]["only_in_defaults"] is True
+
+    def test_full_four_level_merge(self):
+        """defaults -> env -> sector -> rd, most-specific wins at each level."""
+        config = {
+            "defaults": {
+                "terraform_vars": {"a": "default", "b": "default", "c": "default", "d": "default"},
+                "values": {"regional-cluster": {"x": "default", "y": "default"}},
+                "revision": "default-rev",
+                "account_id": "default-account",
+            },
+            "environments": {
+                "prod": {
+                    "sectors": {
+                        "sector-a": {
+                            "terraform_vars": {"c": "sector", "d": "sector"},
+                            "values": {"regional-cluster": {"y": "sector"}},
+                            "revision": "sector-rev",
+                            "region_deployments": {
+                                "us-east-1": {
+                                    "terraform_vars": {"d": "rd"},
+                                    "management_clusters": {},
+                                }
+                            },
+                        }
+                    },
+                    "terraform_vars": {"b": "env", "c": "env", "d": "env"},
+                    "revision": "env-rev",
+                    "account_id": "env-account",
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        rd = result[0]
+        # terraform_vars: each key won by its most-specific level
+        assert rd["terraform_vars"]["a"] == "default"
+        assert rd["terraform_vars"]["b"] == "env"
+        assert rd["terraform_vars"]["c"] == "sector"
+        assert rd["terraform_vars"]["d"] == "rd"
+        # values: sector overrides default
+        assert rd["values"]["regional-cluster"]["x"] == "default"
+        assert rd["values"]["regional-cluster"]["y"] == "sector"
+        # scalars: most-specific wins
+        assert rd["revision"] == "sector-rev"
+        assert rd["account_id"] == "env-account"
+
+    def test_revision_at_env_level(self):
+        config = {
+            "defaults": {"revision": "main"},
+            "environments": {
+                "staging": {
+                    "revision": "env-pinned",
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["revision"] == "env-pinned"
+
+    def test_revision_at_sector_level(self):
+        config = {
+            "defaults": {"revision": "main"},
+            "environments": {
+                "prod": {
+                    "revision": "env-rev",
+                    "sectors": {
+                        "sector-a": {
+                            "revision": "sector-rev",
+                            "region_deployments": {
+                                "us-east-1": {"management_clusters": {}}
+                            },
+                        }
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["revision"] == "sector-rev"
+
+    def test_account_id_at_env_level(self):
+        config = {
+            "defaults": {"account_id": "default-account"},
+            "environments": {
+                "staging": {
+                    "account_id": "env-account",
+                    "region_deployments": {
+                        "us-east-1": {"management_clusters": {}}
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["account_id"] == "env-account"
+
+    def test_account_id_at_sector_level(self):
+        config = {
+            "defaults": {"account_id": "default-account"},
+            "environments": {
+                "prod": {
+                    "account_id": "env-account",
+                    "sectors": {
+                        "sector-a": {
+                            "account_id": "sector-account",
+                            "region_deployments": {
+                                "us-east-1": {"management_clusters": {}}
+                            },
+                        }
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["account_id"] == "sector-account"
+
+    def test_values_full_merge_chain(self):
+        """values merge through defaults -> env -> sector -> rd."""
+        config = {
+            "defaults": {
+                "values": {
+                    "regional-cluster": {"a": "default", "b": "default"},
+                },
+            },
+            "environments": {
+                "prod": {
+                    "sectors": {
+                        "sector-a": {
+                            "values": {"regional-cluster": {"b": "sector", "c": "sector"}},
+                            "region_deployments": {
+                                "us-east-1": {
+                                    "values": {"regional-cluster": {"c": "rd"}},
+                                    "management_clusters": {},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        rc = result[0]["values"]["regional-cluster"]
+        assert rc["a"] == "default"
+        assert rc["b"] == "sector"
+        assert rc["c"] == "rd"
+
+    def test_environment_config_at_sector_level(self):
+        config = {
+            "defaults": {"environment": {"domain": "default.example.com"}},
+            "environments": {
+                "prod": {
+                    "sectors": {
+                        "sector-a": {
+                            "environment": {"domain": "sector.example.com"},
+                            "region_deployments": {
+                                "us-east-1": {"management_clusters": {}}
+                            },
+                        }
+                    },
+                }
+            },
+        }
+        result = resolve_region_deployments(config)
+        assert result[0]["environment_config"]["domain"] == "sector.example.com"
 
 
 # =============================================================================
@@ -1198,11 +1378,11 @@ class TestRenderRegionDeploymentTerraform:
 
 
 # =============================================================================
-# render_environment_accounts
+# render_environment_config
 # =============================================================================
 
 
-class TestRenderEnvironmentAccounts:
+class TestRenderEnvironmentConfig:
     def test_single_env_single_region(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
         rds = [
@@ -1214,9 +1394,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "brian" / "accounts.json"
+        accounts_file = deploy_dir / "brian" / "environment.json"
         assert accounts_file.exists()
         data = json.loads(accounts_file.read_text())
         assert "us-east-1" in data["region_definitions"]
@@ -1242,9 +1422,9 @@ class TestRenderEnvironmentAccounts:
             },
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "prod" / "accounts.json"
+        accounts_file = deploy_dir / "prod" / "environment.json"
         data = json.loads(accounts_file.read_text())
         assert len(data["region_definitions"]) == 2
         assert "us-east-1" in data["region_definitions"]
@@ -1267,10 +1447,10 @@ class TestRenderEnvironmentAccounts:
             },
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        assert (deploy_dir / "staging" / "accounts.json").exists()
-        assert (deploy_dir / "prod" / "accounts.json").exists()
+        assert (deploy_dir / "staging" / "environment.json").exists()
+        assert (deploy_dir / "prod" / "environment.json").exists()
 
     def test_contains_generated_metadata(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
@@ -1283,9 +1463,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "e2e" / "accounts.json"
+        accounts_file = deploy_dir / "e2e" / "environment.json"
         data = json.loads(accounts_file.read_text())
         assert "_generated" in data
         assert "DO NOT EDIT" in data["_generated"]
@@ -1302,9 +1482,9 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "cdoan-central" / "accounts.json"
+        accounts_file = deploy_dir / "cdoan-central" / "environment.json"
         data = json.loads(accounts_file.read_text())
         entry = data["region_definitions"]["us-east-2"]
         assert entry == {
@@ -1313,25 +1493,25 @@ class TestRenderEnvironmentAccounts:
             "aws_region": "us-east-2",
         }
 
-    def test_environment_domain_included(self, tmp_path):
+    def test_domain_included(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
         rds = [
             {
                 "environment": "integration",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
-                "environment_domain": "int0.rosa.devshift.net",
+                "environment_config": {"domain": "int0.rosa.devshift.net"},
                 "management_clusters": [],
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "integration" / "accounts.json"
+        accounts_file = deploy_dir / "integration" / "environment.json"
         data = json.loads(accounts_file.read_text())
-        assert data["environment_domain"] == "int0.rosa.devshift.net"
+        assert data["domain"] == "int0.rosa.devshift.net"
 
-    def test_environment_domain_omitted_when_not_set(self, tmp_path):
+    def test_domain_omitted_when_not_set(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
         rds = [
             {
@@ -1342,11 +1522,11 @@ class TestRenderEnvironmentAccounts:
             }
         ]
 
-        render_environment_accounts(rds, deploy_dir)
+        render_environment_config(rds, deploy_dir)
 
-        accounts_file = deploy_dir / "brian" / "accounts.json"
+        accounts_file = deploy_dir / "brian" / "environment.json"
         data = json.loads(accounts_file.read_text())
-        assert "environment_domain" not in data
+        assert "domain" not in data
 
 
 # =============================================================================

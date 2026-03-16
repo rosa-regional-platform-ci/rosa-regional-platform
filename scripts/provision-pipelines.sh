@@ -232,7 +232,7 @@ echo ""
 # =============================================================================
 # DNS Environment Zone (optional)
 #
-# When environment_domain is configured in regional.json, create the environment
+# When domain is configured in environment.json, create the environment
 # hosted zone (e.g. int0.rosa.devshift.net) in the central account before
 # processing regions. The zone ID is passed to regional pipelines for NS delegation.
 # =============================================================================
@@ -240,7 +240,7 @@ echo ""
 ENVIRONMENT_DOMAIN=""
 ENVIRONMENT_HOSTED_ZONE_ID=""
 
-ENVIRONMENT_DOMAIN=$(jq -r '.environment_domain // empty' "deploy/${ENVIRONMENT}/accounts.json" 2>/dev/null || echo "")
+ENVIRONMENT_DOMAIN=$(jq -r '.domain // empty' "deploy/${ENVIRONMENT}/environment.json" 2>/dev/null || echo "")
 
 if [ -n "$ENVIRONMENT_DOMAIN" ]; then
     echo "=========================================="

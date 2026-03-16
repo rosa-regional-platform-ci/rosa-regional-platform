@@ -1,7 +1,7 @@
-environment_domain: int0.rosa.devshift.net
+environment:
+  domain: int0.rosa.devshift.net
 
 region_deployments:
   us-east-1:
-    account_id: {}
     management_clusters:
       mc01: {}

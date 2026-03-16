@@ -227,31 +227,41 @@ def resolve_templates(value: Any, context: Dict[str, Any]) -> Any:
     return value
 
 
+# Structural keys define hierarchy, not inheritable configuration
+_STRUCTURAL_KEYS = {"region_deployments", "management_clusters", "sectors"}
+
+
+def _inheritable(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract inheritable fields (everything except structural keys)."""
+    return {k: v for k, v in config.items() if k not in _STRUCTURAL_KEYS}
+
+
 def resolve_region_deployments(
     config: Dict[str, Any], ci_prefix: str = ""
 ) -> List[Dict[str, Any]]:
     """Resolve region deployments by walking the nested config hierarchy.
 
-    Walks environments → [sectors →] region_deployments, deep-merging inheritable
-    fields (terraform_vars, values) through the chain:
+    Walks environments → [sectors →] region_deployments, deep-merging all
+    inheritable fields through the chain:
     defaults → environment → sector → region_deployment (most-specific wins).
+
+    Structural keys (region_deployments, management_clusters, sectors) define
+    hierarchy and are excluded from inheritance.
 
     Environments may place region_deployments directly (implicit default sector)
     or use explicit ``sectors:`` for multi-sector setups.
 
-    Scalar fields (revision, bootstrap_pipeline_revision) use simple override
-    (most-specific non-None wins).
-
     Management clusters are converted from dict form to list form with auto-derived
     management_id = mc_key (e.g., "mc01").  If an MC entry omits account_id, the
-    defaults.management_cluster_account_id template is applied with
+    merged management_cluster_account_id template is applied with
     ``cluster_prefix`` (the MC dict key) available in the Jinja2 context.
 
     All string values are then template-processed using region deployment fields
     as context.
 
     Args:
-        config: Full parsed config.yaml
+        config: Full parsed config
+        ci_prefix: Optional prefix for CI resource names
 
     Returns:
         List of fully resolved region deployment configurations
@@ -280,48 +290,32 @@ def resolve_region_deployments(
                 sector_config.get("region_deployments") or {}
             ).items():
                 rd_config = rd_config or {}
-                rd = {}
 
-                # Set identity fields
+                # Generic deep-merge: defaults → env → sector → rd
+                rd = deep_merge(_inheritable(defaults), _inheritable(env_config))
+                rd = deep_merge(rd, _inheritable(sector_config))
+                rd = deep_merge(rd, _inheritable(rd_config))
+
+                # Preserve environment config dict before identity fields overwrite it
+                env_meta = rd.pop("environment", {})
+                if isinstance(env_meta, dict):
+                    rd["environment_config"] = env_meta
+
+                # Set identity fields (derived from hierarchy position)
                 rd["name"] = rd_name
                 rd["aws_region"] = rd_name
                 rd["region"] = rd_name
                 rd["region_deployment"] = rd_name
                 rd["environment"] = env_name
                 rd["sector"] = sector_name if sector_name != "default" else env_name
-
-                # Compute deterministic regional_id
                 rd["regional_id"] = f"{ci_prefix}-regional" if ci_prefix else "regional"
 
-                # Resolve account_id: rd → sector → env → defaults (first non-None wins)
-                raw_account_id = (
-                    rd_config.get("account_id")
-                    or sector_config.get("account_id")
-                    or env_config.get("account_id")
-                    or defaults.get("account_id", "")
-                )
-                rd["account_id"] = resolve_templates(raw_account_id, rd)
-
-                # Deep merge terraform_vars: defaults → env → sector → rd
-                tf_vars = deep_merge(
-                    defaults.get("terraform_vars", {}),
-                    env_config.get("terraform_vars", {}),
-                )
-                tf_vars = deep_merge(tf_vars, sector_config.get("terraform_vars", {}))
-                tf_vars = deep_merge(tf_vars, rd_config.get("terraform_vars", {}))
-                rd["terraform_vars"] = tf_vars
-
-                # Deep merge values: defaults → env → sector → rd
-                values = deep_merge(
-                    defaults.get("values", {}), env_config.get("values", {})
-                )
-                values = deep_merge(values, sector_config.get("values", {}))
-                values = deep_merge(values, rd_config.get("values", {}))
-                rd["values"] = values
+                # Resolve account_id template early (other templates reference it)
+                rd["account_id"] = resolve_templates(rd.get("account_id", ""), rd)
 
                 # Convert management_clusters dict → list with auto-derived management_id
                 mc_dict = rd_config.get("management_clusters") or {}
-                default_mc_account_id = defaults.get("management_cluster_account_id")
+                default_mc_account_id = rd.get("management_cluster_account_id")
                 mc_list = []
                 for mc_key, mc_val in mc_dict.items():
                     mc_entry = dict(mc_val) if mc_val else {}
@@ -338,29 +332,9 @@ def resolve_region_deployments(
                     mc_list.append(mc_entry)
                 rd["management_clusters"] = mc_list
 
-                # Lifecycle flags (control teardown behavior — require explicit boolean True)
-                if rd_config.get("delete") is True:
-                    rd["delete"] = True
-                if rd_config.get("delete_pipeline") is True:
-                    rd["delete_pipeline"] = True
-
-                # Inherit scalar fields (most-specific non-None wins)
-                rd["revision"] = (
-                    rd_config.get("revision")
-                    or sector_config.get("revision")
-                    or env_config.get("revision")
-                    or defaults.get("revision")
-                )
-                rd["environment_domain"] = (
-                    rd_config.get("environment_domain")
-                    or sector_config.get("environment_domain")
-                    or env_config.get("environment_domain")
-                    or defaults.get("environment_domain")
-                )
-
                 # Template-process values and terraform_vars
-                rd["values"] = resolve_templates(rd["values"], rd)
-                rd["terraform_vars"] = resolve_templates(rd["terraform_vars"], rd)
+                rd["values"] = resolve_templates(rd.get("values", {}), rd)
+                rd["terraform_vars"] = resolve_templates(rd.get("terraform_vars", {}), rd)
 
                 resolved.append(rd)
 
@@ -664,13 +638,13 @@ def render_region_deployment_terraform(rd: Dict[str, Any], deploy_dir: Path) -> 
             )
 
 
-def render_environment_accounts(
+def render_environment_config(
     region_deployments: List[Dict[str, Any]], deploy_dir: Path
 ) -> None:
-    """Generate accounts.json for each environment.
+    """Generate environment.json for each environment.
 
     Groups region deployments by environment and writes a single
-    deploy/<environment>/accounts.json containing a
+    deploy/<environment>/environment.json containing a
     region_definitions map with one entry per region.
 
     Args:
@@ -689,25 +663,26 @@ def render_environment_accounts(
             "environment": env,
             "aws_region": aws_region,
         }
-        # Propagate environment-level scalar fields
-        if rd.get("environment_domain"):
-            envs[env]["environment_domain"] = rd["environment_domain"]
+        # Merge environment-level fields (domain, etc.)
+        env_meta = rd.get("environment_config", {})
+        if env_meta:
+            envs[env] = deep_merge(envs[env], env_meta)
 
     for env, env_data in envs.items():
         env_dir = deploy_dir / env
         env_dir.mkdir(parents=True, exist_ok=True)
 
-        accounts_data = {
+        environment_data = {
             "_generated": "DO NOT EDIT - Generated by scripts/render.py",
             **env_data,
         }
 
-        accounts_file = env_dir / "accounts.json"
-        with open(accounts_file, "w") as f:
-            json.dump(accounts_data, f, indent=2)
+        environment_file = env_dir / "environment.json"
+        with open(environment_file, "w") as f:
+            json.dump(environment_data, f, indent=2)
             f.write("\n")
 
-        print(f"  [OK] deploy/{env}/accounts.json")
+        print(f"  [OK] deploy/{env}/environment.json")
 
 
 def cleanup_stale_files(
@@ -905,8 +880,8 @@ def main() -> int:
         render_region_deployment_terraform(rd, deploy_dir)
         print()
 
-    # Generate per-environment accounts.json
-    render_environment_accounts(region_deployments, deploy_dir)
+    # Generate per-environment environment.json
+    render_environment_config(region_deployments, deploy_dir)
 
     print("[OK] Rendering complete")
     return 0

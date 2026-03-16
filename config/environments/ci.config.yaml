@@ -1,5 +1,4 @@
 region_deployments:
   us-east-1:
-    account_id: {}
     management_clusters:
       mc01: {}
