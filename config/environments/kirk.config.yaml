@@ -1,0 +1,7 @@
+region_deployments:
+  us-east-1:
+    account_id: {}
+    terraform_vars:
+      enable_bastion: true
+    management_clusters:
+      mc01: {}
