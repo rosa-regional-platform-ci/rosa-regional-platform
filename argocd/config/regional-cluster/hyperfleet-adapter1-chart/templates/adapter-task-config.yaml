@@ -7,25 +7,19 @@ metadata:
     hyperfleet.io/adapter-type: example1-namespace
     hyperfleet.io/component: adapter
 spec:
-  # Parameters with all required variables
   params:
-
     - name: "clusterId"
       source: "event.id"
       type: "string"
       required: true
-
     - name: "generationId"
       source: "event.generation"
       type: "int"
       required: true
-
     - name: "simulateResult"
       source: "env.SIMULATE_RESULT"
       type: "string"
       required: true
-
-  # Preconditions with valid operators and CEL expressions
   preconditions:
     - name: "clusterStatus"
       apiCall:
@@ -46,51 +40,29 @@ spec:
             status.conditions.filter(c, c.type == "Ready").size() > 0
               ? status.conditions.filter(c, c.type == "Ready")[0].status
               : "False"
-
         - name: "placementClusterName"
           expression: "\"cluster1\""  # TBC coming from placement adapter
           description: "Unique identifier for the target maestro"
-
         - name: "adapterName"
           expression: "\"adapter1\""  # TBC coming from config passed to params
           description: "Unique identifier for the adapter"
-
-      # Structured conditions with valid operators
       conditions:
         - field: "readyConditionStatus"
           operator: "equals"
           value: "False"
-
     - name: "validationCheck"
-      # Valid CEL expression
       expression: |
         readyConditionStatus == "False"
-
-  # Resources with valid K8s manifests
   resources:
     - name: "agentNamespaceManifestWork"
       transport:
         client: "maestro"
         maestro:
           targetCluster: "{{ .placementClusterName }}"
-      
-      # ManifestWork is a kind of manifest that can be used to create resources on the cluster.
-      # It is a collection of resources that are created together.
-      # It is created by the adapter and can be used to create resources on the cluster.
-      # It is created by the adapter and can be used to create resources on the cluster.
       manifest:
         ref: "/etc/adapter/manifestwork.yaml"
-      
-      # Discover the manifestWork by name
-      # This is used to get the manifestWork object from the cluster.
-      # With this approach, the manifestWork object can be used to get the resources inside the manifestWork.
-      # When try to dig  Manifest
       discovery:
         byName: "{{ .clusterId }}"
-
-      # Discover sub-resources within the manifestWork
-      # This approach can be used to use the discovery name to parameter level
-      # This can support jsonPath to dig into the resource status. like mgmtNamespace.status.conditions[?(@.type=="Ready")].status
       nestedDiscoveries:
         - name: "mgmtNamespace"
           discovery:
@@ -101,20 +73,12 @@ spec:
         - name: "mgmtConfigMap"
           discovery:
             byName: "{{ .clusterId }}"
-
-  # Post-processing with valid CEL expressions
-  # This example contains multiple resources, we will only report on the conditions of the jobNamespace not to overcomplicate the example
   post:
     payloads:
       - name: "clusterStatusPayload"
         build:
-          # Adapter name for tracking which adapter reported this status
           adapter: "{{ .metadata.name }}"
-          
-          # Conditions array - each condition has type, status, reason, message
-          # Use CEL optional chaining ?.orValue() for safe field access
           conditions:
-            # Applied: Resources successfully created
             - type: "Applied"
               status:
                 expression: |
@@ -129,8 +93,6 @@ spec:
                   resources.?agentNamespaceManifestWork.agentNamespace.?status.?phase.orValue("") == "Active"
                     ? "Namespace created successfully"
                     : "Namespace creation in progress"
-
-            # Available: Resources are active and ready
             - type: "Available"
               status:
                 expression: |
@@ -141,8 +103,6 @@ spec:
               message:
                 expression: |
                   resources.?agentNamespaceManifestWork.agentNamespace.?status.?phase.orValue("") == "Active" ? "Namespace is active and ready" : "Namespace is not active and ready"
-
-            # Health: Adapter execution status (runtime) Don't need to update this. This can be reused from the adapter config.
             - type: "Health"
               status:
                 expression: |
@@ -154,14 +114,9 @@ spec:
                 expression: |
                   adapter.?errorMessage.orValue("") != "" ? adapter.?errorMessage.orValue("") : "All adapter operations completed successfully"
           
-          # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
           observed_generation:
             expression: "generationId"
-            
-          # Use Go template with now and date functions for timestamps
           observed_time: "{{ .timestamp }}"
-
-          # Optional data field for adapter-specific metrics extracted from resources
           data:
             namespace:
               name:
@@ -170,7 +125,6 @@ spec:
               status:
                 expression: |
                   resources.?clusterNamespace.?status.?phase.orValue("")
-
     postActions:
       - name: "reportClusterStatus"
         apiCall:
