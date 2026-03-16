@@ -59,6 +59,7 @@ hyperfleetApiChart:
         # Name of the Kubernetes Secret containing db.host, db.port, db.name, db.user, db.password.
         # Required when external is enabled. Create via SecretProviderClass secretObjects, ExternalSecret, or manually.
         secretName: hyperfleet-api-db-secrets
+        # secretName: regional-hyperfleet-db-credentials
         usePodIdentity: true
         secretMountPath: /mnt/secrets-store
         secretProviderClass: ""
@@ -68,7 +69,8 @@ hyperfleetApiChart:
         aws:
           region: "us-east-2"
           # Secrets Manager secret name or ARN (objectName in SecretProviderClass)
-          secretName: "hyperfleet/db-credentials"
+          # secretName: "hyperfleet/db-credentials"
+          secretName: "regional-hyperfleet-db-credentials"
         # PostgreSQL SSL mode: disable | require | verify-ca | verify-full
         sslMode: require
 
