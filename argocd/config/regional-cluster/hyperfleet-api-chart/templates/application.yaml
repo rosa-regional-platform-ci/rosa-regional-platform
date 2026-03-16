@@ -17,13 +17,46 @@ spec:
     path: {{ .Values.hyperfleetApiChart.source.path }}
     {{- if .Values.hyperfleetApiChart.values }}
     helm:
-      valuesObject: |
-        {{- toYaml .Values.hyperfleetApiChart.values | nindent 8 }}
+      valuesObject:
+        replicaCount: 1
+        image:
+          registry: quay.io/openshift-hyperfleet
+          repository: hyperfleet-api
+          tag: v0.1.0
+          pullPolicy: Always
+        serviceAccount:
+          create: true
+          name: hyperfleet-api-sa
+          annotations: {}
+        server:
+          bindAddress: ":8000"
+          healthBindAddress: ":8080"
+          metricsBindAddress: ":9090"
+        service:
+          type: ClusterIP
+          port: 8000
+          healthPort: 8080
+          metricsPort: 9090
         database:
+          postgresql:
+            enabled: false
           external:
+            enabled: true
+            secretName: hyperfleet-api-db-secrets
+            usePodIdentity: true
+            secretMountPath: /mnt/secrets-store
+            secretProviderClass: ""
+            createSecretProviderClass: true
             aws:
               region: {{ .Values.global.aws_region }}
               secretName: "{{ .Values.global.cluster_name }}-hyperfleet-db-credentials"
+            sslMode: require
+        adapters:
+          cluster:
+            - adapter1
+            - adapter2
+          nodepool:
+            - adapter3
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
