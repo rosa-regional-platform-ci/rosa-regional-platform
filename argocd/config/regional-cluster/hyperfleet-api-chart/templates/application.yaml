@@ -15,10 +15,10 @@ spec:
     repoURL: {{ .Values.hyperfleetApiChart.source.repoURL }}
     targetRevision: {{ .Values.hyperfleetApiChart.source.targetRevision }}
     path: {{ .Values.hyperfleetApiChart.source.path }}
-    {{- if .Values.hyperfleetApiChart.values }}
     parameters:
       database.external.aws.secretName: "{{ .Values.global.cluster_name }}-hyperfleet-db-credentials"
       database.external.aws.region: {{ .Values.global.aws_region }}
+    {{- if .Values.hyperfleetApiChart.values }}
     helm:
       values: |
         {{- toYaml .Values.hyperfleetApiChart.values | nindent 8 }}
