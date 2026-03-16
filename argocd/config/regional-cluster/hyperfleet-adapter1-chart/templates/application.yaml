@@ -52,37 +52,37 @@ spec:
             exchange: "hyperfleet-clusters"
             routingKey: "#"
         adapterConfig:
-            create: true
-            hyperfleetApi:
-              baseUrl: "http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000"
-              version: "v1"
-            maestro:
-              # Enable Maestro client for advanced resource management
-              enabled: true
-              grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
-              httpServerAddress: "http://maestro-http.maestro-server.svc.cluster.local:8080"
-              sourceId: "hyperfleet-adapter"
-              clientId: "hyperfleet-adapter-client"
-              timeout: "30s"
-              retryAttempts: 3
-              retryBackoff: "exponential"
-              # TLS configuration (set insecure: true for development)
-              insecure: true
-              auth:
-                type: "none"  # Use "tls" for production with certificates
-                tlsConfig:
-                  caFile: ""
-                  certFile: ""
-                  keyFile: ""
-            log:
-              level: info
-            files: |
-              adapter-config.yaml: {{ $.Files.Get "templates/adapter-config.yaml" | nindent 12 }}
+          create: true
+          hyperfleetApi:
+            baseUrl: "http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000"
+            version: "v1"
+          maestro:
+            # Enable Maestro client for advanced resource management
+            enabled: true
+            grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
+            httpServerAddress: "http://maestro-http.maestro-server.svc.cluster.local:8080"
+            sourceId: "hyperfleet-adapter"
+            clientId: "hyperfleet-adapter-client"
+            timeout: "30s"
+            retryAttempts: 3
+            retryBackoff: "exponential"
+            # TLS configuration (set insecure: true for development)
+            insecure: true
+            auth:
+              type: "none"  # Use "tls" for production with certificates
+              tlsConfig:
+                caFile: ""
+                certFile: ""
+                keyFile: ""
+          log:
+            level: info
+          files: |
+            adapter-config.yaml: {{ $.Files.Get "adapter-config.yaml" | nindent 12 }}
         adapterTaskConfig:
-            create: true
-            files: |
-              adapter-task-config.yaml: {{ $.Files.Get "templates/adapter-task-config.yaml" | nindent 12 }}
-              # manifestwork.yaml: {{ $.Files.Get "templates/adapter-task-resource-manifestwork.yaml" | nindent 12 }}
+          create: true
+          files: |
+            adapter-task-config.yaml: {{ $.Files.Get "adapter-task-config.yaml" | nindent 12 }}
+            manifestwork.yaml: {{ $.Files.Get "adapter-task-resource-manifestwork.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc

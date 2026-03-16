@@ -77,7 +77,7 @@ spec:
     payloads:
       - name: "clusterStatusPayload"
         build:
-          adapter: "{{ .metadata.name }}"
+          adapter: "adapter1"
           conditions:
             - type: "Applied"
               status:

@@ -75,10 +75,10 @@ spec:
     - apiVersion: v1
       kind: Namespace
       metadata:
-        name: "{{ .clusterId | lower }}"
+        name: "{{ .clusterId }}"
         labels:
           hyperfleet.io/cluster-id: "{{ .clusterId }}"
-          hyperfleet.io/managed-by: "{{ .metadata.name }}"
+          hyperfleet.io/managed-by: "{{ .clusterId }}"
           hyperfleet.io/resource-type: "namespace"
         annotations:
           hyperfleet.io/created-by: "hyperfleet-adapter"
@@ -119,7 +119,7 @@ spec:
     - resourceIdentifier:
         group: ""                           # Core API group (empty for v1 resources)
         resource: "namespaces"              # Resource type
-        name: "{{ .clusterId | lower }}"    # Specific resource name
+        name: "{{ .clusterId }}"    # Specific resource name
       updateStrategy:
         type: "ServerSideApply"             # Use server-side apply for namespaces
         serverSideApply:
