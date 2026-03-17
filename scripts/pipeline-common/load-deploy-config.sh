@@ -63,7 +63,7 @@ while IFS='=' read -r key value; do
             --query 'Parameter.Value' \
             --output text \
             --region "${TARGET_REGION}")
-        echo "  Resolved: TF_VAR_$key=$value"
+        echo "  Resolved: TF_VAR_$key from SSM"
     fi
 
     # Normalize booleans to "true"/"false"
@@ -78,15 +78,22 @@ done < <(jq -r '.terraform_vars | to_entries[] | select(.value | type == "string
 
 # Management-mode aliases for non-TF consumers (register.sh, iot-mint.sh)
 if [[ "$_DEPLOY_MODE" == "management" ]]; then
+    if [[ -z "${TF_VAR_management_id:-}" ]]; then
+        echo "ERROR: management_id must be provided in $DEPLOY_CONFIG_FILE .terraform_vars" >&2
+        exit 1
+    fi
+
+    if [[ -z "${TF_VAR_regional_aws_account_id:-}" ]]; then
+        echo "ERROR: regional_aws_account_id must be provided in $DEPLOY_CONFIG_FILE .terraform_vars" >&2
+        exit 1
+    fi
+
     CLUSTER_ID="${TF_VAR_management_id}"
     export CLUSTER_ID
 
     RESOLVED_REGIONAL_ACCOUNT_ID="${TF_VAR_regional_aws_account_id}"
     export RESOLVED_REGIONAL_ACCOUNT_ID
-
-    if [[ -z "${TF_VAR_regional_aws_account_id:-}" ]]; then
-        echo "ERROR: regional_aws_account_id must be provided in $DEPLOY_CONFIG_FILE .terraform_vars" >&2
-        exit 1
+fi
     fi
 fi
 
