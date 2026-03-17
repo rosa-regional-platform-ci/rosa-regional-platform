@@ -19,7 +19,8 @@ platformApi:
       # tag: hookup-platform-api-hyperfleet-api
       # support /clusters and delete /management_clusters
       # tag: delete-management-cluster
-      tag: connect-hyperfleet-api
+      # tag: connect-hyperfleet-api
+      tag: latest
       pullPolicy: Always
 
     # Application arguments
