@@ -94,8 +94,6 @@ if [[ "$_DEPLOY_MODE" == "management" ]]; then
     RESOLVED_REGIONAL_ACCOUNT_ID="${TF_VAR_regional_aws_account_id}"
     export RESOLVED_REGIONAL_ACCOUNT_ID
 fi
-    fi
-fi
 
 export DEPLOY_CONFIG_FILE
 
