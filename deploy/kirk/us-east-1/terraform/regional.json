@@ -8,6 +8,7 @@
   "region": "us-east-1",
   "alias": "regional-us-east-1",
   "enable_bastion": true,
+  "container_image": "quay.io/redhat-services-prod/openshift/ocm-container:latest",
   "regional_id": "regional",
   "sector": "kirk",
   "management_cluster_account_ids": [
