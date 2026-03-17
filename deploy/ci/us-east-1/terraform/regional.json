@@ -8,5 +8,6 @@
     "region": "us-east-1",
     "regional_id": "ci-0392ce-regional",
     "sector": "ci"
-  }
+  },
+  "delete": true
 }

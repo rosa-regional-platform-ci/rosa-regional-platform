@@ -11,5 +11,6 @@
     "regional_id": "ci-0392ce-regional",
     "regional_aws_account_id": "720644165472"
   },
-  "account_id": "129678139271"
+  "account_id": "129678139271",
+  "delete": true
 }
