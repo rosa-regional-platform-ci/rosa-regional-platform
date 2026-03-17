@@ -2,9 +2,9 @@
 apiVersion: hyperfleet.redhat.com/v1alpha1
 kind: AdapterConfig
 metadata:
-  name: example1-namespace
+  name: adapter1
   labels:
-    hyperfleet.io/adapter-type: example1-namespace
+    hyperfleet.io/adapter-type: adapter1
     hyperfleet.io/component: adapter
 spec:
   adapter:
