@@ -6,7 +6,7 @@
       "environment": "psav-central",
       "aws_region": "us-east-1",
       "management_clusters": [
-        "mc01"
+        "ci-a465ef-mc01"
       ]
     }
   }
