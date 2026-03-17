@@ -7,9 +7,9 @@
     "environment": "ci",
     "region": "us-east-1",
     "sector": "ci",
-    "management_id": "mc01",
-    "regional_id": "regional",
-    "regional_aws_account_id": "ssm:///infra/ci/us-east-1/account_id"
+    "management_id": "ci-0392ce-mc01",
+    "regional_id": "ci-0392ce-regional",
+    "regional_aws_account_id": "720644165472"
   },
-  "account_id": "ssm:///infra/ci/us-east-1/mc01/account_id"
+  "account_id": "129678139271"
 }

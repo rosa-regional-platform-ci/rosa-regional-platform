@@ -3,9 +3,9 @@
   "region_definitions": {
     "us-east-2": {
       "account_id": "754250776154",
-      "regional_id": "regional",
+      "regional_id": "ci-0392ce-regional",
       "management_clusters": {
-        "mc01": {
+        "ci-0392ce-mc01": {
           "account_id": "910485845704"
         }
       }

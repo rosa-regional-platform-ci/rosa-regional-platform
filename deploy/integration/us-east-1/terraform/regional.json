@@ -7,7 +7,7 @@
     "environment": "integration",
     "region": "us-east-1",
     "enable_bastion": true,
-    "regional_id": "regional",
+    "regional_id": "ci-0392ce-regional",
     "sector": "integration",
     "environment_domain": "int0.rosa.devshift.net"
   }

@@ -3,9 +3,9 @@
   "region_definitions": {
     "us-east-1": {
       "account_id": "ssm:///infra/brian/us-east-1/account_id",
-      "regional_id": "regional",
+      "regional_id": "ci-0392ce-regional",
       "management_clusters": {
-        "mc01": {
+        "ci-0392ce-mc01": {
           "account_id": "ssm:///infra/brian/us-east-1/mc01/account_id"
         }
       }

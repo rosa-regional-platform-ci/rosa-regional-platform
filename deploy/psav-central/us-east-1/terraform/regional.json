@@ -7,7 +7,7 @@
     "environment": "psav-central",
     "region": "us-east-1",
     "enable_bastion": true,
-    "regional_id": "regional",
+    "regional_id": "ci-0392ce-regional",
     "sector": "psav-central"
   }
 }

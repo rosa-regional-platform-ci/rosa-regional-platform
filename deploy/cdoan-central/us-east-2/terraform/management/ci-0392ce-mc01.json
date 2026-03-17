@@ -8,8 +8,8 @@
     "region": "us-east-2",
     "enable_bastion": true,
     "sector": "cdoan-central",
-    "management_id": "mc01",
-    "regional_id": "regional",
+    "management_id": "ci-0392ce-mc01",
+    "regional_id": "ci-0392ce-regional",
     "regional_aws_account_id": "754250776154"
   },
   "account_id": "910485845704"

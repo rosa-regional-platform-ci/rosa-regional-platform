@@ -7,7 +7,7 @@
     "environment": "cdoan-central",
     "region": "us-east-2",
     "enable_bastion": true,
-    "regional_id": "regional",
+    "regional_id": "ci-0392ce-regional",
     "sector": "cdoan-central"
   }
 }
