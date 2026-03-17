@@ -18,7 +18,8 @@ platformApi:
       # tag: psav-odic-bundle-delete
       # tag: hookup-platform-api-hyperfleet-api
       # support /clusters and delete /management_clusters
-      tag: delete-management-cluster
+      # tag: delete-management-cluster
+      tag: connect-hyperfleet-api
       pullPolicy: Always
 
     # Application arguments
