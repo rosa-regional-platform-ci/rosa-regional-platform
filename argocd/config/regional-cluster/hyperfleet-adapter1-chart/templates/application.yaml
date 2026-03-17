@@ -82,8 +82,9 @@ spec:
             {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
         adapterTaskConfig:
           create: true
-          yaml: |
-            {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
+          files:
+            adapter-task-config.yaml: "adapter-task-config.yaml"
+            manifestwork.yaml: "adapter-task-resource-manifestwork.yaml"
         env:
           - name: SIMULATE_RESULT
             value: success
