@@ -98,16 +98,15 @@ if [[ ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
     exit 1
 fi
 
-# Try to read tf_state_region from config.yaml via the first regional.json file found
-# This allows sectors to configure tf_state_region in their terraform_vars
-TF_STATE_REGION=""
-if [ -d "deploy/${ENVIRONMENT}" ]; then
-    # Find first regional.json file in this environment
-    FIRST_REGIONAL_JSON=$(find "deploy/${ENVIRONMENT}" -name "regional.json" -type f | head -n 1)
-    if [ -n "$FIRST_REGIONAL_JSON" ]; then
-        TF_STATE_REGION=$(jq -r '.tf_state_region // empty' "$FIRST_REGIONAL_JSON" 2>/dev/null || echo "")
-    fi
+# Read environment config
+ENV_JSON="deploy/${ENVIRONMENT}/environment.json"
+if [ ! -f "$ENV_JSON" ]; then
+    echo "ERROR: Environment config not found: $ENV_JSON" >&2
+    exit 1
 fi
+
+# Try to read tf_state_region from environment.json
+TF_STATE_REGION=$(jq -r '.tf_state_region // empty' "$ENV_JSON" 2>/dev/null || echo "")
 
 # If not found in config, try to detect from bucket location
 if [ -z "$TF_STATE_REGION" ]; then
@@ -206,27 +205,15 @@ echo "Force delete all pipelines: $FORCE_DELETE_ALL_PIPELINES"
 echo "Processing environment: $ENVIRONMENT"
 echo ""
 
-# Validate environment directory exists
-if [ ! -d "deploy/${ENVIRONMENT}" ]; then
-    echo "❌ ERROR: Environment directory does not exist: deploy/${ENVIRONMENT}" >&2
-    echo "   Available environments:" >&2
-    ls -d deploy/*/ 2>/dev/null | sed 's|deploy/||g; s|/$||g' | sed 's/^/   - /' >&2 || echo "   (none found)" >&2
+# Validate region_definitions exist in environment.json
+REGION_COUNT=$(jq -r '.region_definitions | length' "$ENV_JSON")
+if [ "$REGION_COUNT" -eq 0 ]; then
+    echo "❌ ERROR: No region_definitions found in $ENV_JSON" >&2
+    echo "   Ensure config.yaml has regions for environment '${ENVIRONMENT}' and run scripts/render.py" >&2
     exit 1
 fi
 
-# Validate at least one region directory exists
-shopt -s nullglob
-region_dirs=("deploy/${ENVIRONMENT}"/*/)
-shopt -u nullglob
-
-if [ ${#region_dirs[@]} -eq 0 ]; then
-    echo "❌ ERROR: No region directories found in deploy/${ENVIRONMENT}/" >&2
-    echo "   Expected at least one directory matching: deploy/${ENVIRONMENT}/*/" >&2
-    echo "   Ensure config.yaml has shards for environment '${ENVIRONMENT}' and run scripts/render.py" >&2
-    exit 1
-fi
-
-echo "Found ${#region_dirs[@]} region(s) in environment '${ENVIRONMENT}'"
+echo "Found ${REGION_COUNT} region(s) in environment '${ENVIRONMENT}'"
 echo ""
 
 # =============================================================================
@@ -270,155 +257,134 @@ if [ -n "$ENVIRONMENT_DOMAIN" ]; then
     echo ""
 fi
 
-# Process each region_deployment directory in the target environment
-for region_dir in deploy/${ENVIRONMENT}/*/; do
-    [ -d "$region_dir" ] || continue
-
-    # Extract region_deployment from directory path
-    # e.g., deploy/integration/us-east-1/ -> REGION_DEPLOYMENT=us-east-1
-    REGION_DEPLOYMENT=$(basename "$region_dir")
+# Process each region from environment.json
+for REGION_DEPLOYMENT in $(jq -r '.region_definitions | keys[]' "$ENV_JSON"); do
 
     echo "=========================================="
     echo "Processing: $ENVIRONMENT / $REGION_DEPLOYMENT"
     echo "=========================================="
 
-    # 1. Check for regional.json in this region
-    if [ -f "${region_dir}terraform/regional.json" ]; then
-        echo "Found regional.json for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
+    # Extract regional configuration from environment.json
+    AWS_REGION="$REGION_DEPLOYMENT"
+    TARGET_ACCOUNT_ID=$(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].account_id // \"\"" "$ENV_JSON")
+    TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID" "$AWS_REGION")
+    REGIONAL_ID=$(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].regional_id // \"\"" "$ENV_JSON")
 
-        REGIONAL_CONFIG="${region_dir}terraform/regional.json"
+    DELETE_FLAG=$(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].delete_pipeline // false" "$ENV_JSON")
 
-        # Extract configuration from JSON
-        AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
-        TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
-        TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-        REGIONAL_ID=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
+    # TEMPORARY CI HACK (see top of file)
+    [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
 
-        DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$REGIONAL_CONFIG")
+    echo "  AWS Region: $AWS_REGION"
+    [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
+    [ -n "$REGIONAL_ID" ] && echo "  Regional ID: $REGIONAL_ID"
+    echo "  Delete Flag: $DELETE_FLAG"
 
-        # TEMPORARY CI HACK (see top of file)
-        # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
-        [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
-
-        echo "  AWS Region: $AWS_REGION"
-        [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
-        [ -n "$REGIONAL_ID" ] && echo "  Regional ID: $REGIONAL_ID"
-        echo "  Delete Flag: $DELETE_FLAG"
-
-        # Validate TARGET_ACCOUNT_ID before using it
-        if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
-            echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for region ${AWS_REGION}"
-            echo "   Set account_id in your regional config (either direct account ID or ssm:///path/to/param)"
-            exit 1
-        fi
-
-        # Bootstrap state bucket in target account (idempotent)
-        bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
-
-        echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
-
-        cd terraform/config/pipeline-regional-cluster
-
-        terraform init \
-            -reconfigure \
-            -backend-config="bucket=$TF_STATE_BUCKET" \
-            -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${REGIONAL_ID}.tfstate" \
-            -backend-config="region=$TF_STATE_REGION" \
-            -backend-config="use_lockfile=true"
-
-        # Build terraform apply command with variables (array for safe expansion)
-        TF_ARGS=(
-            -var="github_repository=${GITHUB_REPOSITORY}"
-            -var="github_branch=${GITHUB_BRANCH}"
-            -var="region=${AWS_REGION}"
-        )
-        [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
-        [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
-        [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
-        [ -n "$REGIONAL_ID" ] && TF_ARGS+=( -var="regional_id=${REGIONAL_ID}" )
-        [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
-        # Repository URL and branch for cluster configuration
-        TF_ARGS+=(
-            -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
-            -var="repository_branch=${GITHUB_BRANCH}"
-            -var="codebuild_image=${PLATFORM_IMAGE}"
-        )
-        # DNS configuration (optional)
-        [ -n "$ENVIRONMENT_HOSTED_ZONE_ID" ] && TF_ARGS+=( -var="environment_hosted_zone_id=${ENVIRONMENT_HOSTED_ZONE_ID}" )
-
-        if [ "$DELETE_FLAG" == "true" ]; then
-            if destroy_pipeline "regional"; then
-                cd ../../..
-                echo "✅ Regional pipeline cleanup complete for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
-            else
-                cd ../../..
-                echo "❌ Failed to destroy regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
-                echo "   Destroy failure requires manual intervention. Aborting."
-                exit 1
-            fi
-        else
-            # Apply with retry logic
-            if retry_terraform_apply "${TF_ARGS[@]}"; then
-                cd ../../..
-                echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
-            else
-                cd ../../..
-                echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT} after retries"
-                echo "⏭️  Continuing with next region..."
-                continue
-            fi
-        fi
-    else
-        echo "No terraform/regional.json found in $region_dir, skipping regional pipeline..."
+    # Validate TARGET_ACCOUNT_ID before using it
+    if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
+        echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for region ${AWS_REGION}"
+        echo "   Set account_id in your regional config (either direct account ID or ssm:///path/to/param)"
+        exit 1
     fi
 
-    # 2. Check for management/*.json files in this region
-    if [ -d "${region_dir}terraform/management" ]; then
-        echo "Checking for management cluster configs in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
+    # Bootstrap state bucket in target account (idempotent)
+    bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
 
-        for mc_config in ${region_dir}terraform/management/*.json; do
-            [ -e "$mc_config" ] || continue
+    echo "Processing Regional Cluster Pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
-            # Extract cluster name from filename (e.g., mc01-us-east-1.json -> mc01-us-east-1)
-            CLUSTER_NAME=$(basename "$mc_config" .json)
+    cd terraform/config/pipeline-regional-cluster
 
-            echo "Found management cluster config: $CLUSTER_NAME"
+    terraform init \
+        -reconfigure \
+        -backend-config="bucket=$TF_STATE_BUCKET" \
+        -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${REGIONAL_ID}.tfstate" \
+        -backend-config="region=$TF_STATE_REGION" \
+        -backend-config="use_lockfile=true"
 
-            # Extract configuration from JSON
-            AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
-            TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
-            TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-            MANAGEMENT_ID=$(jq -r '.management_id // ""' "$mc_config")
+    # Build terraform apply command with variables (array for safe expansion)
+    TF_ARGS=(
+        -var="github_repository=${GITHUB_REPOSITORY}"
+        -var="github_branch=${GITHUB_BRANCH}"
+        -var="region=${AWS_REGION}"
+    )
+    [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
+    [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
+    [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
+    [ -n "$REGIONAL_ID" ] && TF_ARGS+=( -var="regional_id=${REGIONAL_ID}" )
+    [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
+    # Repository URL and branch for cluster configuration
+    TF_ARGS+=(
+        -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
+        -var="repository_branch=${GITHUB_BRANCH}"
+        -var="codebuild_image=${PLATFORM_IMAGE}"
+    )
+    # DNS configuration (optional)
+    [ -n "$ENVIRONMENT_HOSTED_ZONE_ID" ] && TF_ARGS+=( -var="environment_hosted_zone_id=${ENVIRONMENT_HOSTED_ZONE_ID}" )
 
-            DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$mc_config")
+    if [ "$DELETE_FLAG" == "true" ]; then
+        if destroy_pipeline "regional"; then
+            cd ../../..
+            echo "✅ Regional pipeline cleanup complete for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
+        else
+            cd ../../..
+            echo "❌ Failed to destroy regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
+            echo "   Destroy failure requires manual intervention. Aborting."
+            exit 1
+        fi
+    else
+        # Apply with retry logic
+        if retry_terraform_apply "${TF_ARGS[@]}"; then
+            cd ../../..
+            echo "✅ Regional pipeline created for ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
+        else
+            cd ../../..
+            echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT} after retries"
+            echo "⏭️  Continuing with next region..."
+            continue
+        fi
+    fi
+
+    # Process management clusters from environment.json
+    MC_COUNT=$(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].management_clusters | length" "$ENV_JSON")
+    if [ "$MC_COUNT" -gt 0 ]; then
+        echo "Processing $MC_COUNT management cluster(s) in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
+
+        for MC_ID in $(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].management_clusters | keys[]" "$ENV_JSON"); do
+
+            echo "Found management cluster config: $MC_ID"
+
+            MC_ACCOUNT_ID=$(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].management_clusters[\"$MC_ID\"].account_id // \"\"" "$ENV_JSON")
+            MC_ACCOUNT_ID=$(resolve_ssm_param "$MC_ACCOUNT_ID" "$AWS_REGION")
+            MANAGEMENT_ID="$MC_ID"
+
+            MC_DELETE_FLAG=$(jq -r ".region_definitions[\"$REGION_DEPLOYMENT\"].management_clusters[\"$MC_ID\"].delete_pipeline // false" "$ENV_JSON")
 
             # TEMPORARY CI HACK (see top of file)
-            # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
-            [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
+            [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && MC_DELETE_FLAG="true"
 
             echo "  AWS Region: $AWS_REGION"
-            [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
+            [ -n "$MC_ACCOUNT_ID" ] && echo "  Target Account ID: $MC_ACCOUNT_ID"
             [ -n "$MANAGEMENT_ID" ] && echo "  Management ID: $MANAGEMENT_ID"
-            echo "  Delete Flag: $DELETE_FLAG"
+            echo "  Delete Flag: $MC_DELETE_FLAG"
 
-            # Validate TARGET_ACCOUNT_ID before using it
-            if [[ -z "$TARGET_ACCOUNT_ID" ]]; then
-                echo "❌ ERROR: TARGET_ACCOUNT_ID (account_id) must be provided for management cluster ${CLUSTER_NAME}"
+            # Validate MC_ACCOUNT_ID before using it
+            if [[ -z "$MC_ACCOUNT_ID" ]]; then
+                echo "❌ ERROR: account_id must be provided for management cluster ${MC_ID}"
                 echo "   Set account_id in your management cluster config (either direct account ID or ssm:///path/to/param)"
                 exit 1
             fi
 
             # Bootstrap state bucket in MC target account (idempotent)
-            bootstrap_target_state_bucket "$TARGET_ACCOUNT_ID" "$AWS_REGION"
+            bootstrap_target_state_bucket "$MC_ACCOUNT_ID" "$AWS_REGION"
 
-            echo "Processing Management Cluster Pipeline for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
+            echo "Processing Management Cluster Pipeline for $MC_ID in ${ENVIRONMENT}-${REGION_DEPLOYMENT}..."
 
             cd terraform/config/pipeline-management-cluster
 
             terraform init \
                 -reconfigure \
                 -backend-config="bucket=$TF_STATE_BUCKET" \
-                -backend-config="key=pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate" \
+                -backend-config="key=pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${MC_ID}.tfstate" \
                 -backend-config="region=$TF_STATE_REGION" \
                 -backend-config="use_lockfile=true"
 
@@ -429,7 +395,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 -var="region=${AWS_REGION}"
             )
             [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
-            [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
+            [ -n "$MC_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${MC_ACCOUNT_ID}" )
             [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
             [ -n "$MANAGEMENT_ID" ] && TF_ARGS+=( -var="management_id=${MANAGEMENT_ID}" )
             [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
@@ -440,13 +406,13 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 -var="codebuild_image=${PLATFORM_IMAGE}"
             )
 
-            if [ "$DELETE_FLAG" == "true" ]; then
+            if [ "$MC_DELETE_FLAG" == "true" ]; then
                 if destroy_pipeline "management"; then
                     cd ../../..
-                    echo "✅ Management pipeline cleanup complete for $CLUSTER_NAME"
+                    echo "✅ Management pipeline cleanup complete for $MC_ID"
                 else
                     cd ../../..
-                    echo "❌ Failed to destroy management pipeline for $CLUSTER_NAME"
+                    echo "❌ Failed to destroy management pipeline for $MC_ID"
                     echo "   Destroy failure requires manual intervention. Aborting."
                     exit 1
                 fi
@@ -454,17 +420,17 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 # Apply with retry logic
                 if retry_terraform_apply "${TF_ARGS[@]}"; then
                     cd ../../..
-                    echo "✅ Management pipeline created for $CLUSTER_NAME in ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
+                    echo "✅ Management pipeline created for $MC_ID in ${ENVIRONMENT}-${REGION_DEPLOYMENT}"
                 else
                     cd ../../..
-                    echo "❌ Failed to create management pipeline for $CLUSTER_NAME after retries"
+                    echo "❌ Failed to create management pipeline for $MC_ID after retries"
                     echo "⏭️  Continuing with next management cluster..."
                     continue
                 fi
             fi
         done
     else
-        echo "No terraform/management/ directory in $region_dir, skipping management pipelines..."
+        echo "No management clusters configured for $REGION_DEPLOYMENT, skipping management pipelines..."
     fi
 
     echo ""

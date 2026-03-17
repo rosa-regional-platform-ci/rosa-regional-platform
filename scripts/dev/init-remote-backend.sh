@@ -157,7 +157,7 @@ if [ "$CLUSTER_TYPE" = "regional" ]; then
         echo "Error: Regional config not found: $CONFIG_FILE"
         exit 1
     fi
-    CLUSTER_ID=$(jq -r '.regional_id // empty' "$CONFIG_FILE")
+    CLUSTER_ID=$(jq -r '.terraform_vars.regional_id // empty' "$CONFIG_FILE")
     if [ -z "$CLUSTER_ID" ]; then
         echo "Error: No 'regional_id' field in $CONFIG_FILE"
         exit 1
@@ -196,7 +196,7 @@ else
         fi
     fi
 
-    CLUSTER_ID=$(jq -r '.management_id // empty' "$CONFIG_FILE")
+    CLUSTER_ID=$(jq -r '.terraform_vars.management_id // empty' "$CONFIG_FILE")
     if [ -z "$CLUSTER_ID" ]; then
         echo "Error: No 'management_id' field in $CONFIG_FILE"
         exit 1

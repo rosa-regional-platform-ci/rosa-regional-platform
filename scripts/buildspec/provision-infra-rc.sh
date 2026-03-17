@@ -21,7 +21,6 @@ aws configure set aws_access_key_id     "$_CENTRAL_AWS_ACCESS_KEY_ID"     --prof
 aws configure set aws_secret_access_key "$_CENTRAL_AWS_SECRET_ACCESS_KEY" --profile central
 aws configure set aws_session_token     "$_CENTRAL_AWS_SESSION_TOKEN"     --profile central
 aws configure set region                "${TARGET_REGION}"                --profile central
-export TF_VAR_central_aws_profile="central"
 
 # Assume target account role for both state and resource operations
 use_mc_account
@@ -29,12 +28,12 @@ echo ""
 
 echo "Deploying to account: ${TARGET_ACCOUNT_ID}"
 echo "  Region: ${TARGET_REGION}"
-echo "  Regional ID: ${REGIONAL_ID}"
+echo "  Regional ID: ${TF_VAR_regional_id}"
 echo ""
 
 # Configure Terraform backend (state in target account)
 export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
-export TF_STATE_KEY="regional-cluster/${REGIONAL_ID}.tfstate"
+export TF_STATE_KEY="regional-cluster/${TF_VAR_regional_id}.tfstate"
 export TF_STATE_REGION="${TARGET_REGION}"
 
 echo "Terraform backend:"
@@ -43,18 +42,10 @@ echo "  Key: $TF_STATE_KEY"
 echo "  Region: $TF_STATE_REGION"
 echo ""
 
-# Set Terraform variables from deploy config and CodeBuild env vars
-export TF_VAR_region="${TARGET_REGION}"
-export TF_VAR_app_code="${APP_CODE}"
-export TF_VAR_service_phase="${SERVICE_PHASE}"
-export TF_VAR_cost_center="${COST_CENTER}"
-
-# Set repository URL and branch with proper fallback handling for set -u
-# Note: CODEBUILD_SOURCE_VERSION contains S3 artifact location, not git branch
-_REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
+# Runtime TF vars from CodeBuild (not in deploy config)
+export TF_VAR_central_aws_profile="central"
 export TF_VAR_repository_url="${REPOSITORY_URL}"
-export TF_VAR_repository_branch="${_REPO_BRANCH}"
-
+export TF_VAR_repository_branch="${REPOSITORY_BRANCH:-main}"
 export TF_VAR_api_additional_allowed_accounts="${TARGET_ACCOUNT_ID}"
 
 # Set container image for ECS tasks (bastion and bootstrap)
@@ -64,23 +55,12 @@ if [ -z "${PLATFORM_IMAGE:-}" ]; then
 fi
 export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
-export TF_VAR_enable_bastion="${ENABLE_BASTION}"
-
-# Set DNS variables (optional — when ENVIRONMENT_DOMAIN is set, creates regional
-# DNS zone and custom API domain)
-if [ -n "${ENVIRONMENT_DOMAIN:-}" ]; then
-    export TF_VAR_environment_domain="${ENVIRONMENT_DOMAIN}"
-fi
+# Optional DNS hosted zone ID (provisioned by provision-pipelines.sh)
 if [ -n "${ENVIRONMENT_HOSTED_ZONE_ID:-}" ]; then
     export TF_VAR_environment_hosted_zone_id="${ENVIRONMENT_HOSTED_ZONE_ID}"
 fi
 
-# Extract regional_id, environment, and sector from rendered config
-export TF_VAR_regional_id=$(jq -r '.regional_id' "$DEPLOY_CONFIG_FILE")
-export TF_VAR_environment=$(jq -r '.environment' "$DEPLOY_CONFIG_FILE")
-export TF_VAR_sector="${SECTOR}"
-
-echo "Terraform variables:"
+echo "Terraform variables (from deploy config + runtime):"
 echo "  Region: $TF_VAR_region"
 echo "  App Code: $TF_VAR_app_code"
 echo "  Service Phase: $TF_VAR_service_phase"

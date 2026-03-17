@@ -1273,10 +1273,47 @@ class TestRenderRegionDeploymentTerraform:
         regional_file = deploy_dir / "staging" / "us-east-1" / "terraform" / "regional.json"
         assert regional_file.exists()
         data = json.loads(regional_file.read_text())
-        assert data["app_code"] == "infra"
-        assert data["regional_id"] == "regional"
-        assert data["sector"] == "staging"
+        assert data["terraform_vars"]["app_code"] == "infra"
+        assert data["terraform_vars"]["regional_id"] == "regional"
+        assert data["terraform_vars"]["sector"] == "staging"
         assert data["_generated"].startswith("DO NOT EDIT")
+
+    def test_regional_json_has_environment_domain(self, tmp_path):
+        deploy_dir = tmp_path / "deploy"
+        rd = {
+            "environment": "integration",
+            "region_deployment": "us-east-1",
+            "regional_id": "regional",
+            "sector": "integration",
+            "terraform_vars": {"app_code": "infra"},
+            "environment_config": {"domain": "int0.rosa.devshift.net"},
+            "management_clusters": [],
+        }
+
+        render_region_deployment_terraform(rd, deploy_dir)
+
+        regional_file = deploy_dir / "integration" / "us-east-1" / "terraform" / "regional.json"
+        data = json.loads(regional_file.read_text())
+        assert data["terraform_vars"]["environment_domain"] == "int0.rosa.devshift.net"
+
+    def test_regional_json_delete_at_top_level(self, tmp_path):
+        deploy_dir = tmp_path / "deploy"
+        rd = {
+            "environment": "staging",
+            "region_deployment": "us-east-1",
+            "regional_id": "regional",
+            "sector": "staging",
+            "terraform_vars": {},
+            "management_clusters": [],
+            "delete": True,
+        }
+
+        render_region_deployment_terraform(rd, deploy_dir)
+
+        regional_file = deploy_dir / "staging" / "us-east-1" / "terraform" / "regional.json"
+        data = json.loads(regional_file.read_text())
+        assert data["delete"] is True
+        assert "delete" not in data["terraform_vars"]
 
     def test_creates_management_cluster_json(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
@@ -1297,48 +1334,13 @@ class TestRenderRegionDeploymentTerraform:
         mc_file = deploy_dir / "staging" / "us-east-1" / "terraform" / "management" / "mc01.json"
         assert mc_file.exists()
         data = json.loads(mc_file.read_text())
-        assert data["management_id"] == "mc01"
+        assert data["terraform_vars"]["management_id"] == "mc01"
+        assert data["terraform_vars"]["regional_aws_account_id"] == "999999999999"
+        assert data["terraform_vars"]["regional_id"] == "regional"
+        assert data["terraform_vars"]["app_code"] == "infra"  # inherited from rd terraform_vars
+        # account_id is at top level (not a TF var, used by shell scripts)
         assert data["account_id"] == "111111111111"
-        assert data["regional_aws_account_id"] == "999999999999"
-        assert data["app_code"] == "infra"  # inherited from rd terraform_vars
-
-    def test_mc_account_ids_added_to_regional(self, tmp_path):
-        deploy_dir = tmp_path / "deploy"
-        rd = {
-            "environment": "staging",
-            "region_deployment": "us-east-1",
-            "regional_id": "regional",
-            "account_id": "999",
-            "sector": "staging",
-            "terraform_vars": {},
-            "management_clusters": [
-                {"management_id": "mc01", "account_id": "111"},
-                {"management_id": "mc02", "account_id": "222"},
-            ],
-        }
-
-        render_region_deployment_terraform(rd, deploy_dir)
-
-        regional_file = deploy_dir / "staging" / "us-east-1" / "terraform" / "regional.json"
-        data = json.loads(regional_file.read_text())
-        assert data["management_cluster_account_ids"] == ["111", "222"]
-
-    def test_no_mc_account_ids_when_empty(self, tmp_path):
-        deploy_dir = tmp_path / "deploy"
-        rd = {
-            "environment": "staging",
-            "region_deployment": "us-east-1",
-            "regional_id": "regional",
-            "sector": "staging",
-            "terraform_vars": {},
-            "management_clusters": [],
-        }
-
-        render_region_deployment_terraform(rd, deploy_dir)
-
-        regional_file = deploy_dir / "staging" / "us-east-1" / "terraform" / "regional.json"
-        data = json.loads(regional_file.read_text())
-        assert "management_cluster_account_ids" not in data
+        assert "account_id" not in data["terraform_vars"]
 
     def test_raises_on_missing_management_id(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
@@ -1355,8 +1357,8 @@ class TestRenderRegionDeploymentTerraform:
         with pytest.raises(ValueError, match="missing 'management_id'"):
             render_region_deployment_terraform(rd, deploy_dir)
 
-    def test_mc_extra_fields_preserved(self, tmp_path):
-        """MC-specific fields like delete: true should appear in the output."""
+    def test_mc_delete_at_top_level(self, tmp_path):
+        """MC delete: true should appear at top level, not in terraform_vars."""
         deploy_dir = tmp_path / "deploy"
         rd = {
             "environment": "staging",
@@ -1375,6 +1377,7 @@ class TestRenderRegionDeploymentTerraform:
         mc_file = deploy_dir / "staging" / "us-east-1" / "terraform" / "management" / "mc01.json"
         data = json.loads(mc_file.read_text())
         assert data["delete"] is True
+        assert "delete" not in data["terraform_vars"]
 
 
 # =============================================================================
@@ -1390,6 +1393,8 @@ class TestRenderEnvironmentConfig:
                 "environment": "brian",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111111111111",
                 "management_clusters": [],
             }
         ]
@@ -1401,9 +1406,9 @@ class TestRenderEnvironmentConfig:
         data = json.loads(accounts_file.read_text())
         assert "us-east-1" in data["region_definitions"]
         entry = data["region_definitions"]["us-east-1"]
-        assert entry["name"] == "brian"
-        assert entry["environment"] == "brian"
-        assert entry["aws_region"] == "us-east-1"
+        assert entry["account_id"] == "111111111111"
+        assert entry["regional_id"] == "regional"
+        assert isinstance(entry["management_clusters"], dict)
 
     def test_single_env_multiple_regions(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
@@ -1412,12 +1417,16 @@ class TestRenderEnvironmentConfig:
                 "environment": "prod",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111",
                 "management_clusters": [],
             },
             {
                 "environment": "prod",
                 "region_deployment": "us-west-2",
                 "aws_region": "us-west-2",
+                "regional_id": "regional",
+                "account_id": "222",
                 "management_clusters": [],
             },
         ]
@@ -1437,12 +1446,16 @@ class TestRenderEnvironmentConfig:
                 "environment": "staging",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111",
                 "management_clusters": [],
             },
             {
                 "environment": "prod",
                 "region_deployment": "eu-west-1",
                 "aws_region": "eu-west-1",
+                "regional_id": "regional",
+                "account_id": "222",
                 "management_clusters": [],
             },
         ]
@@ -1459,6 +1472,8 @@ class TestRenderEnvironmentConfig:
                 "environment": "e2e",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111",
                 "management_clusters": [],
             }
         ]
@@ -1471,13 +1486,15 @@ class TestRenderEnvironmentConfig:
         assert "DO NOT EDIT" in data["_generated"]
 
     def test_entry_fields(self, tmp_path):
-        """Each entry should have exactly name, environment, and aws_region."""
+        """Each entry should have account_id, regional_id, and management_clusters dict."""
         deploy_dir = tmp_path / "deploy"
         rds = [
             {
                 "environment": "cdoan-central",
                 "region_deployment": "us-east-2",
                 "aws_region": "us-east-2",
+                "regional_id": "regional",
+                "account_id": "333333333333",
                 "management_clusters": [],
             }
         ]
@@ -1488,10 +1505,34 @@ class TestRenderEnvironmentConfig:
         data = json.loads(accounts_file.read_text())
         entry = data["region_definitions"]["us-east-2"]
         assert entry == {
-            "name": "cdoan-central",
-            "environment": "cdoan-central",
-            "aws_region": "us-east-2",
+            "account_id": "333333333333",
+            "regional_id": "regional",
+            "management_clusters": {},
         }
+
+    def test_management_clusters_as_dict(self, tmp_path):
+        deploy_dir = tmp_path / "deploy"
+        rds = [
+            {
+                "environment": "integration",
+                "region_deployment": "us-east-1",
+                "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111",
+                "management_clusters": [
+                    {"management_id": "mc01", "account_id": "ssm:///path/to/mc01"},
+                ],
+            }
+        ]
+
+        render_environment_config(rds, deploy_dir)
+
+        accounts_file = deploy_dir / "integration" / "environment.json"
+        data = json.loads(accounts_file.read_text())
+        mc = data["region_definitions"]["us-east-1"]["management_clusters"]
+        assert isinstance(mc, dict)
+        assert "mc01" in mc
+        assert mc["mc01"]["account_id"] == "ssm:///path/to/mc01"
 
     def test_domain_included(self, tmp_path):
         deploy_dir = tmp_path / "deploy"
@@ -1500,6 +1541,8 @@ class TestRenderEnvironmentConfig:
                 "environment": "integration",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111",
                 "environment_config": {"domain": "int0.rosa.devshift.net"},
                 "management_clusters": [],
             }
@@ -1518,6 +1561,8 @@ class TestRenderEnvironmentConfig:
                 "environment": "brian",
                 "region_deployment": "us-east-1",
                 "aws_region": "us-east-1",
+                "regional_id": "regional",
+                "account_id": "111",
                 "management_clusters": [],
             }
         ]

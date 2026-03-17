@@ -38,16 +38,9 @@ fi
 # Read API Gateway URL from RC terraform state
 # =====================================================================
 
-RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-
-# Resolve RC state key from regional config
-RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"
-if [ ! -f "$RC_CONFIG_FILE" ]; then
-    echo "ERROR: Regional cluster config not found: $RC_CONFIG_FILE"
-    exit 1
-fi
-RC_REGIONAL_ID=$(jq -r '.regional_id' "$RC_CONFIG_FILE")
-echo "Resolved RC regional_id from config: $RC_REGIONAL_ID"
+# Use TF_VAR_regional_id from MC deploy config (no cross-reading regional.json)
+RC_REGIONAL_ID="${TF_VAR_regional_id}"
+echo "Resolved RC regional_id from MC config: $RC_REGIONAL_ID"
 
 # Assume RC account to read terraform outputs and call API
 use_rc_account

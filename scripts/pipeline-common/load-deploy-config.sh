@@ -2,10 +2,11 @@
 #
 # load-deploy-config.sh - Load terraform variables from deploy/ JSON files
 #
-# Reads configuration directly from the rendered deploy/ JSON files instead of
-# relying on CodeBuild environment variables. This decouples terraform variable
-# changes from the pipeline provisioner — changing a var in config.yaml only
-# requires re-running render.py and pushing, without re-provisioning pipelines.
+# Reads the nested terraform_vars object from rendered deploy/ JSON files and
+# exports each key as TF_VAR_<key>. SSM references (ssm://) are resolved
+# automatically. This decouples terraform variable changes from the pipeline
+# provisioner — changing a var in config.yaml only requires re-running
+# render.py and pushing, without re-provisioning pipelines.
 #
 # Usage:
 #   source scripts/pipeline-common/load-deploy-config.sh regional
@@ -19,15 +20,10 @@
 #
 # Exports:
 #   DEPLOY_CONFIG_FILE        - Path to the JSON config file
-#   APP_CODE                  - Application code for tagging
-#   SERVICE_PHASE             - Service phase (dev/staging/prod)
-#   COST_CENTER               - Cost center for billing
-#   SECTOR                    - Sector for tagging
-#   ENABLE_BASTION            - "true" or "false"
-#   ENVIRONMENT_DOMAIN        - Environment domain (from environment.json)
+#   TF_VAR_*                  - All keys from .terraform_vars
 #   For management mode only:
-#     CLUSTER_ID              - Management cluster identifier
-#     REGIONAL_AWS_ACCOUNT_ID - Resolved RC account ID (SSM-aware)
+#     CLUSTER_ID              - Alias for TF_VAR_management_id
+#     RESOLVED_REGIONAL_ACCOUNT_ID - Alias for TF_VAR_regional_aws_account_id
 
 set -euo pipefail
 
@@ -55,65 +51,47 @@ fi
 
 echo "Loading deploy config from: $DEPLOY_CONFIG_FILE"
 
-# Extract terraform variables from the JSON config
-APP_CODE=$(jq -r '.app_code // "infra"' "$DEPLOY_CONFIG_FILE")
-SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$DEPLOY_CONFIG_FILE")
-COST_CENTER=$(jq -r '.cost_center // "000"' "$DEPLOY_CONFIG_FILE")
-SECTOR=$(jq -r '.sector // .environment // "'"$ENVIRONMENT"'"' "$DEPLOY_CONFIG_FILE")
-
-# Normalize enable_bastion to "true"/"false"
-_RAW_BASTION=$(jq -r '.enable_bastion // false' "$DEPLOY_CONFIG_FILE")
-if [ "$_RAW_BASTION" == "true" ] || [ "$_RAW_BASTION" == "1" ]; then
-    ENABLE_BASTION="true"
-else
-    ENABLE_BASTION="false"
-fi
-
-# Read environment domain from environment.json
-_ENV_JSON="deploy/${ENVIRONMENT}/environment.json"
-if [ -f "$_ENV_JSON" ]; then
-    ENVIRONMENT_DOMAIN=$(jq -r '.domain // empty' "$_ENV_JSON")
-else
-    ENVIRONMENT_DOMAIN=""
-fi
-
-# Management-mode specific: resolve CLUSTER_ID and REGIONAL_AWS_ACCOUNT_ID
-if [[ "$_DEPLOY_MODE" == "management" ]]; then
-    CLUSTER_ID=$(jq -r '.management_id // ""' "$DEPLOY_CONFIG_FILE")
-    REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$DEPLOY_CONFIG_FILE")
-
-    # Resolve SSM parameter references
-    if [[ "$REGIONAL_AWS_ACCOUNT_ID" =~ ^ssm:// ]]; then
-        _SSM_PARAM_NAME="${REGIONAL_AWS_ACCOUNT_ID#ssm://}"
-        echo "Resolving SSM parameter: $_SSM_PARAM_NAME in region ${TARGET_REGION}"
-        REGIONAL_AWS_ACCOUNT_ID=$(aws ssm get-parameter \
+# Export all keys from .terraform_vars as TF_VAR_<key>
+while IFS='=' read -r key value; do
+    # Resolve ssm:// references
+    if [[ "$value" =~ ^ssm:// ]]; then
+        _SSM_PARAM_NAME="${value#ssm://}"
+        echo "  Resolving SSM parameter: $_SSM_PARAM_NAME in region ${TARGET_REGION}"
+        value=$(aws ssm get-parameter \
             --name "$_SSM_PARAM_NAME" \
             --with-decryption \
             --query 'Parameter.Value' \
             --output text \
             --region "${TARGET_REGION}")
-        echo "Resolved regional account ID: $REGIONAL_AWS_ACCOUNT_ID"
+        echo "  Resolved: TF_VAR_$key=$value"
     fi
 
-    if [[ -z "$REGIONAL_AWS_ACCOUNT_ID" ]]; then
-        echo "ERROR: regional_aws_account_id must be provided in $DEPLOY_CONFIG_FILE" >&2
+    # Normalize booleans to "true"/"false"
+    if [ "$value" == "1" ]; then
+        value="true"
+    elif [ "$value" == "0" ]; then
+        value="false"
+    fi
+
+    export "TF_VAR_${key}=${value}"
+done < <(jq -r '.terraform_vars | to_entries[] | select(.value | type == "string" or type == "number" or type == "boolean") | "\(.key)=\(.value)"' "$DEPLOY_CONFIG_FILE")
+
+# Management-mode aliases for non-TF consumers (register.sh, iot-mint.sh)
+if [[ "$_DEPLOY_MODE" == "management" ]]; then
+    CLUSTER_ID="${TF_VAR_management_id}"
+    export CLUSTER_ID
+
+    RESOLVED_REGIONAL_ACCOUNT_ID="${TF_VAR_regional_aws_account_id}"
+    export RESOLVED_REGIONAL_ACCOUNT_ID
+
+    if [[ -z "${TF_VAR_regional_aws_account_id:-}" ]]; then
+        echo "ERROR: regional_aws_account_id must be provided in $DEPLOY_CONFIG_FILE .terraform_vars" >&2
         exit 1
     fi
-
-    export CLUSTER_ID
-    export REGIONAL_AWS_ACCOUNT_ID
 fi
 
 export DEPLOY_CONFIG_FILE
-export APP_CODE
-export SERVICE_PHASE
-export COST_CENTER
-export SECTOR
-export ENABLE_BASTION
-export ENVIRONMENT_DOMAIN
 
-echo "  APP_CODE=$APP_CODE SERVICE_PHASE=$SERVICE_PHASE COST_CENTER=$COST_CENTER"
-echo "  SECTOR=$SECTOR ENABLE_BASTION=$ENABLE_BASTION"
-[ -n "${ENVIRONMENT_DOMAIN:-}" ] && echo "  ENVIRONMENT_DOMAIN=$ENVIRONMENT_DOMAIN"
-[[ "$_DEPLOY_MODE" == "management" ]] && echo "  CLUSTER_ID=$CLUSTER_ID REGIONAL_AWS_ACCOUNT_ID=$REGIONAL_AWS_ACCOUNT_ID"
+echo "  Exported TF_VAR_* variables from $DEPLOY_CONFIG_FILE"
+[[ "$_DEPLOY_MODE" == "management" ]] && echo "  CLUSTER_ID=$CLUSTER_ID RESOLVED_REGIONAL_ACCOUNT_ID=$RESOLVED_REGIONAL_ACCOUNT_ID"
 echo ""

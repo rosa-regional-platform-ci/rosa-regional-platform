@@ -16,7 +16,7 @@ init_account_helpers
 source scripts/pipeline-common/load-deploy-config.sh management
 
 echo "Cluster ID: ${CLUSTER_ID}"
-echo "Regional Account: ${REGIONAL_AWS_ACCOUNT_ID}"
+echo "Regional Account: ${RESOLVED_REGIONAL_ACCOUNT_ID}"
 echo ""
 
 # Switch to RC account for IoT operations and state storage
@@ -56,9 +56,9 @@ echo ""
 TEMP_TFVARS=$(mktemp /tmp/maestro-iot-XXXXXX.tfvars)
 cat > "$TEMP_TFVARS" <<EOF
 management_cluster_id = "${CLUSTER_ID}"
-app_code              = "${APP_CODE}"
-service_phase         = "${SERVICE_PHASE}"
-cost_center           = "${COST_CENTER}"
+app_code              = "${TF_VAR_app_code}"
+service_phase         = "${TF_VAR_service_phase}"
+cost_center           = "${TF_VAR_cost_center}"
 mqtt_topic_prefix     = "sources/maestro/consumers"
 EOF
 

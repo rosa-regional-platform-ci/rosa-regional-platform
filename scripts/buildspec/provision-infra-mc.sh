@@ -14,8 +14,6 @@ source scripts/pipeline-common/setup-apply-preflight.sh
 # Load terraform variables from deploy/ JSON
 source scripts/pipeline-common/load-deploy-config.sh management
 
-RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
-
 echo "Deploying to account: ${TARGET_ACCOUNT_ID}"
 echo "  Region: ${TARGET_REGION}"
 echo "  Management ID: ${MANAGEMENT_ID}"
@@ -46,7 +44,7 @@ if [ "${DELETE_FLAG}" == "true" ]; then
 else
     echo "Reading IoT certificate data from RC account state..."
     use_rc_account
-    source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
+    source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "${TF_VAR_region}"
 fi
 
 # =====================================================================
@@ -56,7 +54,7 @@ use_mc_account
 
 # Configure Terraform backend (state in MC target account)
 export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
-export TF_STATE_KEY="management-cluster/${MANAGEMENT_ID}.tfstate"
+export TF_STATE_KEY="management-cluster/${TF_VAR_management_id}.tfstate"
 export TF_STATE_REGION="${TARGET_REGION}"
 
 echo "Terraform backend:"
@@ -65,22 +63,12 @@ echo "  Key: $TF_STATE_KEY"
 echo "  Region: $TF_STATE_REGION"
 echo ""
 
-# Set Terraform variables from deploy config and CodeBuild env vars
-export TF_VAR_region="${TARGET_REGION}"
-export TF_VAR_app_code="${APP_CODE}"
-export TF_VAR_service_phase="${SERVICE_PHASE}"
-export TF_VAR_cost_center="${COST_CENTER}"
-export TF_VAR_management_id="${CLUSTER_ID:-mgmt-cluster-01}"
-export TF_VAR_environment="${ENVIRONMENT:-staging}"
-export TF_VAR_regional_aws_account_id="${RESOLVED_REGIONAL_ACCOUNT_ID}"
-
 # TF_VAR_maestro_agent_cert_file and TF_VAR_maestro_agent_config_file
 # are already exported by read-iot-state.sh
 
-# Set repository URL and branch
-_REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
+# Runtime TF vars from CodeBuild (not in deploy config)
 export TF_VAR_repository_url="${REPOSITORY_URL}"
-export TF_VAR_repository_branch="${_REPO_BRANCH}"
+export TF_VAR_repository_branch="${REPOSITORY_BRANCH:-main}"
 
 # Set container image for ECS tasks (bastion and bootstrap)
 if [ -z "${PLATFORM_IMAGE:-}" ]; then
@@ -89,9 +77,7 @@ if [ -z "${PLATFORM_IMAGE:-}" ]; then
 fi
 export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
-export TF_VAR_enable_bastion="${ENABLE_BASTION}"
-
-echo "Terraform variables:"
+echo "Terraform variables (from deploy config + runtime):"
 echo "  Region: $TF_VAR_region"
 echo "  Target Account: $TARGET_ACCOUNT_ID"
 echo "  Management ID: $TF_VAR_management_id"
@@ -104,10 +90,8 @@ echo "  Repository URL: $TF_VAR_repository_url"
 echo "  Repository Branch: $TF_VAR_repository_branch"
 echo ""
 
-export REGION_DEPLOYMENT=$(jq -r '.region' "$DEPLOY_CONFIG_FILE")
-echo "Extracted REGION_DEPLOYMENT from config: $REGION_DEPLOYMENT"
+export REGION_DEPLOYMENT="${TF_VAR_region}"
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
-export TF_VAR_sector="${SECTOR}"
 
 set +e
 if [ "${DELETE_FLAG}" == "true" ]; then
