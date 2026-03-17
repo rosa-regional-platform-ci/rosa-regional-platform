@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 PROVISION_TIMEOUT = 3600  # seconds (1 hour); total time for provisioning
@@ -240,17 +241,29 @@ class EphemeralEnvOrchestrator:
         if not all_pipelines:
             raise RuntimeError("No RC/MC pipelines found after provisioner completed.")
 
-        failed = 0
-        for name, exec_id in all_pipelines:
-            try:
-                self.monitor.wait_for_completion(name, exec_id)
-            except (RuntimeError, TimeoutError) as e:
-                log.error("Pipeline failed: %s", e)
-                failed += 1
+        # Monitor all pipelines concurrently to capture failures in real-time
+        failed = []
+        with ThreadPoolExecutor(max_workers=len(all_pipelines)) as executor:
+            # Submit all monitoring tasks
+            future_to_pipeline = {
+                executor.submit(self.monitor.wait_for_completion, name, exec_id): name
+                for name, exec_id in all_pipelines
+            }
 
-        if failed > 0:
+            # Process results as they complete
+            for future in as_completed(future_to_pipeline):
+                pipeline_name = future_to_pipeline[future]
+                try:
+                    future.result()
+                except (RuntimeError, TimeoutError) as e:
+                    log.error("Pipeline '%s' failed: %s", pipeline_name, e)
+                    failed.append(pipeline_name)
+
+        if failed:
             self.collect_codebuild_logs()
-            raise RuntimeError(f"{failed} pipeline(s) failed during provisioning.")
+            raise RuntimeError(
+                f"{len(failed)} pipeline(s) failed during provisioning: {', '.join(failed)}"
+            )
 
         log.info("All pipelines completed successfully.")
 
@@ -362,8 +375,21 @@ class EphemeralEnvOrchestrator:
             if name != self.provisioner_name
         ]
 
-        for name, exec_id in teardown_pipelines:
-            self.monitor.wait_for_completion(name, exec_id)
+        # Monitor all teardown pipelines concurrently
+        if teardown_pipelines:
+            with ThreadPoolExecutor(max_workers=len(teardown_pipelines)) as executor:
+                future_to_pipeline = {
+                    executor.submit(self.monitor.wait_for_completion, name, exec_id): name
+                    for name, exec_id in teardown_pipelines
+                }
+
+                for future in as_completed(future_to_pipeline):
+                    pipeline_name = future_to_pipeline[future]
+                    try:
+                        future.result()
+                    except (RuntimeError, TimeoutError) as e:
+                        log.error("Teardown pipeline '%s' failed: %s", pipeline_name, e)
+                        # Continue with teardown even if infrastructure destroy fails
 
         # Phase 2: Pipeline teardown
         log.info("")
