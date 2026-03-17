@@ -18,6 +18,9 @@ spec:
     {{- if .Values.hyperfleetSentinel1Chart.values }}
     helm:
       valuesObject:
+        extraEnv:
+          - name: LOG_LEVEL
+            value: debug
         replicaCount: 1
         image:
           registry: quay.io/cdoan0
