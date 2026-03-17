@@ -104,7 +104,7 @@ spec:
             {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
         manifestWork:
           yaml: |
-            {{ .Files.Get "adapter-task-resource-manifestwork.yaml" | nindent 12 }}
+            {{ .Files.Get "manifestwork.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
