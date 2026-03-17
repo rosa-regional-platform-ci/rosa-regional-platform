@@ -28,6 +28,28 @@ spec:
           create: true
           name: hyperfleet-adapter-sa
           annotations: {}
+        env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: SERVICE_ACCOUNT
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.serviceAccountName
+          - name: SIMULATE_RESULT
+            value: success     # other possible values: success, failure, hang, crash, invalid-json, missing-status
+        rbac:
+          resources:
+            - namespaces
+            - serviceaccounts
+            - configmaps
+            - deployments
+            - roles
+            - rolebindings
+            - jobs
+            - jobs/status
+            - pods        
         broker:
           create: true
           rabbitmq:
