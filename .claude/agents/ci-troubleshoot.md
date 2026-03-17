@@ -31,6 +31,7 @@ If no known issue matches, proceed with the full investigation flow.
 If the user has not provided a Prow job URL, ask them for one.
 
 Valid URL formats:
+
 - `https://prow.ci.openshift.org/view/gs/test-platform-results/pr-logs/pull/openshift-online_rosa-regional-platform/<PR#>/<job-name>/<run-id>`
 - `https://prow.ci.openshift.org/view/gs/test-platform-results/logs/<job-name>/<run-id>`
 
@@ -40,14 +41,15 @@ If the user only says "the nightly failed" or similar, use the job history URLs 
 
 Parse the Prow URL to identify the job type:
 
-| URL contains | Job Type | Has provision/teardown? | Source branch |
-|---|---|---|---|
-| `on-demand-e2e` | Ephemeral E2E (PR) | Yes | PR branch |
-| `nightly-ephemeral` | Ephemeral E2E (nightly) | Yes | `main` |
-| `nightly-integration` | Integration E2E | No | `main` |
-| `terraform-validate` | Validation | No | PR branch |
-| `helm-lint` | Validation | No | PR branch |
-| `check-rendered-files` | Validation | No | PR branch |
+| URL contains           | Job Type                | Has provision/teardown? | Source branch |
+| ---------------------- | ----------------------- | ----------------------- | ------------- |
+| `on-demand-e2e`        | Ephemeral E2E (PR)      | Yes                     | PR branch     |
+| `nightly-ephemeral`    | Ephemeral E2E (nightly) | Yes                     | `main`        |
+| `nightly-integration`  | Integration E2E         | No                      | `main`        |
+| `terraform-validate`   | Validation              | No                      | PR branch     |
+| `helm-lint`            | Validation              | No                      | PR branch     |
+| `check-rendered-files` | Validation              | No                      | PR branch     |
+| `check-docs`           | Validation              | No                      | PR branch     |
 
 ## Step 3: Convert Prow URL to Artifact URLs
 
@@ -56,6 +58,7 @@ Replace `https://prow.ci.openshift.org/view/gs/` with `https://gcsweb-ci.apps.ci
 The `<short-job-name>` is the last segment of the job name (e.g., `on-demand-e2e`, `nightly-ephemeral`).
 
 **Example:**
+
 - Prow: `https://prow.ci.openshift.org/view/gs/test-platform-results/pr-logs/pull/openshift-online_rosa-regional-platform/191/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e/123456`
 - Artifacts: `https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/pr-logs/pull/openshift-online_rosa-regional-platform/191/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e/123456/artifacts/on-demand-e2e/`
 
@@ -118,7 +121,7 @@ These jobs have three steps: `provision-ephemeral`, `e2e-tests`, `teardown-ephem
 
 Single `e2e-tests` step — fetch and analyze `<artifacts-url>/e2e-tests/build-log.txt`.
 
-### Validation Tests (terraform-validate, helm-lint, check-rendered-files)
+### Validation Tests (terraform-validate, helm-lint, check-rendered-files, check-docs)
 
 Single step matching job name — fetch `<artifacts-url>/<job-name>/build-log.txt`.
 
@@ -126,21 +129,22 @@ Single step matching job name — fetch `<artifacts-url>/<job-name>/build-log.tx
 
 Use `git show <commit>:<path>` (or Read for nightly/main) to understand the failing code. Key CI files:
 
-| File | Purpose |
-|---|---|
-| `ci/pre-merge.py` | Orchestrates ephemeral provision and teardown |
-| `ci/e2e-tests.sh` | Runs the e2e test suite |
-| `ci/e2e-platform-api-test.sh` | Platform API specific e2e tests |
-| `ci/nightly.sh` | Entry point for nightly jobs |
-| `ci/ephemerallib/ephemeral.py` | Ephemeral environment lifecycle |
-| `ci/ephemerallib/pipeline.py` | Pipeline provisioner management |
-| `ci/ephemerallib/codebuild_logs.py` | CodeBuild log collection |
-| `ci/ephemerallib/aws.py` | AWS utility functions |
-| `ci/ephemerallib/git.py` | Git operations for CI branches |
-| `terraform/modules/` | Terraform modules (for provision failures) |
-| `argocd/` | ArgoCD configs (for deployment/sync failures) |
-| `scripts/buildspec/` | CodeBuild buildspec scripts |
-| `scripts/pipeline-common/` | Shared pipeline helper scripts |
+| File                                | Purpose                                       |
+| ----------------------------------- | --------------------------------------------- |
+| `ci/check-docs.sh`                  | Checks markdown formatting with Prettier      |
+| `ci/pre-merge.py`                   | Orchestrates ephemeral provision and teardown |
+| `ci/e2e-tests.sh`                   | Runs the e2e test suite                       |
+| `ci/e2e-platform-api-test.sh`       | Platform API specific e2e tests               |
+| `ci/nightly.sh`                     | Entry point for nightly jobs                  |
+| `ci/ephemerallib/ephemeral.py`      | Ephemeral environment lifecycle               |
+| `ci/ephemerallib/pipeline.py`       | Pipeline provisioner management               |
+| `ci/ephemerallib/codebuild_logs.py` | CodeBuild log collection                      |
+| `ci/ephemerallib/aws.py`            | AWS utility functions                         |
+| `ci/ephemerallib/git.py`            | Git operations for CI branches                |
+| `terraform/modules/`                | Terraform modules (for provision failures)    |
+| `argocd/`                           | ArgoCD configs (for deployment/sync failures) |
+| `scripts/buildspec/`                | CodeBuild buildspec scripts                   |
+| `scripts/pipeline-common/`          | Shared pipeline helper scripts                |
 
 ## Step 7: Provide Diagnosis
 
@@ -156,6 +160,7 @@ Present findings in this format:
 <Clear explanation with relevant log excerpts>
 
 **Files Involved:**
+
 - `<file path>` — <role in the failure>
 
 **Recommended Fix:**
@@ -166,14 +171,15 @@ Present findings in this format:
 
 ## Reference: Job History URLs
 
-| Job | History URL |
-|---|---|
-| `terraform-validate` | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-terraform-validate` |
-| `helm-lint` | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-helm-lint` |
+| Job                    | History URL                                                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check-docs`           | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-docs`           |
+| `terraform-validate`   | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-terraform-validate`   |
+| `helm-lint`            | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-helm-lint`            |
 | `check-rendered-files` | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-rendered-files` |
-| `on-demand-e2e` | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e` |
-| `nightly-ephemeral` | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral` |
-| `nightly-integration` | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration` |
+| `on-demand-e2e`        | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e`        |
+| `nightly-ephemeral`    | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral`             |
+| `nightly-integration`  | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration`           |
 
 ## Step 8: Feedback and Learning
 
@@ -203,6 +209,7 @@ If the pattern already exists but this instance adds new information (e.g., a ne
 ### On thumbs down (incorrect diagnosis):
 
 Ask the user what was wrong. Use their feedback to:
+
 1. Correct your diagnosis
 2. If the user provides the actual root cause, offer to save that as a known issue instead
 3. If a known issue entry led to the wrong diagnosis, offer to update or remove it
@@ -215,14 +222,15 @@ Ask the user what was wrong. Use their feedback to:
 
 ## Common Failure Patterns
 
-| Pattern | Likely Cause | Where to Look |
-|---|---|---|
-| `unbound variable` | Missing config field or export | `.FAILED.log`, check `load-deploy-config.sh` and config JSONs |
-| `terraform destroy` timeout | Resources stuck deleting | teardown `.FAILED.log`, dependency errors |
-| `No such file or directory` | Missing rendered files or config | `ci/pre-merge.py`, `argocd/rendered/` |
-| `CodeBuild build failed` | Terraform apply error | `.FAILED.log` in `codebuild-logs/` |
-| API Gateway 403/401 | IAM or API key issue | `e2e-tests` build log |
-| `connection refused` / timeout | Infrastructure not ready | `e2e-tests` build log, provision logs |
-| `helm template` error | Invalid Helm values | `helm-lint` build log, `argocd/config/` |
-| `rendered files are out of date` | Need to re-run render scripts | `check-rendered-files` build log |
-| Python traceback in `pre-merge.py` | Bug in CI orchestration | `provision-ephemeral` build log, `ci/ephemerallib/` |
+| Pattern                            | Likely Cause                     | Where to Look                                                 |
+| ---------------------------------- | -------------------------------- | ------------------------------------------------------------- |
+| `unbound variable`                 | Missing config field or export   | `.FAILED.log`, check `load-deploy-config.sh` and config JSONs |
+| `terraform destroy` timeout        | Resources stuck deleting         | teardown `.FAILED.log`, dependency errors                     |
+| `No such file or directory`        | Missing rendered files or config | `ci/pre-merge.py`, `argocd/rendered/`                         |
+| `CodeBuild build failed`           | Terraform apply error            | `.FAILED.log` in `codebuild-logs/`                            |
+| API Gateway 403/401                | IAM or API key issue             | `e2e-tests` build log                                         |
+| `connection refused` / timeout     | Infrastructure not ready         | `e2e-tests` build log, provision logs                         |
+| `helm template` error              | Invalid Helm values              | `helm-lint` build log, `argocd/config/`                       |
+| `rendered files are out of date`   | Need to re-run render scripts    | `check-rendered-files` build log                              |
+| `Code style issues found`          | Markdown not formatted           | `check-docs` build log, run `npx prettier --write '**/*.md'`  |
+| Python traceback in `pre-merge.py` | Bug in CI orchestration          | `provision-ephemeral` build log, `ci/ephemerallib/`           |
