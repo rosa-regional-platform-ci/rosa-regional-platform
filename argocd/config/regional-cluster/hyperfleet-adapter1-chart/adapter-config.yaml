@@ -2,9 +2,9 @@
 apiVersion: hyperfleet.redhat.com/v1alpha1
 kind: AdapterConfig
 metadata:
-  name: adapter1
+  name: example1-namespace
   labels:
-    hyperfleet.io/adapter-type: adapter1
+    hyperfleet.io/adapter-type: example1-namespace
     hyperfleet.io/component: adapter
 spec:
   adapter:
@@ -23,12 +23,16 @@ spec:
       retryAttempts: 3
       retryBackoff: exponential
 
+    broker:
+      subscriptionId: CHANGE_ME
+      topic: CHANGE_ME
+
     maestro:
-      grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
+      grpcServerAddress: "maestro-grpc.maestro.svc.cluster.local:8090"
       
       # HTTPS server address for REST API operations (optional)
       # Environment variable: HYPERFLEET_MAESTRO_HTTP_SERVER_ADDRESS
-      httpServerAddress: "http://maestro-http.maestro-server.svc.cluster.local:8080"
+      httpServerAddress: "http://maestro.maestro.svc.cluster.local:8000"
       
       # Source identifier for CloudEvents routing (must be unique across adapters)
       # Environment variable: HYPERFLEET_MAESTRO_SOURCE_ID
