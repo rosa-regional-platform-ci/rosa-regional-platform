@@ -79,11 +79,11 @@ spec:
           # files: |
           #   adapter-config.yaml: {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
           yaml: |
-            {{ toYaml .Files.Get "adapter-config.yaml" | nindent 12 }}
+            {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
         adapterTaskConfig:
           create: true
           yaml: |
-            {{ toYaml .Files.Get "adapter-task-config.yaml" | nindent 12 }}
+            {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
