@@ -7,6 +7,9 @@ metadata:
     hyperfleet.io/adapter-type: example1-namespace
     hyperfleet.io/component: adapter
 spec:
+
+  adapter:
+    version: "0.1.0"
   # Parameters with all required variables
   params:
 
