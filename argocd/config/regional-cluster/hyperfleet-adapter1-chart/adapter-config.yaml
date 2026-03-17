@@ -22,7 +22,7 @@ spec:
 
     broker:
       subscriptionId: placeholder
-      topic: hyperfleet-clusters
+      topic: clusters
 
     maestro:
       grpcServerAddress: "maestro-grpc.maestro.svc.cluster.local:8090"

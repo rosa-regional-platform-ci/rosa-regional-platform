@@ -75,14 +75,15 @@ spec:
                 certFile: ""
                 keyFile: ""
           log:
-            level: info
-          files: |
-            adapter-config.yaml: {{ $.Files.Get "adapter-config.yaml" | nindent 12 }}
+            level: debug
+          # files: |
+          #   adapter-config.yaml: {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
+          yaml: |
+            {{ toYaml .Files.Get "adapter-config.yaml" | nindent 12 }}
         adapterTaskConfig:
           create: true
-          files: |
-            adapter-task-config.yaml: {{ $.Files.Get "adapter-task-config.yaml" | nindent 12 }}
-            manifestwork.yaml: {{ $.Files.Get "adapter-task-resource-manifestwork.yaml" | nindent 12 }}
+          yaml: |
+            {{ toYaml .Files.Get "adapter-task-config.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
