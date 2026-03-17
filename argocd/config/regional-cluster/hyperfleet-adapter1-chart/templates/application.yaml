@@ -84,6 +84,13 @@ spec:
           create: true
           yaml: |
             {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
+        env:
+          - name: SIMULATE_RESULT
+            value: success
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
