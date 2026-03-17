@@ -30,9 +30,6 @@ hyperfleetAdapter1Chart:
       - CreateNamespace=false
       - ServerSideApply=true
 
-  adapter:
-    name: adapter1
-
   # Additional Helm values to pass to the external chart
   values:
     replicaCount: 1

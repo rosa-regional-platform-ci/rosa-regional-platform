@@ -22,7 +22,7 @@ spec:
         image:
           registry: quay.io/openshift-hyperfleet
           repository: hyperfleet-adapter
-          tag: v0.1.1
+          tag: v0.1.0
           pullPolicy: Always
         serviceAccount:
           create: true
@@ -57,7 +57,6 @@ spec:
             baseUrl: "http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000"
             version: "v1"
           maestro:
-            # Enable Maestro client for advanced resource management
             enabled: true
             grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
             httpServerAddress: "http://maestro-http.maestro-server.svc.cluster.local:8080"
@@ -66,7 +65,6 @@ spec:
             timeout: "30s"
             retryAttempts: 3
             retryBackoff: "exponential"
-            # TLS configuration (set insecure: true for development)
             insecure: true
             auth:
               type: "none"  # Use "tls" for production with certificates
@@ -76,22 +74,12 @@ spec:
                 keyFile: ""
           log:
             level: debug
-          # files: |
-          #   adapter-config.yaml: {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
           yaml: |
             {{ .Files.Get "adapter-config.yaml" | nindent 12 }}
         adapterTaskConfig:
           create: true
-          files:
-            adapter-task-config.yaml: "adapter-task-config.yaml"
-            manifestwork.yaml: "adapter-task-resource-manifestwork.yaml"
-        env:
-          - name: SIMULATE_RESULT
-            value: success
-          - name: NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
+          yaml: |
+            {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
