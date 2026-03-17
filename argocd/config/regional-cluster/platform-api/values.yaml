@@ -16,7 +16,9 @@ platformApi:
     image:
       repository: quay.io/cdoan0/rosa-regional-platform-api
       # tag: psav-odic-bundle-delete
-      tag: hookup-platform-api-hyperfleet-api
+      # tag: hookup-platform-api-hyperfleet-api
+      # support /clusters and delete /management_clusters
+      tag: delete-management-cluster
       pullPolicy: Always
 
     # Application arguments
