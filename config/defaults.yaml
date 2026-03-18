@@ -9,106 +9,88 @@
 #   {{ environment }}    — environment directory name (e.g. "integration")
 #   {{ aws_region }}     — region file stem (e.g. "us-east-1")
 #   {{ cluster_prefix }} — management_cluster key (e.g. "mc01")
+#
+# Documentation: @doc and @used-by annotations (validated by: render.py --check-docs)
 # =============================================================================
 
-# -- Git references -----------------------------------------------------------
-# Used by ArgoCD bootstrap ApplicationSets to pin chart versions.
-# Set to a commit hash in staging/production to pin; "main" follows HEAD.
 git:
-  # → argocd-bootstrap-*/applicationset.yaml (chart + generator revision)
+  # @doc git.revision ArgoCD ApplicationSet chart + generator revision. Commit hash to pin, "main" for HEAD.
+  # @used-by git.revision _context
   revision: main
-  # → pipeline-provisioner (bootstrap pipeline revision)
+  # @doc git.bootstrap_revision Pipeline provisioner bootstrap revision.
+  # @used-by git.bootstrap_revision _context
   bootstrap_revision: main
 
-# -- AWS identity -------------------------------------------------------------
-# Resolved per-region. Supports SSM parameter references via Jinja2 templating.
 aws:
-  # Regional AWS account ID
-  # → pipeline-provisioner-inputs/regional-cluster.json
-  # → pipeline-regional-cluster-inputs/terraform.json
+  # @doc aws.account_id Regional AWS account ID. Supports Jinja2/SSM templating.
+  # @used-by aws.account_id _context
   account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
-  # Default AWS account ID for management clusters (used when mc entry has no account_id)
-  # → pipeline-provisioner-inputs/management-cluster-*.json
-  # → pipeline-management-cluster-*-inputs/terraform.json
+  # @doc aws.management_cluster_account_id Default account for MCs when entry has no account_id.
+  # @used-by aws.management_cluster_account_id _context
   management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
 
-# -- DNS ----------------------------------------------------------------------
 dns:
-  # Base domain for the environment. Must be set per environment.
-  # → pipeline-provisioner-inputs/terraform.json
+  # @doc dns.domain Base domain for the environment. Must be set per environment.
+  # @used-by dns.domain pipeline-provisioner-inputs/terraform.json.j2
   domain: ""
 
-# -- Terraform common variables -----------------------------------------------
-# Shared across all terraform configurations (RC, MC, and provisioner pipelines).
-# → pipeline-regional-cluster-inputs/terraform.json
-# → pipeline-management-cluster-*-inputs/terraform.json
 terraform_common:
+  # @doc terraform_common.app_code Application code for cost tagging.
+  # @used-by terraform_common.app_code pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_common.app_code pipeline-regional-cluster-inputs/terraform.json.j2
   app_code: "infra"
+  # @doc terraform_common.service_phase Service deployment phase.
+  # @used-by terraform_common.service_phase pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_common.service_phase pipeline-regional-cluster-inputs/terraform.json.j2
   service_phase: "dev"
+  # @doc terraform_common.cost_center Cost center code for billing.
+  # @used-by terraform_common.cost_center pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_common.cost_center pipeline-regional-cluster-inputs/terraform.json.j2
   cost_center: "000"
+  # @doc terraform_common.enable_bastion Enable bastion host for cluster access.
+  # @used-by terraform_common.enable_bastion pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_common.enable_bastion pipeline-regional-cluster-inputs/terraform.json.j2
   enable_bastion: false
 
-# -- ArgoCD application values ------------------------------------------------
-# Helm values overrides for ArgoCD-managed applications, keyed by cluster type.
-# → argocd-values-<cluster-type>.yaml
 argocd:
   management-cluster:
     hypershift:
       oidcStorageS3Bucket:
+        # @doc argocd.management-cluster.hypershift.oidcStorageS3Bucket.name OIDC S3 bucket name for HyperShift.
+        # @used-by argocd.management-cluster.hypershift.oidcStorageS3Bucket.name _context
         name: "hypershift-mc-{{ aws_region }}"
+        # @doc argocd.management-cluster.hypershift.oidcStorageS3Bucket.region OIDC S3 bucket region.
+        # @used-by argocd.management-cluster.hypershift.oidcStorageS3Bucket.region _context
         region: "{{ aws_region }}"
       externalDns:
+        # @doc argocd.management-cluster.hypershift.externalDns.domain External DNS domain for HyperShift.
+        # @used-by argocd.management-cluster.hypershift.externalDns.domain _context
         domain: "dev.{{ aws_region }}.rosa.example.com"
   regional-cluster:
     maestro:
+      # @doc argocd.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
+      # @used-by argocd.regional-cluster.maestro.mqttEndpoint _context
       mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
+    # @doc argocd.regional-cluster.someOtherSetting Example setting for regional cluster.
+    # @used-by argocd.regional-cluster.someOtherSetting _context
     someOtherSetting: "value"
 
-# -- Cluster topology (defined per region) ------------------------------------
-# management_clusters:
-#   mc01:                          # Management cluster ID
-#     account_id: "123456789012"   # Optional: overrides aws.management_cluster_account_id
-#     delete: true                 # Optional: triggers infrastructure destruction
-#     delete_pipeline: true        # Optional: triggers pipeline removal
+# management_clusters: MC topology, defined per-region. Keys are MC IDs.
+# Fields below are injected into templates as mc.* by render.py.
+#   mc01:
+#     # @doc mc.account_id Per-MC AWS account ID. Defaults to aws.management_cluster_account_id.
+#     # @used-by mc.account_id pipeline-management-cluster-inputs/terraform.json.j2
+#     # @used-by mc.account_id pipeline-provisioner-inputs/management-cluster.json.j2
+#     account_id: "123456789012"
+#     # @doc mc.delete Triggers infrastructure destruction for this MC.
+#     # @used-by mc.delete pipeline-management-cluster-inputs/terraform.json.j2
+#     delete: true
+#     # @doc mc.delete_pipeline Triggers pipeline removal for this MC.
+#     # @used-by mc.delete_pipeline pipeline-provisioner-inputs/management-cluster.json.j2
+#     delete_pipeline: true
 
-# @docs
+# Computed fields — generated by render.py, not from config values.
 #
-# Config key documentation — auto-generated by: render.py --update-docs
-#
-# Key                                                            Used in
-# ─────────────────────────────────────────────────────────────── ──────────────────────────────────────────────────
-# argocd                                                           (render.py context)
-# argocd.management-cluster                                        (render.py context)
-# argocd.management-cluster.hypershift                             (render.py context)
-# argocd.management-cluster.hypershift.externalDns                 (render.py context)
-# argocd.management-cluster.hypershift.externalDns.domain          (render.py context)
-# argocd.management-cluster.hypershift.oidcStorageS3Bucket         (render.py context)
-# argocd.management-cluster.hypershift.oidcStorageS3Bucket.name    (render.py context)
-# argocd.management-cluster.hypershift.oidcStorageS3Bucket.region  (render.py context)
-# argocd.regional-cluster                                          (render.py context)
-# argocd.regional-cluster.maestro                                  (render.py context)
-# argocd.regional-cluster.maestro.mqttEndpoint                     (render.py context)
-# argocd.regional-cluster.someOtherSetting                         (render.py context)
-# aws                                                              (render.py context)
-# aws.account_id                                                   (render.py context)
-# aws.management_cluster_account_id                                (render.py context)
-# dns                                                              → pipeline-provisioner-inputs/terraform.json.j2
-# dns.domain                                                       → pipeline-provisioner-inputs/terraform.json.j2
-# git                                                              (render.py context)
-# git.bootstrap_revision                                           (render.py context)
-# git.revision                                                     (render.py context)
-# management_clusters                                              (render.py context)
-# management_clusters.mc01                                         (render.py context)
-# management_clusters.mc01.account_id                              (render.py context)
-# terraform_common                                                 → pipeline-management-cluster-inputs/terraform.json.j2
-#                                                                  → pipeline-regional-cluster-inputs/terraform.json.j2
-# terraform_common.app_code                                        → pipeline-management-cluster-inputs/terraform.json.j2
-#                                                                  → pipeline-regional-cluster-inputs/terraform.json.j2
-# terraform_common.cost_center                                     → pipeline-management-cluster-inputs/terraform.json.j2
-#                                                                  → pipeline-regional-cluster-inputs/terraform.json.j2
-# terraform_common.enable_bastion                                  → pipeline-management-cluster-inputs/terraform.json.j2
-#                                                                  → pipeline-regional-cluster-inputs/terraform.json.j2
-# terraform_common.service_phase                                   → pipeline-management-cluster-inputs/terraform.json.j2
-#                                                                  → pipeline-regional-cluster-inputs/terraform.json.j2
-#
-# @end-docs
+# @doc mc.management_id MC identifier, computed from cluster key + CI prefix.
+# @used-by mc.management_id pipeline-management-cluster-inputs/terraform.json.j2
+# @used-by mc.management_id pipeline-provisioner-inputs/management-cluster.json.j2
