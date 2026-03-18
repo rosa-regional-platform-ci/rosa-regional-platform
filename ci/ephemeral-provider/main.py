@@ -112,8 +112,15 @@ def main():
                    "resync" if args.resync else "teardown")
         sys.exit(1)
 
+    # When BUILD_ID is not set, generate one and export it so make_ci_prefix()
+    # hashes it consistently. This lets the logged teardown hint work correctly.
+    build_id = os.environ.get("BUILD_ID", "")
+    if not build_id:
+        build_id = uuid.uuid4().hex[:8]
+        os.environ["BUILD_ID"] = build_id
+
     ci_prefix = make_ci_prefix()
-    log.info("CI prefix: %s", ci_prefix)
+    log.info("CI prefix: %s (BUILD_ID: %s)", ci_prefix, build_id)
 
     if args.resync:
         try:
@@ -149,13 +156,11 @@ def main():
             log.info("==========================================")
             log.info("Provisioning completed successfully!")
             log.info("==========================================")
-            if not os.environ.get("BUILD_ID"):
-                log.info("")
-                log.info("BUILD_ID was not set — a random ID was used.")
-                log.info("To tear down this environment, run:")
-                log.info("")
-                log.info("    BUILD_ID=%s ./ci/ephemeral-provider/main.py --teardown", ci_prefix.removeprefix("ci-"))
-                log.info("")
+            log.info("")
+            log.info("To tear down this environment, run:")
+            log.info("")
+            log.info("    BUILD_ID=%s ./ci/ephemeral-provider/main.py --teardown", build_id)
+            log.info("")
     except Exception:
         log.exception("Ephemeral environment %s failed", "teardown" if is_teardown else "provision")
         sys.exit(1)

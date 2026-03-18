@@ -31,7 +31,7 @@ help:
 	@echo "  check-rendered-files                  - Verify deploy/ is up to date with config.yaml"
 	@echo "  test-e2e                              - Run end-to-end tests"
 	@echo ""
-	@echo "🔄 Ephemeral Environments (shared dev accounts):"
+	@echo "🔄 Ephemeral Developer Environments (shared dev accounts):"
 	@echo "  ephemeral-provision                   - Provision an ephemeral environment"
 	@echo "  ephemeral-teardown                    - Tear down an ephemeral environment"
 	@echo "  ephemeral-resync                      - Resync an ephemeral environment's CI branch"
@@ -425,7 +425,7 @@ endef
 # Verify required tools are installed
 ephemeral-preflight:
 	@missing=""; \
-	for tool in fzf vault git python3 uv; do \
+	for tool in vault git python3; do \
 		if ! command -v $$tool >/dev/null 2>&1; then \
 			missing="$$missing $$tool"; \
 		fi; \
@@ -515,6 +515,9 @@ ephemeral-teardown: ephemeral-image
 	@if [ "$(origin BUILD_ID)" = "command line" ]; then \
 		_BUILD_ID="$(BUILD_ID)"; \
 	else \
+		if ! command -v fzf >/dev/null 2>&1; then \
+			echo "Error: fzf is required for interactive selection. Install fzf or pass BUILD_ID=<id> directly."; exit 1; \
+		fi; \
 		if [ ! -f $(EPHEMERAL_ENVS_FILE) ] || [ ! -s $(EPHEMERAL_ENVS_FILE) ]; then \
 			echo "No environments found in $(EPHEMERAL_ENVS_FILE)."; exit 1; \
 		fi; \
@@ -564,6 +567,9 @@ ephemeral-resync: ephemeral-image
 	@if [ "$(origin BUILD_ID)" = "command line" ]; then \
 		_BUILD_ID="$(BUILD_ID)"; \
 	else \
+		if ! command -v fzf >/dev/null 2>&1; then \
+			echo "Error: fzf is required for interactive selection. Install fzf or pass BUILD_ID=<id> directly."; exit 1; \
+		fi; \
 		if [ ! -f $(EPHEMERAL_ENVS_FILE) ] || [ ! -s $(EPHEMERAL_ENVS_FILE) ]; then \
 			echo "No environments found in $(EPHEMERAL_ENVS_FILE)."; exit 1; \
 		fi; \

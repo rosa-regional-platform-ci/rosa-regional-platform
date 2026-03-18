@@ -21,7 +21,7 @@ The CI image is built from [ci/Containerfile](ci/Containerfile) and includes all
 
 ## Ephemeral Environment
 
-The [ci/ephemeral-provider/main.py](ci/ephemeral-provider/main.py) script manages ephemeral environments for CI testing. It supports two modes — provision and teardown — designed to run as separate CI steps with tests in between.
+The [ci/ephemeral-provider/main.py](ci/ephemeral-provider/main.py) script manages ephemeral environments for CI testing. It supports three modes — provision, teardown (`--teardown`), and resync (`--resync`) — designed to run as separate CI steps with tests in between.
 
 1. Creates a CI-owned git branch from the source repo/branch
 2. Bootstraps the pipeline-provisioner pointing at the CI branch
