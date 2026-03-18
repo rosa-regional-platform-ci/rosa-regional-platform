@@ -4,18 +4,18 @@
 # dependencies = ["boto3", "PyYAML"]
 # ///
 """
-Pre-merge CI runner for ROSA Regional Platform.
+Ephemeral environment manager for ROSA Regional Platform CI.
 
 Provisions an ephemeral environment or tears one down. Designed for multi-step
 CI pipelines where provision, tests, and teardown are separate steps:
 
     # Step 1: Provision
-    BUILD_ID=abc123 ./pre-merge.py
+    BUILD_ID=abc123 ./ci/ephemeral-provider/main.py
 
     # Step 2: Run tests (separate CI step, same BUILD_ID)
 
     # Step 3: Teardown
-    BUILD_ID=abc123 ./pre-merge.py --teardown
+    BUILD_ID=abc123 ./ci/ephemeral-provider/main.py --teardown
 
 If BUILD_ID is not set, a random ID is generated and printed so it can be
 passed to subsequent steps.
@@ -28,12 +28,9 @@ import os
 import re
 import sys
 import uuid
-from pathlib import Path
 
-# Allow importing ephemerallib as a sibling package
-sys.path.insert(0, str(Path(__file__).parent))
-
-from ephemerallib.ephemeral import EphemeralEnvOrchestrator
+from git import GitManager
+from orchestrator import EphemeralEnvOrchestrator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,7 +57,7 @@ def make_ci_prefix() -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Pre-merge CI runner for ROSA Regional Platform")
+    parser = argparse.ArgumentParser(description="Ephemeral environment manager for ROSA Regional Platform")
     teardown_group = parser.add_mutually_exclusive_group()
     teardown_group.add_argument(
         "--teardown",
@@ -71,6 +68,11 @@ def main():
         "--teardown-fire-and-forget",
         action="store_true",
         help="Start teardown and exit immediately without waiting for completion",
+    )
+    teardown_group.add_argument(
+        "--resync",
+        action="store_true",
+        help="Resync the CI branch by rebasing onto the latest source branch",
     )
     parser.add_argument(
         "--repo",
@@ -105,12 +107,26 @@ def main():
 
     is_teardown = args.teardown or args.teardown_fire_and_forget
 
-    if is_teardown and not os.environ.get("BUILD_ID"):
-        log.error("BUILD_ID must be set for teardown (needed to identify the ephemeral environment)")
+    if (is_teardown or args.resync) and not os.environ.get("BUILD_ID"):
+        log.error("BUILD_ID must be set for %s (needed to identify the ephemeral environment)",
+                   "resync" if args.resync else "teardown")
         sys.exit(1)
 
     ci_prefix = make_ci_prefix()
     log.info("CI prefix: %s", ci_prefix)
+
+    if args.resync:
+        try:
+            git = GitManager(creds_dir=args.creds_dir, repo=repo, branch=args.branch)
+            git.resync_ci_branch(ci_prefix)
+            log.info("")
+            log.info("==========================================")
+            log.info("Resync completed successfully!")
+            log.info("==========================================")
+        except Exception:
+            log.exception("Ephemeral environment resync failed")
+            sys.exit(1)
+        return
 
     env = EphemeralEnvOrchestrator(
         repo=repo,
@@ -138,10 +154,10 @@ def main():
                 log.info("BUILD_ID was not set — a random ID was used.")
                 log.info("To tear down this environment, run:")
                 log.info("")
-                log.info("    BUILD_ID=%s ./pre-merge.py --teardown", ci_prefix.removeprefix("ci-"))
+                log.info("    BUILD_ID=%s ./ci/ephemeral-provider/main.py --teardown", ci_prefix.removeprefix("ci-"))
                 log.info("")
     except Exception:
-        log.exception("Pre-merge %s failed", "teardown" if is_teardown else "provision")
+        log.exception("Ephemeral environment %s failed", "teardown" if is_teardown else "provision")
         sys.exit(1)
 
 

@@ -63,15 +63,15 @@ class GitManager:
             text=True, timeout=GIT_TIMEOUT,
         )
         if check and result.returncode != 0:
-            if auth:
-                # Suppress output for auth operations — stderr may contain
-                # parts of the Authorization header on failure.
-                raise RuntimeError(
-                    f"git {args[0]} failed (exit {result.returncode})"
-                )
+            stdout = result.stdout
+            stderr = result.stderr
+            if auth and self._auth_header:
+                # Redact the auth header from output to avoid leaking tokens
+                stdout = stdout.replace(self._auth_header, "[REDACTED]")
+                stderr = stderr.replace(self._auth_header, "[REDACTED]")
             raise RuntimeError(
                 f"git {args[0]} failed (exit {result.returncode})\n"
-                f"stdout: {result.stdout}\nstderr: {result.stderr}"
+                f"stdout: {stdout}\nstderr: {stderr}"
             )
         return result
 
@@ -173,6 +173,31 @@ class GitManager:
         self._run_git("remote", "add", "ci", fork_url)
 
         log.info("Checked out existing CI branch: %s on %s", self.ci_branch, self.fork_repo)
+
+    def resync_ci_branch(self, ci_prefix: str):
+        """Rebase the CI branch onto the latest source branch and force-push.
+
+        Checks out the fork's CI branch, adds the source repo as upstream,
+        fetches the latest source branch, rebases onto it, and force-pushes.
+
+        Args:
+            ci_prefix: The CI prefix used during provisioning (e.g. 'ci-a1b2c3').
+        """
+        self.checkout_ci_branch(ci_prefix)
+
+        source_url = f"https://github.com/{self.source_repo}.git"
+        self._run_git("remote", "add", "upstream", source_url)
+
+        log.info("Fetching latest %s from upstream (%s)", self.source_branch, self.source_repo)
+        self._run_git("fetch", "upstream", self.source_branch, auth=True)
+
+        log.info("Rebasing %s onto upstream/%s", self.ci_branch, self.source_branch)
+        self._run_git("rebase", f"upstream/{self.source_branch}")
+
+        log.info("Force-pushing %s to fork", self.ci_branch)
+        self._run_git("push", "--force", "ci", self.ci_branch, auth=True)
+
+        log.info("Resync complete: %s rebased onto %s/%s", self.ci_branch, self.source_repo, self.source_branch)
 
     def push(self, message: str):
         """Stage all changes, commit, and push to the CI branch."""

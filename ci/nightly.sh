@@ -9,13 +9,13 @@ export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
 if [[ "${1:-}" == "--teardown" ]] || [[ "${1:-}" == "--teardown-fire-and-forget" ]]; then
-    echo "Running: uv run --no-cache ci/pre-merge.py ${1}"
-    uv run --no-cache ci/pre-merge.py "${1}"
+    echo "Running: uv run --no-cache ci/ephemeral-provider/main.py ${1}"
+    uv run --no-cache ci/ephemeral-provider/main.py "${1}"
 else
     SAVE_STATE_ARGS=()
     if [[ -n "${SHARED_DIR:-}" ]]; then
         SAVE_STATE_ARGS=(--save-regional-state "${SHARED_DIR}/regional-terraform-outputs.json")
     fi
-    echo "Running: uv run --no-cache ci/pre-merge.py ${SAVE_STATE_ARGS[@]}"
-    uv run --no-cache ci/pre-merge.py "${SAVE_STATE_ARGS[@]}"
+    echo "Running: uv run --no-cache ci/ephemeral-provider/main.py ${SAVE_STATE_ARGS[@]}"
+    uv run --no-cache ci/ephemeral-provider/main.py "${SAVE_STATE_ARGS[@]}"
 fi

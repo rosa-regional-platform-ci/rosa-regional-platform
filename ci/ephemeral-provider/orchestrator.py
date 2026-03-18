@@ -11,11 +11,11 @@ TEARDOWN_TIMEOUT = 3600  # seconds (1 hour); total time for teardown
 
 import yaml
 
-from . import TARGET_ENVIRONMENT
-from .aws import AWSCredentials
-from .codebuild_logs import download_codebuild_logs
-from .git import GitManager
-from .pipeline import PipelineMonitor
+from __init__ import TARGET_ENVIRONMENT
+from aws import AWSCredentials
+from codebuild_logs import download_codebuild_logs
+from git import GitManager
+from pipeline import PipelineMonitor
 
 log = logging.getLogger(__name__)
 
@@ -141,8 +141,6 @@ class EphemeralEnvOrchestrator:
 
         self.aws = AWSCredentials(self.creds_dir, self.region)
         self.aws.setup_central_account()
-        self.aws.setup_target_account_trust("regional")
-        self.aws.setup_target_account_trust("management")
 
     def _inject_ephemeral_config(self, git: GitManager):
         """Inject the ephemeral environment by writing a config/environments/<env>.config.yaml file."""
@@ -361,12 +359,6 @@ class EphemeralEnvOrchestrator:
                 "destroy) will NOT run — complete teardown must be triggered separately."
             )
             return
-
-        # Wait for pipeline-provisioner to pick up the change
-        provisioner_exec_id = self.monitor.wait_for_new_execution(
-            self.provisioner_name, provisioner_known
-        )
-        self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
         # Discover and wait for RC/MC pipeline executions (infra destroy)
         teardown_pipelines = [

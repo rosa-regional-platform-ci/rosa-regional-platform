@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files ephemeral-preflight ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list
 
 # Default target
 help:
@@ -30,6 +30,12 @@ help:
 	@echo "  helm-lint                        - Lint all Helm charts"
 	@echo "  check-rendered-files             - Verify deploy/ is up to date with config.yaml"
 	@echo "  test-e2e                         - Run end-to-end tests"
+	@echo ""
+	@echo "🔄 Ephemeral Environments (shared dev accounts):"
+	@echo "  ephemeral-provision              - Provision an ephemeral environment"
+	@echo "  ephemeral-teardown               - Tear down an ephemeral environment"
+	@echo "  ephemeral-resync                 - Resync an ephemeral environment's CI branch"
+	@echo "  ephemeral-list                   - List ephemeral environments"
 	@echo ""
 	@echo "  help                             - Show this help message"
 
@@ -389,4 +395,218 @@ check-rendered-files:
 		exit 1; \
 	fi
 	@echo "✅ Rendered files are up to date"
+
+# =============================================================================
+# Ephemeral Environments
+# =============================================================================
+# Provision/teardown ephemeral environments in shared dev AWS accounts from
+# your local machine. Runs the ephemeral provider inside the CI container.
+
+# Auto-detect container engine (podman preferred, falls back to docker)
+CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
+
+EPHEMERAL_CI_IMAGE := rosa-regional-ci
+EPHEMERAL_ENVS_FILE := .ephemeral-envs
+EPHEMERAL_CREDS_DIR := .ephemeral-creds
+VAULT_ADDR := https://vault.ci.openshift.org
+VAULT_KV_MOUNT := kv
+VAULT_SECRET_PATH := selfservice/cluster-secrets-rosa-regional-platform-int/ephemeral-creds
+VAULT_CRED_KEYS := central_access_key central_secret_key central_assume_role_arn regional_access_key regional_secret_key management_access_key management_secret_key github_token
+
+REPO ?= openshift-online/rosa-regional-platform
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+REGION ?= us-east-1
+
+# Helper: update STATE for a BUILD_ID in .ephemeral-envs (portable, no sed -i)
+# Usage: $(call update-state,BUILD_ID,NEW_STATE)
+define update-state
+	grep -v '^$(1) ' $(EPHEMERAL_ENVS_FILE) > $(EPHEMERAL_ENVS_FILE).tmp; \
+	grep '^$(1) ' $(EPHEMERAL_ENVS_FILE) | sed 's/STATE=[^ ]*/STATE=$(2)/' >> $(EPHEMERAL_ENVS_FILE).tmp; \
+	mv $(EPHEMERAL_ENVS_FILE).tmp $(EPHEMERAL_ENVS_FILE)
+endef
+
+
+# Verify required tools are installed
+ephemeral-preflight:
+	@missing=""; \
+	for tool in fzf vault git python3; do \
+		if ! command -v $$tool >/dev/null 2>&1; then \
+			missing="$$missing $$tool"; \
+		fi; \
+	done; \
+	if [ -z "$(CONTAINER_ENGINE)" ]; then \
+		missing="$$missing podman/docker"; \
+	fi; \
+	if [ -n "$$missing" ]; then \
+		echo "Missing required tools:$$missing"; \
+		exit 1; \
+	fi
+
+# Build the CI container image if not already present
+ephemeral-image: ephemeral-preflight
+	@if [ -z "$(CONTAINER_ENGINE)" ]; then \
+		echo "Error: No container engine found. Install podman or docker."; \
+		exit 1; \
+	fi
+	@if ! $(CONTAINER_ENGINE) image inspect $(EPHEMERAL_CI_IMAGE) >/dev/null 2>&1; then \
+		echo "Building CI image..."; \
+		if ! build_output=$$($(CONTAINER_ENGINE) build -t $(EPHEMERAL_CI_IMAGE) -f ci/Containerfile ci 2>&1); then \
+			echo "$$build_output"; \
+			echo "Error: Failed to build CI image."; \
+			exit 1; \
+		fi; \
+	fi
+
+# Fetch credentials from Vault via OIDC and write them to .ephemeral-creds/
+ephemeral-creds:
+	@mkdir -p $(EPHEMERAL_CREDS_DIR)
+	@echo "Fetching credentials from Vault (OIDC login)..."
+	@VAULT_TOKEN=$$(VAULT_ADDR=$(VAULT_ADDR) vault login -method=oidc -token-only 2>/dev/null) || \
+		{ echo "Error: Vault OIDC login failed."; exit 1; }; \
+	for key in $(VAULT_CRED_KEYS); do \
+		VAULT_ADDR=$(VAULT_ADDR) VAULT_TOKEN=$$VAULT_TOKEN \
+			vault kv get -mount=$(VAULT_KV_MOUNT) -field=$$key $(VAULT_SECRET_PATH) > $(EPHEMERAL_CREDS_DIR)/$$key 2>/dev/null || \
+			{ echo "Error: Failed to fetch credential '$$key' from Vault."; rm -rf $(EPHEMERAL_CREDS_DIR); exit 1; }; \
+	done
+
+# Provision an ephemeral environment
+# Usage: make ephemeral-provision [REPO=owner/repo] [BRANCH=branch] [REGION=region] [BUILD_ID=id]
+ephemeral-provision: ephemeral-image ephemeral-creds
+	$(eval BUILD_ID ?= $(shell python3 -c "import uuid; print(uuid.uuid4().hex[:8])"))
+	@# FZF remote + branch picker when BRANCH is not explicitly passed
+	@_BRANCH="$(BRANCH)"; \
+	if [ "$(origin BRANCH)" != "command line" ] && command -v fzf >/dev/null 2>&1; then \
+		echo "Current branch: $(BRANCH)"; \
+		echo "Select a remote to pick a branch from (or Esc to abort):"; \
+		_remote=$$(git remote -v | grep '(fetch)' | awk '{printf "%-15s %s\n", $$1, $$2}' | \
+			fzf --height=10 --header="Select remote:" | awk '{print $$1}') || \
+			{ echo "Aborted."; exit 1; }; \
+		echo "Fetching branches from $$_remote..."; \
+		_BRANCH=$$(git ls-remote --heads $$_remote 2>/dev/null | sed 's|.*refs/heads/||' | \
+			fzf --height=20 --header="Select branch:") || \
+			{ echo "Aborted."; exit 1; }; \
+		echo "Selected branch: $$_BRANCH (from $$_remote)"; \
+	fi; \
+	echo "Provisioning ephemeral environment..."; \
+	echo "  BUILD_ID:          $(BUILD_ID)"; \
+	echo "  REPO:              $(REPO)"; \
+	echo "  BRANCH:            $$_BRANCH"; \
+	echo "  REGION:            $(REGION)"; \
+	echo "  CONTAINER_ENGINE:  $(CONTAINER_ENGINE)"; \
+	echo "  IMAGE:             $(EPHEMERAL_CI_IMAGE)"; \
+	echo "  CREDS_DIR:         $(EPHEMERAL_CREDS_DIR)/"; \
+	ls -1 $(EPHEMERAL_CREDS_DIR)/ | while read f; do \
+		printf "    - %s (%s bytes)\n" "$$f" "$$(wc -c < $(EPHEMERAL_CREDS_DIR)/$$f | tr -d ' ')"; \
+	done; \
+	echo "$(BUILD_ID) REPO=$(REPO) BRANCH=$$_BRANCH REGION=$(REGION) STATE=provisioning CREATED=$$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $(EPHEMERAL_ENVS_FILE); \
+	$(CONTAINER_ENGINE) run --rm \
+		-v $(PWD)/$(EPHEMERAL_CREDS_DIR):/creds:ro \
+		-v $(PWD):/workspace:ro \
+		-w /workspace \
+		-e BUILD_ID=$(BUILD_ID) \
+		-e AWS_REGION=$(REGION) \
+		$(EPHEMERAL_CI_IMAGE) \
+		uv run --no-cache ci/ephemeral-provider/main.py --repo $(REPO) --branch $$_BRANCH --creds-dir /creds --region $(REGION); \
+	rc=$$?; \
+	if [ $$rc -eq 0 ]; then \
+		$(call update-state,$(BUILD_ID),ready); \
+		echo ""; \
+		echo "Environment recorded in $(EPHEMERAL_ENVS_FILE). To tear down:"; \
+		echo "  make ephemeral-teardown BUILD_ID=$(BUILD_ID)"; \
+	else \
+		$(call update-state,$(BUILD_ID),provisioning-failed); \
+		echo "Provisioning failed. State updated to provisioning-failed."; \
+		exit $$rc; \
+	fi
+
+# Tear down an ephemeral environment
+# Usage: make ephemeral-teardown BUILD_ID=<id>
+ephemeral-teardown: ephemeral-image ephemeral-creds
+	@if [ -z "$(BUILD_ID)" ]; then \
+		echo "Usage: make ephemeral-teardown BUILD_ID=<id>"; \
+		echo "Run 'make ephemeral-list' to see available environments."; \
+		exit 1; \
+	fi
+	@_line=$$(grep '^$(BUILD_ID) ' $(EPHEMERAL_ENVS_FILE) 2>/dev/null) || \
+		{ echo "BUILD_ID $(BUILD_ID) not found in $(EPHEMERAL_ENVS_FILE)."; exit 1; }; \
+	_REPO=$$(echo "$$_line" | sed -n 's/.*REPO=\([^ ]*\).*/\1/p'); \
+	_BRANCH=$$(echo "$$_line" | sed -n 's/.*BRANCH=\([^ ]*\).*/\1/p'); \
+	_REGION=$$(echo "$$_line" | sed -n 's/.*REGION=\([^ ]*\).*/\1/p'); \
+	echo "Tearing down ephemeral environment..."; \
+	echo "  BUILD_ID:          $(BUILD_ID)"; \
+	echo "  REPO:              $$_REPO"; \
+	echo "  BRANCH:            $$_BRANCH"; \
+	echo "  REGION:            $$_REGION"; \
+	echo "  CONTAINER_ENGINE:  $(CONTAINER_ENGINE)"; \
+	echo "  IMAGE:             $(EPHEMERAL_CI_IMAGE)"; \
+	$(call update-state,$(BUILD_ID),deprovisioning); \
+	$(CONTAINER_ENGINE) run --rm \
+		-v $(PWD)/$(EPHEMERAL_CREDS_DIR):/creds:ro \
+		-v $(PWD):/workspace:ro \
+		-w /workspace \
+		-e BUILD_ID=$(BUILD_ID) \
+		-e AWS_REGION=$$_REGION \
+		$(EPHEMERAL_CI_IMAGE) \
+		uv run --no-cache ci/ephemeral-provider/main.py --teardown --repo $$_REPO --branch $$_BRANCH --creds-dir /creds --region $$_REGION; \
+	rc=$$?; \
+	if [ $$rc -eq 0 ]; then \
+		$(call update-state,$(BUILD_ID),deprovisioned); \
+		echo "Environment $(BUILD_ID) deprovisioned."; \
+	else \
+		$(call update-state,$(BUILD_ID),deprovisioning-failed); \
+		echo "Teardown failed. State updated to deprovisioning-failed."; \
+		exit $$rc; \
+	fi
+
+# Resync an ephemeral environment's CI branch onto latest source branch
+# Usage: make ephemeral-resync BUILD_ID=<id>
+ephemeral-resync: ephemeral-image ephemeral-creds
+	@if [ -z "$(BUILD_ID)" ]; then \
+		echo "Usage: make ephemeral-resync BUILD_ID=<id>"; \
+		echo "Run 'make ephemeral-list' to see available environments."; \
+		exit 1; \
+	fi
+	@_line=$$(grep '^$(BUILD_ID) ' $(EPHEMERAL_ENVS_FILE) 2>/dev/null) || \
+		{ echo "BUILD_ID $(BUILD_ID) not found in $(EPHEMERAL_ENVS_FILE)."; exit 1; }; \
+	_REPO=$$(echo "$$_line" | sed -n 's/.*REPO=\([^ ]*\).*/\1/p'); \
+	_BRANCH=$$(echo "$$_line" | sed -n 's/.*BRANCH=\([^ ]*\).*/\1/p'); \
+	_REGION=$$(echo "$$_line" | sed -n 's/.*REGION=\([^ ]*\).*/\1/p'); \
+	echo "Resyncing ephemeral environment CI branch..."; \
+	echo "  BUILD_ID:          $(BUILD_ID)"; \
+	echo "  REPO:              $$_REPO"; \
+	echo "  BRANCH:            $$_BRANCH"; \
+	echo "  CONTAINER_ENGINE:  $(CONTAINER_ENGINE)"; \
+	echo "  IMAGE:             $(EPHEMERAL_CI_IMAGE)"; \
+	$(CONTAINER_ENGINE) run --rm \
+		-v $(PWD)/$(EPHEMERAL_CREDS_DIR):/creds:ro \
+		-v $(PWD):/workspace:ro \
+		-w /workspace \
+		-e BUILD_ID=$(BUILD_ID) \
+		$(EPHEMERAL_CI_IMAGE) \
+		uv run --no-cache ci/ephemeral-provider/main.py --resync --repo $$_REPO --branch $$_BRANCH --creds-dir /creds --region $$_REGION; \
+	rc=$$?; \
+	if [ $$rc -ne 0 ]; then \
+		echo "Resync failed."; \
+		exit $$rc; \
+	fi
+
+# List ephemeral environments
+ephemeral-list:
+	@if [ -f $(EPHEMERAL_ENVS_FILE) ] && [ -s $(EPHEMERAL_ENVS_FILE) ]; then \
+		echo "Ephemeral environments:"; \
+		echo ""; \
+		printf "%-12s %-45s %-25s %-12s %-22s %s\n" "BUILD_ID" "REPO" "BRANCH" "REGION" "STATE" "CREATED"; \
+		echo "------------ --------------------------------------------- ------------------------- ------------ ---------------------- --------------------"; \
+		while IFS= read -r line; do \
+			build_id=$$(echo "$$line" | awk '{print $$1}'); \
+			repo=$$(echo "$$line" | sed -n 's/.*REPO=\([^ ]*\).*/\1/p'); \
+			branch=$$(echo "$$line" | sed -n 's/.*BRANCH=\([^ ]*\).*/\1/p'); \
+			region=$$(echo "$$line" | sed -n 's/.*REGION=\([^ ]*\).*/\1/p'); \
+			state=$$(echo "$$line" | sed -n 's/.*STATE=\([^ ]*\).*/\1/p'); \
+			created=$$(echo "$$line" | sed -n 's/.*CREATED=\([^ ]*\).*/\1/p'); \
+			printf "%-12s %-45s %-25s %-12s %-22s %s\n" "$$build_id" "$$repo" "$$branch" "$$region" "$$state" "$$created"; \
+		done < $(EPHEMERAL_ENVS_FILE); \
+	else \
+		echo "No ephemeral environments."; \
+	fi
 

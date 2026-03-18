@@ -92,7 +92,7 @@ flowchart LR
 
 Both pre-merge and nightly ephemeral flows use the same provision/teardown machinery. A unique CI prefix (e.g. `ci-a1b2c3`) namespaces all resources to enable parallel runs in dedicated CI AWS accounts.
 
-Implementation: `ci/ephemerallib/`, entry point: `ci/pre-merge.py`.
+Implementation: `ci/ephemeral-provider/`, entry point: `ci/ephemeral-provider/main.py`.
 
 ```mermaid
 flowchart TB

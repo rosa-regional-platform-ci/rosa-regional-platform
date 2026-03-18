@@ -1,7 +1,7 @@
 #!/bin/bash
 # Run e2e API tests from rosa-regional-platform-api against the provisioned environment.
 # API URL is read from ${CREDS_DIR}/api_url if available, otherwise from
-# SHARED_DIR/regional-terraform-outputs.json (written by pre-merge.py --save-state).
+# SHARED_DIR/regional-terraform-outputs.json (written by ci/ephemeral-provider/main.py --save-state).
 
 set -euo pipefail
 
