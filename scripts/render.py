@@ -558,11 +558,9 @@ def render_region_deployment_terraform(rd: Dict[str, Any], deploy_dir: Path) -> 
     # Add sector for tagging
     regional_data["sector"] = rd.get("sector", environment)
 
-    # Lifecycle flags (consistent with MC pattern — top-level, not in terraform_vars)
+    # Lifecycle flag for infrastructure destroy (read by RC/MC pipelines)
     if rd.get("delete") is True:
         regional_data["delete"] = True
-    if rd.get("delete_pipeline") is True:
-        regional_data["delete_pipeline"] = True
 
     # Extract all management cluster account IDs for cross-account access configuration
     management_clusters = rd.get("management_clusters", [])
@@ -658,15 +656,21 @@ def render_environment_config(
         aws_region = rd["aws_region"]
         if env not in envs:
             envs[env] = {"region_definitions": {}}
+        mc_entries = {}
+        for mc in rd.get("management_clusters", []):
+            mc_id = mc.get("management_id", "")
+            mc_entry: Dict[str, Any] = {}
+            if mc.get("delete_pipeline") is True:
+                mc_entry["delete_pipeline"] = True
+            mc_entries[mc_id] = mc_entry
         region_entry: Dict[str, Any] = {
             "name": env,
             "environment": env,
             "aws_region": aws_region,
-            "management_clusters": [
-                mc.get("management_id", "")
-                for mc in rd.get("management_clusters", [])
-            ],
+            "management_clusters": mc_entries,
         }
+        if rd.get("delete_pipeline") is True:
+            region_entry["delete_pipeline"] = True
         envs[env]["region_definitions"][aws_region] = region_entry
         # Merge environment-level fields (domain, etc.)
         env_meta = rd.get("environment_config", {})

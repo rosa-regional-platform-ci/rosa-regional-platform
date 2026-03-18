@@ -330,58 +330,57 @@ class EphemeralEnvOrchestrator:
     def _run_teardown(self, git: GitManager, fire_and_forget: bool = False):
         """Tear down infrastructure via GitOps and destroy the pipeline-provisioner."""
 
-        # Phase 1: Infrastructure teardown
-        log.info("")
-        log.info("==========================================")
-        log.info("Teardown: Infrastructure Destroy")
-        log.info("==========================================")
+        # # Phase 1: Infrastructure teardown
+        # log.info("")
+        # log.info("==========================================")
+        # log.info("Teardown: Infrastructure Destroy")
+        # log.info("==========================================")
 
-        # Snapshot known executions before pushing delete flags
-        provisioner_known = self.monitor.get_execution_ids(self.provisioner_name)
-        pipeline_known = self.monitor.snapshot_pipeline_executions(self.pipeline_prefix)
+        # # Snapshot known executions before pushing delete flags
+        # pipeline_known = self.monitor.snapshot_pipeline_executions(self.pipeline_prefix)
 
-        def set_delete_flag(env_config):
-            for rd_name, rd_config in env_config.get("region_deployments", {}).items():
-                if rd_config is None:
-                    env_config["region_deployments"][rd_name] = rd_config = {}
-                rd_config["delete"] = True
-                for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
-                    if mc_config is None:
-                        rd_config["management_clusters"][mc_name] = mc_config = {}
-                    mc_config["delete"] = True
+        # def set_delete_flag(env_config):
+        #     for rd_name, rd_config in env_config.get("region_deployments", {}).items():
+        #         if rd_config is None:
+        #             env_config["region_deployments"][rd_name] = rd_config = {}
+        #         rd_config["delete"] = True
+        #         for mc_name, mc_config in rd_config.get("management_clusters", {}).items():
+        #             if mc_config is None:
+        #                 rd_config["management_clusters"][mc_name] = mc_config = {}
+        #             mc_config["delete"] = True
 
-        git.modify_config(TARGET_ENVIRONMENT, set_delete_flag)
+        # git.modify_config(TARGET_ENVIRONMENT, set_delete_flag)
 
-        if fire_and_forget:
-            log.info(
-                "Fire-and-forget mode: pushed infrastructure delete flags (Phase 1) "
-                "and exiting. Phases 2 (delete_pipeline) and 3 (pipeline-provisioner "
-                "destroy) will NOT run — complete teardown must be triggered separately."
-            )
-            return
+        # if fire_and_forget:
+        #     log.info(
+        #         "Fire-and-forget mode: pushed infrastructure delete flags (Phase 1) "
+        #         "and exiting. Phases 2 (delete_pipeline) and 3 (pipeline-provisioner "
+        #         "destroy) will NOT run — complete teardown must be triggered separately."
+        #     )
+        #     return
 
-        # Discover and wait for RC/MC pipeline executions (infra destroy)
-        teardown_pipelines = [
-            (name, exec_id)
-            for name, exec_id in self.monitor.discover_pipelines(self.pipeline_prefix, pipeline_known)
-            if name != self.provisioner_name
-        ]
+        # # Discover and wait for RC/MC pipeline executions (infra destroy)
+        # teardown_pipelines = [
+        #     (name, exec_id)
+        #     for name, exec_id in self.monitor.discover_pipelines(self.pipeline_prefix, pipeline_known)
+        #     if name != self.provisioner_name
+        # ]
 
-        # Monitor all teardown pipelines concurrently
-        if teardown_pipelines:
-            with ThreadPoolExecutor(max_workers=len(teardown_pipelines)) as executor:
-                future_to_pipeline = {
-                    executor.submit(self.monitor.wait_for_completion, name, exec_id): name
-                    for name, exec_id in teardown_pipelines
-                }
+        # # Monitor all teardown pipelines concurrently
+        # if teardown_pipelines:
+        #     with ThreadPoolExecutor(max_workers=len(teardown_pipelines)) as executor:
+        #         future_to_pipeline = {
+        #             executor.submit(self.monitor.wait_for_completion, name, exec_id): name
+        #             for name, exec_id in teardown_pipelines
+        #         }
 
-                for future in as_completed(future_to_pipeline):
-                    pipeline_name = future_to_pipeline[future]
-                    try:
-                        future.result()
-                    except (RuntimeError, TimeoutError) as e:
-                        log.error("Teardown pipeline '%s' failed: %s", pipeline_name, e)
-                        # Continue with teardown even if infrastructure destroy fails
+        #         for future in as_completed(future_to_pipeline):
+        #             pipeline_name = future_to_pipeline[future]
+        #             try:
+        #                 future.result()
+        #             except (RuntimeError, TimeoutError) as e:
+        #                 log.error("Teardown pipeline '%s' failed: %s", pipeline_name, e)
+        #                 # Continue with teardown even if infrastructure destroy fails
 
         # Phase 2: Pipeline teardown
         log.info("")
