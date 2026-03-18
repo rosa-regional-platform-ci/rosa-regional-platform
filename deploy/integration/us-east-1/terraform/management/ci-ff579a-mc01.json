@@ -6,9 +6,9 @@
   "environment": "integration",
   "account_id": "ssm:///infra/integration/us-east-1/mc01/account_id",
   "region": "us-east-1",
-  "alias": "mc01",
+  "alias": "ci-ff579a-mc01",
   "enable_bastion": true,
   "sector": "integration",
-  "management_id": "mc01",
+  "management_id": "ci-ff579a-mc01",
   "regional_aws_account_id": "ssm:///infra/integration/us-east-1/account_id"
 }
