@@ -95,7 +95,7 @@ REPOSITORY_URL=$(echo "$OUTPUTS" | jq -r '.repository_url.value')
 REPOSITORY_BRANCH=$(echo "$OUTPUTS" | jq -r '.repository_branch.value')
 
 # Static values
-APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd/${CLUSTER_TYPE}-manifests"
+APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-bootstrap-${CLUSTER_TYPE}"
 
 # Extract cluster-type specific outputs
 if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then

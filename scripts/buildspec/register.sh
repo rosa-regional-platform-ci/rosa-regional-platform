@@ -41,7 +41,7 @@ fi
 RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
 
 # Resolve RC state key from regional config
-RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"
+RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json"
 if [ ! -f "$RC_CONFIG_FILE" ]; then
     echo "ERROR: Regional cluster config not found: $RC_CONFIG_FILE"
     exit 1

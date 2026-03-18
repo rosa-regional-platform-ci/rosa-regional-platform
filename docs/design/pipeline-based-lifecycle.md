@@ -60,7 +60,7 @@ flowchart LR
         TF["terraform apply<br/>central-account-bootstrap/"]
         G1["git push<br/>deploy/**"]
         G2["git push<br/>deploy/‹env›/‹region›/**"]
-        G3["git push<br/>deploy/‹env›/‹region›/terraform/management/**"]
+        G3["git push<br/>deploy/‹env›/‹region›/pipeline-management-cluster-*-inputs/**"]
     end
 
     subgraph pipelines ["CodePipelines"]
@@ -72,8 +72,8 @@ flowchart LR
 
     TF -->|one-time setup| PP
     G1 -->|triggers| PP
-    PP -->|"reads terraform/regional.json<br/>creates pipeline"| RC_PIPE
-    PP -->|"reads terraform/management/*.json<br/>creates pipeline"| MC_PIPE
+    PP -->|"reads pipeline-provisioner-inputs/regional-cluster.json<br/>creates pipeline"| RC_PIPE
+    PP -->|"reads pipeline-provisioner-inputs/management-cluster-*.json<br/>creates pipeline"| MC_PIPE
     G2 -->|triggers| RC_PIPE
     G3 -->|triggers| MC_PIPE
 
@@ -190,7 +190,7 @@ Each cluster (regional or management) gets its own dedicated CodePipeline that m
 Provisions a Regional Cluster (EKS + VPC + RDS + Platform API).
 
 - Stages: Source → Deploy → Bootstrap-ArgoCD
-- Triggers on changes to `deploy/<env>/<region>/terraform/regional.json`
+- Triggers on changes to `deploy/<env>/<region>/pipeline-regional-cluster-inputs/terraform.json`
 
 See: `terraform/config/pipeline-regional-cluster/`, `terraform/config/regional-cluster/`
 
@@ -199,7 +199,7 @@ See: `terraform/config/pipeline-regional-cluster/`, `terraform/config/regional-c
 Provisions a Management Cluster (EKS for hosting customer control planes).
 
 - Stages: Source → Mint-IoT → Deploy → Bootstrap-ArgoCD → Register
-- Triggers on changes to `deploy/<env>/<region>/terraform/management/<cluster>.json`
+- Triggers on changes to `deploy/<env>/<region>/pipeline-management-cluster-<cluster>-inputs/terraform.json`
 - Deploys to management cluster account (may differ from regional account)
 
 See: `terraform/config/pipeline-management-cluster/`, `terraform/config/management-cluster/`

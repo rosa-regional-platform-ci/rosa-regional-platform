@@ -65,7 +65,7 @@ Each cluster uses a **rendered ApplicationSet** that's customized per environmen
 **Integration Environment (Live Config)**:
 
 ```yaml
-# deploy/integration/integration/eu-west-1/argocd/management-cluster-manifests/applicationset.yaml
+# deploy/integration/eu-west-1/argocd-bootstrap-management-cluster/applicationset.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -94,7 +94,7 @@ spec:
           helm:
             valueFiles:
               - values.yaml # Chart defaults
-              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd/{{ .metadata.labels.cluster_type }}-values.yaml
+              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd-values-{{ .metadata.labels.cluster_type }}.yaml
           repoURL: "{{ .metadata.annotations.git_repo }}"
           targetRevision: "{{ .metadata.annotations.git_revision }}" # From cluster secret
 
@@ -107,7 +107,7 @@ spec:
 **Staging/Production (Hash-Pinned Config)**:
 
 ```yaml
-# deploy/staging/staging/eu-west-1/argocd/management-cluster-manifests/applicationset.yaml
+# deploy/staging/eu-west-1/argocd-bootstrap-management-cluster/applicationset.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -136,7 +136,7 @@ spec:
           helm:
             valueFiles:
               - values.yaml # Chart defaults from pinned commit
-              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd/{{ .metadata.labels.cluster_type }}-values.yaml
+              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd-values-{{ .metadata.labels.cluster_type }}.yaml
           repoURL: "{{ .metadata.annotations.git_repo }}"
           targetRevision: 826fa76d08fc2ce87c863196e52d5a4fa9259a82 # Pinned commit hash
 
@@ -167,7 +167,7 @@ spec:
 Helm charts use a simple two-layer configuration system:
 
 1. **Chart Defaults**: Each chart defines default values in `argocd/config/*/values.yaml`
-2. **Rendered Overrides**: Region/environment-specific values from `deploy/<env>/<region_deployment>/argocd/` override defaults
+2. **Rendered Overrides**: Region/environment-specific values from `deploy/<env>/<region_deployment>/argocd-values-<cluster_type>.yaml` override defaults
 
 ```yaml
 # ApplicationSet uses both sources
@@ -176,7 +176,7 @@ sources:
     helm:
       valueFiles:
         - values.yaml # Chart defaults
-        - $values/deploy/{{ .environment }}/{{ .region_deployment }}/argocd/management-cluster-values.yaml # Overrides
+        - $values/deploy/{{ .environment }}/{{ .region_deployment }}/argocd-values-management-cluster.yaml # Overrides
   - ref: values # Rendered overrides source
     repoURL: https://github.com/openshift-online/rosa-platform
     targetRevision: HEAD

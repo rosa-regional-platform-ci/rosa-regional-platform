@@ -152,7 +152,7 @@ CONFIG_DIR="$REPO_ROOT/terraform/config/${CLUSTER_TYPE}-cluster"
 STATE_PREFIX="${CLUSTER_TYPE}-cluster"
 
 if [ "$CLUSTER_TYPE" = "regional" ]; then
-    CONFIG_FILE="$REGION_DEPLOYMENT_DIR/terraform/regional.json"
+    CONFIG_FILE="$REGION_DEPLOYMENT_DIR/pipeline-regional-cluster-inputs/terraform.json"
     if [ ! -f "$CONFIG_FILE" ]; then
         echo "Error: Regional config not found: $CONFIG_FILE"
         exit 1
@@ -162,35 +162,38 @@ if [ "$CLUSTER_TYPE" = "regional" ]; then
         echo "Error: No 'regional_id' field in $CONFIG_FILE"
         exit 1
     fi
-    echo "==> Resolved cluster ID from regional.json: $CLUSTER_ID"
+    echo "==> Resolved cluster ID from pipeline-regional-cluster-inputs/terraform.json: $CLUSTER_ID"
 else
     # Management cluster — find the right MC config
-    MC_DIR="$REGION_DEPLOYMENT_DIR/terraform/management"
-    if [ ! -d "$MC_DIR" ]; then
-        echo "Error: No management cluster configs in $MC_DIR"
+    PROV_DIR="$REGION_DEPLOYMENT_DIR/pipeline-provisioner-inputs"
+    if [ ! -d "$PROV_DIR" ]; then
+        echo "Error: No pipeline-provisioner-inputs directory in $REGION_DEPLOYMENT_DIR"
         exit 1
     fi
 
     if [ -n "$MC_NAME" ]; then
-        CONFIG_FILE="$MC_DIR/${MC_NAME}.json"
+        CONFIG_FILE="$REGION_DEPLOYMENT_DIR/pipeline-management-cluster-${MC_NAME}-inputs/terraform.json"
         if [ ! -f "$CONFIG_FILE" ]; then
             echo "Error: Management cluster config not found: $CONFIG_FILE"
             echo ""
             echo "Available management clusters:"
-            ls "$MC_DIR"/*.json 2>/dev/null | xargs -I{} basename {} .json | sed 's/^/  /'
+            ls "$PROV_DIR"/management-cluster-*.json 2>/dev/null | xargs -I{} basename {} .json | sed 's/^management-cluster-/  /'
             exit 1
         fi
     else
         # Auto-detect single MC
-        MC_FILES=("$MC_DIR"/*.json)
+        MC_FILES=("$PROV_DIR"/management-cluster-*.json)
         if [ ${#MC_FILES[@]} -eq 1 ]; then
             CONFIG_FILE="${MC_FILES[0]}"
             MC_NAME=$(basename "$CONFIG_FILE" .json)
+            MC_NAME="${MC_NAME#management-cluster-}"
+            CONFIG_FILE="$REGION_DEPLOYMENT_DIR/pipeline-management-cluster-${MC_NAME}-inputs/terraform.json"
             echo "==> Auto-detected management cluster: $MC_NAME"
         else
             echo "Error: Multiple management clusters found, use --mc to specify:"
             for f in "${MC_FILES[@]}"; do
-                echo "  $(basename "$f" .json)"
+                name=$(basename "$f" .json)
+                echo "  ${name#management-cluster-}"
             done
             exit 1
         fi

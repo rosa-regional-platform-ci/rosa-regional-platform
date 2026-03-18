@@ -23,8 +23,8 @@ if [[ -z "$CLUSTER_TYPE" || -z "$REGION_DEPLOYMENT" ]]; then
 fi
 
 REQUIRED_FILES=(
-    "deploy/${ENVIRONMENT}/${REGION_DEPLOYMENT}/argocd/${CLUSTER_TYPE}-values.yaml"
-    "deploy/${ENVIRONMENT}/${REGION_DEPLOYMENT}/argocd/${CLUSTER_TYPE}-manifests/applicationset.yaml"
+    "deploy/${ENVIRONMENT}/${REGION_DEPLOYMENT}/argocd-values-${CLUSTER_TYPE}.yaml"
+    "deploy/${ENVIRONMENT}/${REGION_DEPLOYMENT}/argocd-bootstrap-${CLUSTER_TYPE}/applicationset.yaml"
 )
 
 missing_files=()

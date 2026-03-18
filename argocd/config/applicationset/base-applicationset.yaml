@@ -42,7 +42,7 @@ spec:
         - helm:
             valueFiles:
               - values.yaml
-              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd/{{ .metadata.labels.cluster_type }}-values.yaml
+              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd-values-{{ .metadata.labels.cluster_type }}.yaml
             valuesObject:
               global:
                 cluster_type: '{{ .metadata.labels.cluster_type }}'

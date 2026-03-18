@@ -13,7 +13,7 @@ source scripts/pipeline-common/setup-apply-preflight.sh
 
 # Read delete flag from config (GitOps-driven deletion)
 ENVIRONMENT="${ENVIRONMENT:-staging}"
-RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"
+RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json"
 if [ ! -f "$RC_CONFIG_FILE" ]; then
     echo "ERROR: Config file not found: $RC_CONFIG_FILE" >&2
     echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION REGIONAL_ID=$REGIONAL_ID" >&2

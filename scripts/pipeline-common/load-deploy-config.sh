@@ -24,7 +24,7 @@
 #   COST_CENTER               - Cost center for billing
 #   SECTOR                    - Sector for tagging
 #   ENABLE_BASTION            - "true" or "false"
-#   ENVIRONMENT_DOMAIN        - Environment domain (from environment.json)
+#   ENVIRONMENT_DOMAIN        - Environment domain (from pipeline-provisioner-inputs/terraform.json)
 #   For management mode only:
 #     CLUSTER_ID              - Management cluster identifier
 #     REGIONAL_AWS_ACCOUNT_ID - Resolved RC account ID (SSM-aware)
@@ -40,9 +40,9 @@ fi
 ENVIRONMENT="${ENVIRONMENT:-staging}"
 
 if [[ "$_DEPLOY_MODE" == "regional" ]]; then
-    DEPLOY_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"
+    DEPLOY_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json"
 elif [[ "$_DEPLOY_MODE" == "management" ]]; then
-    DEPLOY_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${MANAGEMENT_ID}.json"
+    DEPLOY_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-management-cluster-${MANAGEMENT_ID}-inputs/terraform.json"
 else
     echo "ERROR: load-deploy-config.sh: unknown mode '$_DEPLOY_MODE' (expected 'regional' or 'management')" >&2
     exit 1
@@ -69,8 +69,8 @@ else
     ENABLE_BASTION="false"
 fi
 
-# Read environment domain from environment.json
-_ENV_JSON="deploy/${ENVIRONMENT}/environment.json"
+# Read environment domain from pipeline-provisioner-inputs/terraform.json
+_ENV_JSON="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-provisioner-inputs/terraform.json"
 if [ -f "$_ENV_JSON" ]; then
     ENVIRONMENT_DOMAIN=$(jq -r '.domain // empty' "$_ENV_JSON")
 else
