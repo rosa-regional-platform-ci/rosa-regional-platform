@@ -18,15 +18,22 @@ import yaml
 
 from render import (
     build_region_definitions,
+    check_documented_keys,
     cleanup_stale_files,
+    collect_key_paths,
+    collect_used_key_paths,
     create_applicationset_content,
     deep_merge,
     discover_environments,
     discover_regions,
+    generate_docs_section,
     get_cluster_types,
     load_yaml,
     main,
+    parse_docs_section,
     resolve_templates,
+    scan_template_variables,
+    update_docs,
     validate_config_revisions,
     write_output,
 )
@@ -284,7 +291,7 @@ class TestValidateConfigRevisions:
     def test_valid_short_hash(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": "abc1234"},
+                "us-east-1": {"git": {"revision": "abc1234"}},
             }
         }
         validate_config_revisions(env_regions)  # should not raise
@@ -292,7 +299,7 @@ class TestValidateConfigRevisions:
     def test_valid_full_hash(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": "826fa76d08fc2ce87c863196e52d5a4fa9259a82"},
+                "us-east-1": {"git": {"revision": "826fa76d08fc2ce87c863196e52d5a4fa9259a82"}},
             }
         }
         validate_config_revisions(env_regions)
@@ -300,7 +307,7 @@ class TestValidateConfigRevisions:
     def test_main_is_allowed(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": "main"},
+                "us-east-1": {"git": {"revision": "main"}},
             }
         }
         validate_config_revisions(env_regions)
@@ -308,7 +315,7 @@ class TestValidateConfigRevisions:
     def test_none_revision_is_allowed(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": None},
+                "us-east-1": {"git": {"revision": None}},
             }
         }
         validate_config_revisions(env_regions)
@@ -324,7 +331,7 @@ class TestValidateConfigRevisions:
     def test_rejects_invalid_hash(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": "not-a-hash!"},
+                "us-east-1": {"git": {"revision": "not-a-hash!"}},
             }
         }
         with pytest.raises(ValueError, match="Invalid commit hash"):
@@ -333,7 +340,7 @@ class TestValidateConfigRevisions:
     def test_rejects_too_short_hash(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": "abc12"},
+                "us-east-1": {"git": {"revision": "abc12"}},
             }
         }
         with pytest.raises(ValueError, match="Invalid commit hash"):
@@ -342,7 +349,7 @@ class TestValidateConfigRevisions:
     def test_rejects_uppercase_hex(self):
         env_regions = {
             "staging": {
-                "us-east-1": {"revision": "ABC1234"},
+                "us-east-1": {"git": {"revision": "ABC1234"}},
             }
         }
         with pytest.raises(ValueError, match="Invalid commit hash"):
@@ -734,14 +741,14 @@ class TestConfigMergeAndRendering:
     def test_deep_merge_inheritance(self, tmp_path):
         """Global defaults are merged with env defaults and region config."""
         global_defaults = {
-            "terraform": {"app_code": "infra", "service_phase": "dev"},
+            "terraform_common": {"app_code": "infra", "service_phase": "dev"},
         }
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults=global_defaults,
             environments={
                 "staging": {
-                    "defaults": {"terraform": {"service_phase": "staging"}},
+                    "defaults": {"terraform_common": {"service_phase": "staging"}},
                     "regions": {
                         "us-east-1": {"management_clusters": {}},
                     },
@@ -756,19 +763,19 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
 
-        assert merged["terraform"]["app_code"] == "infra"
-        assert merged["terraform"]["service_phase"] == "staging"
+        assert merged["terraform_common"]["app_code"] == "infra"
+        assert merged["terraform_common"]["service_phase"] == "staging"
 
     def test_region_level_overrides_env_and_defaults(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
-            global_defaults={"terraform": {"key": "default"}},
+            global_defaults={"terraform_common": {"key": "default"}},
             environments={
                 "staging": {
-                    "defaults": {"terraform": {"key": "env"}},
+                    "defaults": {"terraform_common": {"key": "env"}},
                     "regions": {
                         "us-east-1": {
-                            "terraform": {"key": "region"},
+                            "terraform_common": {"key": "region"},
                             "management_clusters": {},
                         },
                     },
@@ -782,13 +789,13 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
 
-        assert merged["terraform"]["key"] == "region"
+        assert merged["terraform_common"]["key"] == "region"
 
     def test_jinja2_templates_resolved_in_terraform(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "terraform": {
+                "terraform_common": {
                     "region": "{{ aws_region }}",
                     "env": "{{ environment }}",
                 },
@@ -812,7 +819,7 @@ class TestConfigMergeAndRendering:
         context = dict(merged)
         context["aws_region"] = "eu-west-1"
         context["environment"] = "prod"
-        resolved = resolve_templates(context.get("terraform", {}), context)
+        resolved = resolve_templates(context.get("terraform_common", {}), context)
         assert resolved["region"] == "eu-west-1"
         assert resolved["env"] == "prod"
 
@@ -845,7 +852,7 @@ class TestConfigMergeAndRendering:
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "management_cluster_account_id": "default-mc-account",
+                "aws": {"management_cluster_account_id": "default-mc-account"},
             },
             environments={
                 "staging": {
@@ -866,7 +873,7 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(merged, rc)
 
         # Simulate what main() does for MC default account_id
-        default_mc_account_id = merged.get("management_cluster_account_id")
+        default_mc_account_id = merged.get("aws", {}).get("management_cluster_account_id")
         mc_dict = merged.get("management_clusters", {})
         for mc_key, mc_val in mc_dict.items():
             mc_entry = dict(mc_val) if mc_val else {}
@@ -878,7 +885,7 @@ class TestConfigMergeAndRendering:
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "management_cluster_account_id": "default-mc-account",
+                "aws": {"management_cluster_account_id": "default-mc-account"},
             },
             environments={
                 "staging": {
@@ -900,7 +907,7 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
 
-        default_mc_account_id = merged.get("management_cluster_account_id")
+        default_mc_account_id = merged.get("aws", {}).get("management_cluster_account_id")
         mc_dict = merged.get("management_clusters", {})
         for mc_key, mc_val in mc_dict.items():
             mc_entry = dict(mc_val) if mc_val else {}
@@ -947,13 +954,13 @@ class TestConfigMergeAndRendering:
     def test_revision_inheritance(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
-            global_defaults={"revision": "main"},
+            global_defaults={"git": {"revision": "main"}},
             environments={
                 "staging": {
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "revision": "abc1234",
+                            "git": {"revision": "abc1234"},
                             "management_clusters": {},
                         },
                     },
@@ -966,12 +973,12 @@ class TestConfigMergeAndRendering:
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
-        assert merged["revision"] == "abc1234"
+        assert merged["git"]["revision"] == "abc1234"
 
     def test_revision_falls_back_to_defaults(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
-            global_defaults={"revision": "main"},
+            global_defaults={"git": {"revision": "main"}},
             environments={
                 "staging": {
                     "defaults": {},
@@ -987,7 +994,7 @@ class TestConfigMergeAndRendering:
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
-        assert merged["revision"] == "main"
+        assert merged["git"]["revision"] == "main"
 
     def test_argocd_merge_chain(self, tmp_path):
         """argocd values merge through defaults -> env -> region."""
@@ -1048,7 +1055,7 @@ class TestConfigMergeAndRendering:
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "account_id": "account-{{ environment }}-{{ aws_region }}",
+                "aws": {"account_id": "account-{{ environment }}-{{ aws_region }}"},
             },
             environments={
                 "staging": {
@@ -1069,14 +1076,14 @@ class TestConfigMergeAndRendering:
         context = dict(merged)
         context["environment"] = "staging"
         context["aws_region"] = "us-east-1"
-        resolved_account_id = resolve_templates(context.get("account_id", ""), context)
+        resolved_account_id = resolve_templates(context.get("aws", {}).get("account_id", ""), context)
         assert resolved_account_id == "account-staging-us-east-1"
 
     def test_management_cluster_template_with_cluster_prefix(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "management_cluster_account_id": "mc-{{ cluster_prefix }}-{{ aws_region }}",
+                "aws": {"management_cluster_account_id": "mc-{{ cluster_prefix }}-{{ aws_region }}"},
             },
             environments={
                 "staging": {
@@ -1100,10 +1107,10 @@ class TestConfigMergeAndRendering:
         context["environment"] = "staging"
         context["aws_region"] = "us-east-1"
         context["account_id"] = resolve_templates(
-            context.get("account_id", ""), context
+            context.get("aws", {}).get("account_id", ""), context
         )
 
-        default_mc_account_id = merged.get("management_cluster_account_id")
+        default_mc_account_id = merged.get("aws", {}).get("management_cluster_account_id")
         mc_dict = merged.get("management_clusters", {})
         for mc_key, mc_val in mc_dict.items():
             mc_entry = dict(mc_val) if mc_val else {}
@@ -1257,7 +1264,7 @@ class TestMainIntegration:
     def test_pipeline_provisioner_terraform_json(self, tmp_path):
         deploy_dir = self._run_main(
             tmp_path,
-            global_defaults={"domain": "test.example.com"},
+            global_defaults={"dns": {"domain": "test.example.com"}},
             environments={
                 "staging": {
                     "defaults": {},
@@ -1282,7 +1289,7 @@ class TestMainIntegration:
     def test_pipeline_provisioner_regional_cluster_json(self, tmp_path):
         deploy_dir = self._run_main(
             tmp_path,
-            global_defaults={"account_id": "111111111111"},
+            global_defaults={"aws": {"account_id": "111111111111"}},
             environments={
                 "staging": {
                     "defaults": {},
@@ -1310,8 +1317,10 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "999999999999",
-                "management_cluster_account_id": "111111111111",
+                "aws": {
+                    "account_id": "999999999999",
+                    "management_cluster_account_id": "111111111111",
+                },
             },
             environments={
                 "staging": {
@@ -1342,8 +1351,8 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "111111111111",
-                "terraform": {
+                "aws": {"account_id": "111111111111"},
+                "terraform_common": {
                     "app_code": "infra",
                     "service_phase": "dev",
                     "cost_center": "000",
@@ -1380,9 +1389,11 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "999999999999",
-                "management_cluster_account_id": "111111111111",
-                "terraform": {
+                "aws": {
+                    "account_id": "999999999999",
+                    "management_cluster_account_id": "111111111111",
+                },
+                "terraform_common": {
                     "app_code": "infra",
                     "service_phase": "dev",
                     "cost_center": "000",
@@ -1421,8 +1432,8 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "999",
-                "terraform": {
+                "aws": {"account_id": "999"},
+                "terraform_common": {
                     "app_code": "infra",
                     "service_phase": "dev",
                     "cost_center": "000",
@@ -1533,7 +1544,7 @@ class TestMainIntegration:
                     "defaults": {},
                     "regions": {
                         "us-east-1": {
-                            "revision": "abc1234def5678901234567890abcdef12345678",
+                            "git": {"revision": "abc1234def5678901234567890abcdef12345678"},
                             "management_clusters": {},
                         },
                     },
@@ -1554,7 +1565,7 @@ class TestMainIntegration:
     def test_argocd_bootstrap_main_revision_not_pinned(self, tmp_path):
         deploy_dir = self._run_main(
             tmp_path,
-            global_defaults={"revision": "main"},
+            global_defaults={"git": {"revision": "main"}},
             environments={
                 "staging": {
                     "defaults": {},
@@ -1579,7 +1590,7 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "111111111111",
+                "aws": {"account_id": "111111111111"},
             },
             environments={
                 "staging": {
@@ -1606,8 +1617,10 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "999",
-                "management_cluster_account_id": "111",
+                "aws": {
+                    "account_id": "999",
+                    "management_cluster_account_id": "111",
+                },
             },
             environments={
                 "staging": {
@@ -1637,8 +1650,8 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "111",
-                "terraform": {
+                "aws": {"account_id": "111"},
+                "terraform_common": {
                     "app_code": "infra",
                     "service_phase": "dev",
                     "cost_center": "000",
@@ -1669,8 +1682,8 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "account_id": "111",
-                "terraform": {
+                "aws": {"account_id": "111"},
+                "terraform_common": {
                     "app_code": "infra",
                     "service_phase": "dev",
                     "cost_center": "000",
@@ -1703,7 +1716,7 @@ class TestMainIntegration:
             global_defaults={},
             environments={
                 "integration": {
-                    "defaults": {"domain": "int0.rosa.devshift.net"},
+                    "defaults": {"dns": {"domain": "int0.rosa.devshift.net"}},
                     "regions": {
                         "us-east-1": {"management_clusters": {}},
                     },
@@ -1720,6 +1733,201 @@ class TestMainIntegration:
         )
         data = json.loads(tf_file.read_text())
         assert data["domain"] == "int0.rosa.devshift.net"
+
+
+# =============================================================================
+# Check Documented Keys Tests
+# =============================================================================
+
+
+class TestCollectKeyPaths:
+    def test_flat_dict(self):
+        assert collect_key_paths({"a": 1, "b": 2}) == {"a", "b"}
+
+    def test_nested_dict(self):
+        result = collect_key_paths({"aws": {"account_id": "123"}})
+        assert result == {"aws", "aws.account_id"}
+
+    def test_deeply_nested(self):
+        result = collect_key_paths({"a": {"b": {"c": 1}}})
+        assert result == {"a", "a.b", "a.b.c"}
+
+
+class TestScanTemplateVariables:
+    def test_finds_variables_in_templates(self, tmp_path):
+        tpl_dir = tmp_path / "templates"
+        tpl_dir.mkdir()
+        (tpl_dir / "test.json.j2").write_text('{{ dns.domain }}\n{% if delete %}yes{% endif %}')
+        result = scan_template_variables(tpl_dir)
+        assert "dns.domain" in result
+        assert "delete" in result
+        assert result["dns.domain"] == ["test.json.j2"]
+
+    def test_ignores_builtins(self, tmp_path):
+        tpl_dir = tmp_path / "templates"
+        tpl_dir.mkdir()
+        (tpl_dir / "test.j2").write_text("{{ loop.index }}")
+        result = scan_template_variables(tpl_dir)
+        assert "loop.index" not in result
+
+
+class TestParseDocsSection:
+    def test_parses_key_paths(self, tmp_path):
+        defaults = tmp_path / "defaults.yaml"
+        defaults.write_text(
+            "key: value\n"
+            "# @docs\n"
+            "# dns.domain  → template.j2\n"
+            "# aws         (render.py context)\n"
+            "# @end-docs\n"
+        )
+        result = parse_docs_section(defaults)
+        assert "dns.domain" in result
+        assert "aws" in result
+
+    def test_empty_without_section(self, tmp_path):
+        defaults = tmp_path / "defaults.yaml"
+        defaults.write_text("key: value\n")
+        assert parse_docs_section(defaults) == set()
+
+
+class TestUpdateDocs:
+    def test_generates_docs_section(self, tmp_path):
+        config_dir = _create_config_structure(
+            tmp_path,
+            global_defaults={"dns": {"domain": ""}},
+            environments={
+                "staging": {
+                    "defaults": {},
+                    "regions": {"us-east-1": {}},
+                }
+            },
+        )
+        templates_dir = config_dir / "templates"
+        templates_dir.mkdir(exist_ok=True)
+        (templates_dir / "test.json.j2").write_text('{{ dns.domain }}')
+
+        assert update_docs(config_dir, templates_dir) == 0
+
+        content = (config_dir / "defaults.yaml").read_text()
+        assert "# @docs" in content
+        assert "# @end-docs" in content
+        assert "dns.domain" in content
+        assert "→ test.json.j2" in content
+
+    def test_regenerates_existing_section(self, tmp_path):
+        config_dir = _create_config_structure(
+            tmp_path,
+            global_defaults={"dns": {"domain": ""}},
+            environments={
+                "staging": {
+                    "defaults": {},
+                    "regions": {"us-east-1": {}},
+                }
+            },
+        )
+        templates_dir = config_dir / "templates"
+        templates_dir.mkdir(exist_ok=True)
+        (templates_dir / "test.json.j2").write_text('{{ dns.domain }}')
+
+        # Run twice — should replace, not duplicate
+        update_docs(config_dir, templates_dir)
+        update_docs(config_dir, templates_dir)
+
+        content = (config_dir / "defaults.yaml").read_text()
+        assert content.count("# @docs") == 1
+        assert content.count("# @end-docs") == 1
+
+
+class TestCheckDocumentedKeys:
+    def _make_templates_dir(self, tmp_path):
+        tpl_dir = tmp_path / "config" / "templates"
+        tpl_dir.mkdir(parents=True, exist_ok=True)
+        return tpl_dir
+
+    def test_all_documented(self, tmp_path):
+        config_dir = _create_config_structure(
+            tmp_path,
+            global_defaults={"dns": {"domain": ""}},
+            environments={
+                "staging": {
+                    "defaults": {"dns": {"domain": "example.com"}},
+                    "regions": {"us-east-1": {}},
+                }
+            },
+        )
+        templates_dir = self._make_templates_dir(tmp_path)
+        assert check_documented_keys(config_dir, templates_dir) == 0
+
+    def test_undocumented_key_fails(self, tmp_path):
+        config_dir = _create_config_structure(
+            tmp_path,
+            global_defaults={},
+            environments={
+                "staging": {
+                    "defaults": {"new_thing": "value"},
+                    "regions": {"us-east-1": {}},
+                }
+            },
+        )
+        templates_dir = self._make_templates_dir(tmp_path)
+        assert check_documented_keys(config_dir, templates_dir) == 1
+
+    def test_nested_key_documented_by_parent(self, tmp_path):
+        """If 'aws' is in defaults, 'aws.new_field' in env config is fine."""
+        config_dir = _create_config_structure(
+            tmp_path,
+            global_defaults={"aws": {"account_id": ""}},
+            environments={
+                "staging": {
+                    "defaults": {"aws": {"new_field": "value"}},
+                    "regions": {"us-east-1": {}},
+                }
+            },
+        )
+        templates_dir = self._make_templates_dir(tmp_path)
+        assert check_documented_keys(config_dir, templates_dir) == 0
+
+    def test_docs_section_key_counts_as_documented(self, tmp_path):
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "defaults.yaml").write_text(
+            "# @docs\n"
+            "# management_clusters  (render.py context)\n"
+            "# @end-docs\n"
+        )
+        env_dir = config_dir / "staging"
+        env_dir.mkdir()
+        (env_dir / "defaults.yaml").write_text("{}\n")
+        (env_dir / "us-east-1.yaml").write_text(
+            "management_clusters:\n  mc01: {}\n"
+        )
+        templates_dir = config_dir / "templates"
+        templates_dir.mkdir()
+        assert check_documented_keys(config_dir, templates_dir) == 0
+
+    def test_invalid_template_path_fails(self, tmp_path):
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "defaults.yaml").write_text(
+            "dns:\n  domain: ''\n"
+            "# @docs\n"
+            "# dns.domain  → nonexistent/template.j2\n"
+            "# @end-docs\n"
+        )
+        env_dir = config_dir / "staging"
+        env_dir.mkdir()
+        (env_dir / "defaults.yaml").write_text("{}\n")
+        (env_dir / "us-east-1.yaml").write_text("{}\n")
+        templates_dir = config_dir / "templates"
+        templates_dir.mkdir()
+        assert check_documented_keys(config_dir, templates_dir) == 1
+
+    def test_real_config(self):
+        """Verify the actual project config passes the check."""
+        config_dir = PROJECT_ROOT / "config"
+        templates_dir = config_dir / "templates"
+        assert check_documented_keys(config_dir, templates_dir) == 0
 
 
 if __name__ == "__main__":

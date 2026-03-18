@@ -1,4 +1,5 @@
-domain: int0.rosa.devshift.net
+dns:
+  domain: int0.rosa.devshift.net
 
-terraform:
+terraform_common:
   enable_bastion: true

@@ -31,7 +31,7 @@ chain resolves. Identity variables are injected automatically by the render scri
 | ---------------------- | -------------------------- | -------------------- |
 | `{{ environment }}`    | environment directory name | `"integration"`      |
 | `{{ aws_region }}`     | region file stem           | `"us-east-1"`        |
-| `{{ account_id }}`     | resolved account_id        | `"ssm:///infra/..."` |
+| `{{ account_id }}`     | resolved aws.account_id    | `"ssm:///infra/..."` |
 | `{{ cluster_prefix }}` | management_cluster key     | `"mc01"`             |
 
 ## Output
@@ -75,7 +75,7 @@ Running `scripts/render.py` generates:
 - **`deploy/<env>/<region>/argocd-bootstrap-<cluster-type>/applicationset.yaml`**
   - Consumer: `bootstrap-argocd.sh` (ECS task)
   - No trigger (applied at bootstrap time)
-  - ApplicationSet manifest; pins git revision when `revision` is a commit hash.
+  - ApplicationSet manifest; pins git revision when `git.revision` is a commit hash.
 
 ## Templates
 
@@ -89,11 +89,18 @@ receives the fully-merged config values as its Jinja2 context.
 Defines base values inherited by every environment:
 
 ```yaml
-revision: main
-account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
-management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+git:
+  revision: main
+  bootstrap_revision: main
 
-terraform:
+aws:
+  account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
+  management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+
+dns:
+  domain: ""
+
+terraform_common:
   app_code: "infra"
   service_phase: "dev"
   cost_center: "000"
@@ -110,9 +117,10 @@ argocd:
 Environment-level defaults:
 
 ```yaml
-domain: int0.rosa.devshift.net
+dns:
+  domain: int0.rosa.devshift.net
 
-terraform:
+terraform_common:
   enable_bastion: true
 ```
 
@@ -130,9 +138,10 @@ management_clusters:
 Region with explicit account IDs:
 
 ```yaml
-account_id: "754250776154"
+aws:
+  account_id: "754250776154"
 
-terraform:
+terraform_common:
   enable_bastion: true
 
 management_clusters:

@@ -1,6 +1,7 @@
-account_id: "754250776154"
+aws:
+  account_id: "754250776154"
 
-terraform:
+terraform_common:
   enable_bastion: true
 
 management_clusters:

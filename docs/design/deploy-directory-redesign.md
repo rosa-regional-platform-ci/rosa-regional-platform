@@ -129,11 +129,18 @@ Deep merge at each level, most-specific wins.
 **`config/defaults.yaml`** — global defaults inherited by all environments:
 
 ```yaml
-revision: main
-account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
-management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+git:
+  revision: main
+  bootstrap_revision: main
 
-terraform:
+aws:
+  account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
+  management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+
+dns:
+  domain: ""
+
+terraform_common:
   app_code: infra
   service_phase: dev
   cost_center: "000"
@@ -153,9 +160,10 @@ argocd:
 **`config/integration/defaults.yaml`** — environment defaults:
 
 ```yaml
-domain: int0.rosa.devshift.net
+dns:
+  domain: int0.rosa.devshift.net
 
-terraform:
+terraform_common:
   enable_bastion: true
 ```
 

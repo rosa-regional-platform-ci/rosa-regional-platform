@@ -1,4 +1,4 @@
-terraform:
+terraform_common:
   enable_bastion: true
   # delete: true
 
