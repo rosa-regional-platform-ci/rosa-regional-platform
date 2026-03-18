@@ -126,3 +126,22 @@ output "maestro_agent_role_arn" {
   description = "IAM role ARN for Maestro Agent"
   value       = module.maestro_agent.maestro_agent_role_arn
 }
+
+# =============================================================================
+# HyperShift OIDC Outputs
+# =============================================================================
+
+output "hypershift_operator_role_arn" {
+  description = "IAM role ARN for HyperShift operator"
+  value       = module.hypershift_oidc.role_arn
+}
+
+output "oidc_bucket_name" {
+  description = "S3 bucket name for OIDC discovery documents"
+  value       = module.hypershift_oidc.oidc_bucket_name
+}
+
+output "oidc_cloudfront_domain" {
+  description = "CloudFront domain for OIDC issuer URL (prefix with https://)"
+  value       = module.hypershift_oidc.cloudfront_domain_name
+}
