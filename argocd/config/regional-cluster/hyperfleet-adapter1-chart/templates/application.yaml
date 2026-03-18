@@ -37,8 +37,6 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.serviceAccountName
-          - name: SIMULATE_RESULT
-            value: success     # other possible values: success, failure, hang, crash, invalid-json, missing-status
         rbac:
           resources:
             - namespaces
