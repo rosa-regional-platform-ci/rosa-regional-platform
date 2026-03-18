@@ -78,7 +78,6 @@ spec:
       # When try to dig  Manifest
       discovery:
         byName: "hyperfleet-cluster-setup-{{ .clusterId }}"
-        # byName: "mw-{{ .clusterId }}"
 
       # Discover sub-resources within the manifestWork
       # This approach can be used to use the discovery name to parameter level
@@ -92,7 +91,8 @@ spec:
                 hyperfleet.io/cluster-id: "{{ .clusterId }}"  
         - name: "mgmtConfigMap"
           discovery:
-            byName: "{{ .clusterId }}"
+            byName: "cluster-config"
+            namespace: "{{ .clusterId }}"
 
   # Post-processing: build status payload and report to HyperFleet API
   post:
