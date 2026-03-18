@@ -7,7 +7,6 @@
   "account_id": "{{ mc.account_id }}",
   "region": "{{ aws_region }}",
   "alias": "{{ mc.management_id }}",
-  "sector": "{{ sector }}",
   "management_id": "{{ mc.management_id }}",
   "regional_aws_account_id": "{{ account_id }}"{% if terraform_common.enable_bastion %},
   "enable_bastion": {{ terraform_common.enable_bastion | default(false) | tojson }}{% endif %}{% if mc.delete %},

@@ -98,8 +98,7 @@ if [[ ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
     exit 1
 fi
 
-# Try to read tf_state_region from config.yaml via the first regional-cluster.json file found
-# This allows sectors to configure tf_state_region in their terraform_vars
+# Try to read tf_state_region from the first regional-cluster.json file found
 TF_STATE_REGION=""
 if [ -d "deploy/${ENVIRONMENT}" ]; then
     # Find first regional-cluster.json file in this environment

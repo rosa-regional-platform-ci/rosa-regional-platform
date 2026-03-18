@@ -8,8 +8,7 @@
   "region": "{{ aws_region }}",
   "alias": "regional-{{ aws_region }}",
   "enable_bastion": {{ terraform_common.enable_bastion | default(false) | tojson }},
-  "regional_id": "{{ regional_id }}",
-  "sector": "{{ sector }}"{% if management_cluster_account_ids %},
+  "regional_id": "{{ regional_id }}"{% if management_cluster_account_ids %},
   "management_cluster_account_ids": {{ management_cluster_account_ids | tojson }}{% endif %}{% if delete %},
   "delete": true{% endif %}
 }

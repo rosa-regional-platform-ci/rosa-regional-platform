@@ -18,7 +18,6 @@ provider "aws" {
       service-phase = var.service_phase
       cost-center   = var.cost_center
       environment   = var.environment
-      sector        = var.sector
     }
   }
 }

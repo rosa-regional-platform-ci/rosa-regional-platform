@@ -107,7 +107,6 @@ echo ""
 export REGION_DEPLOYMENT=$(jq -r '.region' "$DEPLOY_CONFIG_FILE")
 echo "Extracted REGION_DEPLOYMENT from config: $REGION_DEPLOYMENT"
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
-export TF_VAR_sector="${SECTOR}"
 
 set +e
 if [ "${DELETE_FLAG}" == "true" ]; then

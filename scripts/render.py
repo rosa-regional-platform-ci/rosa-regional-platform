@@ -16,7 +16,7 @@ Config structure:
     defaults.yaml                    # Global defaults
     templates/                       # Jinja2 templates (1-1 with deploy/ output files)
     <env>/
-      defaults.yaml                  # Environment/sector defaults
+      defaults.yaml                  # Environment defaults
       <region>.yaml                  # Region deployment values
 
 Inheritance chain:
@@ -663,14 +663,11 @@ def main() -> int:
 
             # Inject identity variables
             regional_id = f"{ci_prefix}-regional" if ci_prefix else "regional"
-            sector = merged.get("sector", env_name)
-
             context = dict(merged)
             context["environment"] = env_name
             context["aws_region"] = region
             context["region"] = region
             context["regional_id"] = regional_id
-            context["sector"] = sector
 
             # Resolve aws.account_id template early (other templates reference it)
             aws_config = context.get("aws", {})

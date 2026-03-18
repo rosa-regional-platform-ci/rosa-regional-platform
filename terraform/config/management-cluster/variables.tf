@@ -76,11 +76,6 @@ variable "environment" {
   type        = string
 }
 
-variable "sector" {
-  description = "Sector name for tagging (e.g., 'integration', 'us-gov')"
-  type        = string
-}
-
 variable "regional_aws_account_id" {
   description = "AWS account ID where the regional cluster and IoT Core are hosted"
   type        = string

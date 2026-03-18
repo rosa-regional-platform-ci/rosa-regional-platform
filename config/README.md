@@ -10,7 +10,7 @@ config/
   defaults.yaml                     # Base config inherited by all environments
   templates/                        # Jinja2 templates (1-1 with deploy/ output files)
   <env>/
-    defaults.yaml                   # Per-environment/sector defaults
+    defaults.yaml                   # Per-environment defaults
     <region>.yaml                   # Per-region deployment values
 ```
 

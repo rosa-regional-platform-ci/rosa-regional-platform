@@ -16,11 +16,6 @@ variable "environment" {
   type        = string
 }
 
-variable "sector" {
-  description = "Sector name for tagging (e.g., 'integration', 'us-gov')"
-  type        = string
-}
-
 variable "region" {
   description = "AWS Region for infrastructure deployment"
   type        = string

@@ -1380,7 +1380,6 @@ class TestMainIntegration:
         data = json.loads(tf_file.read_text())
         assert data["app_code"] == "infra"
         assert data["regional_id"] == "regional"
-        assert data["sector"] == "staging"
         assert data["environment"] == "staging"
         assert data["region"] == "us-east-1"
         assert data["_generated"].startswith("DO NOT EDIT")
@@ -1645,70 +1644,6 @@ class TestMainIntegration:
         assert mc_file.exists()
         data = json.loads(mc_file.read_text())
         assert data["management_id"] == "xg4y-mc01"
-
-    def test_sector_defaults_to_env_name(self, tmp_path):
-        deploy_dir = self._run_main(
-            tmp_path,
-            global_defaults={
-                "aws": {"account_id": "111"},
-                "terraform_common": {
-                    "app_code": "infra",
-                    "service_phase": "dev",
-                    "cost_center": "000",
-                    "enable_bastion": False,
-                },
-            },
-            environments={
-                "staging": {
-                    "defaults": {},
-                    "regions": {
-                        "us-east-1": {"management_clusters": {}},
-                    },
-                }
-            },
-        )
-
-        tf_file = (
-            deploy_dir
-            / "staging"
-            / "us-east-1"
-            / "pipeline-regional-cluster-inputs"
-            / "terraform.json"
-        )
-        data = json.loads(tf_file.read_text())
-        assert data["sector"] == "staging"
-
-    def test_sector_from_config(self, tmp_path):
-        deploy_dir = self._run_main(
-            tmp_path,
-            global_defaults={
-                "aws": {"account_id": "111"},
-                "terraform_common": {
-                    "app_code": "infra",
-                    "service_phase": "dev",
-                    "cost_center": "000",
-                    "enable_bastion": False,
-                },
-            },
-            environments={
-                "prod": {
-                    "defaults": {"sector": "sector-a"},
-                    "regions": {
-                        "us-east-1": {"management_clusters": {}},
-                    },
-                }
-            },
-        )
-
-        tf_file = (
-            deploy_dir
-            / "prod"
-            / "us-east-1"
-            / "pipeline-regional-cluster-inputs"
-            / "terraform.json"
-        )
-        data = json.loads(tf_file.read_text())
-        assert data["sector"] == "sector-a"
 
     def test_domain_in_provisioner_terraform(self, tmp_path):
         deploy_dir = self._run_main(

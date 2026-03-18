@@ -7,7 +7,6 @@
   "account_id": "ssm:///infra/brian/us-east-1/mc01/account_id",
   "region": "us-east-1",
   "alias": "mc01",
-  "sector": "brian",
   "management_id": "mc01",
   "regional_aws_account_id": "ssm:///infra/brian/us-east-1/account_id",
   "enable_bastion": true

@@ -75,10 +75,9 @@ if [ -n "${ENVIRONMENT_HOSTED_ZONE_ID:-}" ]; then
     export TF_VAR_environment_hosted_zone_id="${ENVIRONMENT_HOSTED_ZONE_ID}"
 fi
 
-# Extract regional_id, environment, and sector from rendered config
+# Extract regional_id and environment from rendered config
 export TF_VAR_regional_id=$(jq -r '.regional_id' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_environment=$(jq -r '.environment' "$DEPLOY_CONFIG_FILE")
-export TF_VAR_sector="${SECTOR}"
 
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"
@@ -93,7 +92,6 @@ echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
 echo "  Regional ID: $TF_VAR_regional_id"
 echo "  Environment: $TF_VAR_environment"
-echo "  Sector: $TF_VAR_sector"
 echo ""
 
 # Export required environment variables for Makefile target

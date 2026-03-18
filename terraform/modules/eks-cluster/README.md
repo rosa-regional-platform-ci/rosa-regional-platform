@@ -37,7 +37,7 @@ All resources are named using the `cluster_id` variable passed to the module (e.
 - IAM Roles: `mc01-cluster-role`
 - KMS Alias: `alias/mc01-eks-secrets`
 
-Resource names are deterministic — no random suffixes. An optional CI prefix (e.g., `xg4y-`) provides isolation when multiple clusters share the same AWS account. Environment and sector are applied as tags, not embedded in resource names.
+Resource names are deterministic — no random suffixes. An optional CI prefix (e.g., `xg4y-`) provides isolation when multiple clusters share the same AWS account. Environment is applied as a tag, not embedded in resource names.
 
 ## Required Provider Configuration
 

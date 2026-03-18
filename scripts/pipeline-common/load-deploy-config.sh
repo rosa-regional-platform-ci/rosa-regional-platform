@@ -59,7 +59,6 @@ echo "Loading deploy config from: $DEPLOY_CONFIG_FILE"
 APP_CODE=$(jq -r '.app_code // "infra"' "$DEPLOY_CONFIG_FILE")
 SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$DEPLOY_CONFIG_FILE")
 COST_CENTER=$(jq -r '.cost_center // "000"' "$DEPLOY_CONFIG_FILE")
-SECTOR=$(jq -r '.sector // .environment // "'"$ENVIRONMENT"'"' "$DEPLOY_CONFIG_FILE")
 
 # Normalize enable_bastion to "true"/"false"
 _RAW_BASTION=$(jq -r '.enable_bastion // false' "$DEPLOY_CONFIG_FILE")

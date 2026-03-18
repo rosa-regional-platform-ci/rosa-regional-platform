@@ -57,7 +57,6 @@ This file defines which region deployments (environment + name combinations) exi
 region_deployments:
   - name: "eu-west-1"
     aws_region: "eu-west-1"
-    sector: "integration"
     account_id: "123456789"
     management_clusters:
       - id: "mc01"
@@ -70,7 +69,6 @@ region_deployments:
 
   - name: "eu-west-1"
     aws_region: "eu-west-1"
-    sector: "staging"
     account_id: "123456789"
     management_clusters:
       - id: "mc01"
