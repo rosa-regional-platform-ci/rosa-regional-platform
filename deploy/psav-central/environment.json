@@ -5,9 +5,9 @@
       "name": "psav-central",
       "environment": "psav-central",
       "aws_region": "us-east-1",
-      "management_clusters": [
-        "mc01"
-      ]
+      "management_clusters": {
+        "ci-f051d9-mc01": {}
+      }
     }
   }
 }
