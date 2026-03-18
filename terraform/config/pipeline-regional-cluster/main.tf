@@ -432,9 +432,9 @@ resource "aws_codepipeline" "central_pipeline" {
 # Only enable for specific environments (staging, production, integration)
 module "pipeline_notifications" {
   source = "../../modules/pipeline-notifications"
-  count  = contains(["stage", "staging", "production", "integration"], var.environment) ? 1 : 0
+  count  = contains(["stage", "staging", "production", "integration"], var.target_environment) ? 1 : 0
 
   slack_webhook_url = var.slack_webhook_url
-  name_prefix       = var.name_prefix
+  name_prefix       = local.name_prefix
   region            = var.region
 }

@@ -40,7 +40,7 @@ ENVIRONMENT VARIABLES:
     GITHUB_REPOSITORY   GitHub repository in owner/name format (e.g., 'openshift-online/rosa-regional-platform')
     GITHUB_BRANCH       Git branch to track (default: main)
     TARGET_ENVIRONMENT  Environment to monitor (default: staging)
-    SLACK_WEBHOOK_URL   Slack webhook URL or SSM parameter path (optional, only for stage/staging/production/integration/ci)
+    SLACK_WEBHOOK_URL   Slack webhook URL or SSM parameter path (optional, only for stage/staging/production/integration)
                         If not set, defaults to ssm:///rosa-regional/slack/webhook-url for monitored environments
     AWS_PROFILE         AWS CLI profile to use
 
@@ -140,9 +140,21 @@ if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
     exit 1
 fi
 
+# Helper function to check if element is in array
+contains_element() {
+    local element="$1"
+    shift
+    local arr=("$@")
+    for e in "${arr[@]}"; do
+        [[ "$e" == "$element" ]] && return 0
+    done
+    return 1
+}
+
 # Resolve SSM parameters for monitored environments
-MONITORED_ENVS=("stage" "staging" "production" "integration" "ci")
-if [[ " ${MONITORED_ENVS[@]} " =~ " ${TARGET_ENVIRONMENT} " ]]; then
+# Must match Terraform: terraform/config/central-account-bootstrap/main.tf
+MONITORED_ENVS=("stage" "staging" "production" "integration")
+if contains_element "$TARGET_ENVIRONMENT" "${MONITORED_ENVS[@]}"; then
     # This environment requires Slack notifications
     # If SLACK_WEBHOOK_URL is empty, try default SSM parameter path
     if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
