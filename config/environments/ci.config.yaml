@@ -5,6 +5,8 @@ region_deployments:
       mc01:
         account_id: '129678139271'
         delete: true
+        delete2: true
     delete: true
     test: true
     test2: true
+    delete2: true
