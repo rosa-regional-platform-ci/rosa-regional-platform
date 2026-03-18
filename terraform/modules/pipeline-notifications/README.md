@@ -17,20 +17,16 @@ module "pipeline_notifications" {
   slack_webhook_ssm_param = "/rosa-regional/slack/webhook-url"
   name_prefix             = "my-project"
   region                  = "us-east-1"
-
-  # Optional: Enable code signing for FedRAMP compliance
-  # code_signing_profile_arn = "arn:aws:signer:us-east-1:123456789012:/signing-profiles/MyProfile"
 }
 ```
 
 ## Inputs
 
-| Name                         | Description                                   | Type   | Required | Default |
-| ---------------------------- | --------------------------------------------- | ------ | -------- | ------- |
-| `slack_webhook_ssm_param`    | SSM Parameter path containing webhook URL     | string | Yes      | -       |
-| `name_prefix`                | Prefix for resource names                     | string | No       | ""      |
-| `region`                     | AWS Region                                    | string | Yes      | -       |
-| `code_signing_profile_arn`   | AWS Signer profile ARN (optional, FedRAMP)    | string | No       | ""      |
+| Name                      | Description                               | Type   | Required | Default |
+| ------------------------- | ----------------------------------------- | ------ | -------- | ------- |
+| `slack_webhook_ssm_param` | SSM Parameter path containing webhook URL | string | Yes      | -       |
+| `name_prefix`             | Prefix for resource names                 | string | No       | ""      |
+| `region`                  | AWS Region                                | string | Yes      | -       |
 
 ## Setup
 
@@ -79,30 +75,6 @@ Messages include:
 - **KMS Encryption**: SecureString parameters encrypted with KMS
 - **Least Privilege IAM**: Lambda has scoped access to specific SSM parameter
 - **No Secrets in Environment**: Lambda environment variables contain only parameter path
-- **Code Signing (Optional)**: Support for AWS Signer for FedRAMP compliance
-
-## Code Signing (FedRAMP Compliance)
-
-For FedRAMP or other compliance requirements, enable Lambda code signing:
-
-1. **Create AWS Signer signing profile:**
-   ```bash
-   aws signer put-signing-profile \
-     --profile-name pipeline-notifier-signing-profile \
-     --platform-id "AWSLambda-SHA384-ECDSA"
-   ```
-
-2. **Sign your Lambda code** (done automatically by Terraform when profile ARN provided)
-
-3. **Enable in module:**
-   ```hcl
-   module "pipeline_notifications" {
-     code_signing_profile_arn = "arn:aws:signer:us-east-1:123456789012:/signing-profiles/pipeline-notifier-signing-profile"
-     # ... other variables
-   }
-   ```
-
-When enabled, Lambda will enforce code signing and reject unsigned or improperly signed code.
 
 ## Notes
 

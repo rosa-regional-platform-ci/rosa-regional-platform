@@ -14,8 +14,3 @@ variable "region" {
   description = "AWS Region for the notification resources"
 }
 
-variable "code_signing_profile_arn" {
-  type        = string
-  description = "ARN of AWS Signer signing profile for Lambda code signing (optional - enables deployment artifact integrity checks for FedRAMP compliance)"
-  default     = ""
-}

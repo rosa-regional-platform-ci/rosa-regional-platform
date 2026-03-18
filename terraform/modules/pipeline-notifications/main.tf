@@ -263,31 +263,15 @@ resource "aws_iam_role_policy" "slack_notifier_ssm" {
   })
 }
 
-# Code signing configuration (optional - for FedRAMP compliance)
-resource "aws_lambda_code_signing_config" "slack_notifier" {
-  count = var.code_signing_profile_arn != "" ? 1 : 0
-
-  description = "Code signing configuration for pipeline failure notifier Lambda"
-
-  allowed_publishers {
-    signing_profile_version_arns = [var.code_signing_profile_arn]
-  }
-
-  policies {
-    untrusted_artifact_on_deployment = "Enforce"
-  }
-}
-
 # Lambda function
 resource "aws_lambda_function" "slack_notifier" {
-  filename                = data.archive_file.slack_notifier.output_path
-  function_name           = "${local.resource_prefix}pipeline-failure-notifier"
-  role                    = aws_iam_role.slack_notifier.arn
-  handler                 = "lambda_function.lambda_handler"
-  source_code_hash        = data.archive_file.slack_notifier.output_base64sha256
-  runtime                 = "python3.12"
-  timeout                 = 30
-  code_signing_config_arn = var.code_signing_profile_arn != "" ? aws_lambda_code_signing_config.slack_notifier[0].arn : null
+  filename         = data.archive_file.slack_notifier.output_path
+  function_name    = "${local.resource_prefix}pipeline-failure-notifier"
+  role             = aws_iam_role.slack_notifier.arn
+  handler          = "lambda_function.lambda_handler"
+  source_code_hash = data.archive_file.slack_notifier.output_base64sha256
+  runtime          = "python3.12"
+  timeout          = 30
 
   environment {
     variables = {
