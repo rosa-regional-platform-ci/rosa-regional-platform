@@ -7,3 +7,4 @@ region_deployments:
         delete: true
     delete: true
     test: true
+    test2: true
