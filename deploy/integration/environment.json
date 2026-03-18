@@ -5,9 +5,9 @@
       "name": "integration",
       "environment": "integration",
       "aws_region": "us-east-1",
-      "management_clusters": [
-        "mc01"
-      ]
+      "management_clusters": {
+        "ci-8c4ed4-mc01": {}
+      }
     }
   },
   "domain": "int0.rosa.devshift.net"
