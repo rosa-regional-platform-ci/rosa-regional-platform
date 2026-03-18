@@ -89,8 +89,7 @@ spec:
                 hyperfleet.io/cluster-id: "{{ .clusterId }}"  
         - name: "configmap0"
           discovery:
-            byName: "cluster-config"
-            namespace: "{{ .clusterId }}"
+            byName: "{{ .clusterId }}"
 
   # Post-processing: build status payload and report to HyperFleet API
   post:
