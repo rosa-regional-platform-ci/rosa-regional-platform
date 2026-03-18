@@ -40,8 +40,8 @@ ENVIRONMENT VARIABLES:
     GITHUB_REPOSITORY   GitHub repository in owner/name format (e.g., 'openshift-online/rosa-regional-platform')
     GITHUB_BRANCH       Git branch to track (default: main)
     TARGET_ENVIRONMENT  Environment to monitor (default: staging)
-    SLACK_WEBHOOK_URL   Slack webhook URL or SSM parameter path (optional, only for stage/staging/production/integration)
-                        If not set, defaults to ssm:///rosa-regional/slack/webhook-url for monitored environments
+    SLACK_WEBHOOK_SSM_PARAM  SSM Parameter Store path containing Slack webhook URL (optional, only for stage/staging/production/integration)
+                             Default: /rosa-regional/slack/webhook-url
     AWS_PROFILE         AWS CLI profile to use
 
 EXAMPLES:
@@ -131,7 +131,7 @@ GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-openshift-online/rosa-regional-platform}
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 TARGET_ENVIRONMENT="${TARGET_ENVIRONMENT:-staging}"
 NAME_PREFIX="${NAME_PREFIX:-}"
-SLACK_WEBHOOK_URL="${SLACK_WEBHOOK_URL:-}"
+SLACK_WEBHOOK_SSM_PARAM="${SLACK_WEBHOOK_SSM_PARAM:-/rosa-regional/slack/webhook-url}"
 
 # Validate repository format (must be owner/name)
 if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
@@ -151,45 +151,37 @@ contains_element() {
     return 1
 }
 
-# Resolve SSM parameters for monitored environments
+# Verify SSM parameter for monitored environments
 # Must match Terraform: terraform/config/central-account-bootstrap/main.tf
 MONITORED_ENVS=("stage" "staging" "production" "integration")
+SLACK_NOTIFICATIONS_ENABLED=false
 if contains_element "$TARGET_ENVIRONMENT" "${MONITORED_ENVS[@]}"; then
     # This environment requires Slack notifications
-    # If SLACK_WEBHOOK_URL is empty, try default SSM parameter path
-    if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
-        SLACK_WEBHOOK_URL="ssm:///rosa-regional/slack/webhook-url"
-    fi
+    # Verify the SSM parameter exists (Lambda will fetch the actual value at runtime)
+    echo "Verifying Slack webhook SSM parameter: $SLACK_WEBHOOK_SSM_PARAM"
 
-    if [[ "$SLACK_WEBHOOK_URL" == ssm://* ]]; then
-        SSM_PARAM_NAME="${SLACK_WEBHOOK_URL#ssm://}"
-        echo "Resolving Slack webhook URL from SSM: $SSM_PARAM_NAME"
-        SLACK_WEBHOOK_URL_RESOLVED=$(aws ssm get-parameter \
-            --name "$SSM_PARAM_NAME" \
-            --with-decryption \
-            --query 'Parameter.Value' \
-            --output text \
-            --region "$REGION" 2>/dev/null || echo "")
-
-        if [[ -z "$SLACK_WEBHOOK_URL_RESOLVED" ]]; then
-            # For monitored environments, fail fast if SSM parameter cannot be resolved
-            echo "❌ Error: Failed to resolve SSM parameter: $SSM_PARAM_NAME"
-            echo "   Environment '$TARGET_ENVIRONMENT' requires Slack notifications."
-            echo "   Please ensure the SSM parameter exists and contains a valid webhook URL."
-            echo ""
-            echo "   To create the parameter, run:"
-            echo "   aws ssm put-parameter --name '$SSM_PARAM_NAME' \\"
-            echo "     --value 'https://hooks.slack.com/services/...' \\"
-            echo "     --type SecureString --region $REGION"
-            exit 1
-        else
-            SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL_RESOLVED"
-        fi
+    if aws ssm get-parameter \
+        --name "$SLACK_WEBHOOK_SSM_PARAM" \
+        --query 'Parameter.Name' \
+        --output text \
+        --region "$REGION" >/dev/null 2>&1; then
+        echo "✅ SSM parameter verified: $SLACK_WEBHOOK_SSM_PARAM"
+        SLACK_NOTIFICATIONS_ENABLED=true
+    else
+        # For monitored environments, fail fast if SSM parameter doesn't exist
+        echo "❌ Error: SSM parameter not found: $SLACK_WEBHOOK_SSM_PARAM"
+        echo "   Environment '$TARGET_ENVIRONMENT' requires Slack notifications."
+        echo "   Please ensure the SSM parameter exists and contains a valid webhook URL."
+        echo ""
+        echo "   To create the parameter, run:"
+        echo "   aws ssm put-parameter --name '$SLACK_WEBHOOK_SSM_PARAM' \\"
+        echo "     --value 'https://hooks.slack.com/services/...' \\"
+        echo "     --type SecureString --region $REGION"
+        exit 1
     fi
 else
     # Non-monitored environment - notifications not required
     echo "ℹ️  Environment '${TARGET_ENVIRONMENT}' does not require Slack notifications (skipping)"
-    SLACK_WEBHOOK_URL=""
 fi
 
 echo ""
@@ -200,10 +192,10 @@ echo "  GitHub Repo:        $GITHUB_REPOSITORY"
 echo "  GitHub Branch:      $GITHUB_BRANCH"
 echo "  Target Environment: $TARGET_ENVIRONMENT"
 echo "  Name Prefix:        ${NAME_PREFIX:-<none>}"
-if [[ -n "$SLACK_WEBHOOK_URL" ]]; then
-    echo "  Slack Webhook:      enabled"
+if [[ "$SLACK_NOTIFICATIONS_ENABLED" == "true" ]]; then
+    echo "  Slack Notifications: enabled (SSM: $SLACK_WEBHOOK_SSM_PARAM)"
 else
-    echo "  Slack Webhook:      disabled"
+    echo "  Slack Notifications: disabled"
 fi
 echo ""
 echo "✅ Proceeding with bootstrap..."
@@ -310,12 +302,12 @@ terraform import -var="github_repository=${GITHUB_REPOSITORY}" \
 
 # Create tfvars file
 cat > terraform.tfvars <<EOF
-github_repository = "${GITHUB_REPOSITORY}"
-github_branch     = "${GITHUB_BRANCH}"
-region            = "${REGION}"
-environment       = "${TARGET_ENVIRONMENT}"
-name_prefix       = "${NAME_PREFIX}"
-slack_webhook_url = "${SLACK_WEBHOOK_URL}"
+github_repository     = "${GITHUB_REPOSITORY}"
+github_branch         = "${GITHUB_BRANCH}"
+region                = "${REGION}"
+environment           = "${TARGET_ENVIRONMENT}"
+name_prefix           = "${NAME_PREFIX}"
+slack_webhook_ssm_param = "${SLACK_WEBHOOK_SSM_PARAM}"
 EOF
 
 echo "Terraform configuration created (terraform.tfvars)"

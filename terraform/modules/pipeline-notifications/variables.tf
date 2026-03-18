@@ -1,7 +1,6 @@
-variable "slack_webhook_url" {
+variable "slack_webhook_ssm_param" {
   type        = string
-  description = "Slack webhook URL for pipeline failure notifications"
-  sensitive   = true
+  description = "SSM Parameter Store path containing the Slack webhook URL (e.g., '/rosa-regional/slack/webhook-url')"
 }
 
 variable "name_prefix" {

@@ -74,9 +74,8 @@ variable "environment_hosted_zone_id" {
 # Notifications Configuration
 # =============================================================================
 
-variable "slack_webhook_url" {
+variable "slack_webhook_ssm_param" {
   type        = string
-  description = "Slack webhook URL for pipeline failure notifications (only required for staging, production, integration environments)"
-  sensitive   = true
-  default     = ""
+  description = "SSM Parameter Store path containing the Slack webhook URL (only required for staging, production, integration environments)"
+  default     = "/rosa-regional/slack/webhook-url"
 }
