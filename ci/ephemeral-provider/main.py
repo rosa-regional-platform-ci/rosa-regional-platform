@@ -87,7 +87,7 @@ def main():
     parser.add_argument(
         "--creds-dir",
         default=os.environ.get("CREDS_DIR", "/var/run/rosa-credentials/"),
-        help="Directory containing CI credentials (default: /var/run/rosa-credentials/)",
+        help="Directory containing CI credentials (optional if credentials are passed as env vars)",
     )
     parser.add_argument(
         "--region",

@@ -34,17 +34,16 @@ The [ci/ephemeral-provider/main.py](ci/ephemeral-provider/main.py) script manage
 
 ### Running locally
 
+The recommended way to run ephemeral environments locally is via Make targets. These handle container builds, Vault credential fetching, and state tracking automatically. Credentials are fetched from Vault via OIDC and passed as environment variables to the container — they never touch disk.
+
 ```bash
-# Requires uv (https://docs.astral.sh/uv/)
-
-# Provision
-BUILD_ID=abc123 ./ci/ephemeral-provider/main.py --repo owner/repo --branch my-feature --creds-dir /path/to/credentials
-
-# Run tests (separate step, same BUILD_ID)
-
-# Teardown
-BUILD_ID=abc123 ./ci/ephemeral-provider/main.py --teardown --repo owner/repo --branch my-feature --creds-dir /path/to/credentials
+make ephemeral-provision   # Interactive remote/branch picker, provisions environment
+make ephemeral-teardown    # Interactive picker or BUILD_ID=<id>, tears down environment
+make ephemeral-resync      # Interactive picker or BUILD_ID=<id>, rebases CI branch onto latest source
+make ephemeral-list        # List tracked environments with state
 ```
+
+Prerequisites: `fzf`, `vault`, `git`, `python3`, `uv`, and `podman` or `docker`.
 
 ### Triggering the E2E Job Manually
 

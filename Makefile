@@ -407,7 +407,6 @@ CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || command -v docker 2
 
 EPHEMERAL_CI_IMAGE := rosa-regional-ci
 EPHEMERAL_ENVS_FILE := .ephemeral-envs
-EPHEMERAL_CREDS_DIR := .ephemeral-creds
 VAULT_ADDR := https://vault.ci.openshift.org
 VAULT_KV_MOUNT := kv
 VAULT_SECRET_PATH := selfservice/cluster-secrets-rosa-regional-platform-int/ephemeral-shared-dev-creds
@@ -454,21 +453,16 @@ ephemeral-image: ephemeral-preflight
 		fi; \
 	fi
 
-# Fetch credentials from Vault via OIDC and write them to .ephemeral-creds/
-ephemeral-creds:
-	@mkdir -p $(EPHEMERAL_CREDS_DIR)
-	@echo "Fetching credentials from Vault (OIDC login)..."
-	@VAULT_TOKEN=$$(VAULT_ADDR=$(VAULT_ADDR) vault login -method=oidc -token-only 2>/dev/null) || \
-		{ echo "Error: Vault OIDC login failed."; exit 1; }; \
-	for key in $(VAULT_CRED_KEYS); do \
-		VAULT_ADDR=$(VAULT_ADDR) VAULT_TOKEN=$$VAULT_TOKEN \
-			vault kv get -mount=$(VAULT_KV_MOUNT) -field=$$key $(VAULT_SECRET_PATH) > $(EPHEMERAL_CREDS_DIR)/$$key 2>/dev/null || \
-			{ echo "Error: Failed to fetch credential '$$key' from Vault."; rm -rf $(EPHEMERAL_CREDS_DIR); exit 1; }; \
-	done
+# Fetch credentials from Vault into shell variables and build container -e flags.
+# Credentials never touch disk — they live only in shell process memory.
+# Usage: $(fetch-creds) at the start of a recipe; use $$_CRED_FLAGS in container run.
+define fetch-creds
+echo "Fetching credentials from Vault (OIDC login)..."; _VAULT_TOKEN=$$(VAULT_ADDR=$(VAULT_ADDR) vault login -method=oidc -token-only 2>/dev/null) || { echo "Error: Vault OIDC login failed."; exit 1; }; _CRED_FLAGS=""; for _key in $(VAULT_CRED_KEYS); do _val=$$(VAULT_ADDR=$(VAULT_ADDR) VAULT_TOKEN=$$_VAULT_TOKEN vault kv get -mount=$(VAULT_KV_MOUNT) -field=$$_key $(VAULT_SECRET_PATH) 2>/dev/null) || { echo "Error: Failed to fetch credential '$$_key' from Vault."; exit 1; }; _ukey=$$(echo "$$_key" | tr 'a-z' 'A-Z'); _CRED_FLAGS="$$_CRED_FLAGS -e $$_ukey=$$_val"; done; echo "Credentials loaded (in-memory only)."
+endef
 
 # Provision an ephemeral environment
 # Usage: make ephemeral-provision [REPO=owner/repo] [BRANCH=branch] [REGION=region] [BUILD_ID=id]
-ephemeral-provision: ephemeral-image ephemeral-creds
+ephemeral-provision: ephemeral-image
 	$(eval BUILD_ID ?= $(shell python3 -c "import uuid; print(uuid.uuid4().hex[:8])"))
 	@# FZF remote + branch picker when BRANCH is not explicitly passed
 	@_BRANCH="$(BRANCH)"; \
@@ -486,6 +480,7 @@ ephemeral-provision: ephemeral-image ephemeral-creds
 			{ echo "Aborted."; exit 1; }; \
 		echo "Selected branch: $$_BRANCH (from $$_remote)"; \
 	fi; \
+	$(fetch-creds); \
 	echo "Provisioning ephemeral environment..."; \
 	echo "  BUILD_ID:          $(BUILD_ID)"; \
 	echo "  REPO:              $$_REPO"; \
@@ -493,19 +488,15 @@ ephemeral-provision: ephemeral-image ephemeral-creds
 	echo "  REGION:            $(REGION)"; \
 	echo "  CONTAINER_ENGINE:  $(CONTAINER_ENGINE)"; \
 	echo "  IMAGE:             $(EPHEMERAL_CI_IMAGE)"; \
-	echo "  CREDS_DIR:         $(EPHEMERAL_CREDS_DIR)/"; \
-	ls -1 $(EPHEMERAL_CREDS_DIR)/ | while read f; do \
-		printf "    - %s (%s bytes)\n" "$$f" "$$(wc -c < $(EPHEMERAL_CREDS_DIR)/$$f | tr -d ' ')"; \
-	done; \
 	echo "$(BUILD_ID) REPO=$$_REPO BRANCH=$$_BRANCH REGION=$(REGION) STATE=provisioning CREATED=$$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $(EPHEMERAL_ENVS_FILE); \
 	$(CONTAINER_ENGINE) run --rm \
-		-v $(PWD)/$(EPHEMERAL_CREDS_DIR):/creds:ro \
+		$$_CRED_FLAGS \
 		-v $(PWD):/workspace:ro \
 		-w /workspace \
 		-e BUILD_ID=$(BUILD_ID) \
 		-e AWS_REGION=$(REGION) \
 		$(EPHEMERAL_CI_IMAGE) \
-		uv run --no-cache ci/ephemeral-provider/main.py --repo $$_REPO --branch $$_BRANCH --creds-dir /creds --region $(REGION); \
+		uv run --no-cache ci/ephemeral-provider/main.py --repo $$_REPO --branch $$_BRANCH --region $(REGION); \
 	rc=$$?; \
 	if [ $$rc -eq 0 ]; then \
 		$(call update-state,$(BUILD_ID),ready); \
@@ -520,7 +511,7 @@ ephemeral-provision: ephemeral-image ephemeral-creds
 
 # Tear down an ephemeral environment
 # Usage: make ephemeral-teardown [BUILD_ID=<id>]
-ephemeral-teardown: ephemeral-image ephemeral-creds
+ephemeral-teardown: ephemeral-image
 	@if [ "$(origin BUILD_ID)" = "command line" ]; then \
 		_BUILD_ID="$(BUILD_ID)"; \
 	else \
@@ -540,6 +531,7 @@ ephemeral-teardown: ephemeral-image ephemeral-creds
 	_REPO=$$(echo "$$_line" | sed -n 's/.*REPO=\([^ ]*\).*/\1/p'); \
 	_BRANCH=$$(echo "$$_line" | sed -n 's/.*BRANCH=\([^ ]*\).*/\1/p'); \
 	_REGION=$$(echo "$$_line" | sed -n 's/.*REGION=\([^ ]*\).*/\1/p'); \
+	$(fetch-creds); \
 	echo "Tearing down ephemeral environment..."; \
 	echo "  BUILD_ID:          $$_BUILD_ID"; \
 	echo "  REPO:              $$_REPO"; \
@@ -549,13 +541,13 @@ ephemeral-teardown: ephemeral-image ephemeral-creds
 	echo "  IMAGE:             $(EPHEMERAL_CI_IMAGE)"; \
 	grep -v "^$$_BUILD_ID " $(EPHEMERAL_ENVS_FILE) > $(EPHEMERAL_ENVS_FILE).tmp; grep "^$$_BUILD_ID " $(EPHEMERAL_ENVS_FILE) | sed 's/STATE=[^ ]*/STATE=deprovisioning/' >> $(EPHEMERAL_ENVS_FILE).tmp; mv $(EPHEMERAL_ENVS_FILE).tmp $(EPHEMERAL_ENVS_FILE); \
 	$(CONTAINER_ENGINE) run --rm \
-		-v $(PWD)/$(EPHEMERAL_CREDS_DIR):/creds:ro \
+		$$_CRED_FLAGS \
 		-v $(PWD):/workspace:ro \
 		-w /workspace \
 		-e BUILD_ID=$$_BUILD_ID \
 		-e AWS_REGION=$$_REGION \
 		$(EPHEMERAL_CI_IMAGE) \
-		uv run --no-cache ci/ephemeral-provider/main.py --teardown --repo $$_REPO --branch $$_BRANCH --creds-dir /creds --region $$_REGION; \
+		uv run --no-cache ci/ephemeral-provider/main.py --teardown --repo $$_REPO --branch $$_BRANCH --region $$_REGION; \
 	rc=$$?; \
 	if [ $$rc -eq 0 ]; then \
 		grep -v "^$$_BUILD_ID " $(EPHEMERAL_ENVS_FILE) > $(EPHEMERAL_ENVS_FILE).tmp; grep "^$$_BUILD_ID " $(EPHEMERAL_ENVS_FILE) | sed 's/STATE=[^ ]*/STATE=deprovisioned/' >> $(EPHEMERAL_ENVS_FILE).tmp; mv $(EPHEMERAL_ENVS_FILE).tmp $(EPHEMERAL_ENVS_FILE); \
@@ -568,7 +560,7 @@ ephemeral-teardown: ephemeral-image ephemeral-creds
 
 # Resync an ephemeral environment's CI branch onto latest source branch
 # Usage: make ephemeral-resync [BUILD_ID=<id>]
-ephemeral-resync: ephemeral-image ephemeral-creds
+ephemeral-resync: ephemeral-image
 	@if [ "$(origin BUILD_ID)" = "command line" ]; then \
 		_BUILD_ID="$(BUILD_ID)"; \
 	else \
@@ -588,6 +580,7 @@ ephemeral-resync: ephemeral-image ephemeral-creds
 	_REPO=$$(echo "$$_line" | sed -n 's/.*REPO=\([^ ]*\).*/\1/p'); \
 	_BRANCH=$$(echo "$$_line" | sed -n 's/.*BRANCH=\([^ ]*\).*/\1/p'); \
 	_REGION=$$(echo "$$_line" | sed -n 's/.*REGION=\([^ ]*\).*/\1/p'); \
+	$(fetch-creds); \
 	echo "Resyncing ephemeral environment CI branch..."; \
 	echo "  BUILD_ID:          $$_BUILD_ID"; \
 	echo "  REPO:              $$_REPO"; \
@@ -595,12 +588,12 @@ ephemeral-resync: ephemeral-image ephemeral-creds
 	echo "  CONTAINER_ENGINE:  $(CONTAINER_ENGINE)"; \
 	echo "  IMAGE:             $(EPHEMERAL_CI_IMAGE)"; \
 	$(CONTAINER_ENGINE) run --rm \
-		-v $(PWD)/$(EPHEMERAL_CREDS_DIR):/creds:ro \
+		$$_CRED_FLAGS \
 		-v $(PWD):/workspace:ro \
 		-w /workspace \
 		-e BUILD_ID=$$_BUILD_ID \
 		$(EPHEMERAL_CI_IMAGE) \
-		uv run --no-cache ci/ephemeral-provider/main.py --resync --repo $$_REPO --branch $$_BRANCH --creds-dir /creds --region $$_REGION; \
+		uv run --no-cache ci/ephemeral-provider/main.py --resync --repo $$_REPO --branch $$_BRANCH --region $$_REGION; \
 	rc=$$?; \
 	if [ $$rc -ne 0 ]; then \
 		echo "Resync failed."; \

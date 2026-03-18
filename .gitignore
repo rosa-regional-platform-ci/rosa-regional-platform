@@ -29,6 +29,5 @@ node_modules/
 # logs
 codebuild-logs*
 
-# Ephemeral environment state and credentials
+# Ephemeral environment state
 .ephemeral-envs
-.ephemeral-creds/

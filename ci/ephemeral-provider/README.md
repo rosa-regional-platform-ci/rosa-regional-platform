@@ -5,7 +5,8 @@ Package for provisioning, resyncing, and tearing down ephemeral CI environments 
 ## Developer Usage (Make targets)
 
 The recommended interface for local development is via Make targets, which handle
-container builds, credential mounts, and state tracking automatically:
+container builds, Vault credential fetching (in-memory, never written to disk),
+and state tracking automatically:
 
 ```bash
 make ephemeral-provision   # Provision a new ephemeral environment (interactive remote/branch picker)

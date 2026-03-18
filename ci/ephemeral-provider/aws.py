@@ -28,9 +28,15 @@ class AWSCredentials:
         self.session: boto3.Session | None = None
         self.subprocess_env: dict[str, str] = {}
 
-    def _read_credential(self, name: str, env_var: str | None = None) -> str:
-        """Read a credential from file or environment variable."""
-        if env_var and os.environ.get(env_var):
+    def _read_credential(self, name: str) -> str:
+        """Read a credential from environment variable or file.
+
+        Checks for an environment variable matching the uppercased name first
+        (e.g. 'central_access_key' -> 'CENTRAL_ACCESS_KEY'), then falls back
+        to reading from creds_dir.
+        """
+        env_var = name.upper()
+        if os.environ.get(env_var):
             return os.environ[env_var]
         path = self.creds_dir / name
         return path.read_text().strip()
@@ -39,11 +45,9 @@ class AWSCredentials:
         """Set up central account access via STS AssumeRole."""
         log.info("Setting up central account access")
 
-        access_key = self._read_credential("central_access_key", "CENTRAL_ACCESS_KEY")
-        secret_key = self._read_credential("central_secret_key", "CENTRAL_SECRET_KEY")
-        assume_role_arn = self._read_credential(
-            "central_assume_role_arn", "CENTRAL_ASSUME_ROLE_ARN"
-        )
+        access_key = self._read_credential("central_access_key")
+        secret_key = self._read_credential("central_secret_key")
+        assume_role_arn = self._read_credential("central_assume_role_arn")
 
         sts = boto3.client(
             "sts",
