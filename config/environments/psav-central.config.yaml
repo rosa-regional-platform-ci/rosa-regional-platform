@@ -1,6 +1,0 @@
-terraform_vars:
-  enable_bastion: true
-region_deployments:
-  us-east-1:
-    management_clusters:
-      mc01: {}

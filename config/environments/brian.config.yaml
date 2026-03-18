@@ -1,7 +1,0 @@
-region_deployments:
-  us-east-1:
-    terraform_vars:
-      enable_bastion: true
-      # delete: true
-    management_clusters:
-      mc01: {}

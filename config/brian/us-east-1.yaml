@@ -1,0 +1,6 @@
+terraform:
+  enable_bastion: true
+  # delete: true
+
+management_clusters:
+  mc01: {}

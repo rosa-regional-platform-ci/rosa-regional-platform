@@ -1,15 +1,17 @@
 # Config Directory
 
 Configuration for all environments and region deployments. The render script
-(`scripts/render.py`) reads these files and generates the deploy/ directory.
+(`scripts/render.py`) reads these files and generates the `deploy/` directory.
 
 ## File Layout
 
 ```
 config/
-  defaults.config.yaml            # Base config inherited by all environments
-  environments/
-    <env-name>.config.yaml        # Per-environment overrides (e.g., integration, ci)
+  defaults.yaml                     # Base config inherited by all environments
+  templates/                        # Jinja2 templates (1-1 with deploy/ output files)
+  <env>/
+    defaults.yaml                   # Per-environment/sector defaults
+    <region>.yaml                   # Per-region deployment values
 ```
 
 ## Inheritance
@@ -17,64 +19,72 @@ config/
 All fields are deep-merged through the hierarchy, most-specific wins:
 
 ```
-defaults  ->  environment  ->  sector  ->  region_deployment
+defaults.yaml  →  <env>/defaults.yaml  →  <env>/<region>.yaml
 ```
-
-Only **structural keys** are excluded from inheritance (they define the
-hierarchy itself, not configuration):
-
-- `region_deployments`
-- `management_clusters`
-- `sectors`
-
-Everything else -- `terraform_vars`, `values`, `environment`, `account_id`,
-`revision`, or any new field you add -- inherits automatically. No changes to
-`render.py` are needed when adding new inheritable fields.
 
 ## Jinja2 Templates
 
-All string values are Jinja2-processed **after** the full merge chain resolves.
+All string values in config files are Jinja2-processed **after** the full merge
+chain resolves. Identity variables are injected automatically by the render script.
 
-| Variable               | Source                      | Example              |
-| ---------------------- | --------------------------- | -------------------- |
-| `{{ environment }}`    | environment dict key        | `"integration"`      |
-| `{{ aws_region }}`     | region_deployment dict key  | `"us-east-1"`        |
-| `{{ account_id }}`     | resolved account_id         | `"ssm:///infra/..."` |
-| `{{ cluster_prefix }}` | management_cluster dict key | `"mc01"`             |
-
-`account_id` is resolved (including its own Jinja2) **before** `terraform_vars`
-and `values`, so `{{ account_id }}` in those sections gets the final value.
-
-`cluster_prefix` is only available inside management_cluster entries.
+| Variable               | Source                     | Example              |
+| ---------------------- | -------------------------- | -------------------- |
+| `{{ environment }}`    | environment directory name | `"integration"`      |
+| `{{ aws_region }}`     | region file stem           | `"us-east-1"`        |
+| `{{ account_id }}`     | resolved account_id        | `"ssm:///infra/..."` |
+| `{{ cluster_prefix }}` | management_cluster key     | `"mc01"`             |
 
 ## Output
 
 Running `scripts/render.py` generates:
 
-- **`deploy/<env>/environment.json`** -- from `environment`
-  - Consumer: `provision-pipelines.sh`
-  - Environment-level metadata (e.g. `domain` for DNS hosted zone
-    creation). Also contains auto-generated `region_definitions` map.
-- **`deploy/<env>/<region>/terraform/regional.json`** -- from `terraform_vars`
-  - Consumer: Terraform (via CodePipeline)
-  - Input variables for regional cluster infrastructure provisioning.
-- **`deploy/<env>/<region>/terraform/management/<mc>.json`** -- from `management_clusters`
-  - Consumer: Terraform (via CodePipeline)
-  - Input variables for management cluster provisioning. Inherits
-    `terraform_vars` as base, with MC-specific overrides.
-- **`deploy/<env>/<region>/argocd/regional-cluster-values.yaml`** -- from `values.regional-cluster`
+- **`deploy/<env>/region-definitions.json`**
+  - Consumer: External processes
+  - Region map with management cluster IDs per region.
+
+- **`deploy/<env>/<region>/pipeline-provisioner-inputs/terraform.json`**
+  - Consumer: `provision-pipelines.sh` (pipeline-provisioner pipeline)
+  - Trigger: Pipeline provisioner
+  - Contains: `domain`
+
+- **`deploy/<env>/<region>/pipeline-provisioner-inputs/regional-cluster.json`**
+  - Consumer: `provision-pipelines.sh` (pipeline-provisioner pipeline)
+  - Trigger: Pipeline provisioner
+  - Contains: `region`, `account_id`, `regional_id`, `delete_pipeline`
+
+- **`deploy/<env>/<region>/pipeline-provisioner-inputs/management-cluster-<mc>.json`**
+  - Consumer: `provision-pipelines.sh` (pipeline-provisioner pipeline)
+  - Trigger: Pipeline provisioner
+  - Contains: `region`, `account_id`, `management_id`, `delete_pipeline`
+
+- **`deploy/<env>/<region>/pipeline-regional-cluster-inputs/terraform.json`**
+  - Consumer: RC pipeline stages (`provision-infra-rc.sh`, `bootstrap-argocd-rc.sh`, `register.sh`)
+  - Trigger: Regional cluster pipeline
+  - Contains: Terraform variables + `delete` flag
+
+- **`deploy/<env>/<region>/pipeline-management-cluster-<mc>-inputs/terraform.json`**
+  - Consumer: MC pipeline stages (`provision-infra-mc.sh`, `bootstrap-argocd-mc.sh`, `iot-mint.sh`, `register.sh`)
+  - Trigger: Management cluster pipeline
+  - Contains: Terraform variables + `delete` flag
+
+- **`deploy/<env>/<region>/argocd-values-<cluster-type>.yaml`**
   - Consumer: ArgoCD ApplicationSet
-  - Helm values overrides for regional cluster applications.
-- **`deploy/<env>/<region>/argocd/management-cluster-values.yaml`** -- from `values.management-cluster`
-  - Consumer: ArgoCD ApplicationSet
-  - Helm values overrides for management cluster applications.
-- **`deploy/<env>/<region>/argocd/<cluster-type>-manifests/applicationset.yaml`** -- from `revision`
-  - Consumer: ArgoCD
+  - Trigger: ArgoCD auto-sync
+  - Helm values overrides for cluster applications.
+
+- **`deploy/<env>/<region>/argocd-bootstrap-<cluster-type>/applicationset.yaml`**
+  - Consumer: `bootstrap-argocd.sh` (ECS task)
+  - No trigger (applied at bootstrap time)
   - ApplicationSet manifest; pins git revision when `revision` is a commit hash.
+
+## Templates
+
+Templates in `config/templates/` map 1-1 to deploy/ output files. Each template
+receives the fully-merged config values as its Jinja2 context.
 
 ## Examples
 
-### defaults.config.yaml
+### defaults.yaml
 
 Defines base values inherited by every environment:
 
@@ -82,64 +92,50 @@ Defines base values inherited by every environment:
 revision: main
 account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
 management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
-terraform_vars:
+
+terraform:
   app_code: "infra"
-  environment: "{{ environment }}"
-  account_id: "{{ account_id }}"
-  region: "{{ aws_region }}"
-values:
+  service_phase: "dev"
+  cost_center: "000"
+  enable_bastion: false
+
+argocd:
   regional-cluster:
     maestro:
       mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
 ```
 
-### environments/integration.config.yaml
+### integration/defaults.yaml
 
-Minimal -- inherits almost everything from defaults:
+Environment-level defaults:
 
 ```yaml
-environment:
-  domain: int0.rosa.devshift.net
+domain: int0.rosa.devshift.net
 
-region_deployments:
-  us-east-1:
-    management_clusters:
-      mc01: {}
+terraform:
+  enable_bastion: true
 ```
 
-### environments/dev.config.yaml (with overrides)
+### integration/us-east-1.yaml
 
-Override terraform_vars at the environment level, explicit account IDs at the
-region deployment level:
+Region deployment values:
 
 ```yaml
-terraform_vars:
+management_clusters:
+  mc01: {}
+```
+
+### cdoan-central/us-east-2.yaml (with overrides)
+
+Region with explicit account IDs:
+
+```yaml
+account_id: "754250776154"
+
+terraform:
   enable_bastion: true
 
-region_deployments:
-  us-east-2:
-    account_id: "754250776154"
-    management_clusters:
-      mc01:
-        account_id: "910485845704"
-```
-
-### Sectors (multi-sector environments)
-
-For environments with multiple sectors, nest region_deployments under `sectors:`:
-
-```yaml
-sectors:
-  sector-a:
-    terraform_vars:
-      service_phase: "prod"
-    region_deployments:
-      us-east-1:
-        management_clusters:
-          mc01: {}
-  sector-b:
-    region_deployments:
-      us-west-2:
-        management_clusters:
-          mc01: {}
+management_clusters:
+  mc01:
+    account_id: "910485845704"
 ```
