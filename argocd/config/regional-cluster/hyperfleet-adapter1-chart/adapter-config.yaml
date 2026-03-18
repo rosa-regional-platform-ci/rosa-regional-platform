@@ -42,7 +42,9 @@ spec:
       # Environment variable: HYPERFLEET_MAESTRO_CLIENT_ID
       clientId: "hyperfleet-adapter-client"
       insecure: true
-      
+      auth:
+        type: "none"  # No authentication required
+
       # Authentication configuration
       #auth:
       #  type: "tls"  # TLS certificate-based mTLS
