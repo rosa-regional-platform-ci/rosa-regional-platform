@@ -6,3 +6,4 @@ region_deployments:
         account_id: '129678139271'
         delete: true
     delete: true
+    test: true
