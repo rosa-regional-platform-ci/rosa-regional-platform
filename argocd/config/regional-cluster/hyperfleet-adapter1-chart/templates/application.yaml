@@ -54,7 +54,7 @@ spec:
             enabled: false
             url: "amqp://placeholder:placeholder@localhost:5672/"
             queue: "hyperfleet-clusters-landing-zone"
-            exchange: "hyperfleet-clusters"
+            exchange: "clusters"  # topic name for the adapter to publish to
             exchangeType: "topic"
             routingKey: "#"
           external:
@@ -67,15 +67,18 @@ spec:
               region: {{ .Values.global.aws_region }}
               secretName: "{{ .Values.global.cluster_name }}-hyperfleet-mq-credentials"
             url: ""
-            exchangeType: "topic"
             queue: "hyperfleet-clusters-landing-zone"
-            exchange: "hyperfleet-clusters"
+            exchange: "clusters"  # topic name for the adapter to publish to
+            exchangeType: "topic"
             routingKey: "#"
         adapterConfig:
           create: true
           hyperfleetApi:
             baseUrl: "http://hyperfleet-api.hyperfleet-system.svc.cluster.local:8000"
             version: "v1"
+            timeout: 2s
+            retryAttempts: 3
+            retryBackoff: exponential
           maestro:
             enabled: true
             grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
@@ -88,10 +91,6 @@ spec:
             insecure: true
             auth:
               type: "none"  # Use "tls" for production with certificates
-              tlsConfig:
-                caFile: ""
-                certFile: ""
-                keyFile: ""
           log:
             level: debug
           yaml: |

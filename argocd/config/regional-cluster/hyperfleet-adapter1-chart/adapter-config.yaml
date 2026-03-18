@@ -22,22 +22,15 @@ spec:
       timeout: 2s
       retryAttempts: 3
       retryBackoff: exponential
-
     broker:
-      subscriptionId: placeholder
+      subscriptionId: subscription
       topic: clusters
-
     maestro:
-      grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"
-      
-      # HTTPS server address for REST API operations (optional)
-      # Environment variable: HYPERFLEET_MAESTRO_HTTP_SERVER_ADDRESS
+      grpcServerAddress: "maestro-grpc.maestro-server.svc.cluster.local:8090"      
       httpServerAddress: "http://maestro-http.maestro-server.svc.cluster.local:8080"
-      
       # Source identifier for CloudEvents routing (must be unique across adapters)
       # Environment variable: HYPERFLEET_MAESTRO_SOURCE_ID
       sourceId: "hyperfleet-adapter"
-      
       # Client identifier (defaults to sourceId if not specified)
       # Environment variable: HYPERFLEET_MAESTRO_CLIENT_ID
       clientId: "hyperfleet-adapter-client"

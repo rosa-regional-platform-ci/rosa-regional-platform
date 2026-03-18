@@ -43,23 +43,26 @@ spec:
             href: "resource.href"
             generation: "resource.generation"
         broker:
-          external:
-            aws:
-              region: {{ .Values.global.aws_region }}
-              secretName: "{{ .Values.global.cluster_name }}-hyperfleet-mq-credentials"
-            createSecretProviderClass: true
-            enabled: true
-            exchangeType: topic
-            podidentity: true
-            secretMountPath: /mnt/secrets-store
-            secretProviderClass: hyperfleet-sentinel-mq-secrets
-            url: "amqp://placeholder:placeholder@localhost:5672/"
+          type: rabbitmq
+          topic: clusters
           rabbitmq:
             enabled: false
             exchangeType: topic
             url: "amqp://placeholder:placeholder@localhost:5672/"
-          topic: clusters
-          type: rabbitmq
+          external:
+            enabled: true
+            podidentity: true
+            secretMountPath: /mnt/secrets-store
+            secretProviderClass: hyperfleet-sentinel-mq-secrets
+            createSecretProviderClass: true
+            aws:
+              region: {{ .Values.global.aws_region }}
+              secretName: "{{ .Values.global.cluster_name }}-hyperfleet-mq-credentials"
+            url: "amqp://placeholder:placeholder@localhost:5672/"
+            exchangeType: topic
+            exchange: "clusters"
+            queue: "hyperfleet-clusters-landing-zone"
+            routingKey: "#"
     {{- end }}
   destination:
     server: https://kubernetes.default.svc
