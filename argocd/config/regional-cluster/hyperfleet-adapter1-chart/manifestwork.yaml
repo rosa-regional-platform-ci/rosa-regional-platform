@@ -49,7 +49,7 @@ spec:
       - apiVersion: v1
         kind: Namespace
         metadata:
-          name: "{{ .clusterId | lower }}"
+          name: "clusters-{{ .clusterId | lower }}"
           labels:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
             hyperfleet.io/managed-by: "{{ .metadata.name }}"
@@ -61,7 +61,7 @@ spec:
         kind: ConfigMap
         metadata:
           name: "cluster-config"
-          namespace: "{{ .clusterId }}"
+          namespace: "clusters-{{ .clusterId | lower }}"
           labels:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
