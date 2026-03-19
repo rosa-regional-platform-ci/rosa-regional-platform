@@ -89,6 +89,16 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         ]
       },
       {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = [
+          "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/infra/*"
+        ]
+      },
+      {
         Effect   = "Allow"
         Action   = "sts:AssumeRole"
         Resource = "arn:aws:iam::*:role/OrganizationAccountAccessRole"
