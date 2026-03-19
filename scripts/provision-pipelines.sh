@@ -301,8 +301,8 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
         REGIONAL_ID=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
 
-        # Read delete_pipeline from environment.json (per-region lifecycle flag)
-        DELETE_FLAG=$(jq -r ".region_definitions[\"${REGION_DEPLOYMENT}\"].delete_pipeline // false" "deploy/${ENVIRONMENT}/environment.json" 2>/dev/null || echo "false")
+        # Read delete_pipeline from the regional-cluster provisioner input
+        DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$REGIONAL_CONFIG")
 
         # TEMPORARY CI HACK (see top of file)
         # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
@@ -402,8 +402,8 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
             MANAGEMENT_ID=$(jq -r '.management_id // ""' "$mc_config")
 
-            # Read delete_pipeline from environment.json (per-MC lifecycle flag)
-            DELETE_FLAG=$(jq -r ".region_definitions[\"${REGION_DEPLOYMENT}\"].management_clusters[\"${MANAGEMENT_ID}\"].delete_pipeline // false" "deploy/${ENVIRONMENT}/environment.json" 2>/dev/null || echo "false")
+            # Read delete_pipeline from the management-cluster provisioner input
+            DELETE_FLAG=$(jq -r '.delete_pipeline // false' "$mc_config")
 
             # TEMPORARY CI HACK (see top of file)
             # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
