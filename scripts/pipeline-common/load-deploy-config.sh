@@ -22,7 +22,6 @@
 #   APP_CODE                  - Application code for tagging
 #   SERVICE_PHASE             - Service phase (dev/staging/prod)
 #   COST_CENTER               - Cost center for billing
-#   SECTOR                    - Sector for tagging
 #   ENABLE_BASTION            - "true" or "false"
 #   ENVIRONMENT_DOMAIN        - Environment domain (from pipeline-provisioner-inputs/terraform.json)
 #   For management mode only:
@@ -107,12 +106,11 @@ export DEPLOY_CONFIG_FILE
 export APP_CODE
 export SERVICE_PHASE
 export COST_CENTER
-export SECTOR
 export ENABLE_BASTION
 export ENVIRONMENT_DOMAIN
 
 echo "  APP_CODE=$APP_CODE SERVICE_PHASE=$SERVICE_PHASE COST_CENTER=$COST_CENTER"
-echo "  SECTOR=$SECTOR ENABLE_BASTION=$ENABLE_BASTION"
+echo "  ENABLE_BASTION=$ENABLE_BASTION"
 [ -n "${ENVIRONMENT_DOMAIN:-}" ] && echo "  ENVIRONMENT_DOMAIN=$ENVIRONMENT_DOMAIN"
 [[ "$_DEPLOY_MODE" == "management" ]] && echo "  CLUSTER_ID=$CLUSTER_ID REGIONAL_AWS_ACCOUNT_ID=$REGIONAL_AWS_ACCOUNT_ID"
 echo ""
