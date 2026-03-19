@@ -81,7 +81,7 @@ For full architecture details, see [Maestro MQTT Resource Distribution](design/m
 
 Regions are deployed on demand via pipelines **fully automatically**: add region configuration to Git, pipelines provision the RC, ArgoCD installs core services, and MCs are provisioned as needed.
 
-For details, see [Pipeline-Based Lifecycle](design/pipeline-based-lifecycle.md) and [Provision a New Central Pipeline](central-pipeline-provisioning.md).
+For details, see [Pipeline-Based Lifecycle](design/pipeline-based-lifecycle.md) and [Provision a New Environment](environment-provisioning.md).
 
 ### Should we use AWS Landing Zone for region setup?
 

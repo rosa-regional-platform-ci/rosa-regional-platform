@@ -96,7 +96,6 @@ echo "  Environment: $TF_VAR_environment"
 echo "  Sector: $TF_VAR_sector"
 echo ""
 
-# Export required environment variables for Makefile target
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
 
 # Read delete flag from config (GitOps-driven deletion)
@@ -112,8 +111,13 @@ else
 fi
 echo ""
 
-if [ "${DELETE_FLAG}" == "true" ]; then
-    make pipeline-destroy-regional
-else
-    make pipeline-provision-regional
-fi
+TERRAFORM_ACTION="apply"
+[ "${DELETE_FLAG}" == "true" ] && TERRAFORM_ACTION="destroy"
+
+cd terraform/config/regional-cluster
+terraform init -reconfigure \
+    -backend-config="bucket=${TF_STATE_BUCKET}" \
+    -backend-config="key=${TF_STATE_KEY}" \
+    -backend-config="region=${TF_STATE_REGION}" \
+    -backend-config="use_lockfile=true"
+terraform "${TERRAFORM_ACTION}" -auto-approve

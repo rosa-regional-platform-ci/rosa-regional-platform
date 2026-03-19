@@ -239,7 +239,7 @@ echo "==========================================================================
 echo ""
 echo "Deploy the management cluster infrastructure:"
 echo ""
-echo -e "${YELLOW}make provision-management${NC}"
+echo -e "${YELLOW}Deploy the management cluster infrastructure via the pipeline.${NC}"
 echo ""
 echo "The management cluster terraform will read IoT outputs from the"
 echo "regional state and create the Maestro agent secrets automatically."

@@ -1,4 +1,4 @@
-# Provision a New Central Pipeline
+# Provision a New Environment
 
 Set up a central pipeline that provisions Regional and Management Clusters with ArgoCD and Maestro connectivity.
 
@@ -20,8 +20,8 @@ jq --version
 Three accounts are needed:
 
 - **Central** — hosts the CodePipeline infrastructure
-- **Regional** — runs the Regional Cluster (EKS)
-- **Management** — runs the Management Cluster (EKS)
+- **Regional** — hosts the Regional Infrastructure (including EKS Regional Cluster)
+- **Management** — hosts the Management Infrastructure (including EKS Management Cluster)
 
 The Regional and Management accounts must allow assume-role from Central (see 1.2).
 
@@ -66,39 +66,36 @@ aws ssm put-parameter --name "/infra/${ENV}/${REGION}/mc01/account_id" \
   --value "$MC_ACCOUNT_ID" --type String
 ```
 
-### 2.2 Add the environment to config.yaml
+### 2.2 Add the environment configuration
 
-Edit `config.yaml`. See the header comments in that file for the full schema reference.
+Create a new file `config/environments/<environment>.config.yaml`. This inherits defaults from `config/defaults.config.yaml` — override only what differs.
 
 ```yaml
-environments:
-  my-env:
-    region_deployments:
-      us-east-1:
-        management_clusters:
-          mc01: {}
+# config/environments/my-env.config.yaml
+region_deployments:
+  us-east-1:
+    management_clusters:
+      mc01: {}
 ```
 
-This inherits all defaults (terraform_vars, values, SSM account_id patterns). Override only what differs — e.g. to enable the bastion:
+To enable the bastion:
 
 ```yaml
-environments:
-  my-env:
+region_deployments:
+  us-east-1:
     terraform_vars:
       enable_bastion: true
-    region_deployments:
-      us-east-1:
-        management_clusters:
-          mc01: {}
+    management_clusters:
+      mc01: {}
 ```
 
 ### 2.3 Render and commit
 
 ```bash
-./scripts/render.py
+uv run scripts/render.py
 ls deploy/<environment>/<region>/    # verify argocd/ and terraform/ dirs exist
 
-git add config.yaml deploy/
+git add config/ deploy/
 git commit -m "Add <environment>/<region> configuration"
 git push origin <your-branch>
 ```
@@ -120,43 +117,37 @@ TARGET_ENVIRONMENT=<environment> \
 ./scripts/bootstrap-central-account.sh
 ```
 
+Defaults to `openshift-online/rosa-regional-platform` on `main` if not specified.
+
 ### 3.2 Accept the CodeStar connection
 
-The bootstrap completes but the pipeline blocks until you authorize the GitHub connection:
+The bootstrap script creates a CodeStar connection and polls until it becomes AVAILABLE. While it waits:
 
 1. Open the [AWS CodeStar Connections console](https://console.aws.amazon.com/codesuite/settings/connections) in the Central account
 2. Find the **Pending** connection and click **Update pending connection**
-3. Authorize with GitHub
+3. Click **Install a new app**, then install the GitHub App on the repository you are targeting — this is required for the GitOps pipeline triggers to pick up changes
 
-Then retrigger the `pipeline-provisioner` pipeline in CodePipeline. Once it succeeds, `rc-pipe-*` and `mc-pipe-*` pipelines are created automatically.
+The script proceeds automatically once the connection is authorized.
 
-### 3.3 Trigger pipelines via CLI (optional)
+## 4. Verification
 
-```bash
-# List available pipelines
-aws codepipeline list-pipelines \
-  --query 'pipelines[*].[name,created,updated]' \
-  --output table
+### 4.1 Connect to the bastion
 
-# Trigger a specific pipeline (fetches latest commit)
-aws codepipeline start-pipeline-execution --name rc-pipe-<hash>
-```
-
-### 3.4 Connect to the bastion (optional)
-
-Requires `enable_bastion: true` in config. Switch to the Regional account:
+Requires `enable_bastion: true` in config. Use the respective account's credentials (Regional for the RC bastion, Management for the MC bastion):
 
 ```bash
+# Connect to the regional cluster bastion (default)
 export AWS_PROFILE=<regional-profile>
+./scripts/dev/bastion-connect.sh
 
-CLUSTER=$(aws ecs list-clusters | jq -r '.clusterArns[]' | cut -d'/' -f2 | grep bastion)
-TASK_ID=$(aws ecs list-tasks --cluster $CLUSTER --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
-aws ecs execute-command --cluster $CLUSTER --task $TASK_ID --container bastion --interactive --command '/bin/bash'
+# Connect to the management cluster bastion
+export AWS_PROFILE=<management-profile>
+./scripts/dev/bastion-connect.sh management
 ```
 
-### 3.5 Verify ArgoCD applications
+### 4.2 Verify ArgoCD applications
 
-From the bastion:
+From the Regional Cluster bastion:
 
 ```bash
 kubectl get applications -A
@@ -173,7 +164,24 @@ argocd      platform-api        Synced        Healthy
 argocd      root                Synced        Healthy
 ```
 
-### 3.6 Verify the Platform API
+From the Management Cluster bastion:
+
+```bash
+kubectl get applications -A
+```
+
+Expected output:
+
+```
+NAMESPACE   NAME            SYNC STATUS   HEALTH STATUS
+argocd      argocd          Synced        Healthy
+argocd      cert-manager    Synced        Healthy
+argocd      hypershift      Synced        Healthy
+argocd      maestro-agent   Synced        Healthy
+argocd      root            Synced        Healthy
+```
+
+### 4.3 Verify the Platform API
 
 From the Central account, extract the API Gateway endpoint from terraform output:
 
@@ -193,7 +201,22 @@ terraform output -raw api_test_command
 
 > **Note:** `awscurl` must be run from the Regional account, which is the only account authorized by default.
 
-### 3.7 Register additional accounts
+### 4.4 Verify Maestro Connectivity
+
+From the Regional account, verify IoT certificates are active:
+
+```bash
+export AWS_PROFILE=<regional-profile>
+
+aws iot describe-endpoint --endpoint-type iot:Data-ATS
+aws iot list-certificates | jq -r '.certificates[].status'
+```
+
+---
+
+## Appendix
+
+### Register additional accounts
 
 The bootstrap account (seeded by Terraform via the `bootstrap_accounts` variable) is the only account authorized to call the Platform API initially. To authorize additional AWS accounts, the first invocation must be made from the bootstrap account:
 
@@ -206,49 +229,18 @@ awscurl -X POST $API_GATEWAY_URL/api/v0/accounts \
 
 > **Note:** The `API_GATEWAY_URL` can be obtained from `terraform output -raw api_gateway_invoke_url` in the regional cluster terraform config. The `awscurl` request must be signed with credentials from an already-authorized account (initially, the bootstrap account).
 
-## 4. Verify Maestro Connectivity
+### Trigger pipelines via CLI
 
-From the Regional account, verify IoT certificates are active:
-
-```bash
-export AWS_PROFILE=<regional-profile>
-
-aws iot describe-endpoint --endpoint-type iot:Data-ATS
-aws iot list-certificates | jq -r '.certificates[].status'
-```
-
-## 5. Verify Management Cluster
-
-From the Central account:
+Pipelines are triggered automatically by Git pushes, but you can also trigger them manually. Requires Central account credentials.
 
 ```bash
 export AWS_PROFILE=<central-profile>
 
-# Check tfstate exists
-aws s3 ls terraform-state-<CENTRAL_ACCOUNT_ID>/management-cluster/
+# List available pipelines
+aws codepipeline list-pipelines \
+  --query 'pipelines[*].[name,created,updated]' \
+  --output table
 
-# Connect to MC bastion (switch to Management account)
-export AWS_PROFILE=<management-profile>
-
-CLUSTER=$(aws ecs list-clusters | jq -r '.clusterArns[]' | cut -d'/' -f2 | grep bastion)
-TASK_ID=$(aws ecs list-tasks --cluster $CLUSTER --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
-aws ecs execute-command --cluster $CLUSTER --task $TASK_ID --container bastion --interactive --command '/bin/bash'
-
-# Verify MC applications
-kubectl get applications -A
+# Trigger a specific pipeline (fetches latest commit)
+aws codepipeline start-pipeline-execution --name rc-pipe-<hash>
 ```
-
-Expected output:
-
-```
-NAMESPACE   NAME            SYNC STATUS   HEALTH STATUS
-argocd      argocd          Synced        Healthy
-argocd      cert-manager    Synced        Healthy
-argocd      hypershift      Synced        Healthy
-argocd      maestro-agent   Synced        Healthy
-argocd      root            Synced        Healthy
-```
-
----
-
-For manual post-pipeline steps, see [Consumer Registration & Verification](https://github.com/openshift-online/rosa-regional-platform/blob/main/docs/full-region-provisioning.md#7-consumer-registration--verification).

@@ -94,7 +94,7 @@ docs/
 
 1. Update Terraform modules in `terraform/modules/`
 2. Use `make terraform-fmt` and lint jobs for sanitization
-3. For manual testing: create local `terraform.tfvars` and use `make apply-infra-regional` or `make apply-infra-management`
+3. For testing: use `make ephemeral-provision` for ephemeral dev environments, or run `terraform init && terraform apply` directly in the relevant `terraform/config/` directory
 4. Ensure architect agent reviews any architectural changes
 
 #### For Application Changes
@@ -106,7 +106,7 @@ docs/
 #### For New Regions
 
 1. Add region config to Git repository
-2. Run `make provision-regional` to provision Regional Cluster
+2. Run `make ephemeral-provision` to provision a development environment
 3. ArgoCD bootstrap handles core service deployment
 4. Management Clusters auto-provision as needed
 
