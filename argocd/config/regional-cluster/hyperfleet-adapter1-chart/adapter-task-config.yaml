@@ -59,165 +59,141 @@ spec:
 
   # Resources with valid K8s manifests
   resources:
-    - name: "resource0"
+    - name: "hostedClusterBundle"
       transport:
         client: "maestro"
         maestro:
-          targetCluster: "{{ .placementClusterName }}"
-      
-      # ManifestWork is a kind of manifest that can be used to create resources on the cluster.
-      # It is a collection of resources that are created together.
-      # It is created by the adapter and can be used to create resources on the cluster.
-      # It is created by the adapter and can be used to create resources on the cluster.
+          targetCluster: "{{ .placementClusterName }}"      
       manifest:
         ref: "/etc/adapter/manifestwork.yaml"
       
-      # Discover the manifestWork by name
-      # This is used to get the manifestWork object from the cluster.
       discovery:
-        byName: "hyperfleet-cluster-setup-{{ .clusterId }}"
+        byName: "work-{{ .clusterId | lower }}"
 
-      # Discover sub-resources within the manifestWork
-      # This approach can be used to use the discovery name to parameter level
-      # This can support jsonPath to dig into the resource status. like namespace0.status.conditions[?(@.type=="Ready")].status
       nestedDiscoveries:
-        - name: "namespace0"
+        - name: "clusterNamespace"
           discovery:
             bySelectors:
               labelSelector:
                 hyperfleet.io/resource-type: "namespace"
                 hyperfleet.io/cluster-id: "{{ .clusterId }}"  
-        - name: "configmap0"
+        - name: "hostedCluster"
+          discovery:
+            byName: "{{ .clusterName }}"
+        - name: "clusterConfig"
           discovery:
             byName: "cluster-config"
             namespace: "{{ .clusterId }}"
 
-  # Post-processing: build status payload and report to HyperFleet API
   post:
     payloads:
       - name: "clusterStatusPayload"
         build:
-          # Adapter name for tracking which adapter reported this status
           adapter: "{{ .metadata.name }}"
-          
           conditions:
-            # Applied: Check if the ManifestWork has been applied by Maestro
-            # The ManifestWork's own status.conditions contains the Applied condition
             - type: "Applied"
               status:
                 expression: |
-                  has(resources.resource0) && has(resources.resource0.status) && has(resources.resource0.status.conditions) && resources.resource0.status.conditions.filter(c, has(c.type) && c.type == "Applied").size() > 0 ? resources.resource0.status.conditions.filter(c, c.type == "Applied")[0].status : "False"
+                  has(resources.hostedClusterBundle) && has(resources.hostedClusterBundle.status)
+                  && has(resources.hostedClusterBundle.status.conditions)
+                  && resources.hostedClusterBundle.status.conditions.filter(c, has(c.type) && c.type == "Applied").size() > 0
+                  ? resources.hostedClusterBundle.status.conditions.filter(c, c.type == "Applied")[0].status
+                  : "False"
               reason:
                 expression: |
-                  has(resources.resource0) && has(resources.resource0.status) && has(resources.resource0.status.conditions) && resources.resource0.status.conditions.filter(c, has(c.type) && c.type == "Applied").size() > 0 ? resources.resource0.status.conditions.filter(c, c.type == "Applied")[0].reason : "ManifestWorkNotDiscovered"
+                  has(resources.hostedClusterBundle) && has(resources.hostedClusterBundle.status)
+                  && has(resources.hostedClusterBundle.status.conditions)
+                  && resources.hostedClusterBundle.status.conditions.filter(c, has(c.type) && c.type == "Applied").size() > 0
+                  ? resources.hostedClusterBundle.status.conditions.filter(c, c.type == "Applied")[0].reason
+                  : "ManifestWorkNotApplied"
               message:
                 expression: |
-                  has(resources.resource0) && has(resources.resource0.status) && has(resources.resource0.status.conditions) && resources.resource0.status.conditions.filter(c, has(c.type) && c.type == "Applied").size() > 0 ? resources.resource0.status.conditions.filter(c, c.type == "Applied")[0].message : "ManifestWork not discovered from Maestro or no Applied condition"
+                  has(resources.hostedClusterBundle) && has(resources.hostedClusterBundle.status)
+                  && has(resources.hostedClusterBundle.status.conditions)
+                  && resources.hostedClusterBundle.status.conditions.filter(c, has(c.type) && c.type == "Applied").size() > 0
+                  ? resources.hostedClusterBundle.status.conditions.filter(c, c.type == "Applied")[0].message
+                  : "ManifestWork not yet applied by Maestro agent"
 
-            # Available: Check if nested discovered manifests are available on the spoke cluster
-            # Each nested discovery object is enriched with top-level "conditions" from status.resourceStatus.manifests[]
+            # Available: HostedCluster Available condition (fed back via manifestConfigs)
             - type: "Available"
               status:
                 expression: |
-                  has(resources.namespace0) && has(resources.namespace0.conditions)
-                    && resources.namespace0.conditions.exists(c, has(c.type) && c.type == "Available" && has(c.status) && c.status == "True")
-                    && has(resources.configmap0) && has(resources.configmap0.conditions)
-                    && resources.configmap0.conditions.exists(c, has(c.type) && c.type == "Available" && has(c.status) && c.status == "True")
-                  ? "True"
-                  : "False"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string
+                  : "Unknown"
               reason:
                 expression: |
-                  !(has(resources.namespace0) && has(resources.namespace0.conditions))
-                  ? "NamespaceNotDiscovered"
-                  : !resources.namespace0.conditions.exists(c, has(c.type) && c.type == "Available" && has(c.status) && c.status == "True")
-                    ? "NamespaceNotAvailable"
-                    : !(has(resources.configmap0) && has(resources.configmap0.conditions))
-                      ? "ConfigMapNotDiscovered"
-                      : !resources.configmap0.conditions.exists(c, has(c.type) && c.type == "Available" && has(c.status) && c.status == "True")
-                        ? "ConfigMapNotAvailable"
-                        : "AllResourcesAvailable"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
+                    ? "HostedClusterAvailable" : "HostedClusterNotAvailable")
+                  : "ConditionNotFound"
               message:
                 expression: |
-                  !(has(resources.namespace0) && has(resources.namespace0.conditions))
-                  ? "Namespace not discovered from ManifestWork"
-                  : !resources.namespace0.conditions.exists(c, has(c.type) && c.type == "Available" && has(c.status) && c.status == "True")
-                    ? "Namespace not yet available on spoke cluster"
-                    : !(has(resources.configmap0) && has(resources.configmap0.conditions))
-                      ? "ConfigMap not discovered from ManifestWork"
-                      : !resources.configmap0.conditions.exists(c, has(c.type) && c.type == "Available" && has(c.status) && c.status == "True")
-                        ? "ConfigMap not yet available on spoke cluster"
-                        : "All manifests (namespace, configmap) are available on spoke cluster"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
+                    ? "HostedCluster is available"
+                    : "HostedCluster not yet available")
+                  : "HostedCluster Available condition not yet reported"
 
-            # Health: Adapter execution status (runtime)
+            # Health: HostedCluster not degraded (fed back via manifestConfigs)
             - type: "Health"
               status:
                 expression: |
-                  adapter.?executionStatus.orValue("") == "success"
-                    && !adapter.?resourcesSkipped.orValue(false)
-                  ? "True"
-                  : "False"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "True" : "False")
+                  : "Unknown"
               reason:
                 expression: |
-                  adapter.?executionStatus.orValue("") != "success"
-                  ? "ExecutionFailed:" + adapter.?executionError.?phase.orValue("unknown")
-                  : adapter.?resourcesSkipped.orValue(false)
-                    ? "ResourcesSkipped"
-                    : "Healthy"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "NotDegraded" : "HostedClusterDegraded")
+                  : "ConditionNotFound"
               message:
                 expression: |
-                  adapter.?executionStatus.orValue("") != "success"
-                  ? "Adapter failed at phase ["
-                      + adapter.?executionError.?phase.orValue("unknown")
-                      + "] step ["
-                      + adapter.?executionError.?step.orValue("unknown")
-                      + "]: "
-                      + adapter.?executionError.?message.orValue(adapter.?errorMessage.orValue("no details"))
-                  : adapter.?resourcesSkipped.orValue(false)
-                    ? "Resources skipped: " + adapter.?skipReason.orValue("unknown reason")
-                    : "Adapter execution completed successfully"
-          
-          # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "HostedCluster is healthy"
+                    : "HostedCluster is degraded")
+                  : "Degraded condition not yet reported"
+
           observed_generation:
-            expression: "generationId"
-            
-          # Use Go template with now and date functions for timestamps
+            expression: "generation"
           observed_time: "{{ now | date \"2006-01-02T15:04:05Z07:00\" }}"
 
           data:
-            manifestwork:
+            hostedCluster:
               name:
                 expression: |
-                  has(resources.resource0) && has(resources.resource0.metadata)
-                  ? resources.resource0.metadata.name
+                  has(resources.hostedCluster) && has(resources.hostedCluster.metadata)
+                  ? resources.hostedCluster.metadata.name
                   : ""
-              consumer:
+              apiEndpoint:
                 expression: |
-                  has(resources.resource0) && has(resources.resource0.metadata)
-                  ? resources.resource0.metadata.namespace
-                  : placementClusterName
-            configmap:
-              name:
-                expression: |
-                  has(resources.configmap0) && has(resources.configmap0.metadata)
-                  ? resources.configmap0.metadata.name
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "controlPlaneEndpoint")
+                  ? "https://" + resources.hostedCluster.statusFeedback.values.filter(v, v.name == "controlPlaneEndpoint")[0].fieldValue.string
                   : ""
-              clusterId:
+              version:
                 expression: |
-                  has(resources.configmap0) && has(resources.configmap0.data) && has(resources.configmap0.data.cluster_id)
-                  ? resources.configmap0.data.cluster_id
-                  : clusterId
-            namespace:
-              name:
-                expression: |
-                  has(resources.namespace0) && has(resources.namespace0.metadata)
-                  ? resources.namespace0.metadata.name
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "version")
+                  ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "version")[0].fieldValue.string
                   : ""
-              phase:
-                expression: |
-                  has(resources.namespace0) && has(resources.namespace0.statusFeedback) && has(resources.namespace0.statusFeedback.values)
-                    && resources.namespace0.statusFeedback.values.exists(v, has(v.name) && v.name == "phase" && has(v.fieldValue))
-                  ? resources.namespace0.statusFeedback.values.filter(v, v.name == "phase")[0].fieldValue.string
-                  : "Unknown"
 
     postActions:
       - name: "reportClusterStatus"

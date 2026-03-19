@@ -1,25 +1,7 @@
-# ManifestWork Template for External Reference
-# File: manifestwork-ref.yaml
-#
-# This template file defines the ManifestWork structure that wraps Kubernetes manifests
-# for deployment via Maestro transport. It's referenced from business logic configs
-# using the 'ref' approach for clean separation of concerns.
-#
-# Template Variables Available:
-# - .clusterId: Target cluster identifier
-# - .generationId: Resource generation for conflict resolution
-# - .adapterName: Name of the adapter creating this ManifestWork
-# - .placementCluster: Target cluster name (becomes ManifestWork namespace)
-# - .timestamp: Creation timestamp
-# - .manifests: Array of rendered Kubernetes manifests (injected by framework)
-
 apiVersion: work.open-cluster-management.io/v1
 kind: ManifestWork
 metadata:
-  # ManifestWork name - must be unique within consumer namespace
-  name: "hyperfleet-cluster-setup-{{ .clusterId }}"
-
-  # Labels for identification, filtering, and management
+  name: "work-{{ .clusterId | lower }}"
   labels:
     # HyperFleet tracking labels
     hyperfleet.io/cluster-id: "{{ .clusterId }}"
@@ -60,79 +42,165 @@ metadata:
     deployment.hyperfleet.io/timeout: "300s"
     monitoring.hyperfleet.io/enabled: "true"
 
-    # Documentation
-    description: "Complete cluster setup including namespace, configuration, and RBAC"
-    documentation: "https://docs.hyperfleet.io/adapters/aro-hcp"
-
-# ManifestWork specification
 spec:
-  # ============================================================================
-  # Workload - Contains the Kubernetes manifests to deploy
-  # ============================================================================
   workload:
-    # Kubernetes manifests array - injected by framework from business logic config
     manifests:
-    - apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: "{{ .clusterId | lower }}"
-        labels:
-          hyperfleet.io/cluster-id: "{{ .clusterId }}"
-          hyperfleet.io/managed-by: "{{ .metadata.name }}"
-          hyperfleet.io/resource-type: "namespace"
-        annotations:
-          hyperfleet.io/created-by: "hyperfleet-adapter"
-          hyperfleet.io/generation: "{{ .generationId }}"
-    - apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: "cluster-config"
-        namespace: "{{ .clusterId }}"
-        labels:
-          hyperfleet.io/cluster-id: "{{ .clusterId }}"
-        annotations:
-          hyperfleet.io/generation: "{{ .generationId }}"
-      data:
-        cluster_id: "{{ .clusterId }}"
-        cluster_name: "{{ .clusterName }}"
 
-  # ============================================================================
-  # Delete Options - How resources should be removed
-  # ============================================================================
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: "{{ .clusterId | lower }}"
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+            hyperfleet.io/managed-by: "{{ .metadata.name }}"
+            hyperfleet.io/resource-type: "namespace"
+          annotations:
+            hyperfleet.io/created-by: "hyperfleet-adapter"
+            hyperfleet.io/generation: "{{ .generationId }}"
+      - apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: "cluster-config"
+          namespace: "{{ .clusterId }}"
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+          annotations:
+            hyperfleet.io/generation: "{{ .generationId }}"
+        data:
+          cluster_id: "{{ .clusterId }}"
+          cluster_name: "{{ .clusterName }}"
+      - apiVersion: hypershift.openshift.io/v1beta1
+        kind: HostedCluster
+        metadata:
+          name: "{{ .clusterName }}"
+          namespace: clusters-{{ .clusterId | lower }}
+          annotations:
+            hypershift.openshift.io/pod-security-admission-label-override: privileged
+            hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
+        spec:
+          infraID: "{{ .clusterId | lower }}"
+          dns:
+            baseDomain: example.com
+          release:
+            image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+          pullSecret:
+            name: pull-secret
+          sshKey:
+            name: ssh-key
+          networking:
+            clusterNetwork:
+              - cidr: 10.132.0.0/14
+            serviceNetwork:
+              - cidr: 172.31.0.0/16
+            machineNetwork:
+              - cidr: 10.0.0.0/16
+            networkType: OVNKubernetes
+          platform:
+            type: AWS
+            aws:
+              region: us-east-2
+              cloudProviderConfig:
+                vpc: ""
+                subnet:
+                  id: ""
+              endpointAccess: Private
+              rolesRef:
+                controlPlaneOperatorARN: ""
+                ingressARN: ""
+                imageRegistryARN: ""
+                kubeCloudControllerARN: ""
+                nodePoolManagementARN: ""
+                networkARN: ""
+                storageARN: ""
+          issuerURL: /test-cluster
+          services:
+            - service: APIServer
+              servicePublishingStrategy:
+                type: LoadBalancer
+            - service: OAuthServer
+              servicePublishingStrategy:
+                type: Route
+            - service: Konnectivity
+              servicePublishingStrategy:
+                type: Route
+            - service: Ignition
+              servicePublishingStrategy:
+                type: Route
+          infrastructureAvailabilityPolicy: SingleReplica
+          controllerAvailabilityPolicy: SingleReplica
+      - apiVersion: hypershift.openshift.io/v1beta1
+        kind: NodePool
+        metadata:
+          name: "{{ .clusterName }}-workers"
+          namespace: clusters-{{ .clusterId | lower }}
+        spec:
+          clusterName: "{{ .clusterName }}"
+          replicas: 2
+          management:
+            autoRepair: true
+            upgradeType: Replace
+          release:
+            image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+          platform:
+            type: AWS
+            aws:
+              instanceType: m6a.xlarge
+              rootVolume:
+                size: 120
+                type: gp3
+              subnet:
+                id: ""
+              instanceProfile: ""
+              securityGroups:
+                - id: ""
+              resourceTags:
+                - key: red-hat-managed
+                  value: "true"
+      - apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ssh-key
+          namespace: clusters
+        type: Opaque
+        data:
+          id_rsa.pub: ""
+
   deleteOption:
-    # Propagation policy for resource deletion
-    # - "Foreground": Wait for dependent resources to be deleted first
-    # - "Background": Delete immediately, let cluster handle dependents
-    # - "Orphan": Leave resources on cluster when ManifestWork is deleted
     propagationPolicy: "Foreground"
+    gracePeriodSeconds: 30          
 
-    # Grace period for graceful deletion (seconds)
-    gracePeriodSeconds: 30
-
-  # ============================================================================
-  # Manifest Configurations - Per-resource settings for update and feedback
-  # ============================================================================
   manifestConfigs:
-    # ========================================================================
-    # Configuration for Namespace resources
-    # ========================================================================
     - resourceIdentifier:
-        group: ""                           # Core API group (empty for v1 resources)
-        resource: "namespaces"              # Resource type
-        name: "{{ .clusterId | lower }}"    # Specific resource name
+        group: ""
+        resource: "namespaces"
+        name: "clusters-{{ .clusterId | lower }}"
       updateStrategy:
-        type: "ServerSideApply"             # Use server-side apply for namespaces
-        serverSideApply:
-          fieldManager: "hyperfleet-adapter" # Field manager name for conflict resolution
-          force: false                      # Don't force conflicts (fail on conflicts)
+        type: "ServerSideApply"
       feedbackRules:
-        - type: "JSONPaths"                 # Use JSON path expressions for status feedback
+        - type: "JSONPaths"
           jsonPaths:
-            - name: "phase"                 # Namespace phase (Active, Terminating)
+            - name: "phase"
               path: ".status.phase"
-            - name: "conditions"            # Namespace conditions array
+            - name: "conditions"
               path: ".status.conditions"
-            - name: "creationTimestamp"     # When namespace was created
+            - name: "creationTimestamp"
               path: ".metadata.creationTimestamp"
 
- 
+    - resourceIdentifier:
+        group: "hypershift.openshift.io"
+        resource: "hostedclusters"
+        namespace: "clusters-{{ .clusterId }}"
+        name: "{{ .clusterName }}"
+      updateStrategy:
+        type: "ServerSideApply"
+      feedbackRules:
+        - type: "JSONPaths"
+          jsonPaths:
+            - name: "availableCondition"
+              path: ".status.conditions[?(@.type==\"Available\")].status"
+            - name: "degradedCondition"
+              path: ".status.conditions[?(@.type==\"Degraded\")].status"
+            - name: "controlPlaneEndpoint"
+              path: ".status.controlPlaneEndpoint.host"
+            - name: "version"
+              path: ".status.version.history[0].version"
