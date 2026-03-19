@@ -119,9 +119,9 @@ NODE_POOL=$(jq -r '.data.spec.workload.manifests[] | select(.kind == "NodePool")
 WORKER_SG=$(echo "$NODE_POOL" | jq -r '.spec.platform.aws.securityGroups[0].id // empty')
 
 if [ -z "$WORKER_SG" ]; then
-  echo "Warning: Could not find worker security group in NodePool, will create without reference"
-  # We'll use a default value that the CFN template can handle
-  WORKER_SG="sg-00000000"
+  echo "Error: Could not find worker security group in NodePool manifest"
+  echo "The worker security group is required for bastion connectivity"
+  exit 1
 fi
 
 # Validate extracted values
