@@ -1,4 +1,6 @@
 region_deployments:
-  us-east-1:
+  eu-west-1:
+    account_id: '599476212575'
     management_clusters:
-      mc01: {}
+      mc01:
+        account_id: '855246887846'

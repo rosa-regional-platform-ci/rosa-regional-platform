@@ -7,10 +7,10 @@
 # - Then run: scripts/render.py
 #
 # Cluster Type: regional-cluster
-# Region Deployment: us-east-1 (ci)
+# Region Deployment: eu-west-1 (ci)
 # Generated: render.py
 #
 
 maestro:
-  mqttEndpoint: xxx.iot.us-east-1.amazonaws.com
+  mqttEndpoint: xxx.iot.eu-west-1.amazonaws.com
 someOtherSetting: value

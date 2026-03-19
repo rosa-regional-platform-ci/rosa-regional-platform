@@ -5,8 +5,8 @@
 # - Edit config.yaml for config_revision references
 # - Then run: scripts/render.py
 #
-# Cluster Type: regional-cluster
-# Region Deployment: us-east-1 (ci)
+# Cluster Type: management-cluster
+# Region Deployment: eu-west-1 (ci)
 # Config Revision: metadata.annotations.git_revision
 # Generated: render.py
 #
