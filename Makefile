@@ -53,10 +53,10 @@ TERRAFORM_ROOT_DIRS := $(shell find ./terraform/config -name "*.tf" -type f -not
 # Format all Terraform files
 terraform-fmt:
 	@echo "🔧 Formatting Terraform files..."
-	@for dir in $(TERRAFORM_DIRS); do \
-		echo "   Formatting $$dir"; \
-		terraform -chdir=$$dir fmt -recursive; \
-	done
+	@echo "$(TERRAFORM_DIRS)" | tr ' ' '\n' | xargs -P 8 -I {} sh -c ' \
+		echo "   Formatting {}"; \
+		terraform -chdir={} fmt -recursive \
+	'
 	@echo "✅ Terraform formatting complete"
 
 # Upgrade provider versions in all Terraform configurations
@@ -317,13 +317,13 @@ build-platform-image:
 # Initialize root Terraform configurations (no backend)
 terraform-init:
 	@echo "🔧 Initializing Terraform configurations..."
-	@for dir in $(TERRAFORM_ROOT_DIRS); do \
-		echo "   Initializing $$dir"; \
-		if ! terraform -chdir=$$dir init -backend=false; then \
-			echo "   ❌ Init failed in $$dir"; \
+	@echo "$(TERRAFORM_ROOT_DIRS)" | tr ' ' '\n' | xargs -P 8 -I {} sh -c ' \
+		echo "   Initializing {}"; \
+		if ! terraform -chdir={} init -backend=false; then \
+			echo "   ❌ Init failed in {}"; \
 			exit 1; \
-		fi; \
-	done
+		fi \
+	' || exit 1
 	@echo "✅ Terraform initialization complete"
 
 # Check formatting and validate all Terraform configurations
@@ -332,32 +332,24 @@ terraform-init:
 # cannot be validated in isolation.
 terraform-validate: terraform-init
 	@echo "🔍 Checking Terraform formatting..."
-	@failed=0; \
-	for dir in $(TERRAFORM_DIRS); do \
-		echo "   Checking formatting in $$dir"; \
-		if ! terraform -chdir=$$dir fmt -check -recursive; then \
-			echo "   ❌ Formatting check failed in $$dir"; \
-			failed=1; \
-		fi; \
-	done; \
-	if [ "$$failed" -ne 0 ]; then \
-		echo "❌ Terraform formatting check failed for one or more directories"; \
-		echo "   Run 'make terraform-fmt' to fix formatting."; \
-		exit 1; \
-	fi
+	@echo "$(TERRAFORM_DIRS)" | tr ' ' '\n' | xargs -P 8 -I {} sh -c ' \
+		echo "   Checking formatting in {}"; \
+		if ! terraform -chdir={} fmt -check -recursive; then \
+			echo "   ❌ Formatting check failed in {}"; \
+			exit 1; \
+		fi \
+	' || { echo "❌ Terraform formatting check failed for one or more directories"; \
+		echo "   Run '\''make terraform-fmt'\'' to fix formatting."; \
+		exit 1; }
 	@echo "🔍 Validating Terraform configurations..."
-	@failed=0; \
-	for dir in $(TERRAFORM_ROOT_DIRS); do \
-		echo "   Validating $$dir"; \
-		if ! terraform -chdir=$$dir validate; then \
-			echo "   ❌ Validation failed in $$dir"; \
-			failed=1; \
-		fi; \
-	done; \
-	if [ "$$failed" -ne 0 ]; then \
-		echo "❌ Terraform validation failed for one or more directories"; \
-		exit 1; \
-	fi
+	@echo "$(TERRAFORM_ROOT_DIRS)" | tr ' ' '\n' | xargs -P 8 -I {} sh -c ' \
+		echo "   Validating {}"; \
+		if ! terraform -chdir={} validate; then \
+			echo "   ❌ Validation failed in {}"; \
+			exit 1; \
+		fi \
+	' || { echo "❌ Terraform validation failed for one or more directories"; \
+		exit 1; }
 	@echo "✅ Terraform validation complete"
 
 # Lint all Helm charts under argocd/config/
@@ -409,6 +401,9 @@ check-docs:
 # Run all CI validation checks in parallel
 pre-push:
 	@echo "🚀 Running all CI validation checks..."
+	@echo ""
+	@echo "Formatting Terraform files..."
+	@$(MAKE) terraform-fmt
 	@echo ""
 	@$(MAKE) -j4 check-docs check-rendered-files helm-lint terraform-validate
 	@echo ""
