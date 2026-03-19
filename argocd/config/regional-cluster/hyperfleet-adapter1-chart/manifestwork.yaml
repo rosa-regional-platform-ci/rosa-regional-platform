@@ -74,7 +74,10 @@ spec:
         metadata:
           name: "{{ .clusterName }}"
           namespace: clusters-{{ .clusterId | lower }}
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
+            hyperfleet.io/generation: "{{ .generationId }}"
             hypershift.openshift.io/pod-security-admission-label-override: privileged
             hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
         spec:
@@ -133,6 +136,10 @@ spec:
         metadata:
           name: "{{ .clusterName }}-workers"
           namespace: clusters-{{ .clusterId | lower }}
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+          annotations:
+            hyperfleet.io/generation: "{{ .generationId }}"
         spec:
           clusterName: "{{ .clusterName }}"
           replicas: 2
@@ -160,7 +167,11 @@ spec:
         kind: Secret
         metadata:
           name: ssh-key
-          namespace: clusters
+          namespace: clusters-{{ .clusterId | lower }}
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+          annotations:
+            hyperfleet.io/generation: "{{ .generationId }}"
         type: Opaque
         data:
           id_rsa.pub: ""
