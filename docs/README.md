@@ -31,10 +31,10 @@ Detailed architecture and rationale for key technical decisions:
 
 ### How-To Guides
 
-| Document                                                              | Topic                                     |
-| --------------------------------------------------------------------- | ----------------------------------------- |
-| [Provision a New Central Pipeline](central-pipeline-provisioning.md)  | Pipeline-based provisioning (CI/CD)       |
-| [Complete Guide: Provision a New Region](full-region-provisioning.md) | Manual/local provisioning for development |
+| Document                                                             | Topic                                   |
+| -------------------------------------------------------------------- | --------------------------------------- |
+| [Provision a New Environment](environment-provisioning.md)           | Pipeline-based environment provisioning |
+| [Provisioning a Development Environment](development-environment.md) | Ephemeral dev environments              |
 
 ### Reference
 

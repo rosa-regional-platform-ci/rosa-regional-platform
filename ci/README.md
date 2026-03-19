@@ -34,16 +34,7 @@ The [ci/ephemeral-provider/main.py](ci/ephemeral-provider/main.py) script manage
 
 ### Running locally
 
-The recommended way to run ephemeral environments locally is via Make targets. These handle container builds, Vault credential fetching, and state tracking automatically. Credentials are fetched from Vault via OIDC and passed as environment variables to the container — they never touch disk.
-
-```bash
-make ephemeral-provision   # Interactive remote/branch picker, provisions environment
-make ephemeral-teardown    # Interactive picker or BUILD_ID=<id>, tears down environment
-make ephemeral-resync      # Interactive picker or BUILD_ID=<id>, rebases CI branch onto latest source
-make ephemeral-list        # List tracked environments with state
-```
-
-Prerequisites: `fzf`, `vault`, `git`, `python3`, `uv`, and `podman` or `docker`.
+See [Provisioning a Development Environment](../docs/development-environment.md) for the full guide on running ephemeral environments from your local machine via Make targets.
 
 ### Triggering the E2E Job Manually
 

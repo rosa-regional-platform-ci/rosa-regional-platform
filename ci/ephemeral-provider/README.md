@@ -1,21 +1,8 @@
 # ci/ephemeral-provider
 
-Package for provisioning, resyncing, and tearing down ephemeral CI environments for ROSA Regional Platform.
+Python package for provisioning, resyncing, and tearing down ephemeral CI environments for ROSA Regional Platform.
 
-## Developer Usage (Make targets)
-
-The recommended interface for local development is via Make targets, which handle
-container builds, Vault credential fetching (in-memory, never written to disk),
-and state tracking automatically:
-
-```bash
-make ephemeral-provision   # Provision a new ephemeral environment (interactive remote/branch picker)
-make ephemeral-teardown    # Tear down an environment (interactive picker or BUILD_ID=...)
-make ephemeral-resync      # Rebase CI branch onto latest source branch (interactive picker or BUILD_ID=...)
-make ephemeral-list        # List all tracked ephemeral environments with state
-```
-
-See `make help` for details.
+For local development usage via Make targets, see [Provisioning a Development Environment](../../docs/development-environment.md).
 
 ## Direct Usage
 

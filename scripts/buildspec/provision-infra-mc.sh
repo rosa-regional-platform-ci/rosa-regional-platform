@@ -109,19 +109,24 @@ echo "Extracted REGION_DEPLOYMENT from config: $REGION_DEPLOYMENT"
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
 export TF_VAR_sector="${SECTOR}"
 
+TERRAFORM_ACTION="apply"
+[ "${DELETE_FLAG}" == "true" ] && TERRAFORM_ACTION="destroy"
+
+cd terraform/config/management-cluster
+terraform init -reconfigure \
+    -backend-config="bucket=${TF_STATE_BUCKET}" \
+    -backend-config="key=${TF_STATE_KEY}" \
+    -backend-config="region=${TF_STATE_REGION}" \
+    -backend-config="use_lockfile=true"
+
 set +e
-if [ "${DELETE_FLAG}" == "true" ]; then
-    echo "Destroying management cluster"
-    make pipeline-destroy-management
-else
-    make pipeline-provision-management
-fi
-MAKE_TARGET_STATUS=$?
+terraform "${TERRAFORM_ACTION}" -auto-approve
+TERRAFORM_STATUS=$?
 set -e
 
-if [ $MAKE_TARGET_STATUS -ne 0 ]; then
-    echo "Infrastructure action failed with exit code $MAKE_TARGET_STATUS"
-    exit $MAKE_TARGET_STATUS
+if [ $TERRAFORM_STATUS -ne 0 ]; then
+    echo "Infrastructure action failed with exit code $TERRAFORM_STATUS"
+    exit $TERRAFORM_STATUS
 fi
 
 # Clean up temp cert files

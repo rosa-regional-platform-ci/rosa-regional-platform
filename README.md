@@ -28,13 +28,11 @@ rosa-regional-platform/
 
 This is the standard way to provision a region. A central AWS account hosts CodePipelines that automatically provision Regional and Management Clusters when configuration is committed to Git.
 
-See [Provision a New Central Pipeline](docs/central-pipeline-provisioning.md) for the full walkthrough.
+See [Provision a New Environment](docs/environment-provisioning.md) for the full walkthrough.
 
-### Local Provisioning (Development)
+### Ephemeral Dev Environments
 
-> **Note:** Local provisioning is intended for development and debugging only. Prefer the pipeline-based approach above.
-
-For manual provisioning using `make` targets and local `.tfvars` files, see [Local Region Provisioning](docs/full-region-provisioning.md). For all available `make` targets, run `make help`.
+For local development and testing, use the ephemeral workflow to provision a short-lived environment in a shared dev account. See [Provisioning a Development Environment](docs/development-environment.md) for a quick-start guide, or run `make help` for all available targets.
 
 ## CI
 
