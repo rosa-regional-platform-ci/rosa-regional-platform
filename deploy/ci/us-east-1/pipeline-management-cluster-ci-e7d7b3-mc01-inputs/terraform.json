@@ -6,7 +6,7 @@
   "environment": "ci",
   "account_id": "ssm:///infra/ci/us-east-1/mc01/account_id",
   "region": "us-east-1",
-  "alias": "mc01",
-  "management_id": "mc01",
+  "alias": "ci-e7d7b3-mc01",
+  "management_id": "ci-e7d7b3-mc01",
   "regional_aws_account_id": "ssm:///infra/ci/us-east-1/account_id"
 }
