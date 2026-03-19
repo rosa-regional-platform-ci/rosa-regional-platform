@@ -6,8 +6,11 @@
       "environment": "ci",
       "aws_region": "us-east-1",
       "management_clusters": {
-        "ci-9fff6a-mc01": {}
-      }
+        "ci-9fff6a-mc01": {
+          "delete_pipeline": true
+        }
+      },
+      "delete_pipeline": true
     }
   }
 }
