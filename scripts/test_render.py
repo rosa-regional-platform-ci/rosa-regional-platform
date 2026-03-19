@@ -890,19 +890,19 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(merged, rc)
         assert merged["git"]["revision"] == "main"
 
-    def test_argocd_merge_chain(self, tmp_path):
-        """argocd values merge through defaults -> env -> region."""
+    def test_applications_merge_chain(self, tmp_path):
+        """applications values merge through defaults -> env -> region."""
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={
-                "argocd": {
+                "applications": {
                     "regional-cluster": {"setting": "default", "shared": "from-defaults"},
                 },
             },
             environments={
                 "staging": {
                     "defaults": {
-                        "argocd": {
+                        "applications": {
                             "regional-cluster": {"setting": "env-override"},
                         },
                     },
@@ -918,9 +918,9 @@ class TestConfigMergeAndRendering:
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
-        argocd = merged["argocd"]
-        assert argocd["regional-cluster"]["setting"] == "env-override"
-        assert argocd["regional-cluster"]["shared"] == "from-defaults"
+        apps = merged["applications"]
+        assert apps["regional-cluster"]["setting"] == "env-override"
+        assert apps["regional-cluster"]["shared"] == "from-defaults"
 
     def test_arbitrary_field_inherits_without_code_changes(self, tmp_path):
         """Any field inherits through the full merge chain."""
@@ -1336,7 +1336,7 @@ class TestMainIntegration:
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
-                "argocd": {
+                "applications": {
                     "regional-cluster": {"setting": "value"},
                 },
             },

@@ -106,7 +106,7 @@ terraform_common:
   cost_center: "000"
   enable_bastion: false
 
-argocd:
+applications:
   regional-cluster:
     maestro:
       mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"

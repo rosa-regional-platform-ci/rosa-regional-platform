@@ -226,7 +226,7 @@ CONTEXT_VARS = {
     "environment", "aws_region", "region", "regional_id",
     "account_id", "management_cluster_account_ids",
     "cluster_type", "config_revision", "applicationset_content",
-    "argocd_values", "region_definitions",
+    "application_values", "region_definitions",
     "delete", "delete_pipeline",
 }
 
@@ -537,14 +537,14 @@ def main() -> int:
             render_file(templates_dir, "pipeline-regional-cluster-inputs/terraform.json", ctx, out_dir / "pipeline-regional-cluster-inputs" / "terraform.json")
 
             # Per-cluster-type: ArgoCD values + bootstrap
-            argocd_config = resolve_templates(ctx.get("argocd", {}), ctx)
+            app_config = resolve_templates(ctx.get("applications", {}), ctx)
             revision = ctx.get("git", {}).get("revision")
             pinned = revision if (revision and revision != "main") else None
             appset_content = create_applicationset_content(base_appset_path, pinned)
             revision_info = pinned[:8] if pinned else "metadata.annotations.git_revision"
 
             for ct in cluster_types:
-                ct_ctx = {**ctx, "cluster_type": ct, "argocd_values": argocd_config.get(ct, {})}
+                ct_ctx = {**ctx, "cluster_type": ct, "application_values": app_config.get(ct, {})}
                 render_file(templates_dir, "argocd-values.yaml", ct_ctx, out_dir / f"argocd-values-{ct}.yaml")
                 ct_ctx["config_revision"] = revision_info
                 ct_ctx["applicationset_content"] = appset_content

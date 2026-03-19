@@ -22,7 +22,7 @@ git:
   bootstrap_revision: main
 
 aws:
-  # @doc aws.account_id Regional AWS account ID. Supports Jinja2/SSM templating.
+  # @doc aws.account_id Regional AWS account ID.
   # @used-by aws.account_id _context
   account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
   # @doc aws.management_cluster_account_id Default account for MCs when entry has no account_id.
@@ -52,27 +52,27 @@ terraform_common:
   # @used-by terraform_common.enable_bastion pipeline-regional-cluster-inputs/terraform.json.j2
   enable_bastion: false
 
-argocd:
+applications:
   management-cluster:
     hypershift:
       oidcStorageS3Bucket:
-        # @doc argocd.management-cluster.hypershift.oidcStorageS3Bucket.name OIDC S3 bucket name for HyperShift.
-        # @used-by argocd.management-cluster.hypershift.oidcStorageS3Bucket.name _context
+        # @doc applications.management-cluster.hypershift.oidcStorageS3Bucket.name OIDC S3 bucket name for HyperShift.
+        # @used-by applications.management-cluster.hypershift.oidcStorageS3Bucket.name _context
         name: "hypershift-mc-{{ aws_region }}"
-        # @doc argocd.management-cluster.hypershift.oidcStorageS3Bucket.region OIDC S3 bucket region.
-        # @used-by argocd.management-cluster.hypershift.oidcStorageS3Bucket.region _context
+        # @doc applications.management-cluster.hypershift.oidcStorageS3Bucket.region OIDC S3 bucket region.
+        # @used-by applications.management-cluster.hypershift.oidcStorageS3Bucket.region _context
         region: "{{ aws_region }}"
       externalDns:
-        # @doc argocd.management-cluster.hypershift.externalDns.domain External DNS domain for HyperShift.
-        # @used-by argocd.management-cluster.hypershift.externalDns.domain _context
+        # @doc applications.management-cluster.hypershift.externalDns.domain External DNS domain for HyperShift.
+        # @used-by applications.management-cluster.hypershift.externalDns.domain _context
         domain: "dev.{{ aws_region }}.rosa.example.com"
   regional-cluster:
     maestro:
-      # @doc argocd.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
-      # @used-by argocd.regional-cluster.maestro.mqttEndpoint _context
+      # @doc applications.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
+      # @used-by applications.regional-cluster.maestro.mqttEndpoint _context
       mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
-    # @doc argocd.regional-cluster.someOtherSetting Example setting for regional cluster.
-    # @used-by argocd.regional-cluster.someOtherSetting _context
+    # @doc applications.regional-cluster.someOtherSetting Example setting for regional cluster.
+    # @used-by applications.regional-cluster.someOtherSetting _context
     someOtherSetting: "value"
 
 # management_clusters: MC topology, defined per-region. Keys are MC IDs.
