@@ -20,9 +20,9 @@ spec:
       valuesObject:
         replicaCount: 1
         image:
-          registry: quay.io/openshift-hyperfleet
+          registry: quay.io/cdoan0
           repository: hyperfleet-adapter
-          tag: v0.1.0
+          tag: cdoan-fix-status
           pullPolicy: Always
         serviceAccount:
           create: true
