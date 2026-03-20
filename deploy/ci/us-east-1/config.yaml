@@ -33,4 +33,6 @@ applications:
       mqttEndpoint: xxx.iot.{{ aws_region }}.amazonaws.com
     someOtherSetting: value
 provision_mcs:
-  mc01: {}
+  mc01:
+    delete: true
+delete: true
