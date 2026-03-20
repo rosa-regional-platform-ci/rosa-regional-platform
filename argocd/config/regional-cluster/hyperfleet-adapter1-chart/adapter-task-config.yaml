@@ -60,20 +60,6 @@ spec:
   # Resources with valid K8s manifests
   resources:
 
-    - name: "fetchPullSecret"
-      transport:
-        client: "kubernetes"
-      manifest:
-        apiVersion: v1
-        kind: Secret
-        metadata:
-          name: dummy-for-discovery
-          annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
-      discovery:
-        namespace: "hyperfleet-system"
-        byName: "pull-secret"
-
     - name: "hostedClusterBundle"
       transport:
         client: "maestro"

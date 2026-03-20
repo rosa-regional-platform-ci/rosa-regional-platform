@@ -70,17 +70,17 @@ spec:
           cluster_id: "{{ .clusterId }}"
           cluster_name: "{{ .clusterName }}"
 
-      - apiVersion: v1
-        kind: Secret
-        metadata:
-          name: pull-secret
-          namespace: clusters-{{ .clusterId | lower }}
-          labels:
-            hyperfleet.io/cluster-id: "{{ .clusterId }}"
-          annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
-        type: "{{ resources.fetchPullSecret.type }}"
-        data: "{{ resources.fetchPullSecret.data | toJson }}"
+      # - apiVersion: v1
+      #   kind: Secret
+      #   metadata:
+      #     name: pull-secret
+      #     namespace: clusters-{{ .clusterId | lower }}
+      #     labels:
+      #       hyperfleet.io/cluster-id: "{{ .clusterId }}"
+      #     annotations:
+      #       hyperfleet.io/generation: "{{ .generationId }}"
+      #   type: "{{ resources.fetchPullSecret.type }}"
+      #   data: "{{ resources.fetchPullSecret.data | toJson }}"
 
       - apiVersion: hypershift.openshift.io/v1beta1
         kind: HostedCluster
