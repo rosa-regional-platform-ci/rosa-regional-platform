@@ -52,7 +52,7 @@ echo "Resolved RC regional_id from config: $RC_REGIONAL_ID"
 # Assume RC account to read terraform outputs and call API
 use_rc_account
 
-RC_STATE_BUCKET="terraform-state-${RESOLVED_REGIONAL_ACCOUNT_ID}"
+RC_STATE_BUCKET="terraform-state-${RESOLVED_REGIONAL_ACCOUNT_ID}-${TARGET_REGION}"
 RC_STATE_KEY="regional-cluster/${RC_REGIONAL_ID}.tfstate"
 
 echo "RC state:"
