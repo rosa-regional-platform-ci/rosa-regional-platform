@@ -6,9 +6,9 @@
   "environment": "cdoan-central",
   "account_id": "910485845704",
   "region": "us-east-2",
-  "alias": "mc01",
+  "alias": "ci-4a4351-mc01",
   "enable_bastion": true,
   "sector": "cdoan-central",
-  "management_id": "mc01",
+  "management_id": "ci-4a4351-mc01",
   "regional_aws_account_id": "754250776154"
 }
