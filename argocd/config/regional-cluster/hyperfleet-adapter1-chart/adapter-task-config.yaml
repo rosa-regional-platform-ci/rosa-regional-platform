@@ -52,6 +52,19 @@ spec:
           operator: "equals"
           value: "False"
 
+    - name: "readRegionalPullSecret"
+      apiCall:
+        method: "GET"
+        url: "/api/v1/namespaces/hyperfleet-system/secrets/pull-secret"
+        timeout: 10s
+      capture:
+        - name: "secretData"
+          field: "data"
+      conditions:
+        - field: "secretData"
+          operator: "equals"
+          value: "True"
+
     - name: "validationCheck"
       # Valid CEL expression
       expression: |
