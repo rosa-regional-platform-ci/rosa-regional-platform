@@ -9,23 +9,31 @@ import boto3
 log = logging.getLogger(__name__)
 
 
+CENTRAL_REGION = "us-east-1"
+
+
 class AWSCredentials:
     """Manages AWS credential setup for CI environments.
 
     Reads credentials from the CI vault mount directory or equivalent
     environment variables. Sets up central account access via STS AssumeRole.
 
-    After setup, use `self.session` for all boto3 API calls — it carries the
-    assumed-role credentials explicitly so it won't fall back to the local
-    AWS profile/SSO. Use `self.subprocess_env` when spawning child processes
-    that need AWS access (terraform, bootstrap scripts).
+    Two sessions are maintained:
+      - ``session`` targets the central region (us-east-1) where the
+        pipeline-provisioner and SSM parameters live.
+      - ``target_session`` targets the region where RC/MC pipelines run.
+
+    Use ``subprocess_env`` when spawning child processes that need central
+    account AWS access (terraform, bootstrap scripts).
     """
 
-    def __init__(self, creds_dir: str, region: str = "us-east-1"):
+    def __init__(self, creds_dir: str, target_region: str = "us-east-1"):
         self.creds_dir = Path(creds_dir)
-        self.region = region
+        self.central_region = CENTRAL_REGION
+        self.target_region = target_region
         self.central_account_id = None
         self.session: boto3.Session | None = None
+        self.target_session: boto3.Session | None = None
         self.subprocess_env: dict[str, str] = {}
 
     def _read_credential(self, name: str) -> str:
@@ -53,7 +61,7 @@ class AWSCredentials:
             "sts",
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
-            region_name=self.region,
+            region_name=self.central_region,
         )
 
         response = sts.assume_role(
@@ -66,15 +74,22 @@ class AWSCredentials:
             "AWS_ACCESS_KEY_ID": creds["AccessKeyId"],
             "AWS_SECRET_ACCESS_KEY": creds["SecretAccessKey"],
             "AWS_SESSION_TOKEN": creds["SessionToken"],
-            "AWS_DEFAULT_REGION": self.region,
-            "AWS_REGION": self.region,
+            "AWS_DEFAULT_REGION": self.central_region,
+            "AWS_REGION": self.central_region,
         }
 
         self.session = boto3.Session(
             aws_access_key_id=creds["AccessKeyId"],
             aws_secret_access_key=creds["SecretAccessKey"],
             aws_session_token=creds["SessionToken"],
-            region_name=self.region,
+            region_name=self.central_region,
+        )
+
+        self.target_session = boto3.Session(
+            aws_access_key_id=creds["AccessKeyId"],
+            aws_secret_access_key=creds["SecretAccessKey"],
+            aws_session_token=creds["SessionToken"],
+            region_name=self.target_region,
         )
 
         identity = self.session.client("sts").get_caller_identity()
@@ -112,8 +127,8 @@ class AWSCredentials:
         return {
             "AWS_ACCESS_KEY_ID": self._read_credential(f"{prefix}_access_key"),
             "AWS_SECRET_ACCESS_KEY": self._read_credential(f"{prefix}_secret_key"),
-            "AWS_DEFAULT_REGION": self.region,
-            "AWS_REGION": self.region,
+            "AWS_DEFAULT_REGION": self.target_region,
+            "AWS_REGION": self.target_region,
         }
 
     def setup_target_account_trust(self, prefix: str):
