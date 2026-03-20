@@ -1,5 +1,8 @@
 dns:
   domain: int0.rosa.devshift.net
 
-terraform_common:
+regional_cluster:
+  enable_bastion: true
+
+management_cluster_defaults:
   enable_bastion: true

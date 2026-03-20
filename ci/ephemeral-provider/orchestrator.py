@@ -163,7 +163,7 @@ class EphemeralEnvOrchestrator:
                 "account_id": regional_account_id,
                 "management_cluster_account_id": management_account_id,
             },
-            "management_clusters": {
+            "provision_mcs": {
                 "mc01": {},
             },
         }
@@ -349,9 +349,9 @@ class EphemeralEnvOrchestrator:
 
         def set_delete_flag(region_config):
             region_config["delete"] = True
-            for mc_name, mc_config in region_config.get("management_clusters", {}).items():
+            for mc_name, mc_config in region_config.get("provision_mcs", {}).items():
                 if mc_config is None:
-                    region_config["management_clusters"][mc_name] = mc_config = {}
+                    region_config["provision_mcs"][mc_name] = mc_config = {}
                 mc_config["delete"] = True
 
         git.modify_config(TARGET_ENVIRONMENT, self.region, set_delete_flag)
@@ -398,9 +398,9 @@ class EphemeralEnvOrchestrator:
 
         def set_delete_pipeline_flag(region_config):
             region_config["delete_pipeline"] = True
-            for mc_name, mc_config in region_config.get("management_clusters", {}).items():
+            for mc_name, mc_config in region_config.get("provision_mcs", {}).items():
                 if mc_config is None:
-                    region_config["management_clusters"][mc_name] = mc_config = {}
+                    region_config["provision_mcs"][mc_name] = mc_config = {}
                 mc_config["delete_pipeline"] = True
 
         git.modify_config(TARGET_ENVIRONMENT, self.region, set_delete_pipeline_flag)

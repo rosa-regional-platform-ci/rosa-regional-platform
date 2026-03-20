@@ -34,29 +34,36 @@ dns:
   # @used-by dns.domain pipeline-provisioner-inputs/terraform.json.j2
   domain: ""
 
-terraform_common:
-  # @doc terraform_common.app_code Application code for cost tagging.
-  # @used-by terraform_common.app_code pipeline-management-cluster-inputs/terraform.json.j2
-  # @used-by terraform_common.app_code pipeline-regional-cluster-inputs/terraform.json.j2
+terraform_tags:
+  # @doc terraform_tags.app_code Application code for cost tagging.
+  # @used-by terraform_tags.app_code pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_tags.app_code pipeline-regional-cluster-inputs/terraform.json.j2
   app_code: "infra"
-  # @doc terraform_common.service_phase Service deployment phase.
-  # @used-by terraform_common.service_phase pipeline-management-cluster-inputs/terraform.json.j2
-  # @used-by terraform_common.service_phase pipeline-regional-cluster-inputs/terraform.json.j2
+  # @doc terraform_tags.service_phase Service deployment phase.
+  # @used-by terraform_tags.service_phase pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_tags.service_phase pipeline-regional-cluster-inputs/terraform.json.j2
   service_phase: "dev"
-  # @doc terraform_common.cost_center Cost center code for billing.
-  # @used-by terraform_common.cost_center pipeline-management-cluster-inputs/terraform.json.j2
-  # @used-by terraform_common.cost_center pipeline-regional-cluster-inputs/terraform.json.j2
+  # @doc terraform_tags.cost_center Cost center code for billing.
+  # @used-by terraform_tags.cost_center pipeline-management-cluster-inputs/terraform.json.j2
+  # @used-by terraform_tags.cost_center pipeline-regional-cluster-inputs/terraform.json.j2
   cost_center: "000"
-  # @doc terraform_common.enable_bastion Enable bastion host for cluster access.
-  # @used-by terraform_common.enable_bastion pipeline-management-cluster-inputs/terraform.json.j2
-  # @used-by terraform_common.enable_bastion pipeline-regional-cluster-inputs/terraform.json.j2
+
+regional_cluster:
+  # @doc regional_cluster.enable_bastion Enable bastion host for regional cluster access.
+  # @used-by regional_cluster.enable_bastion pipeline-regional-cluster-inputs/terraform.json.j2
   enable_bastion: false
-  # @doc terraform_common.node_instance_types_management EC2 instance types for management cluster nodes.
-  # @used-by terraform_common.node_instance_types_management _context
-  node_instance_types_management: ["t3.medium", "t3a.medium"]
-  # @doc terraform_common.node_instance_types_regional EC2 instance types for regional cluster nodes.
-  # @used-by terraform_common.node_instance_types_regional _context
-  node_instance_types_regional: ["t3.medium", "t3a.medium"]
+  # @doc regional_cluster.node_instance_types EC2 instance types for regional cluster nodes.
+  # @used-by regional_cluster.node_instance_types pipeline-regional-cluster-inputs/terraform.json.j2
+  node_instance_types: ["t3.medium", "t3a.medium"]
+
+management_cluster_defaults:
+  # @doc management_cluster_defaults.enable_bastion Default enable bastion for management clusters.
+  # @used-by management_cluster_defaults.enable_bastion _context
+  # @used-by management_cluster_defaults.enable_bastion pipeline-management-cluster-inputs/terraform.json.j2
+  enable_bastion: false
+  # @doc management_cluster_defaults.node_instance_types Default EC2 instance types for MC nodes.
+  # @used-by management_cluster_defaults.node_instance_types _context
+  node_instance_types: ["t3.medium", "t3a.medium"]
 
 applications:
   management-cluster:
@@ -81,16 +88,19 @@ applications:
     # @used-by applications.regional-cluster.someOtherSetting _context
     someOtherSetting: "value"
 
-# management_clusters: MC topology, defined per-region. Keys are MC IDs.
+# provision_mcs: MC topology, defined per-region. Keys are MC IDs.
 # Fields below are injected into templates as mc.* by render.py.
 #   mc01:
 #     # @doc mc.account_id Per-MC AWS account ID. Defaults to aws.management_cluster_account_id.
 #     # @used-by mc.account_id pipeline-management-cluster-inputs/terraform.json.j2
 #     # @used-by mc.account_id pipeline-provisioner-inputs/management-cluster.json.j2
 #     account_id: "123456789012"
-#     # @doc mc.node_instance_types_management Per-MC instance types. Defaults to terraform_common.node_instance_types_management.
-#     # @used-by mc.node_instance_types_management pipeline-management-cluster-inputs/terraform.json.j2
-#     node_instance_types_management: ["m5.large"]
+#     # @doc mc.enable_bastion Per-MC bastion override. Defaults to management_cluster_defaults.enable_bastion.
+#     # @used-by mc.enable_bastion pipeline-management-cluster-inputs/terraform.json.j2
+#     enable_bastion: true
+#     # @doc mc.node_instance_types Per-MC instance types. Defaults to management_cluster_defaults.node_instance_types.
+#     # @used-by mc.node_instance_types pipeline-management-cluster-inputs/terraform.json.j2
+#     node_instance_types: ["m5.large"]
 #     # @doc mc.delete Triggers infrastructure destruction for this MC.
 #     # @used-by mc.delete pipeline-management-cluster-inputs/terraform.json.j2
 #     delete: true
@@ -105,6 +115,4 @@ applications:
 # @used-by mc.management_id pipeline-provisioner-inputs/management-cluster.json.j2
 
 # Per-region fields: Can be overridden at region level in <env>/<region>.yaml
-#
-# @doc node_instance_types_regional Per-region instance types override. Defaults to terraform_common.node_instance_types_regional.
-# @used-by node_instance_types_regional pipeline-regional-cluster-inputs/terraform.json.j2
+# These are now part of the regional_cluster stanza above.

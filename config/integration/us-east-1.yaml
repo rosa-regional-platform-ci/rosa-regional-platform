@@ -1,2 +1,2 @@
-management_clusters:
+provision_mcs:
   mc01: {}

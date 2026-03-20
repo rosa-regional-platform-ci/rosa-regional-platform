@@ -1,0 +1,36 @@
+git:
+  revision: main
+  bootstrap_revision: main
+aws:
+  account_id: ssm:///infra/{{ environment }}/{{ aws_region }}/account_id
+  management_cluster_account_id: ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id
+dns:
+  domain: ''
+terraform_tags:
+  app_code: infra
+  service_phase: dev
+  cost_center: '000'
+regional_cluster:
+  enable_bastion: true
+  node_instance_types:
+  - t3.medium
+  - t3a.medium
+management_cluster_defaults:
+  enable_bastion: true
+  node_instance_types:
+  - t3.medium
+  - t3a.medium
+applications:
+  management-cluster:
+    hypershift:
+      oidcStorageS3Bucket:
+        name: hypershift-mc-{{ aws_region }}
+        region: '{{ aws_region }}'
+      externalDns:
+        domain: dev.{{ aws_region }}.rosa.example.com
+  regional-cluster:
+    maestro:
+      mqttEndpoint: xxx.iot.{{ aws_region }}.amazonaws.com
+    someOtherSetting: value
+provision_mcs:
+  mc01: {}

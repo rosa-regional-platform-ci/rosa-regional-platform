@@ -191,7 +191,9 @@ def build_context(
     # Resolve templated config values that other templates depend on
     aws = ctx.get("aws", {})
     ctx["account_id"] = resolve_templates(aws.get("account_id", ""), ctx)
-    ctx["terraform_common"] = resolve_templates(ctx.get("terraform_common", {}), ctx)
+    ctx["terraform_tags"] = resolve_templates(ctx.get("terraform_tags", {}), ctx)
+    ctx["regional_cluster"] = resolve_templates(ctx.get("regional_cluster", {}), ctx)
+    ctx["management_cluster_defaults"] = resolve_templates(ctx.get("management_cluster_defaults", {}), ctx)
     ctx["dns"] = ctx.get("dns", {})
 
     return ctx
@@ -201,7 +203,7 @@ def build_mc_list(
     ctx: dict[str, Any], merged: dict[str, Any], ci_prefix: str
 ) -> tuple[list[dict], list[str]]:
     """Build management cluster entries with resolved template values."""
-    mc_dict = merged.get("management_clusters", {})
+    mc_dict = merged.get("provision_mcs", {})
     default_mc_account = merged.get("aws", {}).get("management_cluster_account_id")
     mc_list = []
     mc_account_ids = []
@@ -513,7 +515,7 @@ def main() -> int:
         # Region definitions (env-level)
         region_defs = {}
         for region, cfg in region_configs.items():
-            mc_ids = [f"{ci_prefix}-{k}" if ci_prefix else k for k in cfg.get("management_clusters", {})]
+            mc_ids = [f"{ci_prefix}-{k}" if ci_prefix else k for k in cfg.get("provision_mcs", {})]
             region_defs[region] = {
                 "name": env_name, "environment": env_name,
                 "aws_region": region, "management_clusters": mc_ids,
@@ -556,6 +558,11 @@ def main() -> int:
                 mc_id = mc["management_id"]
                 render_file(templates_dir, "pipeline-provisioner-inputs/management-cluster.json", mc_ctx, out_dir / "pipeline-provisioner-inputs" / f"management-cluster-{mc_id}.json")
                 render_file(templates_dir, "pipeline-management-cluster-inputs/terraform.json", mc_ctx, out_dir / f"pipeline-management-cluster-{mc_id}-inputs" / "terraform.json")
+
+            # Write merged config for debugging
+            config_output = out_dir / "config.yaml"
+            write_output(yaml.dump(merged, default_flow_style=False, sort_keys=False, width=float("inf")), config_output)
+            print(f"  [OK] {config_output}")
 
         print()
 
