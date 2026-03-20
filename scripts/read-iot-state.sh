@@ -40,11 +40,7 @@ _READ_IOT_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _READ_IOT_REPO_ROOT="$(cd "$_READ_IOT_SCRIPT_DIR/.." && pwd)"
 _READ_IOT_TF_DIR="$_READ_IOT_REPO_ROOT/terraform/config/maestro-agent-iot-provisioning"
 
-if [ "$_READ_IOT_REGION" = "us-east-1" ]; then
-    _READ_IOT_STATE_BUCKET="terraform-state-${_READ_IOT_RC_ACCOUNT_ID}"
-else
-    _READ_IOT_STATE_BUCKET="terraform-state-${_READ_IOT_RC_ACCOUNT_ID}-${_READ_IOT_REGION}"
-fi
+_READ_IOT_STATE_BUCKET="terraform-state-${_READ_IOT_RC_ACCOUNT_ID}-${_READ_IOT_REGION}"
 _READ_IOT_STATE_KEY="maestro-agent-iot/${_READ_IOT_CLUSTER_ID}.tfstate"
 
 echo "Reading IoT state from RC account..."

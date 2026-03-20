@@ -23,11 +23,7 @@ echo ""
 use_rc_account
 
 RC_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-if [ "$TARGET_REGION" = "us-east-1" ]; then
-    IOT_STATE_BUCKET="terraform-state-${RC_ACCOUNT_ID}"
-else
-    IOT_STATE_BUCKET="terraform-state-${RC_ACCOUNT_ID}-${TARGET_REGION}"
-fi
+IOT_STATE_BUCKET="terraform-state-${RC_ACCOUNT_ID}-${TARGET_REGION}"
 IOT_STATE_KEY="maestro-agent-iot/${CLUSTER_ID}.tfstate"
 
 echo "IoT Terraform state:"
