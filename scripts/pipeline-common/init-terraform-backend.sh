@@ -33,7 +33,11 @@ CLUSTER_ID=$3
 
 # Detect state bucket from the current (target) account
 TARGET_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${REGION}"
+if [ "$REGION" = "us-east-1" ]; then
+    TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
+else
+    TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${REGION}"
+fi
 
 # Configure Terraform region via environment variable
 export TF_VAR_region="${REGION}"

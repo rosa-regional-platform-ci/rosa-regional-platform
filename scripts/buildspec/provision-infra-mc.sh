@@ -55,7 +55,11 @@ fi
 use_mc_account
 
 # Configure Terraform backend (state in MC target account)
-export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${TARGET_REGION}"
+if [ "$TARGET_REGION" = "us-east-1" ]; then
+    export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
+else
+    export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${TARGET_REGION}"
+fi
 export TF_STATE_KEY="management-cluster/${MANAGEMENT_ID}.tfstate"
 export TF_STATE_REGION="${TARGET_REGION}"
 

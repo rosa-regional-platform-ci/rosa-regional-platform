@@ -33,7 +33,11 @@ echo "  Regional ID: ${REGIONAL_ID}"
 echo ""
 
 # Configure Terraform backend (state in target account)
-export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${TARGET_REGION}"
+if [ "$TARGET_REGION" = "us-east-1" ]; then
+    export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
+else
+    export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${TARGET_REGION}"
+fi
 export TF_STATE_KEY="regional-cluster/${REGIONAL_ID}.tfstate"
 export TF_STATE_REGION="${TARGET_REGION}"
 
