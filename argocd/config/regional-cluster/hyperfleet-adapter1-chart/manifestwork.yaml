@@ -79,9 +79,8 @@ spec:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
             hyperfleet.io/generation: "{{ .generationId }}"
-        type: Opaque
-        data:
-          .dockerconfigjson: "{{ .secretData }}"
+        type: "{{ resources.fetchPullSecret.type }}"
+        data: "{{ resources.fetchPullSecret.data | toJson }}"
 
       - apiVersion: hypershift.openshift.io/v1beta1
         kind: HostedCluster
