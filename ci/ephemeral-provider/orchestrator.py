@@ -50,7 +50,8 @@ class EphemeralEnvOrchestrator:
         # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
         self.pipeline_prefix = f"{ci_prefix}-"
         self.aws: AWSCredentials | None = None
-        self.monitor: PipelineMonitor | None = None
+        self.central_monitor: PipelineMonitor | None = None
+        self.target_monitor: PipelineMonitor | None = None
         self.git: GitManager | None = None
 
     def provision(self, save_state: str | None = None):
@@ -70,7 +71,8 @@ class EphemeralEnvOrchestrator:
         git.render_and_push("ci: add ephemeral environment and render deploy files")
 
         # Bootstrap pipeline provisioner
-        self.monitor = PipelineMonitor(self.aws.session)
+        self.central_monitor = PipelineMonitor(self.aws.session)
+        self.target_monitor = PipelineMonitor(self.aws.target_session)
         self._bootstrap_pipeline_provisioner(git)
 
         # Wait for provisioning pipelines
@@ -104,7 +106,8 @@ class EphemeralEnvOrchestrator:
         self.git = git
         git.checkout_ci_branch(self.ci_prefix)
 
-        self.monitor = PipelineMonitor(self.aws.session)
+        self.central_monitor = PipelineMonitor(self.aws.session)
+        self.target_monitor = PipelineMonitor(self.aws.target_session)
         self._run_teardown(git, fire_and_forget=fire_and_forget)
 
     def collect_codebuild_logs(self):
@@ -124,7 +127,11 @@ class EphemeralEnvOrchestrator:
             return
 
         artifact_path = Path(artifact_dir) / "codebuild-logs"
+        # Central region logs (pipeline-provisioner CodeBuild)
         files = download_codebuild_logs(self.aws.session, self.ci_prefix, artifact_path)
+        # Target region logs (RC/MC CodeBuild projects)
+        if self.aws.target_region != self.aws.central_region:
+            files.extend(download_codebuild_logs(self.aws.target_session, self.ci_prefix, artifact_path))
 
         # Redact sensitive values (AWS keys, session tokens) from Prow artifacts
         for f in files:
@@ -234,14 +241,14 @@ class EphemeralEnvOrchestrator:
         log.info("Provision: Waiting for Pipelines")
         log.info("==========================================")
 
-        # Wait for pipeline-provisioner (newly created, so any execution is ours)
-        provisioner_exec_id = self.monitor.wait_for_any_execution(self.provisioner_name)
-        self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
+        # Wait for pipeline-provisioner (in central region, us-east-1)
+        provisioner_exec_id = self.central_monitor.wait_for_any_execution(self.provisioner_name)
+        self.central_monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
-        # Discover RC/MC pipelines by CI prefix, excluding the provisioner itself
+        # Discover RC/MC pipelines (in target region) by CI prefix, excluding the provisioner
         all_pipelines = [
             (name, exec_id)
-            for name, exec_id in self.monitor.discover_pipelines(self.pipeline_prefix)
+            for name, exec_id in self.target_monitor.discover_pipelines(self.pipeline_prefix)
             if name != self.provisioner_name
         ]
         if not all_pipelines:
@@ -252,7 +259,7 @@ class EphemeralEnvOrchestrator:
         with ThreadPoolExecutor(max_workers=len(all_pipelines)) as executor:
             # Submit all monitoring tasks
             future_to_pipeline = {
-                executor.submit(self.monitor.wait_for_completion, name, exec_id): name
+                executor.submit(self.target_monitor.wait_for_completion, name, exec_id): name
                 for name, exec_id in all_pipelines
             }
 
@@ -285,7 +292,7 @@ class EphemeralEnvOrchestrator:
         log.info("==========================================")
 
         regional_account_id = self.aws.get_target_account_id("regional")
-        state_bucket = f"terraform-state-{regional_account_id}"
+        state_bucket = f"terraform-state-{regional_account_id}-{self.region}"
         state_key = f"regional-cluster/{self.ci_prefix}-regional.tfstate"
         tf_dir = git.work_dir / "terraform" / "config" / "regional-cluster"
 
@@ -344,8 +351,8 @@ class EphemeralEnvOrchestrator:
         log.info("Teardown: Infrastructure Destroy")
         log.info("==========================================")
 
-        # Snapshot known executions before pushing delete flags
-        pipeline_known = self.monitor.snapshot_pipeline_executions(self.pipeline_prefix)
+        # Snapshot known executions (RC/MC pipelines are in the target region)
+        pipeline_known = self.target_monitor.snapshot_pipeline_executions(self.pipeline_prefix)
 
         def set_delete_flag(region_config):
             region_config["delete"] = True
@@ -364,10 +371,10 @@ class EphemeralEnvOrchestrator:
             )
             return
 
-        # Discover and wait for RC/MC pipeline executions (infra destroy)
+        # Discover and wait for RC/MC pipeline executions (infra destroy, target region)
         teardown_pipelines = [
             (name, exec_id)
-            for name, exec_id in self.monitor.discover_pipelines(self.pipeline_prefix, pipeline_known)
+            for name, exec_id in self.target_monitor.discover_pipelines(self.pipeline_prefix, pipeline_known)
             if name != self.provisioner_name
         ]
 
@@ -375,7 +382,7 @@ class EphemeralEnvOrchestrator:
         if teardown_pipelines:
             with ThreadPoolExecutor(max_workers=len(teardown_pipelines)) as executor:
                 future_to_pipeline = {
-                    executor.submit(self.monitor.wait_for_completion, name, exec_id): name
+                    executor.submit(self.target_monitor.wait_for_completion, name, exec_id): name
                     for name, exec_id in teardown_pipelines
                 }
 
@@ -393,8 +400,8 @@ class EphemeralEnvOrchestrator:
         log.info("Teardown: Pipeline Destroy")
         log.info("==========================================")
 
-        # Snapshot again before pushing delete_pipeline flags
-        provisioner_known = self.monitor.get_execution_ids(self.provisioner_name)
+        # Snapshot again before pushing delete_pipeline flags (provisioner is in central region)
+        provisioner_known = self.central_monitor.get_execution_ids(self.provisioner_name)
 
         def set_delete_pipeline_flag(region_config):
             region_config["delete_pipeline"] = True
@@ -405,11 +412,11 @@ class EphemeralEnvOrchestrator:
 
         git.modify_config(TARGET_ENVIRONMENT, self.region, set_delete_pipeline_flag)
 
-        # Wait for pipeline-provisioner to destroy the pipelines
-        provisioner_exec_id = self.monitor.wait_for_new_execution(
+        # Wait for pipeline-provisioner to destroy the pipelines (central region)
+        provisioner_exec_id = self.central_monitor.wait_for_new_execution(
             self.provisioner_name, provisioner_known
         )
-        self.monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
+        self.central_monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
         # Phase 3: Destroy pipeline-provisioner via terraform destroy
         log.info("")
@@ -439,7 +446,7 @@ class EphemeralEnvOrchestrator:
                     "-reconfigure",
                     f"-backend-config=bucket={state_bucket}",
                     f"-backend-config=key={state_key}",
-                    f"-backend-config=region={self.region}",
+                    f"-backend-config=region={self.aws.central_region}",
                     "-backend-config=use_lockfile=true",
                 ],
                 cwd=bootstrap_dir,

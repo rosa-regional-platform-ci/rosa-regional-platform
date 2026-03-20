@@ -23,7 +23,7 @@ echo ""
 use_rc_account
 
 RC_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-IOT_STATE_BUCKET="terraform-state-${RC_ACCOUNT_ID}"
+IOT_STATE_BUCKET="terraform-state-${RC_ACCOUNT_ID}-${TARGET_REGION}"
 IOT_STATE_KEY="maestro-agent-iot/${CLUSTER_ID}.tfstate"
 
 echo "IoT Terraform state:"
