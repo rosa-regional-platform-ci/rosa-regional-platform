@@ -236,26 +236,27 @@ class GitManager:
             )
         self.push(message)
 
-    def modify_config(self, environment: str, callback):
-        """Load an environment config file, apply callback modifications, render, and push.
+    def modify_config(self, environment: str, region: str, callback):
+        """Load a region config file, apply callback modifications, render, and push.
 
         Args:
-            environment: Environment name (maps to config/environments/<name>.config.yaml)
-            callback: A function that receives and modifies the environment config dict.
+            environment: Environment name (e.g. "ci").
+            region: AWS region (e.g. "us-east-1"), maps to config/<env>/<region>.yaml.
+            callback: A function that receives and modifies the region config dict.
         """
-        env_file = self.work_dir / "config" / "environments" / f"{environment}.config.yaml"
-        if not env_file.exists():
+        region_file = self.work_dir / "config" / environment / f"{region}.yaml"
+        if not region_file.exists():
             raise FileNotFoundError(
-                f"Environment config not found: {env_file}"
+                f"Region config not found: {region_file}"
             )
 
-        with open(env_file) as f:
-            env_config = yaml.safe_load(f) or {}
+        with open(region_file) as f:
+            region_config = yaml.safe_load(f) or {}
 
-        callback(env_config)
+        callback(region_config)
 
-        with open(env_file, "w") as f:
-            yaml.dump(env_config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        with open(region_file, "w") as f:
+            yaml.dump(region_config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
-        self.render_and_push(f"ci: update {environment} config")
+        self.render_and_push(f"ci: update {environment}/{region} config")
 
