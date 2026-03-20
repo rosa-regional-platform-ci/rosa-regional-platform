@@ -149,15 +149,20 @@ echo ""
 # Retry registration to handle transient failures (e.g. Maestro still
 # starting after RC bootstrap — the /live check only validates the
 # Platform API pod, not downstream dependencies like Maestro).
+# Initial delay is intentionally short (15s) to recover fast on quick
+# Maestro startups; subsequent delays are capped at 30s.
 set +e
 REG_MAX_RETRIES=10
-REG_RETRY_DELAY=30
+REG_RETRY_DELAY_INITIAL=15
+REG_RETRY_DELAY_MAX=30
 REG_RETRY_COUNT=0
 REG_OK=false
+REG_START_TIME=$(date +%s)
 
 while [ $REG_RETRY_COUNT -lt $REG_MAX_RETRIES ]; do
     REG_RETRY_COUNT=$((REG_RETRY_COUNT + 1))
-    echo "Registration attempt $REG_RETRY_COUNT/$REG_MAX_RETRIES..."
+    REG_ELAPSED=$(( $(date +%s) - REG_START_TIME ))
+    echo "Registration attempt $REG_RETRY_COUNT/$REG_MAX_RETRIES (elapsed: ${REG_ELAPSED}s)..."
 
     # Use curl with AWS SigV4 signing (built into curl, no extra deps)
     # Session token header is required when using assumed-role (temporary)
@@ -180,9 +185,10 @@ while [ $REG_RETRY_COUNT -lt $REG_MAX_RETRIES ]; do
     echo "Response: $RESPONSE"
     echo ""
 
-    # 201 = created, 409/502 = already exists (both are fine)
-    if [ "$HTTP_CODE" = "201" ]; then
-        echo "Management cluster '${CLUSTER_ID}' registered successfully."
+    # 200/201 = success (200 handles idempotent re-registration if API returns OK instead of Created)
+    # 409/502 = already exists — both are acceptable (502 is a known Maestro quirk for duplicates)
+    if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+        echo "Management cluster '${CLUSTER_ID}' registered successfully (HTTP $HTTP_CODE)."
         REG_OK=true
         break
     elif [ "$HTTP_CODE" = "409" ] || [ "$HTTP_CODE" = "502" ]; then
@@ -195,14 +201,17 @@ while [ $REG_RETRY_COUNT -lt $REG_MAX_RETRIES ]; do
         break
     fi
 
-    # 500 with maestro-error is transient during startup; retry
+    # Any other status (e.g. 500/503) is treated as transient during Maestro startup; retry
+    REG_RETRY_DELAY=$REG_RETRY_DELAY_MAX
+    [ $REG_RETRY_COUNT -eq 1 ] && REG_RETRY_DELAY=$REG_RETRY_DELAY_INITIAL
     echo "Registration failed (HTTP $HTTP_CODE), retrying in ${REG_RETRY_DELAY}s..."
     sleep $REG_RETRY_DELAY
 done
 set -e
 
 if [ "$REG_OK" != "true" ]; then
-    echo "ERROR: Registration failed after $REG_MAX_RETRIES attempts (last HTTP $HTTP_CODE)"
+    REG_ELAPSED=$(( $(date +%s) - REG_START_TIME ))
+    echo "ERROR: Registration failed after $REG_MAX_RETRIES attempts over ${REG_ELAPSED}s (last HTTP $HTTP_CODE)"
     echo "Response: $RESPONSE"
     exit 1
 fi
