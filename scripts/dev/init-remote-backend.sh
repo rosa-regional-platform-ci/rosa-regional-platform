@@ -218,7 +218,11 @@ echo ""
 
 echo "==> Detecting target account..."
 TARGET_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${REGION}"
+if [ "$REGION" = "us-east-1" ]; then
+    TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
+else
+    TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${REGION}"
+fi
 echo "    Account:  $TARGET_ACCOUNT_ID"
 echo "    Bucket:   $TF_STATE_BUCKET"
 

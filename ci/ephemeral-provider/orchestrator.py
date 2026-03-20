@@ -292,7 +292,8 @@ class EphemeralEnvOrchestrator:
         log.info("==========================================")
 
         regional_account_id = self.aws.get_target_account_id("regional")
-        state_bucket = f"terraform-state-{regional_account_id}-{self.region}"
+        suffix = f"-{self.region}" if self.region != "us-east-1" else ""
+        state_bucket = f"terraform-state-{regional_account_id}{suffix}"
         state_key = f"regional-cluster/{self.ci_prefix}-regional.tfstate"
         tf_dir = git.work_dir / "terraform" / "config" / "regional-cluster"
 

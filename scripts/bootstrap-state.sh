@@ -14,7 +14,11 @@ fi
 
 REGION=${1:-$(aws configure get region 2>/dev/null)}
 REGION=${REGION:-us-east-1}
-BUCKET_NAME="terraform-state-${ACCOUNT_ID}-${REGION}"
+if [ "$REGION" = "us-east-1" ]; then
+    BUCKET_NAME="terraform-state-${ACCOUNT_ID}"
+else
+    BUCKET_NAME="terraform-state-${ACCOUNT_ID}-${REGION}"
+fi
 
 echo "Bootstrapping Terraform State in $REGION..."
 echo "Bucket: $BUCKET_NAME"

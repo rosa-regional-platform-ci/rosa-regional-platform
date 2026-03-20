@@ -150,7 +150,11 @@ echo ""
 # Configure State Backend
 # =============================================================================
 
-IOT_STATE_BUCKET="${IOT_STATE_BUCKET:-terraform-state-${AWS_ACCOUNT_ID}-${AWS_REGION}}"
+if [ "$AWS_REGION" = "us-east-1" ]; then
+    IOT_STATE_BUCKET="${IOT_STATE_BUCKET:-terraform-state-${AWS_ACCOUNT_ID}}"
+else
+    IOT_STATE_BUCKET="${IOT_STATE_BUCKET:-terraform-state-${AWS_ACCOUNT_ID}-${AWS_REGION}}"
+fi
 IOT_STATE_KEY="${IOT_STATE_KEY:-maestro-agent-iot/${CLUSTER_ID}.tfstate}"
 IOT_STATE_REGION="${IOT_STATE_REGION:-${AWS_REGION}}"
 
