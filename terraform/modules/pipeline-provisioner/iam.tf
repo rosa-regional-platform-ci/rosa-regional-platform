@@ -71,6 +71,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "lambda:CreateFunction",
           "lambda:DeleteFunction",
           "lambda:GetFunction",
+          "lambda:GetFunctionCodeSigningConfig",
           "lambda:GetFunctionConfiguration",
           "lambda:GetPolicy",
           "lambda:ListVersionsByFunction",
