@@ -2,9 +2,7 @@
   "us-east-1": {
     "aws_region": "us-east-1",
     "environment": "ci",
-    "management_clusters": [
-      "mc01"
-    ],
+    "management_clusters": [],
     "name": "ci"
   }
 }
