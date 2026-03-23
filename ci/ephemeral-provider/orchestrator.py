@@ -129,9 +129,8 @@ class EphemeralEnvOrchestrator:
         artifact_path = Path(artifact_dir) / "codebuild-logs"
         # Central region logs (pipeline-provisioner CodeBuild)
         files = download_codebuild_logs(self.aws.session, self.ci_prefix, artifact_path)
-        # Target region logs (RC/MC CodeBuild projects)
-        if self.aws.target_region != self.aws.central_region:
-            files.extend(download_codebuild_logs(self.aws.target_session, self.ci_prefix, artifact_path))
+        # RC/MC builds live in the target account even when both sessions use the same region.
+        files.extend(download_codebuild_logs(self.aws.target_session, self.ci_prefix, artifact_path))
 
         # Redact sensitive values (AWS keys, session tokens) from Prow artifacts
         for f in files:
