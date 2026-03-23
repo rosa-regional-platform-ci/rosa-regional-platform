@@ -65,6 +65,57 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Resource = "*"
       },
       {
+        Sid    = "LambdaManagement"
+        Effect = "Allow"
+        Action = [
+          "lambda:CreateFunction",
+          "lambda:DeleteFunction",
+          "lambda:GetFunction",
+          "lambda:GetFunctionConfiguration",
+          "lambda:GetPolicy",
+          "lambda:ListVersionsByFunction",
+          "lambda:ListTags",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
+          "lambda:AddPermission",
+          "lambda:RemovePermission"
+        ]
+        Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:*pipeline-failure-notifier"
+      },
+      {
+        Sid    = "EventBridgeManagement"
+        Effect = "Allow"
+        Action = [
+          "events:PutRule",
+          "events:DeleteRule",
+          "events:DescribeRule",
+          "events:PutTargets",
+          "events:RemoveTargets",
+          "events:ListTargetsByRule",
+          "events:ListTagsForResource"
+        ]
+        Resource = "arn:aws:events:*:${data.aws_caller_identity.current.account_id}:rule/*pipeline-failure-detection"
+      },
+      {
+        Sid    = "CloudWatchLogsDescribe"
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups"
+        ]
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:*"
+      },
+      {
+        Sid    = "CloudWatchLogsLambda"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+          "logs:PutRetentionPolicy",
+          "logs:ListTagsForResource"
+        ]
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*pipeline-failure-notifier:*"
+      },
+      {
         Effect = "Allow"
         Action = [
           "ssm:GetParameter",
