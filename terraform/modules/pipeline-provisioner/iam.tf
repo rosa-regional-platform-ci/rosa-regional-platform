@@ -60,7 +60,9 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "codestar-connections:*",
           "iam:*",
           "s3:*",
-          "route53:*"
+          "route53:*",
+          "lambda:*",
+          "events:*"
         ]
         Resource = "*"
       },
