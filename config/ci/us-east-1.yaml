@@ -5,3 +5,4 @@ management_clusters:
   mc01:
     delete: true
 delete: true
+delete_pipeline: true
