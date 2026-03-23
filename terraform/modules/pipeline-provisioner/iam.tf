@@ -114,7 +114,10 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:PutRetentionPolicy",
           "logs:ListTagsForResource"
         ]
-        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*pipeline-failure-notifier:*"
+        Resource = [
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*pipeline-failure-notifier",
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*pipeline-failure-notifier:*"
+        ]
       },
       {
         Effect = "Allow"
