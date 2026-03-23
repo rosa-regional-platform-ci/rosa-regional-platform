@@ -8,5 +8,6 @@
   "region": "us-east-1",
   "alias": "regional-us-east-1",
   "enable_bastion": false,
-  "regional_id": "ci-7d24e8-regional"
+  "regional_id": "ci-7d24e8-regional",
+  "delete": true
 }
