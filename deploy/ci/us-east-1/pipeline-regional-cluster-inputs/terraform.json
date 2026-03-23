@@ -10,5 +10,6 @@
   "enable_bastion": false,
   "regional_id": "ci-d23daf-regional",
   "node_instance_types": ["t3.medium", "t3a.medium"],
-  "management_cluster_account_ids": ["129678139271"]
+  "management_cluster_account_ids": ["129678139271"],
+  "delete": true
 }
