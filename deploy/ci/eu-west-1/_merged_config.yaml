@@ -1,4 +1,4 @@
-# Merged config: defaults.yaml → ci/defaults.yaml → ci/us-east-1.yaml
+# Merged config: defaults.yaml → ci/defaults.yaml → ci/eu-west-1.yaml
 # This file is the output of stage 1 (merge). Stage 2 feeds it to config/templates/.
 
 # =============================================================================
@@ -27,10 +27,10 @@ git:
 aws:
   # @doc aws.account_id Regional AWS account ID.
   # @used-by aws.account_id _context
-  account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
+  account_id: '599476212575'
   # @doc aws.management_cluster_account_id Default account for MCs when entry has no account_id.
   # @used-by aws.management_cluster_account_id _context
-  management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+  management_cluster_account_id: '855246887846'
 
 dns:
   # @doc dns.domain Base domain for the environment. Must be set per environment.
