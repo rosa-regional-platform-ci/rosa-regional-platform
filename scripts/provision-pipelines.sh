@@ -19,9 +19,6 @@ echo "Provisioning Pipelines"
 echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
 echo "=========================================="
 
-# Central region for SSM lookups (SSM params are stored in the central account region)
-CENTRAL_REGION="${CENTRAL_REGION:-us-east-1}"
-
 # Get central account ID for state bucket
 CENTRAL_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 TF_STATE_BUCKET="terraform-state-${CENTRAL_ACCOUNT_ID}"
@@ -301,7 +298,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         # Extract configuration from JSON
         AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
-        TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID" "$CENTRAL_REGION")
+        TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
         REGIONAL_ID=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
 
         # Read delete_pipeline from the regional-cluster provisioner input
@@ -402,7 +399,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             # Extract configuration from JSON
             AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
             TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
-            TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID" "$CENTRAL_REGION")
+            TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
             MANAGEMENT_ID=$(jq -r '.management_id // ""' "$mc_config")
 
             # Read delete_pipeline from the management-cluster provisioner input
