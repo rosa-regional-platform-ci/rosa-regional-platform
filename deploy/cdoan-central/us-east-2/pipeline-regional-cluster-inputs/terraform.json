@@ -8,7 +8,7 @@
   "region": "us-east-2",
   "alias": "regional-us-east-2",
   "enable_bastion": true,
-  "regional_id": "regional",
+  "regional_id": "ci-055145-regional",
   "node_instance_types_regional": ["t3.medium", "t3a.medium"],
   "management_cluster_account_ids": ["910485845704"]
 }
