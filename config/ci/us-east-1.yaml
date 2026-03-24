@@ -4,4 +4,6 @@ aws:
 provision_mcs:
   mc01:
     delete: true
+    delete_pipeline: true
 delete: true
+delete_pipeline: true
