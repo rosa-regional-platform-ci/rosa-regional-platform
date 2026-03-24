@@ -9,5 +9,6 @@
   "alias": "ci-f16cec-mc01",
   "management_id": "ci-f16cec-mc01",
   "regional_aws_account_id": "599476212575",
-  "node_instance_types": ["t3.medium", "t3a.medium"]
+  "node_instance_types": ["t3.medium", "t3a.medium"],
+  "enable_bastion": true
 }
