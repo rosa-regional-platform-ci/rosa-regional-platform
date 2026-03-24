@@ -1,17 +1,45 @@
 kube-prometheus-stack:
-  ## Provide a name in place of kube-prometheus-stack for `app:` labels
-  ##
   nameOverride: "monitoring"
-  ## Override the deployment namespace
-  ##
   namespaceOverride: "monitoring"
 
   crds:
     enabled: true
 
+  # Since these are not interactive clusters, we can turn off grafana
+  # and alertmanager. All of these metrics will be forwarded into RHOBS
   alertmanager:
     enabled: false
-  ## Using default values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
-  ##
   grafana:
     enabled: false
+
+  prometheus:
+    prometheusSpec:
+      replicas: 2
+      retention: "14d"
+      retentionSize: "85GB"
+
+      # This prevents us from scheduling prometheus pods on the same node
+      # or within the same AZ, so that we have at least one zone with a replica
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+
+      storageSpec:
+        volumeClaimTemplate:
+          metadata:
+            name: prometheus-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 100Gi
