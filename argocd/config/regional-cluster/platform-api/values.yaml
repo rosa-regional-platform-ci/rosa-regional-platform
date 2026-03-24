@@ -15,7 +15,7 @@ platformApi:
     name: platform-api
     image:
       repository: quay.io/cdoan0/rosa-regional-platform-api
-      tag: latest
+      tag: connect-hyperfleet-api
       pullPolicy: Always
 
     # Application arguments
