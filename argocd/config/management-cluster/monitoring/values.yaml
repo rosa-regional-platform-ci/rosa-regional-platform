@@ -1,0 +1,17 @@
+kube-prometheus-stack:
+  ## Provide a name in place of kube-prometheus-stack for `app:` labels
+  ##
+  nameOverride: "monitoring"
+  ## Override the deployment namespace
+  ##
+  namespaceOverride: "monitoring"
+
+  crds:
+    enabled: true
+
+  alertmanager:
+    enabled: false
+  ## Using default values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+  ##
+  grafana:
+    enabled: false
