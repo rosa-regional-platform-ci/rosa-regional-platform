@@ -6,10 +6,10 @@
   "environment": "kirk",
   "account_id": "ssm:///infra/kirk/us-east-1/mc01/account_id",
   "region": "us-east-1",
-  "alias": "mc01",
+  "alias": "ci-efb5b2-mc01",
   "enable_bastion": true,
   "container_image": "quay.io/redhat-services-prod/openshift/ocm-container:latest",
   "sector": "kirk",
-  "management_id": "mc01",
+  "management_id": "ci-efb5b2-mc01",
   "regional_aws_account_id": "ssm:///infra/kirk/us-east-1/account_id"
 }
