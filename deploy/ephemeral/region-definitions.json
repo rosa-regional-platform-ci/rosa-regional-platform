@@ -1,0 +1,10 @@
+{
+  "eu-west-1": {
+    "aws_region": "eu-west-1",
+    "environment": "ephemeral",
+    "management_clusters": [
+      "ci-042930-mc01"
+    ],
+    "name": "ephemeral"
+  }
+}
