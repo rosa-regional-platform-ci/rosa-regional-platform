@@ -18,10 +18,15 @@ kube-prometheus-stack:
       retention: "14d"
       retentionSize: "85GB"
 
-      # This prevents us from scheduling prometheus pods on the same node
-      # or within the same AZ, so that we have at least one zone with a replica
-      podAntiAffinity: "hard"
-      podAntiAffinityTopologyKey: "topology.kubernetes.io/zone"
+      # This prevents us from scheduling prometheus pods within the same AZ,
+      # so that we have at least one zone with a replica
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
 
       storageSpec:
         volumeClaimTemplate:
