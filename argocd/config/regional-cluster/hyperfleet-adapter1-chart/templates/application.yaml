@@ -19,7 +19,7 @@ spec:
           repository: hyperfleet-adapter
           tag: v0.1.1
           pullPolicy: Always
-        replicaCount: 2
+        replicaCount: 1
 
         # Broker configuration for hyperfleet-adapter
         # Uses hyperfleet-broker library: https://github.com/openshift-hyperfleet/hyperfleet-broker
@@ -29,10 +29,7 @@ spec:
           rabbitmq:
             enabled: false
             url: "amqps://placeholder@localhost:5671/"
-            queue: "hyperfleet-sentinel"
-            exchange: "clusters"
-            exchangeType: "topic"
-            routingKey: "#"
+
         # Subscriber configuration
         subscriber:
           parallelism: 1
@@ -71,6 +68,8 @@ spec:
 
         # AdapterConfig loaded from adapter-config.yaml file
         adapterConfig:
+          log:
+            level: debug
           create: true
           yaml: |
             {{ .Files.Get "adapter-config.yaml" | nindent 12 }}

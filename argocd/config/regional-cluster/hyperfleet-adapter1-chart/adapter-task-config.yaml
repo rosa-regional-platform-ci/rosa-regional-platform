@@ -136,17 +136,31 @@ spec:
                   cluster_id: "{{ .clusterId }}"
                   cluster_name: "{{ .clusterName }}"
 
-              # - apiVersion: v1
-              #   kind: Secret
-              #   metadata:
-              #     name: pull-secret
-              #     namespace: clusters-{{ .clusterId | lower }}
-              #     labels:
-              #       hyperfleet.io/cluster-id: "{{ .clusterId }}"
-              #     annotations:
-              #       hyperfleet.io/generation: "{{ .generationId }}"
-              #   type: "{{ resources.fetchPullSecret.type }}"
-              #   data: "{{ resources.fetchPullSecret.data | toJson }}"
+              - apiVersion: external-secrets.io/v1
+                kind: ExternalSecret
+                metadata:
+                  name: pull-secret
+                  namespace: "clusters-{{ .clusterId }}"
+                  labels:
+                    hyperfleet.io/cluster-id: "{{ .clusterId }}"
+                    hyperfleet.io/resource-type: "pull-secret"
+                  annotations:
+                    hyperfleet.io/generation: "{{ .generationId }}"
+                spec:
+                  refreshInterval: 1h
+                  secretStoreRef:
+                    name: "aws-secrets-manager"
+                    kind: ClusterSecretStore
+                  target:
+                    name: pull-secret
+                    creationPolicy: Owner
+                    template:
+                      type: kubernetes.io/dockerconfigjson
+                  data:
+                    - secretKey: .dockerconfigjson
+                      remoteRef:
+                        key: "openshift-pull-secret"
+                        property: ".dockerconfigjson"
 
               - apiVersion: v1
                 kind: Secret
