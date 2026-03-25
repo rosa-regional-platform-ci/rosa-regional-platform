@@ -340,7 +340,7 @@ resource "aws_iam_role_policy" "hyperfleet_adapter2_secrets" {
 resource "aws_eks_pod_identity_association" "hyperfleet_adapter2" {
   cluster_name    = var.eks_cluster_name
   namespace       = "hyperfleet-system"
-  service_account = "hyperfleet-adapter-sa"
+  service_account = "hyperfleet-adapter2-sa"
   role_arn        = aws_iam_role.hyperfleet_adapter2.arn
 
   tags = merge(
