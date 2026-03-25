@@ -1,0 +1,11 @@
+apiVersion: v2
+name: external-secrets
+description: External Secrets Operator for syncing AWS Secrets Manager secrets to Kubernetes
+type: application
+version: 1.0.0
+appVersion: "0.11.0"
+
+dependencies:
+  - name: external-secrets
+    version: 2.2.0
+    repository: https://charts.external-secrets.io

@@ -17,6 +17,12 @@ variable "eks_cluster_name" {
   type        = string
 }
 
+variable "openshift_pull_secret_filename" {
+  description = "Optional path to OpenShift pull secret JSON file. If not provided, secret is created empty and must be populated manually."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
