@@ -1,0 +1,116 @@
+# Thanos Operator Helm Chart Values
+# Deploys the thanos-community operator and Thanos components via CRDs
+# Source: https://github.com/thanos-community/thanos-operator
+
+# Operator configuration
+operator:
+  image:
+    repository: quay.io/thanos/thanos-operator
+    # Use a specific commit-based tag for stability
+    # Format: main-YYYY-MM-DD-COMMIT
+    # TODO: Pin to a specific release tag once thanos-operator has stable releases
+    tag: main-2025-01-15-e8a4b2c
+    pullPolicy: IfNotPresent
+
+  logLevel: info
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Namespace for Thanos components
+namespace: thanos
+
+# Object Store configuration (S3)
+objectStore:
+  # Secret name containing objstore.yml
+  secretName: thanos-objstore-config
+  # S3 configuration (populated from Terraform via ArgoCD ApplicationSet)
+  # Note: AWS SDK credential chain is used automatically (Pod Identity/IRSA)
+  config:
+    type: S3
+    bucket: ""
+    endpoint: ""
+    region: ""
+    sse_config:
+      type: "SSE-KMS"
+      kms_key_id: ""
+
+# Thanos Receive configuration
+receive:
+  enabled: true
+  # For production, use replicas: 3, replicationFactor: 2
+  replicas: 1
+  replicationFactor: 1
+  retention: 2h
+
+  # Router distributes incoming requests across ingesters
+  router:
+    replicas: 1
+
+  storage:
+    size: 50Gi
+    storageClass: ebs-immediate
+    useEmptyDir: false
+    # Set this StorageClass as cluster default (only enable if no other default exists)
+    isDefaultClass: false
+
+# Thanos Query configuration
+query:
+  enabled: true
+  replicas: 2
+
+  frontend:
+    replicas: 1
+
+# Thanos Store Gateway configuration
+storeGateway:
+  enabled: true
+  replicas: 2
+
+  storage:
+    size: 20Gi
+    storageClass: ebs-immediate
+    useEmptyDir: false
+
+# Thanos Compactor configuration
+compactor:
+  enabled: true
+
+  retentionResolutionRaw: 90d
+  retentionResolution5m: 180d
+  retentionResolution1h: 365d
+
+  storage:
+    size: 50Gi
+    storageClass: ebs-immediate
+    useEmptyDir: false
+
+# Thanos Ruler configuration (disabled by default)
+ruler:
+  enabled: false
+
+# Service Account configuration (for Thanos components, not operator)
+serviceAccount:
+  name: thanos-operator
+  annotations: {}
+
+# AWS Pod Identity configuration
+aws:
+  region: ""
+  podIdentity:
+    enabled: true
+    roleArn: ""
+
+# TargetGroupBinding for ALB integration (expose Receiver)
+targetGroupBinding:
+  enabled: true
+  targetGroupARN: ""
+  # Service created by thanos-community operator
+  serviceName: thanos-receive-router
+  port: 19291
+  targetType: ip

@@ -111,6 +111,10 @@ resource "aws_ecs_task_definition" "bootstrap" {
               api_target_group_arn: "$API_TARGET_GROUP_ARN"
               dynamodb_prefix: "$CLUSTER_NAME"
               dynamodb_region: "$AWS_REGION"
+              thanos_s3_bucket: "$THANOS_S3_BUCKET"
+              thanos_s3_endpoint: "$THANOS_S3_ENDPOINT"
+              thanos_kms_key_arn: "$THANOS_KMS_KEY_ARN"
+              thanos_role_arn: "$THANOS_ROLE_ARN"
           type: Opaque
           stringData:
             name: in-cluster

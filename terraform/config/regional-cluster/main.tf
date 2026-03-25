@@ -212,3 +212,19 @@ module "hyperfleet_infrastructure" {
   mq_instance_type   = var.hyperfleet_mq_instance_type
   mq_deployment_mode = var.hyperfleet_mq_deployment_mode
 }
+
+# =============================================================================
+# Thanos Infrastructure Module (Observability)
+# =============================================================================
+
+module "thanos_infrastructure" {
+  source = "../../modules/thanos-infrastructure"
+
+  cluster_id       = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
+
+  # Optional: customize retention and namespace
+  metrics_retention_days = var.thanos_metrics_retention_days
+  thanos_namespace       = var.thanos_namespace
+  thanos_service_account = var.thanos_service_account
+}

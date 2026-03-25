@@ -100,8 +100,16 @@ APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-bootstrap-${C
 # Extract cluster-type specific outputs
 if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
     API_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.api_target_group_arn.value // ""')
+    THANOS_S3_BUCKET=$(echo "$OUTPUTS" | jq -r '.thanos_s3_bucket_name.value // ""')
+    THANOS_S3_ENDPOINT=$(echo "$OUTPUTS" | jq -r '.thanos_s3_bucket_endpoint.value // ""')
+    THANOS_KMS_KEY_ARN=$(echo "$OUTPUTS" | jq -r '.thanos_kms_key_arn.value // ""')
+    THANOS_ROLE_ARN=$(echo "$OUTPUTS" | jq -r '.thanos_receiver_role_arn.value // ""')
 else
     API_TARGET_GROUP_ARN=""
+    THANOS_S3_BUCKET=""
+    THANOS_S3_ENDPOINT=""
+    THANOS_KMS_KEY_ARN=""
+    THANOS_ROLE_ARN=""
 fi
 
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
@@ -128,7 +136,11 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"AWS_REGION\", \"value\": \"$AWS_REGION\"},
         {\"name\": \"REGION_DEPLOYMENT\", \"value\": \"$REGION_DEPLOYMENT\"},
         {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
-        {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"}
+        {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"},
+        {\"name\": \"THANOS_S3_BUCKET\", \"value\": \"$THANOS_S3_BUCKET\"},
+        {\"name\": \"THANOS_S3_ENDPOINT\", \"value\": \"$THANOS_S3_ENDPOINT\"},
+        {\"name\": \"THANOS_KMS_KEY_ARN\", \"value\": \"$THANOS_KMS_KEY_ARN\"},
+        {\"name\": \"THANOS_ROLE_ARN\", \"value\": \"$THANOS_ROLE_ARN\"}
       ]
     }]
   }" 2>&1)

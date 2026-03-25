@@ -1,0 +1,181 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: thanos-operator
+  namespace: {{ include "thanos-operator.namespace" . }}
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: thanos-operator
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+rules:
+  # Core resources
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - services
+      - serviceaccounts
+      - endpoints
+      - pods
+      - persistentvolumeclaims
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Secrets (read-only - operator only reads thanos-objstore-config)
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  # Apps resources
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - statefulsets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Networking
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Discovery for CRDs
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  # Thanos CRDs (thanos-community)
+  - apiGroups:
+      - monitoring.thanos.io
+    resources:
+      - thanoscompacts
+      - thanosqueries
+      - thanosreceives
+      - thanosrulers
+      - thanosstores
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - monitoring.thanos.io
+    resources:
+      - thanoscompacts/status
+      - thanosqueries/status
+      - thanosreceives/status
+      - thanosrulers/status
+      - thanosstores/status
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups:
+      - monitoring.thanos.io
+    resources:
+      - thanoscompacts/finalizers
+      - thanosqueries/finalizers
+      - thanosreceives/finalizers
+      - thanosrulers/finalizers
+      - thanosstores/finalizers
+    verbs:
+      - update
+  # Leader election
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  # Events (core API)
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  # Events (events.k8s.io API)
+  - apiGroups:
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  # PodDisruptionBudgets
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: thanos-operator
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: thanos-operator
+subjects:
+  - kind: ServiceAccount
+    name: thanos-operator
+    namespace: {{ include "thanos-operator.namespace" . }}

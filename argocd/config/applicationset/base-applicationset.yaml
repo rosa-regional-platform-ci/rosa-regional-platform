@@ -56,6 +56,18 @@ spec:
                   args:
                     dynamodbRegion: '{{ .metadata.annotations.dynamodb_region }}'
                     dynamodbPrefix: '{{ .metadata.annotations.dynamodb_prefix }}'
+              # Thanos Operator values (keys must match chart's values.yaml structure)
+              aws:
+                region: '{{ .metadata.labels.aws_region }}'
+                podIdentity:
+                  roleArn: '{{ .metadata.annotations.thanos_role_arn }}'
+              objectStore:
+                config:
+                  bucket: '{{ .metadata.annotations.thanos_s3_bucket }}'
+                  endpoint: '{{ .metadata.annotations.thanos_s3_endpoint }}'
+                  region: '{{ .metadata.labels.aws_region }}'
+                  sse_config:
+                    kms_key_id: '{{ .metadata.annotations.thanos_kms_key_arn }}'
           path: '{{ .path.path }}'
           repoURL: '{{ .metadata.annotations.git_repo }}'
           targetRevision: '{{ .metadata.annotations.git_revision }}'

@@ -1,0 +1,18 @@
+{{- if and .Values.targetGroupBinding.enabled .Values.targetGroupBinding.targetGroupARN }}
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: thanos-receive
+  namespace: {{ include "thanos-operator.namespace" . }}
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+spec:
+  serviceRef:
+    # Service created by thanos-community operator for the router
+    name: {{ .Values.targetGroupBinding.serviceName | default "thanos-receive-router" }}
+    port: {{ .Values.targetGroupBinding.port }}
+  targetGroupARN: {{ .Values.targetGroupBinding.targetGroupARN | quote }}
+  targetType: {{ .Values.targetGroupBinding.targetType }}
+{{- end }}

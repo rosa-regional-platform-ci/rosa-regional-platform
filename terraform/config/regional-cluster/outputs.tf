@@ -356,3 +356,32 @@ output "hyperfleet_configuration_summary" {
   value       = module.hyperfleet_infrastructure.configuration_summary
   sensitive   = true
 }
+
+# =============================================================================
+# Thanos Infrastructure Outputs
+# =============================================================================
+
+output "thanos_s3_bucket_name" {
+  description = "S3 bucket name for Thanos metrics storage"
+  value       = module.thanos_infrastructure.s3_bucket_name
+}
+
+output "thanos_s3_bucket_endpoint" {
+  description = "S3 endpoint for Thanos configuration"
+  value       = module.thanos_infrastructure.s3_bucket_endpoint
+}
+
+output "thanos_kms_key_arn" {
+  description = "KMS key ARN for Thanos S3 encryption"
+  value       = module.thanos_infrastructure.kms_key_arn
+}
+
+output "thanos_receiver_role_arn" {
+  description = "IAM role ARN for Thanos Receiver (Pod Identity)"
+  value       = module.thanos_infrastructure.iam_role_arn
+}
+
+output "thanos_helm_values" {
+  description = "Helm values for Thanos Receiver chart (use with -f flag)"
+  value       = module.thanos_infrastructure.helm_values
+}
