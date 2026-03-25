@@ -15,6 +15,10 @@ spec:
       source: "event.generation"
       type: "int"
       required: true
+    - name: "managementClusterName"
+      source: "env.MANAGEMENT_CLUSTER_NAME"
+      type: "string"
+      required: true
 
   preconditions:
     - name: "clusterStatus"
@@ -37,13 +41,95 @@ spec:
               ? status.conditions.filter(c, c.type == "Ready")[0].status
               : "False"
 
+        # expression: "\"mc01\""  # TBC coming from placement adapter
         - name: "placementClusterName"
-          expression: "\"mc01\""  # TBC coming from placement adapter
-          description: "Unique identifier for the target maestro"
+          expression: |
+            has(spec.placement) && spec.placement != ""
+              ? spec.placement
+              : "mc01"
 
         - name: "adapterName"
           expression: "\"adapter1\""  # TBC coming from config passed to params
           description: "Unique identifier for the adapter"
+
+        - name: "region"
+          expression: |
+            has(spec.region) && spec.region != ""
+              ? spec.region
+              : "us-east-1"
+          description: "Region of the cluster"
+        - name: "vpcId"
+          expression: |
+            has(spec.vpcId) && spec.vpcId != ""
+              ? spec.vpcId
+              : ""
+          description: "VPC ID of the cluster"
+        - name: "subnetId"
+          expression: |
+            has(spec.privateSubnetIds) && spec.privateSubnetIds != ""
+              ? spec.privateSubnetIds
+              : ""
+          description: "Comma-separated subnet IDs (up to 6). Extra list slots render empty id; omit or extend manifest if your API rejects that."
+        - name: "instanceProfile"
+          expression: |
+            has(spec.workerInstanceProfileName) && spec.workerInstanceProfileName != ""
+              ? spec.workerInstanceProfileName
+              : ""
+          description: "Instance profile of the cluster"
+        - name: "securityGroupId"
+          expression: |
+            has(spec.workerSecurityGroupId) && spec.workerSecurityGroupId != ""
+              ? spec.workerSecurityGroupId
+              : ""
+          description: "Security group ID of the cluster"
+        - name: "controlPlaneOperatorARN"
+          expression: |
+            has(spec.controlPlaneOperatorRoleArn) && spec.controlPlaneOperatorRoleArn != ""
+              ? spec.controlPlaneOperatorRoleArn
+              : ""
+          description: "Control plane operator ARN of the cluster"
+        - name: "ingressARN"
+          expression: |
+            has(spec.ingressRoleArn) && spec.ingressRoleArn != ""
+              ? spec.ingressRoleArn
+              : ""
+          description: "Ingress ARN of the cluster"
+        - name: "imageRegistryARN"
+          expression: |
+            has(spec.imageRegistryRoleArn) && spec.imageRegistryRoleArn != ""
+              ? spec.imageRegistryRoleArn
+              : ""
+          description: "Image registry ARN of the cluster"
+        - name: "kubeCloudControllerARN"
+          expression: |
+            has(spec.cloudControllerManagerRoleArn) && spec.cloudControllerManagerRoleArn != ""
+              ? spec.cloudControllerManagerRoleArn
+              : ""
+          description: "Kube cloud controller ARN of the cluster"
+        - name: "nodePoolManagementARN"
+          expression: |
+            has(spec.nodePoolManagementRoleArn) && spec.nodePoolManagementRoleArn != ""
+              ? spec.nodePoolManagementRoleArn
+              : ""
+          description: "Node pool management ARN of the cluster"
+        - name: "networkARN"
+          expression: |
+            has(spec.networkConfigRoleArn) && spec.networkConfigRoleArn != ""
+              ? spec.networkConfigRoleArn
+              : ""
+          description: "Network ARN of the cluster"
+        - name: "storageARN"
+          expression: |
+            has(spec.ebscsiRoleArn) && spec.ebscsiRoleArn != ""
+              ? spec.ebscsiRoleArn
+              : ""
+          description: "Storage ARN of the cluster"
+        - name: "issuerURL"
+          expression: |
+            has(spec.oidcProviderURL) && spec.oidcProviderURL != ""
+              ? spec.oidcProviderURL
+              : ""
+          description: "Issuer URL of the cluster"
 
       # check if the cluster is not ready
       conditions:
@@ -68,7 +154,7 @@ spec:
         apiVersion: work.open-cluster-management.io/v1
         kind: ManifestWork
         metadata:
-          name: "work-{{ .clusterId | lower }}"
+          name: "work-{{ .clusterId }}"
           labels:
             # HyperFleet tracking labels
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
@@ -115,7 +201,7 @@ spec:
               - apiVersion: v1
                 kind: Namespace
                 metadata:
-                  name: "clusters-{{ .clusterId | lower }}"
+                  name: "clusters-{{ .clusterId }}"
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                     hyperfleet.io/managed-by: "{{ .metadata.name }}"
@@ -127,7 +213,7 @@ spec:
                 kind: ConfigMap
                 metadata:
                   name: "cluster-config"
-                  namespace: "clusters-{{ .clusterId | lower }}"
+                  namespace: "clusters-{{ .clusterId }}"
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                   annotations:
@@ -136,23 +222,147 @@ spec:
                   cluster_id: "{{ .clusterId }}"
                   cluster_name: "{{ .clusterName }}"
 
-              # - apiVersion: v1
-              #   kind: Secret
-              #   metadata:
-              #     name: pull-secret
-              #     namespace: clusters-{{ .clusterId | lower }}
-              #     labels:
-              #       hyperfleet.io/cluster-id: "{{ .clusterId }}"
-              #     annotations:
-              #       hyperfleet.io/generation: "{{ .generationId }}"
-              #   type: "{{ resources.fetchPullSecret.type }}"
-              #   data: "{{ resources.fetchPullSecret.data | toJson }}"
+              - apiVersion: external-secrets.io/v1
+                kind: ExternalSecret
+                metadata:
+                  name: pull-secret
+                  namespace: "clusters-{{ .clusterId }}"
+                  labels:
+                    hyperfleet.io/cluster-id: "{{ .clusterId }}"
+                    hyperfleet.io/resource-type: "pull-secret"
+                  annotations:
+                    hyperfleet.io/generation: "{{ .generationId }}"
+                spec:
+                  refreshInterval: 1h
+                  secretStoreRef:
+                    name: "aws-secrets-manager"
+                    kind: ClusterSecretStore
+                  target:
+                    name: pull-secret
+                    # creationPolicy: Owner
+                    # Set creationPolicy to Orphan to prevent the Secret from being deleted 
+                    # when the ExternalSecret is deleted. This is to potentially prevent loadbalancer deletion when the cluster is deleted.
+                    creationPolicy: Orphan
+                    template:
+                      type: kubernetes.io/dockerconfigjson
+                  data:
+                    - secretKey: .dockerconfigjson
+                      remoteRef:
+                        key: "{{ .managementClusterName }}-openshift-pull-secret"
+                        property: ".dockerconfigjson"
+
+              - apiVersion: hypershift.openshift.io/v1beta1
+                kind: HostedCluster
+                metadata:
+                  name: "{{ .clusterName }}"
+                  namespace: clusters-{{ .clusterId }}
+                  labels:
+                    hyperfleet.io/cluster-id: "{{ .clusterId }}"
+                  annotations:
+                    hyperfleet.io/generation: "{{ .generationId }}"
+                    hypershift.openshift.io/pod-security-admission-label-override: privileged
+                    hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
+                spec:
+                  infraID: "{{ .clusterId }}"
+                  dns:
+                    baseDomain: example.com
+                  release:
+                    image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+                  pullSecret:
+                    name: pull-secret
+                  sshKey:
+                    name: ssh-key
+                  networking:
+                    clusterNetwork:
+                      - cidr: 10.132.0.0/14
+                    serviceNetwork:
+                      - cidr: 172.31.0.0/16
+                    machineNetwork:
+                      - cidr: 10.0.0.0/16
+                    networkType: OVNKubernetes
+                  platform:
+                    type: AWS
+                    aws:
+                      region: "{{ .region }}"
+                      cloudProviderConfig:
+                        vpc: "{{ .vpcId }}"
+                        # subnetId is comma-separated; {{ must stay inside quoted scalars or YAML parse fails before templates run.
+                        subnet:
+                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 1 }}{{ index (splitList \",\" .subnetId) 0 | trim }}{{ end }}"
+                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 2 }}{{ index (splitList \",\" .subnetId) 1 | trim }}{{ end }}"
+                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 3 }}{{ index (splitList \",\" .subnetId) 2 | trim }}{{ end }}"
+                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 4 }}{{ index (splitList \",\" .subnetId) 3 | trim }}{{ end }}"
+                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 5 }}{{ index (splitList \",\" .subnetId) 4 | trim }}{{ end }}"
+                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 6 }}{{ index (splitList \",\" .subnetId) 5 | trim }}{{ end }}"
+                      endpointAccess: Private
+                      rolesRef:
+                        controlPlaneOperatorARN: "{{ .controlPlaneOperatorARN }}"
+                        ingressARN: "{{ .ingressARN }}"
+                        imageRegistryARN: "{{ .imageRegistryARN }}"
+                        kubeCloudControllerARN: "{{ .kubeCloudControllerARN }}"
+                        nodePoolManagementARN: "{{ .nodePoolManagementARN }}"
+                        networkARN: "{{ .networkARN }}"
+                        storageARN: "{{ .storageARN }}"
+                  issuerURL: "{{ .issuerURL }}"
+                  services:
+                    - service: APIServer
+                      servicePublishingStrategy:
+                        type: LoadBalancer
+                    - service: OAuthServer
+                      servicePublishingStrategy:
+                        type: Route
+                    - service: Konnectivity
+                      servicePublishingStrategy:
+                        type: Route
+                    - service: Ignition
+                      servicePublishingStrategy:
+                        type: Route
+                  infrastructureAvailabilityPolicy: SingleReplica
+                  controllerAvailabilityPolicy: SingleReplica
+
+              - apiVersion: hypershift.openshift.io/v1beta1
+                kind: NodePool
+                metadata:
+                  name: "{{ .clusterName }}-workers"
+                  namespace: clusters-{{ .clusterId }}
+                  labels:
+                    hyperfleet.io/cluster-id: "{{ .clusterId }}"
+                  annotations:
+                    hyperfleet.io/generation: "{{ .generationId }}"
+                spec:
+                  clusterName: "{{ .clusterName }}"
+                  replicas: 2
+                  management:
+                    autoRepair: true
+                    upgradeType: Replace
+                  release:
+                    image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+                  platform:
+                    type: AWS
+                    aws:
+                      instanceType: m6a.xlarge
+                      rootVolume:
+                        size: 120
+                        type: gp3
+                      subnet:
+                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 1 }}{{ index (splitList \",\" .subnetId) 0 | trim }}{{ end }}"
+                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 2 }}{{ index (splitList \",\" .subnetId) 1 | trim }}{{ end }}"
+                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 3 }}{{ index (splitList \",\" .subnetId) 2 | trim }}{{ end }}"
+                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 4 }}{{ index (splitList \",\" .subnetId) 3 | trim }}{{ end }}"
+                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 5 }}{{ index (splitList \",\" .subnetId) 4 | trim }}{{ end }}"
+                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 6 }}{{ index (splitList \",\" .subnetId) 5 | trim }}{{ end }}"
+                      instanceProfile: "{{ .instanceProfile }}"
+                      securityGroups:
+                        - id: "{{ .securityGroupId }}"
+                      resourceTags:
+                        - key: red-hat-managed
+                          value: "true"
 
               - apiVersion: v1
                 kind: Secret
                 metadata:
                   name: ssh-key
-                  namespace: clusters-{{ .clusterId | lower }}
+                  namespace: clusters-{{ .clusterId }}
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                   annotations:
@@ -169,7 +379,7 @@ spec:
             - resourceIdentifier:
                 group: ""
                 resource: "namespaces"
-                name: "clusters-{{ .clusterId | lower }}"
+                name: "clusters-{{ .clusterId }}"
               updateStrategy:
                 type: "ServerSideApply"
               feedbackRules:
@@ -182,27 +392,27 @@ spec:
                     - name: "creationTimestamp"
                       path: ".metadata.creationTimestamp"
 
-            # - resourceIdentifier:
-            #     group: "hypershift.openshift.io"
-            #     resource: "hostedclusters"
-            #     namespace: "clusters-{{ .clusterId }}"
-            #     name: "{{ .clusterName }}"
-            #   updateStrategy:
-            #     type: "ServerSideApply"
-            #   feedbackRules:
-            #     - type: "JSONPaths"
-            #       jsonPaths:
-            #         - name: "availableCondition"
-            #           path: ".status.conditions[?(@.type==\"Available\")].status"
-            #         - name: "degradedCondition"
-            #           path: ".status.conditions[?(@.type==\"Degraded\")].status"
-            #         - name: "controlPlaneEndpoint"
-            #           path: ".status.controlPlaneEndpoint.host"
-            #         - name: "version"
-            #           path: ".status.version.history[0].version"
+            - resourceIdentifier:
+                group: "hypershift.openshift.io"
+                resource: "hostedclusters"
+                namespace: "clusters-{{ .clusterId }}"
+                name: "{{ .clusterName }}"
+              updateStrategy:
+                type: "ServerSideApply"
+              feedbackRules:
+                - type: "JSONPaths"
+                  jsonPaths:
+                    - name: "availableCondition"
+                      path: ".status.conditions[?(@.type==\"Available\")].status"
+                    - name: "degradedCondition"
+                      path: ".status.conditions[?(@.type==\"Degraded\")].status"
+                    - name: "controlPlaneEndpoint"
+                      path: ".status.controlPlaneEndpoint.host"
+                    - name: "version"
+                      path: ".status.version.history[0].version"
       
       discovery:
-        byName: "work-{{ .clusterId | lower }}"
+        byName: "work-{{ .clusterId }}"
 
       nestedDiscoveries:
         - name: "clusterNamespace"
@@ -211,9 +421,9 @@ spec:
               labelSelector:
                 hyperfleet.io/resource-type: "namespace"
                 hyperfleet.io/cluster-id: "{{ .clusterId }}"  
-        # - name: "hostedCluster"
-        #   discovery:
-        #     byName: "{{ .clusterName }}"
+        - name: "hostedCluster"
+          discovery:
+            byName: "{{ .clusterName }}"
         - name: "clusterConfig"
           discovery:
             byName: "cluster-config"
@@ -248,32 +458,87 @@ spec:
                   ? resources.hostedClusterBundle.status.conditions.filter(c, c.type == "Applied")[0].message
                   : "ManifestWork not yet applied by Maestro agent"
 
+            # - type: "Health"
+            #   status:
+            #     expression: |
+            #       adapter.?executionStatus.orValue("") == "success"
+            #         && !adapter.?resourcesSkipped.orValue(false)
+            #       ? "True"
+            #       : "False"
+            #   reason:
+            #     expression: |
+            #       adapter.?executionStatus.orValue("") != "success"
+            #       ? "ExecutionFailed:" + adapter.?executionError.?phase.orValue("unknown")
+            #       : adapter.?resourcesSkipped.orValue(false)
+            #         ? "ResourcesSkipped"
+            #         : "Healthy"
+            #   message:
+            #     expression: |
+            #       adapter.?executionStatus.orValue("") == "success"
+            #         && !adapter.?resourcesSkipped.orValue(false)
+            #       ? "Adapter execution completed successfully"
+            #       : adapter.?resourcesSkipped.orValue(false)
+            #         ? "Resources skipped: " + adapter.?skipReason.orValue("unknown reason")
+            #         : "Adapter execution failed"
+
+
+            # Health: HostedCluster not degraded (fed back via manifestConfigs)
             - type: "Health"
               status:
                 expression: |
-                  adapter.?executionStatus.orValue("") == "success"
-                    && !adapter.?resourcesSkipped.orValue(false)
-                  ? "True"
-                  : "False"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "True" : "False")
+                  : "Unknown"
               reason:
                 expression: |
-                  adapter.?executionStatus.orValue("") != "success"
-                  ? "ExecutionFailed:" + adapter.?executionError.?phase.orValue("unknown")
-                  : adapter.?resourcesSkipped.orValue(false)
-                    ? "ResourcesSkipped"
-                    : "Healthy"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "NotDegraded" : "HostedClusterDegraded")
+                  : "ConditionNotFound"
               message:
                 expression: |
-                  adapter.?executionStatus.orValue("") == "success"
-                    && !adapter.?resourcesSkipped.orValue(false)
-                  ? "Adapter execution completed successfully"
-                  : adapter.?resourcesSkipped.orValue(false)
-                    ? "Resources skipped: " + adapter.?skipReason.orValue("unknown reason")
-                    : "Adapter execution failed"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "HostedCluster is healthy"
+                    : "HostedCluster is degraded")
+                  : "Degraded condition not yet reported"
+
+            - type: "Available"
+              status:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string
+                  : "Unknown"
+              reason:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
+                    ? "HostedClusterAvailable" : "HostedClusterNotAvailable")
+                  : "ConditionNotFound"
+              message:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
+                    ? "HostedCluster is available"
+                    : "HostedCluster not yet available")
+                  : "HostedCluster Available condition not yet reported"
 
           # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
           observed_generation:
-            expression: "generation"
+            expression: "generationId"
           observed_time: "{{ now | date \"2006-01-02T15:04:05Z07:00\" }}"
 
           data:
@@ -284,13 +549,26 @@ spec:
               creationTimestamp:
                 expression: |
                   resources.?clusterNamespace.?metadata.?creationTimestamp.orValue("")
-            configmap:
+            hostedCluster:
               name:
                 expression: |
-                  resources.?clusterConfig.?metadata.?name.orValue("")
-              creationTimestamp:
+                  has(resources.hostedCluster) && has(resources.hostedCluster.metadata)
+                  ? resources.hostedCluster.metadata.name
+                  : ""
+              apiEndpoint:
                 expression: |
-                  resources.?clusterConfig.?metadata.?creationTimestamp.orValue("")
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "controlPlaneEndpoint")
+                  ? "https://" + resources.hostedCluster.statusFeedback.values.filter(v, v.name == "controlPlaneEndpoint")[0].fieldValue.string
+                  : ""
+              version:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "version")
+                  ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "version")[0].fieldValue.string
+                  : ""
 
     postActions:
       - name: "reportClusterStatus"

@@ -1,0 +1,4 @@
+# External Secrets Operator service account (created by ESO chart)
+externalSecrets:
+  serviceAccount: external-secrets
+  namespace: external-secrets

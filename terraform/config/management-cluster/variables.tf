@@ -105,3 +105,13 @@ variable "node_instance_types" {
     error_message = "Must specify at least one instance type."
   }
 }
+
+# =============================================================================
+# HyperShift Configuration Variables
+# =============================================================================
+
+variable "openshift_pull_secret_filename" {
+  description = "Optional path to OpenShift pull secret JSON file. If not provided, secret is created empty. Can be set via TF_VAR_openshift_pull_secret_filename environment variable."
+  type        = string
+  default     = ""
+}

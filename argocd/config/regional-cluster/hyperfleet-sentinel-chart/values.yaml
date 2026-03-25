@@ -44,7 +44,14 @@ hyperfleetSentinelChart:
       repository: hyperfleet-sentinel
       tag: v0.1.1
       pullPolicy: Always
-    replicaCount: 2
+    replicaCount: 1
+
+    extraEnv:
+      - name: LOG_LEVEL
+        value: debug
+
+    logging:
+      level: debug
 
     # Broker configuration for hyperfleet-sentinel
     # Uses hyperfleet-broker library: https://github.com/openshift-hyperfleet/hyperfleet-broker
@@ -52,12 +59,14 @@ hyperfleetSentinelChart:
     broker:
       type: rabbitmq
       # Topic name for the broker
-      topic: "hyperfleet-sentinel"
+      topic: "clusters"
       rabbitmq:
         # Placeholder URL - actual value comes from BROKER_RABBITMQ_URL env var
         # which is populated from the secret created by SecretProviderClass
         url: "amqp://placeholder:placeholder@localhost:5672/"
+        queue: "hyperfleet-clusters-landing-zone"
         exchangeType: topic
+        routingKey: "#"
         # Prefetch settings for performance tuning
         # prefetchCount: 10  # Max unacknowledged messages per consumer
         # prefetchSize: 0    # Max size in bytes (0 = unlimited)
@@ -69,12 +78,27 @@ hyperfleetSentinelChart:
     # Sentinel configuration - monitors cluster resources via hyperfleet-api
     config:
       resourceType: clusters
+      # This is a list of resource types to monitor.
+      # The resource types are:
+      # - clusters
+      # - nodepools
+      # - namespaces
+      # - configmaps
+      # - secrets
+      # - services
+      # resourceSelector: [] is used to select the resources to monitor.
+      resourceSelector: []
       pollInterval: 5s
       maxAgeNotReady: 10s
       maxAgeReady: 30m
       hyperfleetApi:
         baseUrl: http://hyperfleet-api:8000
         timeout: 5s
+      messageData:
+        id: "resource.id"
+        kind: "resource.kind"
+        href: "resource.href"
+        generation: "resource.generation"
 
     # Use the secret created by SecretProviderClass instead of creating one
     existingSecret: hyperfleet-sentinel-broker-credentials
