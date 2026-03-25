@@ -24,7 +24,7 @@ spec:
         app.kubernetes.io/component: operator
         control-plane: controller-manager
     spec:
-      serviceAccountName: thanos-operator
+      serviceAccountName: {{ .Values.serviceAccount.name }}
       terminationGracePeriodSeconds: 10
       securityContext:
         runAsNonRoot: true

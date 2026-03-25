@@ -18,7 +18,7 @@ spec:
     oneHour: {{ .Values.compactor.retentionResolution1h }}
   storage:
     size: {{ .Values.compactor.storage.size }}
-    {{- if not .Values.compactor.storage.useEmptyDir }}
-    storageClassName: {{ .Values.compactor.storage.storageClass | default .Values.receive.storage.storageClass }}
+    {{- if .Values.compactor.storage.storageClass }}
+    storageClass: {{ .Values.compactor.storage.storageClass }}
     {{- end }}
 {{- end }}

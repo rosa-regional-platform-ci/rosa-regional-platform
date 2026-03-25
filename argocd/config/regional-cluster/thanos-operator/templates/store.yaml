@@ -17,7 +17,7 @@ spec:
     type: block
   storage:
     size: {{ .Values.storeGateway.storage.size }}
-    {{- if not .Values.storeGateway.storage.useEmptyDir }}
-    storageClassName: {{ .Values.storeGateway.storage.storageClass | default .Values.receive.storage.storageClass }}
+    {{- if .Values.storeGateway.storage.storageClass }}
+    storageClass: {{ .Values.storeGateway.storage.storageClass }}
     {{- end }}
 {{- end }}

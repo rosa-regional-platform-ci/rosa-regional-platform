@@ -55,7 +55,6 @@ receive:
   storage:
     size: 50Gi
     storageClass: ebs-immediate
-    useEmptyDir: false
     # Set this StorageClass as cluster default (only enable if no other default exists)
     isDefaultClass: false
 
@@ -75,7 +74,6 @@ storeGateway:
   storage:
     size: 20Gi
     storageClass: ebs-immediate
-    useEmptyDir: false
 
 # Thanos Compactor configuration
 compactor:
@@ -88,7 +86,6 @@ compactor:
   storage:
     size: 50Gi
     storageClass: ebs-immediate
-    useEmptyDir: false
 
 # Thanos Ruler configuration (disabled by default)
 ruler:

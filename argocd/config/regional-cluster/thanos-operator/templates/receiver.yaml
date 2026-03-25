@@ -21,8 +21,8 @@ spec:
           retention: {{ .Values.receive.retention }}
         storage:
           size: {{ .Values.receive.storage.size }}
-          {{- if not .Values.receive.storage.useEmptyDir }}
-          storageClassName: {{ .Values.receive.storage.storageClass }}
+          {{- if .Values.receive.storage.storageClass }}
+          storageClass: {{ .Values.receive.storage.storageClass }}
           {{- end }}
   routerSpec:
     replicas: {{ .Values.receive.router.replicas | default 1 }}
