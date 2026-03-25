@@ -1,0 +1,31 @@
+thanosReceive:
+  namespace: thanos-receive
+
+  image:
+    repository: quay.io/thanos/thanos
+    tag: v0.36.1
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  args:
+    remoteWriteAddress: "0.0.0.0:19291"
+    tenantHeader: "THANOS-TENANT"
+    defaultTenantId: "default-tenant"
+    tsdbPath: "/var/thanos/receive"
+    tsdbRetention: "15d"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  storage:
+    size: 10Gi
+
+  targetGroup:
+    arn: "PLACEHOLDER"
+    targetType: ip

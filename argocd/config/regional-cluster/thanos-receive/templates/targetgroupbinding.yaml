@@ -1,0 +1,11 @@
+apiVersion: eks.amazonaws.com/v1
+kind: TargetGroupBinding
+metadata:
+  name: {{ include "thanos-receive.name" . }}
+  namespace: {{ .Values.thanosReceive.namespace }}
+spec:
+  serviceRef:
+    name: {{ include "thanos-receive.name" . }}
+    port: 19291
+  targetGroupARN: {{ .Values.thanosReceive.targetGroup.arn }}
+  targetType: {{ .Values.thanosReceive.targetGroup.targetType }}

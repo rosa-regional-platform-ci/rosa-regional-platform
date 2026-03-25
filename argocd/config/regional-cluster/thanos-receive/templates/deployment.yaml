@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "thanos-receive.name" . }}
+  namespace: {{ .Values.thanosReceive.namespace }}
+  labels:
+    {{- include "thanos-receive.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.thanosReceive.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "thanos-receive.name" . }}
+  template:
+    metadata:
+      labels:
+        {{- include "thanos-receive.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: thanos-receive
+          image: {{ .Values.thanosReceive.image.repository }}:{{ .Values.thanosReceive.image.tag }}
+          imagePullPolicy: {{ .Values.thanosReceive.image.pullPolicy }}
+          args:
+            - receive
+            - --remote-write.address={{ .Values.thanosReceive.args.remoteWriteAddress }}
+            - --receive.default-tenant-id={{ .Values.thanosReceive.args.defaultTenantId }}
+            - --receive.tenant-header={{ .Values.thanosReceive.args.tenantHeader }}
+            - --tsdb.path={{ .Values.thanosReceive.args.tsdbPath }}
+            - --tsdb.retention={{ .Values.thanosReceive.args.tsdbRetention }}
+            - --label=receive_replica="$(NAME)"
+            - --label=receive_region="{{ .Values.global.aws_region }}"
+          env:
+            - name: NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: remote-write
+              containerPort: 19291
+              protocol: TCP
+            - name: grpc
+              containerPort: 10901
+              protocol: TCP
+            - name: http
+              containerPort: 10902
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.thanosReceive.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.thanosReceive.args.tsdbPath }}
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: {{ .Values.thanosReceive.storage.size }}
