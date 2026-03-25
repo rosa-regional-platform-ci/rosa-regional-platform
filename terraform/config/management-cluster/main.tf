@@ -88,6 +88,22 @@ module "maestro_agent" {
 # HyperShift OIDC (Private S3 + CloudFront + Pod Identity)
 # =============================================================================
 
+# =============================================================================
+# Prometheus Remote Write (Pod Identity for API Gateway access)
+# =============================================================================
+
+module "prometheus_remote_write" {
+  source = "../../modules/prometheus-remote-write"
+
+  management_id           = var.management_id
+  regional_aws_account_id = var.regional_aws_account_id
+  eks_cluster_name        = module.management_cluster.cluster_name
+}
+
+# =============================================================================
+# HyperShift OIDC (Private S3 + CloudFront + Pod Identity)
+# =============================================================================
+
 module "hypershift_oidc" {
   source = "../../modules/hypershift-oidc"
 

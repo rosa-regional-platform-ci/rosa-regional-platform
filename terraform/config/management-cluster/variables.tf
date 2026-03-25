@@ -85,6 +85,13 @@ variable "regional_aws_account_id" {
   }
 }
 
+variable "api_url" {
+  description = "API Gateway URL for the regional cluster (custom domain or invoke URL). Used by Prometheus for remote_write."
+  type        = string
+  default     = ""
+}
+
+
 variable "maestro_agent_cert_file" {
   description = "Path to JSON file containing Maestro agent certificate material (from IoT Mint outputs)"
   type        = string

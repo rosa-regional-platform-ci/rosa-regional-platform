@@ -128,6 +128,21 @@ output "maestro_agent_role_arn" {
 }
 
 # =============================================================================
+# Prometheus Remote Write Outputs
+# =============================================================================
+
+output "api_url" {
+  description = "API Gateway URL for the regional cluster"
+  value       = var.api_url
+}
+
+
+output "prometheus_role_arn" {
+  description = "IAM role ARN for Prometheus remote_write (Pod Identity)"
+  value       = module.prometheus_remote_write.prometheus_role_arn
+}
+
+# =============================================================================
 # HyperShift OIDC Outputs
 # =============================================================================
 
