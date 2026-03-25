@@ -3,7 +3,7 @@
     "aws_region": "us-east-1",
     "environment": "psav-central",
     "management_clusters": [
-      "mc01"
+      "ci-67f008-mc01"
     ],
     "name": "psav-central"
   }
