@@ -1,0 +1,42 @@
+kube-prometheus-stack:
+  nameOverride: "monitoring"
+  namespaceOverride: "monitoring"
+
+  crds:
+    enabled: true
+
+  # Since these are not interactive clusters, we can turn off grafana
+  # and alertmanager. All of these metrics will be forwarded into RHOBS
+  alertmanager:
+    enabled: false
+  grafana:
+    enabled: false
+
+  prometheus:
+    prometheusSpec:
+      replicas: 2
+      retention: "14d"
+      retentionSize: "85GB"
+      serviceMonitorSelectorNilUsesHelmValues: false
+      serviceMonitorNamespaceSelector: {}
+      serviceMonitorSelector: {}
+
+      # This prevents us from scheduling prometheus pods within the same AZ,
+      # so that we have at least one zone with a replica
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+
+      storageSpec:
+        volumeClaimTemplate:
+          metadata:
+            name: prometheus-data
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 100Gi
