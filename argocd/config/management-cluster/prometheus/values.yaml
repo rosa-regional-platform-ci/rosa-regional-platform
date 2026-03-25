@@ -1,0 +1,72 @@
+kube-prometheus-stack:
+  # -----------------------------------------------------------------------
+  # CRDs: skip installation — HyperShift chart already owns these CRDs
+  # (ServiceMonitor, PodMonitor, PrometheusRule) via its crds/ directory.
+  # -----------------------------------------------------------------------
+  crds:
+    enabled: false
+
+  # -----------------------------------------------------------------------
+  # Disable components not needed for metrics forwarding
+  # -----------------------------------------------------------------------
+  grafana:
+    enabled: false
+  alertmanager:
+    enabled: false
+  nodeExporter:
+    enabled: false
+  kubeStateMetrics:
+    enabled: true
+
+  # -----------------------------------------------------------------------
+  # Prometheus Operator
+  # -----------------------------------------------------------------------
+  prometheusOperator:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # -----------------------------------------------------------------------
+  # Prometheus Server
+  # -----------------------------------------------------------------------
+  prometheus:
+    prometheusSpec:
+      # Scrape all ServiceMonitors regardless of labels
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+
+      retention: 2h
+      replicas: 1
+
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+
+      # -------------------------------------------------------------------
+      # Remote Write via sigv4-proxy service
+      #
+      # The prometheus-operator CRD does not expose sigv4.serviceName,
+      # which defaults to "aps" (Amazon Managed Prometheus). For API
+      # Gateway we need "execute-api". Workaround: point remote_write at
+      # the sigv4-proxy service which handles signing correctly.
+      #
+      # No THANOS-TENANT header needed — API GW injects it server-side
+      # from context.identity.accountId.
+      # -------------------------------------------------------------------
+      remoteWrite:
+        - url: "http://sigv4-proxy.prometheus.svc:8005/api/v1/receive"
+
+      # Keep local storage minimal — metrics are forwarded
+      storageSpec:
+        emptyDir:
+          sizeLimit: 5Gi
