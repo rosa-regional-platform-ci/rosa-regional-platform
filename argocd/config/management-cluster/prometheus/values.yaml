@@ -1,10 +1,6 @@
 kube-prometheus-stack:
-  # -----------------------------------------------------------------------
-  # CRDs: skip installation — HyperShift chart already owns these CRDs
-  # (ServiceMonitor, PodMonitor, PrometheusRule) via its crds/ directory.
-  # -----------------------------------------------------------------------
   crds:
-    enabled: false
+    enabled: true
 
   # -----------------------------------------------------------------------
   # Disable components not needed for metrics forwarding
