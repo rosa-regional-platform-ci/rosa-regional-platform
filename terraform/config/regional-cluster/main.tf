@@ -100,6 +100,12 @@ module "api_gateway" {
   # Custom domain (e.g. api.us-east-1.int0.rosa.devshift.net)
   api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
+
+  # Cross-account access: allow current account + any additional MC accounts
+  allowed_account_ids = distinct(compact(concat(
+    [data.aws_caller_identity.current.account_id],
+    split(",", var.api_additional_allowed_accounts)
+  )))
 }
 
 # =============================================================================

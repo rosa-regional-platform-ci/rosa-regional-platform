@@ -126,6 +126,12 @@ output "api_gateway_invoke_url" {
   value       = module.api_gateway.invoke_url
 }
 
+output "api_url" {
+  description = "API URL for service-to-service calls (custom domain if available, otherwise invoke URL)"
+  value       = module.api_gateway.api_domain_name != null ? "https://${module.api_gateway.api_domain_name}" : module.api_gateway.invoke_url
+}
+
+
 output "api_gateway_id" {
   description = "API Gateway REST API ID"
   value       = module.api_gateway.api_gateway_id
@@ -134,6 +140,11 @@ output "api_gateway_id" {
 output "api_target_group_arn" {
   description = "Target group ARN for TargetGroupBinding in Kubernetes"
   value       = module.api_gateway.target_group_arn
+}
+
+output "thanos_target_group_arn" {
+  description = "Target group ARN for Thanos Receive TargetGroupBinding in Kubernetes"
+  value       = module.api_gateway.thanos_target_group_arn
 }
 
 output "api_allowed_accounts" {
