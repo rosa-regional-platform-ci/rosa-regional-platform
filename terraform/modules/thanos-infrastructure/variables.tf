@@ -38,3 +38,9 @@ variable "metrics_retention_days" {
     error_message = "Metrics retention must be at least 30 days for FedRAMP compliance."
   }
 }
+
+variable "allow_non_fips_regions" {
+  description = "Allow deployment to non-US regions without FIPS endpoints (not recommended for FedRAMP)"
+  type        = bool
+  default     = false
+}

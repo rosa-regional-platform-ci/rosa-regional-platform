@@ -242,3 +242,9 @@ variable "thanos_service_account" {
   type        = string
   default     = "thanos-operator"
 }
+
+variable "allow_non_fips_regions" {
+  description = "Allow deployment to non-US regions without FIPS endpoints (not recommended for FedRAMP)"
+  type        = bool
+  default     = false
+}
