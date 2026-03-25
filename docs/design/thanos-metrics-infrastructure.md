@@ -108,14 +108,14 @@ We implemented Thanos using the thanos-community operator to provide cross-accou
 
 ### Components Deployed
 
-| Component | Purpose | Replicas |
-|-----------|---------|----------|
-| ThanosReceive Router | Distributes incoming remote_write requests | 1 |
-| ThanosReceive Ingester | Stores received metrics locally, uploads to S3 | 1 |
-| ThanosQuery | Queries data from Store and Receiver | 2 |
-| ThanosQuery Frontend | Caches and splits queries | 1 |
-| ThanosStore | Serves historical data from S3 | 2 |
-| ThanosCompact | Compacts and downsamples S3 data | 1 |
+| Component              | Purpose                                        | Replicas |
+| ---------------------- | ---------------------------------------------- | -------- |
+| ThanosReceive Router   | Distributes incoming remote_write requests     | 1        |
+| ThanosReceive Ingester | Stores received metrics locally, uploads to S3 | 1        |
+| ThanosQuery            | Queries data from Store and Receiver           | 2        |
+| ThanosQuery Frontend   | Caches and splits queries                      | 1        |
+| ThanosStore            | Serves historical data from S3                 | 2        |
+| ThanosCompact          | Compacts and downsamples S3 data               | 1        |
 
 ### Terraform Resources
 
@@ -126,12 +126,12 @@ We implemented Thanos using the thanos-community operator to provide cross-accou
 
 ### Key Configuration Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| StorageClass provisioner | `ebs.csi.eks.amazonaws.com` | EKS Auto Mode uses managed CSI driver |
-| Volume binding mode | `WaitForFirstConsumer` | Allows scheduler to pick node before volume provisioning |
-| S3 endpoint | `s3-fips.{region}.amazonaws.com` | FedRAMP compliance requirement |
-| Operator image tag | `main-2025-01-15-e8a4b2c` | Pinned commit for stability until stable releases |
+| Decision                 | Choice                           | Rationale                                                |
+| ------------------------ | -------------------------------- | -------------------------------------------------------- |
+| StorageClass provisioner | `ebs.csi.eks.amazonaws.com`      | EKS Auto Mode uses managed CSI driver                    |
+| Volume binding mode      | `WaitForFirstConsumer`           | Allows scheduler to pick node before volume provisioning |
+| S3 endpoint              | `s3-fips.{region}.amazonaws.com` | FedRAMP compliance requirement                           |
+| Operator image tag       | `main-2025-01-15-e8a4b2c`        | Pinned commit for stability until stable releases        |
 
 ## Related Documentation
 
