@@ -14,5 +14,5 @@ output "prometheus_role_arn" {
 
 output "pod_identity_association_id" {
   description = "EKS Pod Identity association ID"
-  value       = aws_eks_pod_identity_association.prometheus.association_id
+  value       = aws_eks_pod_identity_association.sigv4_proxy.association_id
 }
