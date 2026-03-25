@@ -11,6 +11,11 @@ data "aws_region" "current" {}
 locals {
   bucket_name = "${var.cluster_id}-thanos-metrics"
   role_name   = "${var.cluster_id}-thanos"
+
+  # FIPS endpoints are only available in US regions and GovCloud
+  fips_regions = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  use_fips     = contains(local.fips_regions, data.aws_region.current.name)
+  s3_endpoint  = local.use_fips ? "s3-fips.${data.aws_region.current.name}.amazonaws.com" : "s3.${data.aws_region.current.name}.amazonaws.com"
 }
 
 # =============================================================================
@@ -66,6 +71,14 @@ resource "aws_kms_alias" "thanos" {
 
 resource "aws_s3_bucket" "thanos" {
   bucket = local.bucket_name
+
+  # Warn about FedRAMP compliance when deploying to non-US regions
+  lifecycle {
+    precondition {
+      condition     = local.use_fips || var.allow_non_fips_regions
+      error_message = "FedRAMP compliance requires FIPS endpoints. Deploy to US regions (us-east-1, us-east-2, us-west-1, us-west-2) or set allow_non_fips_regions=true to override."
+    }
+  }
 
   tags = {
     Name = local.bucket_name

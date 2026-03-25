@@ -224,7 +224,8 @@ module "thanos_infrastructure" {
   eks_cluster_name = module.regional_cluster.cluster_name
 
   # Optional: customize retention and namespace
-  metrics_retention_days = var.thanos_metrics_retention_days
-  thanos_namespace       = var.thanos_namespace
-  thanos_service_account = var.thanos_service_account
+  metrics_retention_days  = var.thanos_metrics_retention_days
+  thanos_namespace        = var.thanos_namespace
+  thanos_service_account  = var.thanos_service_account
+  allow_non_fips_regions  = var.allow_non_fips_regions
 }

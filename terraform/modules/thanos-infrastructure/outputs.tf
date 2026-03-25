@@ -13,8 +13,8 @@ output "s3_bucket_arn" {
 }
 
 output "s3_bucket_endpoint" {
-  description = "S3 endpoint for Thanos configuration"
-  value       = "s3-fips.${data.aws_region.current.name}.amazonaws.com"
+  description = "S3 endpoint for Thanos configuration (FIPS in US regions, standard otherwise)"
+  value       = local.s3_endpoint
 }
 
 output "kms_key_arn" {
@@ -42,6 +42,11 @@ output "region" {
   value       = data.aws_region.current.name
 }
 
+output "fips_enabled" {
+  description = "Whether FIPS endpoints are being used (required for FedRAMP in US regions)"
+  value       = local.use_fips
+}
+
 # =============================================================================
 # Helm Values Output
 #
@@ -63,7 +68,7 @@ output "helm_values" {
         type = "S3"
         config = {
           bucket       = aws_s3_bucket.thanos.id
-          endpoint     = "s3-fips.${data.aws_region.current.name}.amazonaws.com"
+          endpoint     = local.s3_endpoint
           region       = data.aws_region.current.name
           aws_sdk_auth = true
           sse_config = {
