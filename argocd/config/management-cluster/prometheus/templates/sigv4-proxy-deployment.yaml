@@ -23,9 +23,9 @@ spec:
             - --name
             - execute-api
             - --region
-            - {{ .Values.global.aws_region | quote }}
+            - {{ .Values.global.aws_region | default "" | quote }}
             - --host
-            - {{ (urlParse .Values.global.api_url).host | quote }}
+            - {{ (urlParse (.Values.global.api_url | default "")).host | quote }}
             - --port
             - ":8005"
             - --unsigned-payload
