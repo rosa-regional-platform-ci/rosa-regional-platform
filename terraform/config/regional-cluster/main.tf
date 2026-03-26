@@ -101,18 +101,11 @@ module "api_gateway" {
   api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
 
-}
-
-# =============================================================================
-# RHOBS API Gateway (HTTP API v2 for Thanos Receive)
-# =============================================================================
-
-module "rhobs_api_gateway" {
-  source = "../../modules/rhobs-api-gateway"
-
-  regional_id      = var.regional_id
-  vpc_link_id      = module.api_gateway.vpc_link_id
-  alb_listener_arn = module.api_gateway.alb_listener_arn
+  # Cross-account access: allow current account + any additional MC accounts
+  allowed_account_ids = distinct(compact(concat(
+    [data.aws_caller_identity.current.account_id],
+    split(",", var.api_additional_allowed_accounts)
+  )))
 }
 
 # =============================================================================

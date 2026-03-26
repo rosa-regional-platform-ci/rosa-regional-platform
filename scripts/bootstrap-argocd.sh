@@ -108,7 +108,6 @@ fi
 
 # Extract API URL and host (available from both RC and MC terraform outputs)
 API_URL=$(echo "$OUTPUTS" | jq -r '.api_url.value // ""')
-RHOBS_API_URL=$(echo "$OUTPUTS" | jq -r '.rhobs_api_url.value // ""')
 
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
@@ -136,8 +135,7 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
         {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"},
         {\"name\": \"THANOS_TARGET_GROUP_ARN\", \"value\": \"$THANOS_TARGET_GROUP_ARN\"},
-        {\"name\": \"API_URL\", \"value\": \"$API_URL\"},
-        {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"}
+        {\"name\": \"API_URL\", \"value\": \"$API_URL\"}
       ]
     }]
   }" 2>&1)

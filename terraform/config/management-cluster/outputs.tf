@@ -136,10 +136,6 @@ output "api_url" {
   value       = var.api_url
 }
 
-output "rhobs_api_url" {
-  description = "RHOBS API Gateway URL for Thanos remote write"
-  value       = var.rhobs_api_url
-}
 
 output "prometheus_role_arn" {
   description = "IAM role ARN for Prometheus remote_write (Pod Identity)"

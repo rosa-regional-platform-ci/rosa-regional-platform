@@ -86,13 +86,7 @@ variable "regional_aws_account_id" {
 }
 
 variable "api_url" {
-  description = "API Gateway URL for the regional cluster (custom domain or invoke URL). Used by Platform API."
-  type        = string
-  default     = ""
-}
-
-variable "rhobs_api_url" {
-  description = "RHOBS API Gateway URL for Thanos remote write (HTTP API v2 invoke URL)."
+  description = "API Gateway URL for the regional cluster (custom domain or invoke URL). Used by Prometheus for remote_write."
   type        = string
   default     = ""
 }
