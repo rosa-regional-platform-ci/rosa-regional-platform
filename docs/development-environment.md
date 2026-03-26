@@ -166,6 +166,33 @@ ip-10-0-1-42.ec2.internal    Ready    <none>   2h    v1.31.4-eks-aeac579
 
 The bastion task stays running until explicitly stopped or until the environment is torn down (teardown automatically cleans up running bastion tasks).
 
+## Port Forwarding
+
+Forward ports from services running on a cluster's bastion to your local machine. This is useful for accessing cluster-internal services (e.g. the Prometheus UI, ArgoCD UI) without needing a full shell session.
+
+> ⚠️ _Bastion must be enabled in your environment config (`enable_bastion: true` in `defaults.yaml`). The default ephemeral preset already has it enabled._
+
+```bash
+# Select a specific service on the Regional Cluster to port-forward
+make ephemeral-port-forward-rc
+
+# Select a specific service on the Management Cluster to port-forward
+make ephemeral-port-forward-mc
+
+# Forward all services for the Regional Cluster automatically
+make ephemeral-port-forward-rc-all
+
+# Forward all services for the Management Cluster automatically
+make ephemeral-port-forward-mc-all
+
+# Explicit environment selection
+make ephemeral-port-forward-rc ID=6bd2d3d7
+```
+
+When no `ID` is provided and only one ready environment exists, it is selected automatically. When multiple environments are ready, an interactive `fzf` picker is shown.
+
+The single-service variants (`ephemeral-port-forward-rc` / `ephemeral-port-forward-mc`) present a multi-select picker so you can choose one or more services to forward. The `-all` variants skip the picker and open forwards for every available service at once.
+
 ## Run E2E Tests
 
 Run the end-to-end test suite against one of your development environments:
