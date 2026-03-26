@@ -48,6 +48,11 @@ variable "bastion_security_group_id" {
   description = "Optional bastion security group ID for RDS access (if bastion is enabled)"
   type        = string
   default     = null
+
+  validation {
+    condition     = !var.bastion_enabled || (var.bastion_security_group_id != null && var.bastion_security_group_id != "")
+    error_message = "bastion_security_group_id must be set when bastion_enabled is true."
+  }
 }
 
 # Database configuration

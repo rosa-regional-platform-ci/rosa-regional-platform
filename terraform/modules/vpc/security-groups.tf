@@ -38,6 +38,8 @@ resource "aws_vpc_security_group_ingress_rule" "cluster_https" {
   cidr_ipv4         = var.vpc_cidr
 }
 
+# Broad HTTPS egress is intentional: nodes must reach external registries (Quay.io, Red Hat)
+# that cannot be scoped to AWS-managed prefix lists or VPC endpoints. To be restricted in a future update.
 resource "aws_vpc_security_group_egress_rule" "cluster_https_registries" {
   security_group_id = aws_security_group.eks_cluster.id
   description       = "Allow HTTPS for container registries (Quay.io, Red Hat)"

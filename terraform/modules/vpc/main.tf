@@ -7,10 +7,6 @@
 # - VPC endpoints for AWS service access without internet routing
 # =============================================================================
 
-locals {
-  azs = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 3)
-}
-
 # -----------------------------------------------------------------------------
 # VPC and Internet Gateway
 # -----------------------------------------------------------------------------
