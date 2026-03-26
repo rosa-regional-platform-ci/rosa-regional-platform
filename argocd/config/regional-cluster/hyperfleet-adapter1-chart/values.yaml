@@ -20,7 +20,7 @@ hyperfleetAdapter1Chart:
     # Chart path within the repository
     path: charts
     # Target revision/tag
-    targetRevision: v0.1.1
+    targetRevision: main
 
   # Sync policy configuration
   syncPolicy:
