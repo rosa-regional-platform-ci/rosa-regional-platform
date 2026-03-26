@@ -20,6 +20,10 @@ resource "aws_api_gateway_rest_api" "main" {
   name        = "${var.regional_id}-api"
   description = var.api_description
 
+  # Binary media types — API GW passes these payloads through as-is
+  # without text encoding. Required for Prometheus remote_write (protobuf).
+  binary_media_types = ["application/x-protobuf"]
+
   endpoint_configuration {
     types = ["REGIONAL"]
   }
