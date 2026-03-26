@@ -62,7 +62,7 @@ maestroServer:
   metrics:
     enabled: true
     serviceMonitor:
-      enabled: false # Enable when Prometheus Operator is deployed
+      enabled: true
   # Service configuration
   service:
     http:
