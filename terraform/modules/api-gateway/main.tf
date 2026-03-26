@@ -103,6 +103,7 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_resource.api_v1_receive.id,
       aws_api_gateway_method.thanos_receive.id,
       aws_api_gateway_integration.thanos_receive.id,
+      aws_api_gateway_rest_api.main.binary_media_types,
     ]))
   }
 
