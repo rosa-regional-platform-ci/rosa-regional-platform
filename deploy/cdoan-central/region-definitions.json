@@ -3,7 +3,7 @@
     "aws_region": "us-east-2",
     "environment": "cdoan-central",
     "management_clusters": [
-      "mc01"
+      "ci-c57161-mc01"
     ],
     "name": "cdoan-central"
   }
