@@ -39,3 +39,6 @@ hyperfleetAdapter1Chart:
 secretProvider:
   # Name of the SecretProviderClass
   name: hyperfleet-adapter1-secrets
+
+serviceMonitor:
+  enabled: true
