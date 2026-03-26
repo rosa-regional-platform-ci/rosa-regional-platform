@@ -44,6 +44,7 @@ if [ "${DELETE_FLAG}" == "true" ]; then
     export TF_VAR_maestro_agent_cert_file=$(mktemp)
     export TF_VAR_maestro_agent_config_file=$(mktemp)
     export TF_VAR_api_url=""
+    export TF_VAR_rhobs_api_url=""
 else
     echo "Reading IoT certificate data from RC account state..."
     use_rc_account
@@ -61,7 +62,9 @@ else
         -backend-config="region=${TARGET_REGION}" \
         -backend-config="use_lockfile=true" >/dev/null 2>&1)
     export TF_VAR_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw api_url 2>/dev/null || echo "")
-    echo "  API URL:  ${TF_VAR_api_url:-<not available>}"
+    export TF_VAR_rhobs_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw rhobs_api_url 2>/dev/null || echo "")
+    echo "  API URL:       ${TF_VAR_api_url:-<not available>}"
+    echo "  RHOBS API URL: ${TF_VAR_rhobs_api_url:-<not available>}"
 fi
 
 # =====================================================================

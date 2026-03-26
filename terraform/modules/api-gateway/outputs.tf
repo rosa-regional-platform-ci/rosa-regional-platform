@@ -64,6 +64,11 @@ output "thanos_target_group_arn" {
   value       = aws_lb_target_group.thanos.arn
 }
 
+output "alb_listener_arn" {
+  description = "ALB listener ARN for VPC Link integration (shared with RHOBS API GW)"
+  value       = aws_lb_listener.platform.arn
+}
+
 # -----------------------------------------------------------------------------
 # Security Groups
 # -----------------------------------------------------------------------------

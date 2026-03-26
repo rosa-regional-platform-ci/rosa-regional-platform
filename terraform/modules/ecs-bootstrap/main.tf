@@ -111,6 +111,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               api_target_group_arn: "$API_TARGET_GROUP_ARN"
               thanos_target_group_arn: "$THANOS_TARGET_GROUP_ARN"
               api_url: "$API_URL"
+              rhobs_api_url: "$RHOBS_API_URL"
               dynamodb_prefix: "$CLUSTER_NAME"
               dynamodb_region: "$AWS_REGION"
           type: Opaque
