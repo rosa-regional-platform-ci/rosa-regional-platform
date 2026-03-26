@@ -56,74 +56,74 @@ spec:
           description: "Region of the cluster"
         - name: "vpcId"
           expression: |
-            has(spec.parameters) && has(spec.parameters.vpcId)
-              ? spec.parameters.vpcId
+            has(spec.vpcId) && spec.vpcId != ""
+              ? spec.vpcId
               : ""
           description: "VPC ID of the cluster"
         - name: "subnetId"
           expression: |
-            has(spec.parameters) && has(spec.parameters.privateSubnetIds)
-              ? spec.parameters.privateSubnetIds
+            has(spec.privateSubnetIds) && spec.privateSubnetIds != ""
+              ? spec.privateSubnetIds
               : ""
           description: "Subnet ID of the cluster"
         - name: "instanceProfile"
           expression: |
-            has(spec.parameters) && has(spec.parameters.workerInstanceProfileName)
-              ? spec.parameters.workerInstanceProfileName
+            has(spec.workerInstanceProfileName) && spec.workerInstanceProfileName != ""
+              ? spec.workerInstanceProfileName
               : ""
           description: "Instance profile of the cluster"
         - name: "securityGroupId"
           expression: |
-            has(spec.parameters) && has(spec.parameters.workerSecurityGroupId)
-              ? spec.parameters.workerSecurityGroupId
+            has(spec.workerSecurityGroupId) && spec.workerSecurityGroupId != ""
+              ? spec.workerSecurityGroupId
               : ""
           description: "Security group ID of the cluster"
         - name: "controlPlaneOperatorARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.controlPlaneOperatorRoleArn)
-              ? spec.parameters.controlPlaneOperatorRoleArn
+            has(spec.controlPlaneOperatorRoleArn) && spec.controlPlaneOperatorRoleArn != ""
+              ? spec.controlPlaneOperatorRoleArn
               : ""
           description: "Control plane operator ARN of the cluster"
         - name: "ingressARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.ingressRoleArn)
-              ? spec.parameters.ingressRoleArn
+            has(spec.ingressRoleArn) && spec.ingressRoleArn != ""
+              ? spec.ingressRoleArn
               : ""
           description: "Ingress ARN of the cluster"
         - name: "imageRegistryARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.imageRegistryRoleArn)
-              ? spec.parameters.imageRegistryRoleArn
+            has(spec.imageRegistryRoleArn) && spec.imageRegistryRoleArn != ""
+              ? spec.imageRegistryRoleArn
               : ""
           description: "Image registry ARN of the cluster"
         - name: "kubeCloudControllerARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.cloudControllerManagerRoleArn)
-              ? spec.parameters.cloudControllerManagerRoleArn
+            has(spec.cloudControllerManagerRoleArn) && spec.cloudControllerManagerRoleArn != ""
+              ? spec.cloudControllerManagerRoleArn
               : ""
           description: "Kube cloud controller ARN of the cluster"
         - name: "nodePoolManagementARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.nodePoolManagementRoleArn)
-              ? spec.parameters.nodePoolManagementRoleArn
+            has(spec.nodePoolManagementRoleArn) && spec.nodePoolManagementRoleArn != ""
+              ? spec.nodePoolManagementRoleArn
               : ""
           description: "Node pool management ARN of the cluster"
         - name: "networkARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.networkConfigRoleArn)
-              ? spec.parameters.networkConfigRoleArn
+            has(spec.networkConfigRoleArn) && spec.networkConfigRoleArn != ""
+              ? spec.networkConfigRoleArn
               : ""
           description: "Network ARN of the cluster"
         - name: "storageARN"
           expression: |
-            has(spec.parameters) && has(spec.parameters.ebscsiRoleArn)
-              ? spec.parameters.ebscsiRoleArn
+            has(spec.ebscsiRoleArn) && spec.ebscsiRoleArn != ""
+              ? spec.ebscsiRoleArn
               : ""
           description: "Storage ARN of the cluster"
         - name: "issuerURL"
           expression: |
-            has(spec.parameters) && has(spec.parameters.oidcProviderURL)
-              ? spec.parameters.oidcProviderURL
+            has(spec.oidcProviderURL) && spec.oidcProviderURL != ""
+              ? spec.oidcProviderURL
               : ""
           description: "Issuer URL of the cluster"
 
@@ -276,11 +276,11 @@ spec:
                   platform:
                     type: AWS
                     aws:
-                      region: "{{ region }}"
+                      region: "{{ .region }}"
                       cloudProviderConfig:
-                        vpc: "{{ vpcId }}"
+                        vpc: "{{ .vpcId }}"
                         subnet:
-                          id: "{{ subnetId }}"
+                          id: "{{ .subnetId }}"
                       endpointAccess: Private
                       rolesRef:
                         controlPlaneOperatorARN: "{{ .controlPlaneOperatorARN }}"
