@@ -46,6 +46,12 @@ resource "aws_eks_cluster" "main" {
     enabled       = true
     node_pools    = ["general-purpose"]
     node_role_arn = aws_iam_role.eks_auto_mode_node.arn
+
+    # TODO: Enable IMDSv2 enforcement for security compliance
+    # node_pool_defaults configuration for launch template metadata_options
+    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
+    # Will be implemented when provider support becomes available.
+    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
   }
 
   kubernetes_network_config {
