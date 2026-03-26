@@ -29,7 +29,7 @@ spec:
             - --port
             - ":8005"
             - --unsigned-payload
-            - --strip-headers
+            - --strip
             - Content-Encoding
           ports:
             - name: proxy
