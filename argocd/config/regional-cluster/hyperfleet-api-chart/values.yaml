@@ -40,7 +40,7 @@ hyperfleet-api-chart:
       tag: v0.1.1
       pullPolicy: Always
     replicaCount: 2
-    
+
     database:
       sslMode: require
       postgresql:
@@ -73,6 +73,9 @@ hyperfleet-api-chart:
         - adapter2
       nodepool:
         - adapter3
+
+    serviceMonitor:
+      enabled: true
 
 # SecretProviderClass configuration for AWS Pod Identity
 secretProviderClass:
