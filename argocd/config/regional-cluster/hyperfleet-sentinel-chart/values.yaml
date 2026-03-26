@@ -103,6 +103,10 @@ hyperfleetSentinelChart:
         mountPath: /mnt/secrets-store
         readOnly: true
 
+    monitoring:
+      serviceMonitor:
+        enabled: true
+
 # SecretProviderClass configuration for AWS Secrets Manager
 secretProvider:
   # Enable SecretProviderClass creation
