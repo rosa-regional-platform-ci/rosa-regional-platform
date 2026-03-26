@@ -49,43 +49,82 @@ spec:
           description: "Unique identifier for the adapter"
 
         - name: "region"
-          expression: "{{ spec.parameters.region }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.region)
+              ? spec.parameters.region
+              : "us-east-1"
           description: "Region of the cluster"
         - name: "vpcId"
-          expression: "{{ spec.parameters.vpcId }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.vpcId)
+              ? spec.parameters.vpcId
+              : ""
           description: "VPC ID of the cluster"
         - name: "subnetId"
-          expression: "{{ spec.parameters.subnetId }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.subnetId)
+              ? spec.parameters.subnetId
+              : ""
           description: "Subnet ID of the cluster"
         - name: "instanceProfile"
-          expression: "{{ spec.parameters.instanceProfile }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.instanceProfile)
+              ? spec.parameters.instanceProfile
+              : ""
           description: "Instance profile of the cluster"
         - name: "securityGroupId"
-          expression: "{{ spec.parameters.securityGroupId }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.securityGroupId)
+              ? spec.parameters.securityGroupId
+              : ""
           description: "Security group ID of the cluster"
         - name: "controlPlaneOperatorARN"
-          expression: "{{ spec.parameters.controlPlaneOperatorARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.controlPlaneOperatorARN)
+              ? spec.parameters.controlPlaneOperatorARN
+              : ""
           description: "Control plane operator ARN of the cluster"
         - name: "ingressARN"
-          expression: "{{ spec.parameters.ingressARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.ingressARN)
+              ? spec.parameters.ingressARN
+              : ""
           description: "Ingress ARN of the cluster"
         - name: "imageRegistryARN"
-          expression: "{{ spec.parameters.imageRegistryARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.imageRegistryARN)
+              ? spec.parameters.imageRegistryARN
+              : ""
           description: "Image registry ARN of the cluster"
         - name: "kubeCloudControllerARN"
-          expression: "{{ spec.parameters.kubeCloudControllerARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.kubeCloudControllerARN)
+              ? spec.parameters.kubeCloudControllerARN
+              : ""
           description: "Kube cloud controller ARN of the cluster"
         - name: "nodePoolManagementARN"
-          expression: "{{ spec.parameters.nodePoolManagementARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.nodePoolManagementARN)
+              ? spec.parameters.nodePoolManagementARN
+              : ""
           description: "Node pool management ARN of the cluster"
         - name: "networkARN"
-          expression: "{{ spec.parameters.networkARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.networkARN)
+              ? spec.parameters.networkARN
+              : ""
           description: "Network ARN of the cluster"
         - name: "storageARN"
-          expression: "{{ spec.parameters.storageARN }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.storageARN)
+              ? spec.parameters.storageARN
+              : ""
           description: "Storage ARN of the cluster"
         - name: "issuerURL"
-          expression: "{{ spec.parameters.issuerURL }}"
+          expression: |
+            has(spec.parameters) && has(spec.parameters.issuerURL)
+              ? spec.parameters.issuerURL
+              : ""
           description: "Issuer URL of the cluster"
 
       # check if the cluster is not ready
