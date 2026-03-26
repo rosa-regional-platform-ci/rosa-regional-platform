@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.platformApi.app.name }}
+  namespace: {{ .Values.platformApi.namespace }}
+  labels:
+    app: {{ .Values.platformApi.app.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.platformApi.app.name }}
+  endpoints:
+    - port: metrics
