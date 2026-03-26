@@ -7,7 +7,7 @@ Component repositories (e.g., `rosa-regional-platform-api`) can run the rosa-reg
 A reusable [step-registry workflow](https://github.com/openshift/release/tree/master/ci-operator/step-registry/rosa-regional-platform/ephemeral-e2e) in `openshift/release` handles everything:
 
 1. **Image build** — ci-operator builds the component's Docker image from the PR source
-2. **Image push** — The image is copied to `quay.io/rrp-dev-ci/` (public, so EKS can pull it without credentials), tagged `ci-<PR>-<BUILD_ID>`, expires after 24h
+2. **Image push** — The image is copied to `quay.io/rrp-dev-ci/` using `oc image mirror` from the OCP `cli` image (public, so EKS can pull it without credentials), tagged `ci-<PR>-<BUILD_ID>`
 3. **Provision** — Ephemeral environment provisioned from `rosa-regional-platform` main, with the component's Helm chart image overridden to point at the PR image
 4. **E2E tests** — `./ci/e2e-tests.sh` from rosa-regional-platform runs against the environment
 5. **Teardown** — Ephemeral environment torn down (fire-and-forget)
@@ -18,7 +18,7 @@ Component repos do **not** need their own e2e tests — the test suite in this r
 
 | Step | Image | Purpose |
 |------|-------|---------|
-| `rosa-regional-platform-image-push` | `nested-podman` | Copies CI-built image to quay.io using skopeo |
+| `rosa-regional-platform-image-push` | `cli` | Copies CI-built image to quay.io using `oc image mirror` |
 | `rosa-regional-platform-provision` | `rosa-regional-platform-ci` | Clones this repo, applies Helm image override, provisions |
 | `rosa-regional-platform-e2e` | `rosa-regional-platform-ci` | Clones this repo, runs `./ci/e2e-tests.sh` |
 | `rosa-regional-platform-teardown` | `rosa-regional-platform-ci` | Clones this repo, runs teardown |
@@ -60,7 +60,19 @@ Create a **public** repository under `quay.io/rrp-dev-ci/` for the component. Gr
 
 ### Step 2: Add CI config in openshift/release
 
-Edit `ci-operator/config/openshift-online/<repo>/<org>-<repo>-<branch>.yaml`:
+Edit `ci-operator/config/openshift-online/<repo>/<org>-<repo>-<branch>.yaml`.
+
+Ensure a `releases` section exists (needed for the `cli` image used by the image-push step):
+
+```yaml
+releases:
+  latest:
+    release:
+      channel: stable
+      version: "4.21"
+```
+
+Add the test definition:
 
 ```yaml
 images:
@@ -70,7 +82,7 @@ images:
 tests:
 # ... existing tests ...
 - always_run: false
-  as: rosa-regionality-conformance-e2e
+  as: rosa-regionality-compatibility-e2e
   steps:
     dependencies:
       CI_COMPONENT_IMAGE: <pipeline-image-name>
@@ -108,18 +120,23 @@ make checkconfig
 On any PR in the component repo:
 
 ```
-/test rosa-regionality-conformance-e2e
+/test rosa-regionality-compatibility-e2e
 ```
 
 ### Example: rosa-regional-platform-api
 
 ```yaml
+releases:
+  latest:
+    release:
+      channel: stable
+      version: "4.21"
 images:
 - dockerfile_path: Dockerfile
   to: rosa-regional-platform-api
 tests:
 - always_run: false
-  as: rosa-regionality-conformance-e2e
+  as: rosa-regionality-compatibility-e2e
   steps:
     dependencies:
       CI_COMPONENT_IMAGE: rosa-regional-platform-api
@@ -131,6 +148,6 @@ tests:
 
 ## Troubleshooting
 
-- **Image push fails**: Check quay.io repo exists, is public, and robot account has push access. The step uses `nested_podman` for skopeo.
+- **Image push fails**: Check quay.io repo exists, is public, and robot account has push access. The step uses `oc image mirror` from the `cli` image. Ensure the CI config has a `releases:` section so the `cli` image is available.
 - **Provision fails**: Verify the `rosa-regional-platform-ci` promoted image exists (promotion PR merged + successful postsubmit). Check Helm values file path and yq paths match the chart.
 - **E2e tests fail**: Check `BASE_URL` resolution — it comes from terraform outputs or credentials. See [Accessing Live Job Logs](README.md#accessing-live-job-logs) for debugging.
