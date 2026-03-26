@@ -37,11 +37,11 @@ spec:
               ? status.conditions.filter(c, c.type == "Ready")[0].status
               : "False"
 
+        # expression: "\"mc01\""  # TBC coming from placement adapter
         - name: "placementClusterName"
-          # expression: "\"mc01\""  # TBC coming from placement adapter
           expression: |
-            metadata.?labels.?["placement-cluster"].orValue("") != ""
-              ? metadata.labels.["placement-cluster"].orValue("")
+            has(spec.placement) && spec.placement != ""
+              ? spec.placement
               : "mc01"
 
         - name: "adapterName"
