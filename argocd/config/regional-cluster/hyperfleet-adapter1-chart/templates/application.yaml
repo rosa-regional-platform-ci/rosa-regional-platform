@@ -80,6 +80,9 @@ spec:
           yaml: |
             {{ .Files.Get "adapter-task-config.yaml" | nindent 12 }}
 
+        serviceMonitor:
+          enabled: true
+
   destination:
     server: https://kubernetes.default.svc
     namespace: {{ .Values.hyperfleetAdapter1Chart.targetNamespace }}
