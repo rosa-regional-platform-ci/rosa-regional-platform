@@ -48,6 +48,46 @@ spec:
           expression: "\"adapter1\""  # TBC coming from config passed to params
           description: "Unique identifier for the adapter"
 
+        - name: "region"
+          expression: "{{ spec.parameters.region }}"
+          description: "Region of the cluster"
+        - name: "vpcId"
+          expression: "{{ spec.parameters.vpcId }}"
+          description: "VPC ID of the cluster"
+        - name: "subnetId"
+          expression: "{{ spec.parameters.subnetId }}"
+          description: "Subnet ID of the cluster"
+        - name: "instanceProfile"
+          expression: "{{ spec.parameters.instanceProfile }}"
+          description: "Instance profile of the cluster"
+        - name: "securityGroupId"
+          expression: "{{ spec.parameters.securityGroupId }}"
+          description: "Security group ID of the cluster"
+        - name: "controlPlaneOperatorARN"
+          expression: "{{ spec.parameters.controlPlaneOperatorARN }}"
+          description: "Control plane operator ARN of the cluster"
+        - name: "ingressARN"
+          expression: "{{ spec.parameters.ingressARN }}"
+          description: "Ingress ARN of the cluster"
+        - name: "imageRegistryARN"
+          expression: "{{ spec.parameters.imageRegistryARN }}"
+          description: "Image registry ARN of the cluster"
+        - name: "kubeCloudControllerARN"
+          expression: "{{ spec.parameters.kubeCloudControllerARN }}"
+          description: "Kube cloud controller ARN of the cluster"
+        - name: "nodePoolManagementARN"
+          expression: "{{ spec.parameters.nodePoolManagementARN }}"
+          description: "Node pool management ARN of the cluster"
+        - name: "networkARN"
+          expression: "{{ spec.parameters.networkARN }}"
+          description: "Network ARN of the cluster"
+        - name: "storageARN"
+          expression: "{{ spec.parameters.storageARN }}"
+          description: "Storage ARN of the cluster"
+        - name: "issuerURL"
+          expression: "{{ spec.parameters.issuerURL }}"
+          description: "Issuer URL of the cluster"
+
       # check if the cluster is not ready
       conditions:
         - field: "readyConditionStatus"
@@ -164,6 +204,102 @@ spec:
                       remoteRef:
                         key: "openshift-pull-secret"
                         property: ".dockerconfigjson"
+
+              - apiVersion: hypershift.openshift.io/v1beta1
+                kind: HostedCluster
+                metadata:
+                  name: "{{ .clusterName }}"
+                  namespace: clusters-{{ .clusterId | lower }}
+                  labels:
+                    hyperfleet.io/cluster-id: "{{ .clusterId }}"
+                  annotations:
+                    hyperfleet.io/generation: "{{ .generationId }}"
+                    hypershift.openshift.io/pod-security-admission-label-override: privileged
+                    hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
+                spec:
+                  infraID: "{{ .clusterId | lower }}"
+                  dns:
+                    baseDomain: example.com
+                  release:
+                    image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+                  pullSecret:
+                    name: pull-secret
+                  sshKey:
+                    name: ssh-key
+                  networking:
+                    clusterNetwork:
+                      - cidr: 10.132.0.0/14
+                    serviceNetwork:
+                      - cidr: 172.31.0.0/16
+                    machineNetwork:
+                      - cidr: 10.0.0.0/16
+                    networkType: OVNKubernetes
+                  platform:
+                    type: AWS
+                    aws:
+                      region: "{{ region }}"
+                      cloudProviderConfig:
+                        vpc: "{{ vpcId }}"
+                        subnet:
+                          id: "{{ subnetId }}"
+                      endpointAccess: Private
+                      rolesRef:
+                        controlPlaneOperatorARN: "{{ .controlPlaneOperatorARN }}"
+                        ingressARN: "{{ .ingressARN }}"
+                        imageRegistryARN: "{{ .imageRegistryARN }}"
+                        kubeCloudControllerARN: "{{ .kubeCloudControllerARN }}"
+                        nodePoolManagementARN: "{{ .nodePoolManagementARN }}"
+                        networkARN: "{{ .networkARN }}"
+                        storageARN: "{{ .storageARN }}"
+                  issuerURL: "{{ .issuerURL }}"
+                  services:
+                    - service: APIServer
+                      servicePublishingStrategy:
+                        type: LoadBalancer
+                    - service: OAuthServer
+                      servicePublishingStrategy:
+                        type: Route
+                    - service: Konnectivity
+                      servicePublishingStrategy:
+                        type: Route
+                    - service: Ignition
+                      servicePublishingStrategy:
+                        type: Route
+                  infrastructureAvailabilityPolicy: SingleReplica
+                  controllerAvailabilityPolicy: SingleReplica
+
+              - apiVersion: hypershift.openshift.io/v1beta1
+                kind: NodePool
+                metadata:
+                  name: "{{ .clusterName }}-workers"
+                  namespace: clusters-{{ .clusterId | lower }}
+                  labels:
+                    hyperfleet.io/cluster-id: "{{ .clusterId }}"
+                  annotations:
+                    hyperfleet.io/generation: "{{ .generationId }}"
+                spec:
+                  clusterName: "{{ .clusterName }}"
+                  replicas: 2
+                  management:
+                    autoRepair: true
+                    upgradeType: Replace
+                  release:
+                    image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+                  platform:
+                    type: AWS
+                    aws:
+                      instanceType: m6a.xlarge
+                      rootVolume:
+                        size: 120
+                        type: gp3
+                      subnet:
+                        id: "{{ .subnetId }}"
+                      instanceProfile: "{{ .instanceProfile }}"
+                      securityGroups:
+                        - id: "{{ .securityGroupId }}"
+                      resourceTags:
+                        - key: red-hat-managed
+                          value: "true"
 
               - apiVersion: v1
                 kind: Secret

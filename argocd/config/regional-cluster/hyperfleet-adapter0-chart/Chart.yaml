@@ -1,6 +1,0 @@
-apiVersion: v2
-name: regional-hyperfleet-adapter0
-description: A Helm chart that deploys an ArgoCD Application for hyperfleet-adapter0
-type: application
-version: 0.1.0
-appVersion: "v0.1.1"
