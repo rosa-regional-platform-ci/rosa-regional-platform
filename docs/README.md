@@ -11,7 +11,7 @@ The goal is to improve reliability, reduce dependencies on global services, and 
 The architecture consists of three layers within each region:
 
 1. **Regional Cluster (RC)** - EKS-based cluster running core services (Platform API, CLM, Maestro, ArgoCD, Tekton)
-2. **Management Clusters (MC)** - EKS clusters hosting customer Hosted Control Planes via HyperShift
+2. **Management Clusters (MC)** - EKS clusters hosting customer Hosted Control Planes via HyperShift, with Prometheus monitoring for metrics collection
 3. **Customer Hosted Clusters** - ROSA HCP clusters with control planes in MCs and workers in customer accounts
 
 ## Documentation Index
