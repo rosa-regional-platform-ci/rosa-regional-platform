@@ -97,6 +97,16 @@ def main():
              "(default: from EPHEMERAL_OVERRIDE_DIR env var)",
     )
     parser.add_argument(
+        "--provision-override-file",
+        action="append",
+        default=[],
+        metavar="TARGET:OVERRIDE",
+        help="Deep-merge a YAML override file into a repo file before committing. "
+             "Format: <target-path>:<override-file>. Can be specified multiple times. "
+             "List items are matched by 'name' key. "
+             "Example: argocd/config/regional-cluster/platform-api/values.yaml:override.yaml",
+    )
+    parser.add_argument(
         "--save-regional-state",
         metavar="PATH",
         help="Save RC terraform outputs (JSON) to PATH after provisioning",
@@ -139,6 +149,15 @@ def main():
         region = discover_region(env_config_dir)
         log.info("Region: %s (from %s)", region, env_config_dir)
 
+    # Parse --provision-override-file args into (target_path, override_file) tuples
+    provision_overrides = []
+    for entry in args.provision_override_file:
+        if ":" not in entry:
+            log.error("Invalid --provision-override-file format (expected target:override): %s", entry)
+            sys.exit(1)
+        target, override = entry.split(":", 1)
+        provision_overrides.append((target, override))
+
     env = EphemeralEnvOrchestrator(
         repo=repo,
         branch=args.branch,
@@ -146,6 +165,7 @@ def main():
         region=region,
         ci_prefix=ci_prefix,
         override_dir=override_dir,
+        provision_overrides=provision_overrides,
     )
 
     try:

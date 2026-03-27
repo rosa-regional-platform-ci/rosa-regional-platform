@@ -58,13 +58,15 @@ class EphemeralEnvOrchestrator:
     """
 
     def __init__(self, repo: str, branch: str, creds_dir: str, region: str, ci_prefix: str,
-                 override_dir: str | None = None):
+                 override_dir: str | None = None,
+                 provision_overrides: list[tuple[str, str]] | None = None):
         self.repo = repo
         self.branch = branch
         self.creds_dir = creds_dir
         self.region = region
         self.ci_prefix = ci_prefix
         self.override_dir = Path(override_dir) if override_dir else None
+        self.provision_overrides = provision_overrides or []
         self.provisioner_name = f"{ci_prefix}-pipeline-provisioner"
         # TODO: compute deterministic RC/MC pipeline names from rendered config
         # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
@@ -88,6 +90,10 @@ class EphemeralEnvOrchestrator:
 
         # Inject ephemeral environment into config.yaml (not checked into the repo)
         self._inject_ephemeral_config(git)
+
+        # Apply provision override files (deep-merge YAML fragments into repo files)
+        self._apply_provision_overrides(git)
+
         git.render_and_push("ci: add ephemeral environment and render deploy files")
 
         # Bootstrap pipeline provisioner
@@ -267,6 +273,41 @@ class EphemeralEnvOrchestrator:
 
         with open(region_file, "w") as f:
             yaml.dump(region_config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+    def _apply_provision_overrides(self, git: GitManager):
+        """Deep-merge provision override files into the cloned repo.
+
+        Each override is a (target_path, override_file) tuple where target_path
+        is relative to the repo root and override_file is an absolute path to a
+        YAML fragment. The fragment is deep-merged into the target file —
+        dict keys are merged recursively, and list items are matched by 'name'
+        field when present.
+        """
+        if not self.provision_overrides:
+            return
+
+        log.info("")
+        log.info("Applying %d provision override(s):", len(self.provision_overrides))
+
+        for target_path, override_file in self.provision_overrides:
+            target = git.work_dir / target_path
+            if not target.exists():
+                raise FileNotFoundError(
+                    f"Override target not found: {target_path} "
+                    f"(resolved to {target})"
+                )
+
+            log.info("  %s <- %s", target_path, override_file)
+
+            with open(target) as f:
+                base = yaml.safe_load(f) or {}
+            with open(override_file) as f:
+                override = yaml.safe_load(f) or {}
+
+            _deep_merge(base, override)
+
+            with open(target, "w") as f:
+                yaml.dump(base, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     def _bootstrap_pipeline_provisioner(self, git: GitManager):
         """Bootstrap the pipeline-provisioner pointing at the CI branch."""
@@ -554,6 +595,43 @@ class EphemeralEnvOrchestrator:
                 f"Terraform teardown timed out after {TEARDOWN_TIMEOUT}s"
             )
         log.info("Pipeline-provisioner destroyed.")
+
+
+def _deep_merge(base: dict, override: dict):
+    """Recursively merge override into base (mutates base).
+
+    - Dicts are merged recursively.
+    - Lists of dicts are merged by matching on the 'name' key: if both the base
+      and override item have a 'name' field, the matching base item is updated.
+      Override items with no match are appended.
+    - All other values (scalars, lists of non-dicts) are replaced by the override.
+    """
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        elif key in base and isinstance(base[key], list) and isinstance(value, list):
+            _deep_merge_lists(base[key], value)
+        else:
+            base[key] = value
+
+
+def _deep_merge_lists(base_list: list, override_list: list):
+    """Merge two lists by matching dict items on 'name' key."""
+    for override_item in override_list:
+        if isinstance(override_item, dict) and "name" in override_item:
+            match = next(
+                (b for b in base_list if isinstance(b, dict) and b.get("name") == override_item["name"]),
+                None,
+            )
+            if match:
+                _deep_merge(match, override_item)
+            else:
+                base_list.append(override_item)
+        else:
+            # Non-dict items or items without 'name': replace entire list
+            base_list.clear()
+            base_list.extend(override_list)
+            return
 
 
 # Patterns that match AWS secrets we don't want in Prow artifacts
