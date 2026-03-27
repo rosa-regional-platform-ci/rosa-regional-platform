@@ -3,5 +3,5 @@ cert-manager:
     enabled: true
     keep: true # Prevents Helm from deleting CRDs if the chart is uninstalled
   prometheus:
-    serviceMonitor:
+    servicemonitor:
       enabled: true
