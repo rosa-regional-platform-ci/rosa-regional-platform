@@ -111,6 +111,8 @@ resource "aws_ecs_task_definition" "bootstrap" {
               api_target_group_arn: "$API_TARGET_GROUP_ARN"
               dynamodb_prefix: "$CLUSTER_NAME"
               dynamodb_region: "$AWS_REGION"
+              thanos_kms_key_arn: "$THANOS_KMS_KEY_ARN"
+              aws_account_id: "$AWS_ACCOUNT_ID"
           type: Opaque
           stringData:
             name: in-cluster
@@ -159,6 +161,14 @@ resource "aws_ecs_task_definition" "bootstrap" {
         {
           name  = "AWS_DEFAULT_REGION"
           value = data.aws_region.current.id
+        },
+        {
+          name  = "THANOS_KMS_KEY_ARN"
+          value = var.thanos_kms_key_arn
+        },
+        {
+          name  = "AWS_ACCOUNT_ID"
+          value = data.aws_caller_identity.current.account_id
         }
       ]
 

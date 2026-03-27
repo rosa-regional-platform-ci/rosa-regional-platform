@@ -356,3 +356,11 @@ output "hyperfleet_configuration_summary" {
   value       = module.hyperfleet_infrastructure.configuration_summary
   sensitive   = true
 }
+
+# =============================================================================
+# Thanos Infrastructure Outputs
+# =============================================================================
+output "thanos_helm_values" {
+  description = "Helm values for Thanos Receiver chart (use with -f flag)"
+  value       = module.thanos_infrastructure.helm_values
+}

@@ -1,0 +1,16 @@
+{{- if .Values.query.enabled }}
+apiVersion: monitoring.thanos.io/v1alpha1
+kind: ThanosQuery
+metadata:
+  name: thanos-query
+  namespace: {{ include "thanos-operator.namespace" . }}
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.query.replicas | default 2 }}
+  # Query will auto-discover stores via operator labels
+  queryFrontend:
+    replicas: {{ .Values.query.frontend.replicas | default 1 }}
+{{- end }}

@@ -215,3 +215,31 @@ variable "node_instance_types" {
     error_message = "Must specify at least one instance type."
   }
 }
+
+# =============================================================================
+# Thanos Configuration Variables
+# =============================================================================
+
+variable "thanos_metrics_retention_days" {
+  description = "Number of days to retain metrics in S3 (FedRAMP minimum: 30 days)"
+  type        = number
+  default     = 365
+}
+
+variable "thanos_namespace" {
+  description = "Kubernetes namespace where Thanos is deployed"
+  type        = string
+  default     = "thanos"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", var.thanos_namespace))
+    error_message = "Namespace must conform to DNS-1123 label: lowercase alphanumeric and '-', starting and ending with alphanumeric, max 63 characters."
+  }
+}
+
+variable "thanos_service_account" {
+  description = "Kubernetes service account name for Thanos"
+  type        = string
+  default     = "thanos-operator"
+}
+

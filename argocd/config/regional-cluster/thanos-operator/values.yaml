@@ -1,0 +1,6 @@
+thanos-operator:
+  manager:
+    image:
+      repository: quay.io/redhat-user-workloads/rhobs-mco-tenant/rhobs-thanos-operator-main/rhobs-thanos-operator-main
+      tag: f83fea08f2a9167647cd8a9fd72f682c638c3cbb
+      pullPolicy: IfNotPresent

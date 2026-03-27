@@ -46,3 +46,9 @@ variable "repository_branch" {
   type        = string
   default     = "main"
 }
+
+variable "thanos_kms_key_arn" {
+  description = "KMS key ARN for Thanos S3 encryption"
+  type        = string
+  default     = ""
+}

@@ -1,0 +1,61 @@
+namespace: thanos
+
+objectStore:
+  secretName: thanos-objstore-config
+
+receive:
+  enabled: true
+  # For production, use replicas: 3, replicationFactor: 2
+  replicas: 1
+  replicationFactor: 1
+  retention: 2h
+
+  router:
+    replicas: 1
+
+  storage:
+    size: 50Gi
+    storageClass: gp3
+
+query:
+  enabled: true
+  replicas: 2
+
+  frontend:
+    replicas: 1
+
+storeGateway:
+  enabled: true
+  replicas: 2
+
+  storage:
+    size: 20Gi
+    storageClass: gp3
+
+compactor:
+  enabled: true
+
+  retentionResolutionRaw: 90d
+  retentionResolution5m: 180d
+  retentionResolution1h: 365d
+
+  storage:
+    size: 50Gi
+    storageClass: gp3
+
+ruler:
+  enabled: false
+
+serviceAccount:
+  name: thanos-operator
+  annotations: {}
+
+thanos:
+  kmsKeyArn: ""
+
+targetGroupBinding:
+  enabled: true
+  targetGroupARN: ""
+  serviceName: thanos-receive-router
+  port: 19291
+  targetType: ip
