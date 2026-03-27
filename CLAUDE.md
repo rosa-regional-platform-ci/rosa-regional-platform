@@ -139,4 +139,23 @@ docs/
 - `argocd/config/shared/argocd/` - ArgoCD self-management Helm chart
 - Design decisions follow ADR format in `docs/design-decisions/`
 
+### JIRA Configuration
+
+- **Project**: ROSAENG
+- **Required fields for ticket creation**:
+  - Summary
+  - Description
+  - Issue Type (Story, Bug, or Epic)
+- **Static fields** (always set these values):
+  - Component: `ROSA Regionality Platform`
+- **Guidelines**:
+  - Stories and Bugs should almost always be linked to an Epic
+    - Prefer to ask which epic something should fall under, or try to find an open epic.
+    - Typically, we will be working on some milestone, which will be under the ROSA project. This might narrow down the list of potential epics.
+    - Issues should not be opened on closed epics.
+  - If you close the last story in an epic, prompt to ask if the epic can be closed as well.
+  - Github PRs should be linked in the JIRAs when appropriate.
+  - Keep good JIRA hygiene, when we start working on a ticket mark it as in-progress. When we're done, mark it as closed.
+  - Descriptions should have a clear `Done` criteria at the end. This should have a header: `### Done` and then be a bulleted list of the specific things that need to be completed before this ticket can be closed.
+
 Include AGENTS.md
