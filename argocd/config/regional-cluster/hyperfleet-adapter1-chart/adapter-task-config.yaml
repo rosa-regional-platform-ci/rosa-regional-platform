@@ -374,24 +374,24 @@ spec:
                     - name: "creationTimestamp"
                       path: ".metadata.creationTimestamp"
 
-            # - resourceIdentifier:
-            #     group: "hypershift.openshift.io"
-            #     resource: "hostedclusters"
-            #     namespace: "clusters-{{ .clusterId }}"
-            #     name: "{{ .clusterName }}"
-            #   updateStrategy:
-            #     type: "ServerSideApply"
-            #   feedbackRules:
-            #     - type: "JSONPaths"
-            #       jsonPaths:
-            #         - name: "availableCondition"
-            #           path: ".status.conditions[?(@.type==\"Available\")].status"
-            #         - name: "degradedCondition"
-            #           path: ".status.conditions[?(@.type==\"Degraded\")].status"
-            #         - name: "controlPlaneEndpoint"
-            #           path: ".status.controlPlaneEndpoint.host"
-            #         - name: "version"
-            #           path: ".status.version.history[0].version"
+            - resourceIdentifier:
+                group: "hypershift.openshift.io"
+                resource: "hostedclusters"
+                namespace: "clusters-{{ .clusterId }}"
+                name: "{{ .clusterName }}"
+              updateStrategy:
+                type: "ServerSideApply"
+              feedbackRules:
+                - type: "JSONPaths"
+                  jsonPaths:
+                    - name: "availableCondition"
+                      path: ".status.conditions[?(@.type==\"Available\")].status"
+                    - name: "degradedCondition"
+                      path: ".status.conditions[?(@.type==\"Degraded\")].status"
+                    - name: "controlPlaneEndpoint"
+                      path: ".status.controlPlaneEndpoint.host"
+                    - name: "version"
+                      path: ".status.version.history[0].version"
       
       discovery:
         byName: "work-{{ .clusterId | lower }}"
@@ -403,9 +403,9 @@ spec:
               labelSelector:
                 hyperfleet.io/resource-type: "namespace"
                 hyperfleet.io/cluster-id: "{{ .clusterId }}"  
-        # - name: "hostedCluster"
-        #   discovery:
-        #     byName: "{{ .clusterName }}"
+        - name: "hostedCluster"
+          discovery:
+            byName: "{{ .clusterName }}"
         - name: "clusterConfig"
           discovery:
             byName: "cluster-config"
