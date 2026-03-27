@@ -45,23 +45,23 @@ Generate a YAML snippet for `ci-operator/config/<org>/<org>-<repo>-<branch>.yaml
 
 ```yaml
 images:
-- dockerfile_path: <dockerfile-path>
-  to: <pipeline-image-name>
+  - dockerfile_path: <dockerfile-path>
+    to: <pipeline-image-name>
 
 tests:
-# ... existing tests ...
-- always_run: false
-  as: rosa-regionality-compatibility-e2e
-  steps:
-    dependencies:
-      CI_COMPONENT_IMAGE: <pipeline-image-name>
-    env:
-      ROSA_REGIONAL_COMPONENT_NAME: "<component-name>"
-      ROSA_REGIONAL_HELM_OVERRIDE_YAML: |
-        <generated-override-yaml>
-      ROSA_REGIONAL_HELM_VALUES_FILE: "argocd/config/<cluster-type>/<component-name>/values.yaml"
-      ROSA_REGIONAL_QUAY_DEST_REPO: "quay.io/rrp-dev-ci/<quay-repo-name>"
-    workflow: rosa-regional-platform-ephemeral-e2e
+  # ... existing tests ...
+  - always_run: false
+    as: rosa-regionality-compatibility-e2e
+    steps:
+      dependencies:
+        CI_COMPONENT_IMAGE: <pipeline-image-name>
+      env:
+        ROSA_REGIONAL_COMPONENT_NAME: "<component-name>"
+        ROSA_REGIONAL_HELM_OVERRIDE_YAML: |
+          <generated-override-yaml>
+        ROSA_REGIONAL_HELM_VALUES_FILE: "argocd/config/<cluster-type>/<component-name>/values.yaml"
+        ROSA_REGIONAL_QUAY_DEST_REPO: "quay.io/rrp-dev-ci/<quay-repo-name>"
+      workflow: rosa-regional-platform-ephemeral-e2e
 ```
 
 ## Output

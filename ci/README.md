@@ -17,7 +17,7 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 
 ## Cross-Component E2E Testing
 
-Component repos (e.g., `rosa-regional-platform-api`) can run the e2e test suite against an ephemeral environment with their PR-built image deployed. See [Enabling Pre-Merge E2E for Component Repos](../docs/enabling-pre-merge-e2e-for-component-repos.md) for the full workflow, architecture, and SOP for onboarding new repos.
+Component repos (e.g., `rosa-regional-platform-api`) can run the e2e test suite against an ephemeral environment with their PR-built image deployed. See [Enabling Pre-Merge E2E for Component Repos](../docs/adding-component-pre-merge.md) for the full workflow, architecture, and SOP for onboarding new repos.
 
 ## Build Image
 

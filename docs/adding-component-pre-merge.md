@@ -14,21 +14,21 @@ A reusable [step-registry workflow](https://github.com/openshift/release/tree/ma
 
 ## Workflow Steps
 
-| Step | Image | Purpose |
-|------|-------|---------|
-| `rosa-regional-platform-image-push` | `ocp/4.21:cli` | Copies CI-built image to quay.io using `oc image mirror` |
-| `rosa-regional-platform-provision` | `rosa-regional-platform-ci` | Calls ephemeral provider with YAML overrides, provisions environment |
-| `rosa-regional-platform-e2e` | `rosa-regional-platform-ci` | Clones this repo, runs `./ci/e2e-tests.sh` |
-| `rosa-regional-platform-teardown` | `rosa-regional-platform-ci` | Clones this repo, runs teardown |
+| Step                                | Image                       | Purpose                                                              |
+| ----------------------------------- | --------------------------- | -------------------------------------------------------------------- |
+| `rosa-regional-platform-image-push` | `ocp/4.21:cli`              | Copies CI-built image to quay.io using `oc image mirror`             |
+| `rosa-regional-platform-provision`  | `rosa-regional-platform-ci` | Calls ephemeral provider with YAML overrides, provisions environment |
+| `rosa-regional-platform-e2e`        | `rosa-regional-platform-ci` | Clones this repo, runs `./ci/e2e-tests.sh`                           |
+| `rosa-regional-platform-teardown`   | `rosa-regional-platform-ci` | Clones this repo, runs teardown                                      |
 
 The `rosa-regional-platform-ci` image is built from `ci/Containerfile` and promoted to the CI registry on every merge to `main` of `openshift-online/rosa-regional-platform`.
 
 ## CI Credentials
 
-| Secret | Purpose |
-|--------|---------|
-| `rosa-regional-platform-dev-ci-quay-push` | Robot account for pushing to `quay.io/rrp-dev-ci/` |
-| `rosa-regional-platform-ephemeral-creds` | AWS credentials for provisioning, e2e, and teardown |
+| Secret                                    | Purpose                                             |
+| ----------------------------------------- | --------------------------------------------------- |
+| `rosa-regional-platform-dev-ci-quay-push` | Robot account for pushing to `quay.io/rrp-dev-ci/`  |
+| `rosa-regional-platform-ephemeral-creds`  | AWS credentials for provisioning, e2e, and teardown |
 
 Managed in [Vault](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/list/selfservice/cluster-secrets-rosa-regional-platform-int/).
 
@@ -38,14 +38,15 @@ The provision step deep-merges a YAML fragment into a target file in the rosa-re
 
 The override is configured via env vars in the CI config:
 
-| Variable | Description |
-|----------|-------------|
-| `ROSA_REGIONAL_COMPONENT_NAME` | Component name for logging (e.g., `platform-api`). |
-| `ROSA_REGIONAL_HELM_VALUES_FILE` | Path to the target file in this repo (e.g., `argocd/config/regional-cluster/platform-api/values.yaml`). |
+| Variable                           | Description                                                                                                                                                                             |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ROSA_REGIONAL_COMPONENT_NAME`     | Component name for logging (e.g., `platform-api`).                                                                                                                                      |
+| `ROSA_REGIONAL_HELM_VALUES_FILE`   | Path to the target file in this repo (e.g., `argocd/config/regional-cluster/platform-api/values.yaml`).                                                                                 |
 | `ROSA_REGIONAL_HELM_OVERRIDE_YAML` | Inline YAML fragment to deep-merge into the target file. Use `IMAGE_REPO` and `IMAGE_TAG` as placeholders — they are replaced with the actual image reference from the image-push step. |
-| `ROSA_REGIONAL_QUAY_DEST_REPO` | Public quay.io repository for the CI-built image. |
+| `ROSA_REGIONAL_QUAY_DEST_REPO`     | Public quay.io repository for the CI-built image.                                                                                                                                       |
 
 The deep merge works as follows:
+
 - **Dicts** are merged recursively (override wins on conflicts).
 - **Lists of dicts** are matched by `name` key — a matching item is merged, unmatched items are appended.
 - **All other values** (scalars, lists of non-dicts) are replaced by the override.
@@ -106,30 +107,30 @@ Edit `ci-operator/config/<repo>/<org>-<repo>-<branch>.yaml`, e.g. [here](https:/
 
 ```yaml
 images:
-- dockerfile_path: Dockerfile
-  to: <pipeline-image-name>
+  - dockerfile_path: Dockerfile
+    to: <pipeline-image-name>
 
 tests:
-# ... existing tests ...
-- always_run: false
-  as: rosa-regionality-compatibility-e2e
-  steps:
-    dependencies:
-      CI_COMPONENT_IMAGE: <pipeline-image-name>
-    env:
-      ROSA_REGIONAL_COMPONENT_NAME: "<component-name>"
-      ROSA_REGIONAL_HELM_OVERRIDE_YAML: |
-        <yaml-fragment-with-IMAGE_REPO-and-IMAGE_TAG-placeholders>
-      ROSA_REGIONAL_HELM_VALUES_FILE: "argocd/config/regional-cluster/<component-name>/values.yaml"
-      ROSA_REGIONAL_QUAY_DEST_REPO: "quay.io/rrp-dev-ci/<component>"
-    workflow: rosa-regional-platform-ephemeral-e2e
+  # ... existing tests ...
+  - always_run: false
+    as: rosa-regionality-compatibility-e2e
+    steps:
+      dependencies:
+        CI_COMPONENT_IMAGE: <pipeline-image-name>
+      env:
+        ROSA_REGIONAL_COMPONENT_NAME: "<component-name>"
+        ROSA_REGIONAL_HELM_OVERRIDE_YAML: |
+          <yaml-fragment-with-IMAGE_REPO-and-IMAGE_TAG-placeholders>
+        ROSA_REGIONAL_HELM_VALUES_FILE: "argocd/config/regional-cluster/<component-name>/values.yaml"
+        ROSA_REGIONAL_QUAY_DEST_REPO: "quay.io/rrp-dev-ci/<component>"
+      workflow: rosa-regional-platform-ephemeral-e2e
 ```
 
 Where:
+
 - `<pipeline-image-name>` — the `to` field from your `images` section (used as the dependency name)
 - `<component-name>` — the component's directory name under `argocd/config/<regional|management>-cluster/` in this repo (e.g., `platform-api`)
 - `ROSA_REGIONAL_QUAY_DEST_REPO` — the public quay.io repo from step 1
-
 
 ### Step 3: Regenerate and submit
 
