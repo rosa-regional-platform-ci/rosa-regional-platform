@@ -23,31 +23,14 @@ maestroAgent:
   # Maestro agent configuration
   maestro:
     serviceAccount: "maestro-agent"
-    consumerName: ""  # Populated from Terraform output (cluster ID)
-    healthCheckBindPort: 8083
     glog_v: 10  # Verbose logging level
-
-  # MQTT Broker configuration (AWS IoT Core)
-  broker:
-    # Endpoint and credentials from ASCP CSI driver
-    type: "mqtt"
-    configFile: "/config/config.yaml"
-    endpoint: ""  # Populated from regional Terraform output (e.g., "xxx.iot.us-east-1.amazonaws.com")
-    topicPrefix: "maestro/consumers"
 
   # ASCP CSI Driver configuration
   ascp:
     enabled: true
-    mqttCertSecretName: ""  # Populated from regional Terraform (format: {cluster-id}/maestro/agent-mqtt-cert)
 
   # Tracing configuration
   tracing:
     enabled: false
     address: ""
     exporter: "none"
-
-  # Metrics configuration
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: false  # Enable when Prometheus Operator is deployed
