@@ -166,6 +166,55 @@ ip-10-0-1-42.ec2.internal    Ready    <none>   2h    v1.31.4-eks-aeac579
 
 The bastion task stays running until explicitly stopped or until the environment is torn down (teardown automatically cleans up running bastion tasks).
 
+## Port Forwarding
+
+Forward cluster-internal services to your local machine through the bastion, without needing an interactive shell. This uses a two-hop approach: `kubectl port-forward` inside the bastion, then AWS SSM to forward from your laptop to the bastion.
+
+> ⚠️ _Bastion must be enabled in your environment config (`enable_bastion: true` in `defaults.yaml`). The default ephemeral preset already has it enabled._
+
+```bash
+# Interactive — fzf multi-select picker for service selection
+make ephemeral-port-forward-rc    # Regional Cluster
+make ephemeral-port-forward-mc    # Management Cluster
+
+# Automatic — forward all available services
+make ephemeral-port-forward-rc-all
+make ephemeral-port-forward-mc-all
+
+# Explicit environment selection
+make ephemeral-port-forward-rc ID=6bd2d3d7
+```
+
+### Available Services
+
+| Service      | Local Port | Cluster Type         |
+| ------------ | ---------- | -------------------- |
+| Maestro HTTP | 8080       | Regional only        |
+| Maestro gRPC | 8090       | Regional only        |
+| ArgoCD       | 8443       | Regional, Management |
+| Prometheus   | 9090       | Regional, Management |
+| Custom       | (prompted) | Regional, Management |
+
+When using the interactive targets, `fzf` presents a multi-select menu — use Tab to select multiple services, Enter to confirm. When using `-all` targets, all services for that cluster type are forwarded automatically.
+
+Example output:
+
+```
+==> Port forwarding active. Forwarded ports:
+    Maestro-HTTP: http://localhost:8080
+    Maestro-gRPC: http://localhost:8090
+    ArgoCD-Server: http://localhost:8443
+    Prometheus: http://localhost:9090
+
+    ArgoCD UI:       https://localhost:8443
+    Username:        admin
+    Password:        <retrieved automatically>
+
+Press Ctrl+C to stop.
+```
+
+Press Ctrl+C to cleanly stop all forwarding sessions.
+
 ## Run E2E Tests
 
 Run the end-to-end test suite against one of your development environments:
