@@ -465,7 +465,7 @@ spec:
 
           # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
           observed_generation:
-            expression: "generation"
+            expression: "generationId"
           observed_time: "{{ now | date \"2006-01-02T15:04:05Z07:00\" }}"
 
           data:
