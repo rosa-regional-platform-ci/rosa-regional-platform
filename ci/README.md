@@ -15,6 +15,10 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 | [`nightly-integration`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)                 | Daily at 04:00 UTC        | Runs e2e tests against a standing integration environment                                                                                               |
 | [`ephemeral-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-ephemeral-resources-janitor) | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                                                                      |
 
+## Cross-Component E2E Testing
+
+Component repos (e.g., `rosa-regional-platform-api`) can run the e2e test suite against an ephemeral environment with their PR-built image deployed. See [Enabling Pre-Merge E2E for Component Repos](../docs/enabling-pre-merge-e2e-for-component-repos.md) for the full workflow, architecture, and SOP for onboarding new repos.
+
 ## Build Image
 
 The CI image is built from [ci/Containerfile](ci/Containerfile) and includes all required tools:
