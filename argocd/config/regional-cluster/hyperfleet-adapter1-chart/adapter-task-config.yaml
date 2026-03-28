@@ -235,7 +235,10 @@ spec:
                     kind: ClusterSecretStore
                   target:
                     name: pull-secret
-                    creationPolicy: Owner
+                    # creationPolicy: Owner
+                    # Set creationPolicy to Orphan to prevent the Secret from being deleted 
+                    # when the ExternalSecret is deleted. This is to potentially prevent loadbalancer deletion when the cluster is deleted.
+                    creationPolicy: Orphan
                     template:
                       type: kubernetes.io/dockerconfigjson
                   data:
