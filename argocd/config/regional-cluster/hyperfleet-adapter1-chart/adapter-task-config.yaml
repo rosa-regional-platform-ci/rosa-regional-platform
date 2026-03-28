@@ -463,6 +463,29 @@ spec:
                     ? "Resources skipped: " + adapter.?skipReason.orValue("unknown reason")
                     : "Adapter execution failed"
 
+            - type: "Available"
+              status:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.status)
+                  && has(resources.hostedCluster.status.conditions)
+                  && resources.hostedCluster.status.conditions.filter(c, has(c.type) && c.type == "Available").size() > 0
+                  ? resources.hostedCluster.status.conditions.filter(c, c.type == "Available")[0].status
+                  : "False"
+              reason:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.status)
+                  && has(resources.hostedCluster.status.conditions)
+                  && resources.hostedCluster.status.conditions.filter(c, has(c.type) && c.type == "Available").size() > 0
+                  ? resources.hostedCluster.status.conditions.filter(c, c.type == "Available")[0].reason
+                  : "HostedClusterNotAvailable"
+              message:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.status)
+                  && has(resources.hostedCluster.status.conditions)
+                  && resources.hostedCluster.status.conditions.filter(c, has(c.type) && c.type == "Available").size() > 0
+                  ? resources.hostedCluster.status.conditions.filter(c, c.type == "Available")[0].message
+                  : "HostedCluster not yet available"
+
           # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
           observed_generation:
             expression: "generationId"
