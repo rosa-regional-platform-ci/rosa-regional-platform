@@ -58,8 +58,8 @@ redact_logs() {
             -e 's/\(AKIA\|ASIA\)[A-Z0-9]\{16\}/[REDACTED_AWS_KEY]/g' \
             -e 's/\(aws_secret_access_key\|secret_key\)\([ =:]*\)[^ ]*/\1\2[REDACTED]/gi' \
             -e 's/\(aws_session_token\|security_token\)\([ =:]*\)[^ ]*/\1\2[REDACTED]/gi' \
-            -e 's/"\(aws_secret_access_key\|secret_key\)"\s*:\s*"[^"]*"/"\1":"[REDACTED]"/gi' \
-            -e 's/"\(aws_session_token\|security_token\)"\s*:\s*"[^"]*"/"\1":"[REDACTED]"/gi' \
+            -e 's/"\(aws_secret_access_key\|secret_key\)"[[:space:]]*:[[:space:]]*"[^"]*"/"\1":"[REDACTED]"/gi' \
+            -e 's/"\(aws_session_token\|security_token\)"[[:space:]]*:[[:space:]]*"[^"]*"/"\1":"[REDACTED]"/gi' \
             "$f"
     done
 }
@@ -189,7 +189,21 @@ collect_logs_for_cluster() {
 
     # Wait for the task to complete
     echo "  Waiting for log-collector task to finish..."
-    aws ecs wait tasks-stopped --cluster "$ecs_cluster" --tasks "$task_id"
+    if ! aws ecs wait tasks-stopped --cluster "$ecs_cluster" --tasks "$task_id"; then
+        echo "  Waiter timed out; polling task status..."
+        local poll_status
+        for _ in $(seq 1 6); do
+            poll_status=$(aws ecs describe-tasks \
+                --cluster "$ecs_cluster" --tasks "$task_id" \
+                --query 'tasks[0].lastStatus' --output text 2>/dev/null)
+            [[ "$poll_status" == "STOPPED" ]] && break
+            sleep 10
+        done
+        if [[ "$poll_status" != "STOPPED" ]]; then
+            echo "  Task ${task_id} still not stopped (status: ${poll_status}); giving up"
+            return 1
+        fi
+    fi
 
     # Check exit code
     local describe_output exit_code
