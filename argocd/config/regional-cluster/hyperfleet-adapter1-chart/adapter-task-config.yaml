@@ -150,7 +150,7 @@ spec:
         apiVersion: work.open-cluster-management.io/v1
         kind: ManifestWork
         metadata:
-          name: "work-{{ .clusterId | lower }}"
+          name: "work-{{ .clusterId }}"
           labels:
             # HyperFleet tracking labels
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
@@ -197,7 +197,7 @@ spec:
               - apiVersion: v1
                 kind: Namespace
                 metadata:
-                  name: "clusters-{{ .clusterId | lower }}"
+                  name: "clusters-{{ .clusterId }}"
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                     hyperfleet.io/managed-by: "{{ .metadata.name }}"
@@ -209,7 +209,7 @@ spec:
                 kind: ConfigMap
                 metadata:
                   name: "cluster-config"
-                  namespace: "clusters-{{ .clusterId | lower }}"
+                  namespace: "clusters-{{ .clusterId }}"
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                   annotations:
@@ -248,7 +248,7 @@ spec:
                 kind: HostedCluster
                 metadata:
                   name: "{{ .clusterName }}"
-                  namespace: clusters-{{ .clusterId | lower }}
+                  namespace: clusters-{{ .clusterId }}
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                   annotations:
@@ -256,7 +256,7 @@ spec:
                     hypershift.openshift.io/pod-security-admission-label-override: privileged
                     hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
                 spec:
-                  infraID: "{{ .clusterId | lower }}"
+                  infraID: "{{ .clusterId }}"
                   dns:
                     baseDomain: example.com
                   release:
@@ -311,7 +311,7 @@ spec:
                 kind: NodePool
                 metadata:
                   name: "{{ .clusterName }}-workers"
-                  namespace: clusters-{{ .clusterId | lower }}
+                  namespace: clusters-{{ .clusterId }}
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                   annotations:
@@ -344,7 +344,7 @@ spec:
                 kind: Secret
                 metadata:
                   name: ssh-key
-                  namespace: clusters-{{ .clusterId | lower }}
+                  namespace: clusters-{{ .clusterId }}
                   labels:
                     hyperfleet.io/cluster-id: "{{ .clusterId }}"
                   annotations:
@@ -361,7 +361,7 @@ spec:
             - resourceIdentifier:
                 group: ""
                 resource: "namespaces"
-                name: "clusters-{{ .clusterId | lower }}"
+                name: "clusters-{{ .clusterId }}"
               updateStrategy:
                 type: "ServerSideApply"
               feedbackRules:
@@ -394,7 +394,7 @@ spec:
                       path: ".status.version.history[0].version"
       
       discovery:
-        byName: "work-{{ .clusterId | lower }}"
+        byName: "work-{{ .clusterId }}"
 
       nestedDiscoveries:
         - name: "clusterNamespace"
@@ -440,51 +440,83 @@ spec:
                   ? resources.hostedClusterBundle.status.conditions.filter(c, c.type == "Applied")[0].message
                   : "ManifestWork not yet applied by Maestro agent"
 
+            # - type: "Health"
+            #   status:
+            #     expression: |
+            #       adapter.?executionStatus.orValue("") == "success"
+            #         && !adapter.?resourcesSkipped.orValue(false)
+            #       ? "True"
+            #       : "False"
+            #   reason:
+            #     expression: |
+            #       adapter.?executionStatus.orValue("") != "success"
+            #       ? "ExecutionFailed:" + adapter.?executionError.?phase.orValue("unknown")
+            #       : adapter.?resourcesSkipped.orValue(false)
+            #         ? "ResourcesSkipped"
+            #         : "Healthy"
+            #   message:
+            #     expression: |
+            #       adapter.?executionStatus.orValue("") == "success"
+            #         && !adapter.?resourcesSkipped.orValue(false)
+            #       ? "Adapter execution completed successfully"
+            #       : adapter.?resourcesSkipped.orValue(false)
+            #         ? "Resources skipped: " + adapter.?skipReason.orValue("unknown reason")
+            #         : "Adapter execution failed"
+
+
+            # Health: HostedCluster not degraded (fed back via manifestConfigs)
             - type: "Health"
               status:
                 expression: |
-                  adapter.?executionStatus.orValue("") == "success"
-                    && !adapter.?resourcesSkipped.orValue(false)
-                  ? "True"
-                  : "False"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "True" : "False")
+                  : "Unknown"
               reason:
                 expression: |
-                  adapter.?executionStatus.orValue("") != "success"
-                  ? "ExecutionFailed:" + adapter.?executionError.?phase.orValue("unknown")
-                  : adapter.?resourcesSkipped.orValue(false)
-                    ? "ResourcesSkipped"
-                    : "Healthy"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "NotDegraded" : "HostedClusterDegraded")
+                  : "ConditionNotFound"
               message:
                 expression: |
-                  adapter.?executionStatus.orValue("") == "success"
-                    && !adapter.?resourcesSkipped.orValue(false)
-                  ? "Adapter execution completed successfully"
-                  : adapter.?resourcesSkipped.orValue(false)
-                    ? "Resources skipped: " + adapter.?skipReason.orValue("unknown reason")
-                    : "Adapter execution failed"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
+                    ? "HostedCluster is healthy"
+                    : "HostedCluster is degraded")
+                  : "Degraded condition not yet reported"
 
             - type: "Available"
               status:
                 expression: |
-                  has(resources.hostedCluster) && has(resources.hostedCluster.status)
-                  && has(resources.hostedCluster.status.conditions)
-                  && resources.hostedCluster.status.conditions.filter(c, has(c.type) && c.type == "Available").size() > 0
-                  ? resources.hostedCluster.status.conditions.filter(c, c.type == "Available")[0].status
-                  : "False"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string
+                  : "Unknown"
               reason:
                 expression: |
-                  has(resources.hostedCluster) && has(resources.hostedCluster.status)
-                  && has(resources.hostedCluster.status.conditions)
-                  && resources.hostedCluster.status.conditions.filter(c, has(c.type) && c.type == "Available").size() > 0
-                  ? resources.hostedCluster.status.conditions.filter(c, c.type == "Available")[0].reason
-                  : "HostedClusterNotAvailable"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
+                    ? "HostedClusterAvailable" : "HostedClusterNotAvailable")
+                  : "ConditionNotFound"
               message:
                 expression: |
-                  has(resources.hostedCluster) && has(resources.hostedCluster.status)
-                  && has(resources.hostedCluster.status.conditions)
-                  && resources.hostedCluster.status.conditions.filter(c, has(c.type) && c.type == "Available").size() > 0
-                  ? resources.hostedCluster.status.conditions.filter(c, c.type == "Available")[0].message
-                  : "HostedCluster not yet available"
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                  ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
+                    ? "HostedCluster is available"
+                    : "HostedCluster not yet available")
+                  : "HostedCluster Available condition not yet reported"
 
           # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
           observed_generation:
@@ -499,13 +531,26 @@ spec:
               creationTimestamp:
                 expression: |
                   resources.?clusterNamespace.?metadata.?creationTimestamp.orValue("")
-            configmap:
+            hostedCluster:
               name:
                 expression: |
-                  resources.?clusterConfig.?metadata.?name.orValue("")
-              creationTimestamp:
+                  has(resources.hostedCluster) && has(resources.hostedCluster.metadata)
+                  ? resources.hostedCluster.metadata.name
+                  : ""
+              apiEndpoint:
                 expression: |
-                  resources.?clusterConfig.?metadata.?creationTimestamp.orValue("")
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "controlPlaneEndpoint")
+                  ? "https://" + resources.hostedCluster.statusFeedback.values.filter(v, v.name == "controlPlaneEndpoint")[0].fieldValue.string
+                  : ""
+              version:
+                expression: |
+                  has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
+                  && has(resources.hostedCluster.statusFeedback.values)
+                  && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "version")
+                  ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "version")[0].fieldValue.string
+                  : ""
 
     postActions:
       - name: "reportClusterStatus"
