@@ -63,9 +63,9 @@ spec:
         - name: "subnetId"
           expression: |
             has(spec.privateSubnetIds) && spec.privateSubnetIds != ""
-              ? spec.privateSubnetIds
+              ? spec.privateSubnetIds.split(',')[0]
               : ""
-          description: "Subnet ID of the cluster"
+          description: "First private subnet ID from the cluster"
         - name: "instanceProfile"
           expression: |
             has(spec.workerInstanceProfileName) && spec.workerInstanceProfileName != ""
