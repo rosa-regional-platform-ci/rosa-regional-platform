@@ -94,3 +94,15 @@ module "hypershift_oidc" {
   cluster_id       = var.management_id
   eks_cluster_name = module.management_cluster.cluster_name
 }
+
+# =============================================================================
+# Prometheus Remote Write (MC -> RC metrics forwarding via API Gateway)
+# =============================================================================
+
+module "prometheus_remote_write" {
+  source = "../../modules/prometheus-remote-write"
+
+  management_id           = var.management_id
+  regional_aws_account_id = var.regional_aws_account_id
+  eks_cluster_name        = module.management_cluster.cluster_name
+}

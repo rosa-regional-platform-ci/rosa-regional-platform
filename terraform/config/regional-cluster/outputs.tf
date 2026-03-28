@@ -141,6 +141,16 @@ output "api_target_group_arn" {
   value       = module.api_gateway.target_group_arn
 }
 
+output "thanos_target_group_arn" {
+  description = "Target group ARN for Thanos Receive TargetGroupBinding"
+  value       = module.api_gateway.thanos_target_group_arn
+}
+
+output "rhobs_api_url" {
+  description = "RHOBS API URL for MC remote_write (dedicated API Gateway invoke URL)"
+  value       = module.rhobs_api_gateway.invoke_url
+}
+
 output "api_allowed_accounts" {
   description = "Platform API allowed accounts (comma-separated account IDs, including current account)"
   value       = var.api_additional_allowed_accounts != "" ? "${data.aws_caller_identity.current.account_id},${var.api_additional_allowed_accounts}" : data.aws_caller_identity.current.account_id

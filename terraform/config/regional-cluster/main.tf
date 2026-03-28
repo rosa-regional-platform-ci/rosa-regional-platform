@@ -105,6 +105,24 @@ module "api_gateway" {
 }
 
 # =============================================================================
+# RHOBS API Gateway (Metrics Ingestion)
+#
+# Dedicated REST API for Prometheus remote_write from Management Clusters.
+# Separate from the Platform API to enforce independent access control:
+# only MC accounts can invoke this API via resource policy.
+# =============================================================================
+
+module "rhobs_api_gateway" {
+  source = "../../modules/rhobs-api-gateway"
+
+  regional_id         = var.regional_id
+  vpc_link_id         = module.api_gateway.vpc_link_id
+  alb_arn             = module.api_gateway.alb_arn
+  alb_dns_name        = module.api_gateway.alb_dns_name
+  allowed_account_ids = distinct(compact(split(",", var.api_additional_allowed_accounts)))
+}
+
+# =============================================================================
 # Regional DNS Zone (Optional)
 #
 # When environment_domain is set, creates:

@@ -47,6 +47,20 @@ else
     echo "Reading IoT certificate data from RC account state..."
     use_rc_account
     source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
+
+    # Read RHOBS API URL from RC terraform state (custom domain or invoke URL)
+    echo "Reading API URL from RC terraform state..."
+    _RC_STATE_BUCKET="terraform-state-${RESOLVED_REGIONAL_ACCOUNT_ID}-${TARGET_REGION}"
+    _RC_REGIONAL_ID=$(jq -r '.regional_id // "regional"' "deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json" 2>/dev/null || echo "regional")
+    _RC_STATE_KEY="regional-cluster/${_RC_REGIONAL_ID}.tfstate"
+    _RC_TF_DIR="terraform/config/regional-cluster"
+    (cd "$_RC_TF_DIR" && terraform init -reconfigure \
+        -backend-config="bucket=${_RC_STATE_BUCKET}" \
+        -backend-config="key=${_RC_STATE_KEY}" \
+        -backend-config="region=${TARGET_REGION}" \
+        -backend-config="use_lockfile=true" >/dev/null 2>&1)
+    export TF_VAR_rhobs_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw rhobs_api_url 2>/dev/null || echo "")
+    echo "  RHOBS API URL:  ${TF_VAR_rhobs_api_url:-<not available>}"
 fi
 
 # =====================================================================
