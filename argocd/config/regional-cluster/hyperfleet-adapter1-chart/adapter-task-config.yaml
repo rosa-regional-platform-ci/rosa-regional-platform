@@ -279,8 +279,6 @@ spec:
                     type: AWS
                     aws:
                       region: "{{ .region }}"
-                      securityGroups:
-                        - id: "{{ .securityGroupId }}"
                       cloudProviderConfig:
                         vpc: "{{ .vpcId }}"
                         subnet:
