@@ -43,6 +43,16 @@ output "container_name" {
   value       = local.container_name
 }
 
+output "log_collector_task_family" {
+  description = "Family name of the log-collector task definition"
+  value       = aws_ecs_task_definition.log_collector.family
+}
+
+output "logs_transfer_bucket" {
+  description = "S3 bucket name for log transfer"
+  value       = aws_s3_bucket.logs_transfer.id
+}
+
 output "run_task_command" {
   description = "AWS CLI command to start a bastion task"
   value       = <<-EOT

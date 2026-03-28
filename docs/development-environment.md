@@ -219,6 +219,28 @@ make ephemeral-e2e
 make ephemeral-e2e ID=6bd2d3d7
 ```
 
+## Collect Cluster Logs
+
+Collect kubernetes diagnostic logs (`oc adm inspect`) from the RC and/or MC clusters in an ephemeral environment. Logs are gathered by a dedicated log-collector ECS task, uploaded to S3, and downloaded locally.
+
+```bash
+# Collect from both RC and all MCs
+make ephemeral-collect-logs
+
+# Collect from RC only
+make ephemeral-collect-logs CLUSTER=rc
+
+# Collect from MCs only
+make ephemeral-collect-logs CLUSTER=mc
+
+# Explicit environment selection
+make ephemeral-collect-logs ID=6bd2d3d7
+```
+
+Output is written to `/tmp/<ci-prefix>-logs-<timestamp>/`. In CI, logs are automatically collected on e2e test failure and written to `ARTIFACT_DIR` for the Prow artifacts UI.
+
+> ⚠️ _Bastion must be enabled in your environment config (`enable_bastion: true` in `defaults.yaml`). The default ephemeral preset already has it enabled._
+
 ## Resync
 
 The ephemeral environment runs from an ephemeral-provider managed clone of your branch. If you push additional changes to your remote branch after provisioning (e.g. updating a Helm chart or Terraform module), the environment won't pick them up automatically — you need to resync so the cloned branch is updated and ArgoCD syncs the changes.
