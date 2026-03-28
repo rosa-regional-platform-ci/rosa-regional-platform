@@ -18,8 +18,24 @@ kube-prometheus-stack:
       retention: "14d"
       retentionSize: "85GB"
       serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}
+
+      # -------------------------------------------------------------------
+      # Remote Write via sigv4-proxy service
+      #
+      # The prometheus-operator CRD does not expose sigv4.serviceName,
+      # which defaults to "aps" (Amazon Managed Prometheus). For API
+      # Gateway we need "execute-api". Workaround: point remote_write at
+      # the sigv4-proxy service which handles signing correctly.
+      #
+      # No THANOS-TENANT header needed — API GW injects it server-side
+      # from context.identity.accountId.
+      # -------------------------------------------------------------------
+      remoteWrite:
+        - url: "http://sigv4-proxy.monitoring.svc:8005/prod/api/v1/receive"
 
       # This prevents us from scheduling prometheus pods within the same AZ,
       # so that we have at least one zone with a replica

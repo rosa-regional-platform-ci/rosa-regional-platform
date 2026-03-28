@@ -95,6 +95,12 @@ variable "maestro_agent_config_file" {
   type        = string
 }
 
+variable "rhobs_api_url" {
+  description = "API Gateway URL for Prometheus remote_write (read from RC terraform state)"
+  type        = string
+  default     = ""
+}
+
 variable "node_instance_types" {
   description = "List of EC2 instance types for worker nodes (configurable via config.yaml terraform_vars)"
   type        = list(string)

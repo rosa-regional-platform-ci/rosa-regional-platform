@@ -55,7 +55,20 @@ _REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
 export TF_VAR_repository_url="${REPOSITORY_URL}"
 export TF_VAR_repository_branch="${_REPO_BRANCH}"
 
-export TF_VAR_api_additional_allowed_accounts="${TARGET_ACCOUNT_ID}"
+# Build allowed accounts list: target account + all MC accounts
+_ALLOWED_ACCOUNTS="${TARGET_ACCOUNT_ID}"
+# Read MC account IDs from rendered config (may contain SSM references)
+_MC_ACCOUNTS=$(jq -r '.management_cluster_account_ids // [] | .[]' "$DEPLOY_CONFIG_FILE" 2>/dev/null || true)
+for _ACCT in $_MC_ACCOUNTS; do
+    if [[ "$_ACCT" =~ ^ssm:// ]]; then
+        _SSM_PARAM="${_ACCT#ssm://}"
+        _ACCT=$(aws ssm get-parameter --name "$_SSM_PARAM" --with-decryption --query 'Parameter.Value' --output text --region "${TARGET_REGION}" 2>/dev/null || true)
+    fi
+    if [[ -n "$_ACCT" ]]; then
+        _ALLOWED_ACCOUNTS="${_ALLOWED_ACCOUNTS},${_ACCT}"
+    fi
+done
+export TF_VAR_api_additional_allowed_accounts="${_ALLOWED_ACCOUNTS}"
 
 # Set container image for ECS tasks (bastion and bootstrap)
 if [ -z "${PLATFORM_IMAGE:-}" ]; then

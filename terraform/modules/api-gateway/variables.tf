@@ -90,6 +90,17 @@ variable "stage_name" {
   }
 }
 
+variable "thanos_target_port" {
+  description = "Thanos Receive remote-write port"
+  type        = number
+  default     = 19291
+
+  validation {
+    condition     = var.thanos_target_port >= 1 && var.thanos_target_port <= 65535
+    error_message = "Thanos target port must be between 1 and 65535."
+  }
+}
+
 variable "api_description" {
   description = "Description for the API Gateway REST API"
   type        = string

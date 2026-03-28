@@ -59,6 +59,11 @@ output "target_group_arn" {
   value       = aws_lb_target_group.platform.arn
 }
 
+output "thanos_target_group_arn" {
+  description = "Target group ARN for Thanos Receive TargetGroupBinding"
+  value       = aws_lb_target_group.thanos.arn
+}
+
 # -----------------------------------------------------------------------------
 # Security Groups
 # -----------------------------------------------------------------------------
