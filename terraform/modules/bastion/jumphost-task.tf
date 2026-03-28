@@ -138,18 +138,25 @@ resource "aws_iam_role_policy" "task_eks" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "EKSDescribe"
+        Sid    = "EKSListAndDescribe"
+        Effect = "Allow"
+        Action = [
+          "eks:ListClusters",
+          "eks:ListNodegroups",
+          "eks:ListUpdates"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "EKSClusterAccess"
         Effect = "Allow"
         Action = [
           "eks:DescribeCluster",
-          "eks:ListClusters",
           "eks:DescribeNodegroup",
-          "eks:ListNodegroups",
           "eks:DescribeUpdate",
-          "eks:ListUpdates",
           "eks:AccessKubernetesApi"
         ]
-        Resource = "*"
+        Resource = "arn:aws:eks:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:cluster/${var.cluster_name}"
       }
     ]
   })

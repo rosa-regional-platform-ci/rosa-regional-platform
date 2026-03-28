@@ -63,7 +63,12 @@ if [[ $rc -ne 0 ]]; then
     if [[ -r "${CREDS_DIR}/api_url" ]]; then
         export CLUSTER_PREFIX=""
     elif [[ -n "${BUILD_ID:-}" ]]; then
-        export CLUSTER_PREFIX="ci-$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)-"
+        local hash
+        hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \
+            || { echo "WARNING: sha256sum failed — skipping log collection"; hash=""; }
+        if [[ -n "$hash" ]]; then
+            export CLUSTER_PREFIX="ci-${hash}-"
+        fi
     else
         echo "WARNING: BUILD_ID not set — skipping log collection"
     fi

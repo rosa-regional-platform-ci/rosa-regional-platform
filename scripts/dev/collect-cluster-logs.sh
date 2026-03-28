@@ -58,6 +58,8 @@ redact_logs() {
             -e 's/\(AKIA\|ASIA\)[A-Z0-9]\{16\}/[REDACTED_AWS_KEY]/g' \
             -e 's/\(aws_secret_access_key\|secret_key\)\([ =:]*\)[^ ]*/\1\2[REDACTED]/gi' \
             -e 's/\(aws_session_token\|security_token\)\([ =:]*\)[^ ]*/\1\2[REDACTED]/gi' \
+            -e 's/"\(aws_secret_access_key\|secret_key\)"\s*:\s*"[^"]*"/"\1":"[REDACTED]"/gi' \
+            -e 's/"\(aws_session_token\|security_token\)"\s*:\s*"[^"]*"/"\1":"[REDACTED]"/gi' \
             "$f"
     done
 }
@@ -68,10 +70,10 @@ setup_aws_creds() {
     local account_type="$1"
 
     if [[ "$account_type" == "regional" ]]; then
-        if [[ -n "${REGIONAL_AK:-}" ]]; then
+        if [[ -n "${REGIONAL_AK:-}" && -n "${REGIONAL_SK:-}" ]]; then
             export AWS_ACCESS_KEY_ID="$REGIONAL_AK"
             export AWS_SECRET_ACCESS_KEY="$REGIONAL_SK"
-        elif [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
+        elif [[ -r "${CREDS_DIR}/regional_access_key" && -r "${CREDS_DIR}/regional_secret_key" ]]; then
             export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
             export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
         else
@@ -79,10 +81,10 @@ setup_aws_creds() {
             return 1
         fi
     else
-        if [[ -n "${MANAGEMENT_AK:-}" ]]; then
+        if [[ -n "${MANAGEMENT_AK:-}" && -n "${MANAGEMENT_SK:-}" ]]; then
             export AWS_ACCESS_KEY_ID="$MANAGEMENT_AK"
             export AWS_SECRET_ACCESS_KEY="$MANAGEMENT_SK"
-        elif [[ -r "${CREDS_DIR}/management_access_key" ]]; then
+        elif [[ -r "${CREDS_DIR}/management_access_key" && -r "${CREDS_DIR}/management_secret_key" ]]; then
             export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/management_access_key")"
             export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/management_secret_key")"
         else
@@ -150,7 +152,8 @@ collect_logs_for_cluster() {
     # Launch the log-collector task with namespace and S3 key overrides
     echo "  Launching log-collector task..."
     local task_arn
-    task_arn=$(AWS_PAGER="" aws ecs run-task \
+    local run_task_output
+    run_task_output=$(AWS_PAGER="" aws ecs run-task \
         --cluster "$ecs_cluster" \
         --task-definition "$task_def" \
         --launch-type FARGATE \
@@ -163,9 +166,22 @@ collect_logs_for_cluster() {
                     {\"name\": \"S3_KEY\", \"value\": \"$s3_key\"}
                 ]
             }]
-        }" \
-        --query 'tasks[0].taskArn' --output text) \
+        }") \
         || { echo "  Failed to launch log-collector task for ${cluster_id}"; return 1; }
+
+    # Check for placement failures (capacity, etc.)
+    local failures
+    failures=$(echo "$run_task_output" | jq -r '.failures[0].reason // empty')
+    if [[ -n "$failures" ]]; then
+        echo "  ECS run-task failed for ${cluster_id}: $failures"
+        return 1
+    fi
+
+    task_arn=$(echo "$run_task_output" | jq -r '.tasks[0].taskArn // empty')
+    if [[ -z "$task_arn" ]]; then
+        echo "  ECS run-task returned no taskArn for ${cluster_id}"
+        return 1
+    fi
 
     local task_id
     task_id=$(echo "$task_arn" | awk -F'/' '{print $NF}')
@@ -176,10 +192,18 @@ collect_logs_for_cluster() {
     aws ecs wait tasks-stopped --cluster "$ecs_cluster" --tasks "$task_id"
 
     # Check exit code
-    local exit_code
-    exit_code=$(aws ecs describe-tasks \
-        --cluster "$ecs_cluster" --tasks "$task_id" \
-        --query 'tasks[0].containers[0].exitCode' --output text)
+    local describe_output exit_code
+    describe_output=$(aws ecs describe-tasks \
+        --cluster "$ecs_cluster" --tasks "$task_id")
+    exit_code=$(echo "$describe_output" | jq -r '.tasks[0].containers[0].exitCode // empty')
+
+    if [[ -z "$exit_code" ]]; then
+        local stop_reason
+        stop_reason=$(echo "$describe_output" | jq -r '.tasks[0].stoppedReason // "unknown"')
+        echo "  Warning: container never started for ${cluster_id} (reason: $stop_reason)"
+        echo "  Check CloudWatch logs: /ecs/${cluster_id}/bastion (log-collector stream)"
+        return 1
+    fi
 
     if [[ "$exit_code" != "0" ]]; then
         echo "  Warning: log-collector exited with code $exit_code for ${cluster_id}"
@@ -214,6 +238,14 @@ collect_logs_for_cluster() {
 # ---------------------------------------------------------------------------
 
 CLUSTER_SCOPE="${1:-all}"
+
+case "$CLUSTER_SCOPE" in
+    all|regional|management) ;;
+    *)
+        echo "ERROR: Unknown cluster scope '${CLUSTER_SCOPE}' (expected: regional, management, or all)" >&2
+        exit 1
+        ;;
+esac
 
 if [[ -z "${CLUSTER_PREFIX+set}" ]]; then
     echo "ERROR: CLUSTER_PREFIX must be set (use empty string for bare cluster names)" >&2
