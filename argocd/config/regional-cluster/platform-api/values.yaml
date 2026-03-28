@@ -26,6 +26,7 @@ platformApi:
       allowedAccounts: "123456789012"
       dynamodbRegion: us-east-2
       dynamodbPrefix: rosa
+      hyperfleetUrl: "http://hyperfleet-api.hyperfleet-system:8000"
       apiPort: 8000
       healthPort: 8081
       metricsPort: 9090
