@@ -7,4 +7,5 @@
 
 maestro:
   mqttEndpoint: xxx.iot.us-east-2.amazonaws.com
+  iotLogLevel: WARN
 someOtherSetting: value
