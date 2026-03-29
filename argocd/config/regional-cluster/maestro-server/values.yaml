@@ -11,7 +11,7 @@ maestroServer:
     pullPolicy: IfNotPresent
   # Deployment configuration
   deployment:
-    replicas: 2
+    replicas: 1 # AWS IoT Core disconnects clients sharing the same MQTT client ID
     zoneCount: 3 # Number of availability zones
     requests:
       cpu: "200m"
