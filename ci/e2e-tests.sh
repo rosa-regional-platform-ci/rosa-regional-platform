@@ -40,11 +40,12 @@ else
   echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
 fi
 
-API_REF="${API_REF:-main}"
+E2E_REF="${E2E_REF:-main}"
+E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
-git clone --depth 1 --branch "${API_REF}" \
-  https://github.com/openshift-online/rosa-regional-platform-api.git "${WORK_DIR}/api"
+git clone --depth 1 --branch "${E2E_REF}" \
+  "${E2E_REPO}" "${WORK_DIR}/api"
 cd "${WORK_DIR}/api"
 
 go install github.com/onsi/ginkgo/v2/ginkgo@v2.28.1
