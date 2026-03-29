@@ -132,6 +132,12 @@ variable "maestro_mqtt_topic_prefix" {
   default     = "maestro/consumers"
 }
 
+variable "iot_log_level" {
+  description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
+  type        = string
+  default     = "WARN"
+}
+
 # =============================================================================
 # Authorization Configuration Variables
 # =============================================================================

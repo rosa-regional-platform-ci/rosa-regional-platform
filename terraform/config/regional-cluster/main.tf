@@ -159,6 +159,9 @@ module "maestro_infrastructure" {
 
   # MQTT topic prefix
   mqtt_topic_prefix = var.maestro_mqtt_topic_prefix
+
+  # IoT Core logging
+  iot_log_level = var.iot_log_level
 }
 
 # =============================================================================

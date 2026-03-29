@@ -79,3 +79,42 @@ resource "aws_iot_policy_attachment" "maestro_server" {
   target = aws_iot_certificate.maestro_server.arn
 }
 
+# =============================================================================
+# IoT Core Logging
+# =============================================================================
+
+resource "aws_iam_role" "iot_logging" {
+  name = "${var.regional_id}-iot-logging"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = { Service = "iot.amazonaws.com" }
+        Action    = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-iot-logging"
+      Component = "iot-core"
+    }
+  )
+}
+
+resource "aws_iam_role_policy_attachment" "iot_logging" {
+  role       = aws_iam_role.iot_logging.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSIoTLogging"
+}
+
+resource "aws_iot_logging_options" "this" {
+  role_arn          = aws_iam_role.iot_logging.arn
+  default_log_level = var.iot_log_level
+
+  depends_on = [aws_iam_role_policy_attachment.iot_logging]
+}
+

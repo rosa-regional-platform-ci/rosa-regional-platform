@@ -84,6 +84,9 @@ applications:
       # @doc applications.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
       # @used-by applications.regional-cluster.maestro.mqttEndpoint _context
       mqttEndpoint: "xxx.iot.{{ aws_region }}.amazonaws.com"
+      # @doc applications.regional-cluster.maestro.iotLogLevel AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG).
+      # @used-by applications.regional-cluster.maestro.iotLogLevel pipeline-regional-cluster-inputs/terraform.json.j2
+      iotLogLevel: "WARN"
     # @doc applications.regional-cluster.someOtherSetting Example setting for regional cluster.
     # @used-by applications.regional-cluster.someOtherSetting _context
     someOtherSetting: "value"
