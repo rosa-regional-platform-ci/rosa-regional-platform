@@ -63,10 +63,10 @@ resource "aws_secretsmanager_secret_version" "maestro_server_config" {
       clientKeyFile: /mnt/secrets-store/privateKey
       caFile: /mnt/secrets-store/ca.crt
       topics:
-        # Server publishes to all consumer topics
-        sourceEvents: sources/maestro/consumers/+/sourceevents
-        # Server subscribes to all agent events
-        agentEvents: sources/maestro/consumers/+/agentevents
+        # Server publishes to all consumer topics (scoped by regional_id)
+        sourceEvents: sources/${var.regional_id}/consumers/+/sourceevents
+        # Server subscribes to all agent events (scoped by regional_id)
+        agentEvents: sources/${var.regional_id}/consumers/+/agentevents
     EOT
   })
 }
