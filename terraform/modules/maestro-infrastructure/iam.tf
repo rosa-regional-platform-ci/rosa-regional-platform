@@ -2,9 +2,12 @@
 # IAM Roles for Maestro Components
 #
 # Creates IAM roles for use with EKS Pod Identity:
-# - Maestro Server: Access to RDS, IoT Core (publish), Secrets Manager
-# - Maestro Agent: Access to IoT Core (subscribe), Secrets Manager
+# - Maestro Server: Access to RDS, Secrets Manager
 # - External Secrets Operator: Access to Secrets Manager (read-only)
+#
+# Note: IoT Core MQTT authorization uses X.509 certificate policies (iot.tf),
+# not IAM role policies. IAM iot:* actions only apply to SigV4/HTTP connections
+# which Maestro does not use.
 # =============================================================================
 
 # =============================================================================
@@ -13,7 +16,7 @@
 
 resource "aws_iam_role" "maestro_server" {
   name        = "${var.regional_id}-maestro-server"
-  description = "IAM role for Maestro Server with access to RDS, IoT, and Secrets Manager"
+  description = "IAM role for Maestro Server with access to RDS and Secrets Manager"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -36,51 +39,6 @@ resource "aws_iam_role" "maestro_server" {
       Component = "maestro-server"
     }
   )
-}
-
-# Maestro Server Policy - IoT Core permissions
-# Server publishes source events TO agents, and subscribes/receives agent status events FROM agents.
-resource "aws_iam_role_policy" "maestro_server_iot" {
-  name = "${var.regional_id}-maestro-server-iot-policy"
-  role = aws_iam_role.maestro_server.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "Connect"
-        Effect = "Allow"
-        Action = ["iot:Connect"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/maestro-*"
-        ]
-      },
-      {
-        Sid    = "PublishSourceEvents"
-        Effect = "Allow"
-        Action = ["iot:Publish"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/sourceevents"
-        ]
-      },
-      {
-        Sid    = "SubscribeAgentEvents"
-        Effect = "Allow"
-        Action = ["iot:Subscribe"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/${var.regional_id}/consumers/*/agentevents"
-        ]
-      },
-      {
-        Sid    = "ReceiveAgentEvents"
-        Effect = "Allow"
-        Action = ["iot:Receive"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/agentevents"
-        ]
-      }
-    ]
-  })
 }
 
 # Maestro Server Policy - Secrets Manager read access

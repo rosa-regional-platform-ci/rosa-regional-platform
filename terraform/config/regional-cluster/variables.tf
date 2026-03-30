@@ -126,12 +126,6 @@ variable "maestro_db_deletion_protection" {
   default     = false
 }
 
-variable "maestro_mqtt_topic_prefix" {
-  description = "Prefix for MQTT topics used by Maestro"
-  type        = string
-  default     = "maestro/consumers"
-}
-
 variable "iot_log_level" {
   description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
   type        = string
