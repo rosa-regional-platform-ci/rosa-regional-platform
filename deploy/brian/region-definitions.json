@@ -3,7 +3,7 @@
     "aws_region": "us-east-1",
     "environment": "brian",
     "management_clusters": [
-      "mc01"
+      "ci-c598f8-mc01"
     ],
     "name": "brian"
   }
