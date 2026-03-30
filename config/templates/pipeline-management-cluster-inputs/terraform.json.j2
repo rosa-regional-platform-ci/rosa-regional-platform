@@ -8,7 +8,6 @@
   "region": "{{ aws_region }}",
   "alias": "{{ mc.management_id }}",
   "management_id": "{{ mc.management_id }}",
-  "regional_aws_account_id": "{{ account_id }}",
   "node_instance_types": {{ mc.node_instance_types | default(management_cluster_defaults.node_instance_types) | tojson }}
 {%- if mc.enable_bastion is defined %},
   "enable_bastion": {{ mc.enable_bastion | tojson }}{% elif management_cluster_defaults.enable_bastion %},

@@ -2,7 +2,7 @@
 # Maestro Infrastructure Module - Variables
 #
 # This module creates AWS resources for Maestro MQTT-based orchestration:
-# - AWS IoT Core (MQTT broker, Things, certificates, policies)
+# - AWS IoT Core (MQTT broker, certificates, policies)
 # - RDS PostgreSQL (Maestro Server state storage)
 # - Secrets Manager (MQTT certificates, DB credentials)
 # - IAM roles (Pod Identity for Maestro components and External Secrets)
@@ -97,16 +97,6 @@ variable "db_skip_final_snapshot" {
   description = "Skip final snapshot when deleting RDS instance"
   type        = bool
   default     = true
-}
-
-# MQTT/IoT configuration
-# Note: mqtt_topic_prefix is no longer used for topic paths.
-# Topics are scoped by regional_id: sources/${regional_id}/consumers/...
-# This variable is kept for the configuration summary output only.
-variable "mqtt_topic_prefix" {
-  description = "Prefix for MQTT topics (legacy — topics are now scoped by regional_id)"
-  type        = string
-  default     = "maestro/consumers"
 }
 
 variable "iot_log_level" {

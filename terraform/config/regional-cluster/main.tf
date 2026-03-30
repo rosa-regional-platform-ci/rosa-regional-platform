@@ -157,9 +157,6 @@ module "maestro_infrastructure" {
   db_multi_az            = var.maestro_db_multi_az
   db_deletion_protection = var.maestro_db_deletion_protection
 
-  # MQTT topic prefix
-  mqtt_topic_prefix = var.maestro_mqtt_topic_prefix
-
   # IoT Core logging
   iot_log_level = var.iot_log_level
 }

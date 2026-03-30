@@ -76,9 +76,8 @@ module "bastion" {
 module "maestro_agent" {
   source = "../../modules/maestro-agent"
 
-  management_id           = var.management_id
-  regional_aws_account_id = var.regional_aws_account_id
-  eks_cluster_name        = module.management_cluster.cluster_name
+  management_id    = var.management_id
+  eks_cluster_name = module.management_cluster.cluster_name
 
   maestro_agent_cert_json   = file(var.maestro_agent_cert_file)
   maestro_agent_config_json = file(var.maestro_agent_config_file)
