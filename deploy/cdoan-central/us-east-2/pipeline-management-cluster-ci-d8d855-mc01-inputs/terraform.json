@@ -6,8 +6,8 @@
   "environment": "cdoan-central",
   "account_id": "910485845704",
   "region": "us-east-2",
-  "alias": "mc01",
-  "management_id": "mc01",
+  "alias": "ci-d8d855-mc01",
+  "management_id": "ci-d8d855-mc01",
   "regional_aws_account_id": "754250776154",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "enable_bastion": true
