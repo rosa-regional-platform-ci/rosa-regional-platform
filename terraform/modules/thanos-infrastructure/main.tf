@@ -10,7 +10,7 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  bucket_name     = "${var.cluster_id}-thanos-metrics"
+  bucket_name     = "${var.cluster_id}-thanos-metrics-${data.aws_caller_identity.current.account_id}"
   role_name       = "${var.cluster_id}-thanos"
   store_role_name = "${var.cluster_id}-thanos-store"
 

@@ -123,7 +123,7 @@ All templates are platform-specific resources not provided by either upstream re
 
 ### Terraform Resources (`terraform/modules/thanos-infrastructure/`)
 
-- `aws_s3_bucket` — `${cluster_id}-thanos-metrics`, versioning + SSE-KMS + lifecycle policies
+- `aws_s3_bucket` — `${cluster_id}-thanos-metrics-${account_id}`, versioning + SSE-KMS + lifecycle policies
 - `aws_kms_key` — dedicated key for Thanos S3 encryption
 - `aws_iam_role.thanos_receiver` — write role for ingester and compactor; KMS key generation included
 - `aws_iam_role.thanos_store` — read-only role for Store Gateway; no write or key-generation permissions
