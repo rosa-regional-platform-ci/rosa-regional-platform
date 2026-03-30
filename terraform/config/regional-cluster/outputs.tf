@@ -117,6 +117,16 @@ output "bastion_ssm_port_forward_template" {
   value       = var.enable_bastion ? module.bastion[0].ssm_port_forward_template : null
 }
 
+output "log_collector_task_family" {
+  description = "Family name of the log-collector task definition"
+  value       = var.enable_bastion ? module.bastion[0].log_collector_task_family : null
+}
+
+output "logs_transfer_bucket" {
+  description = "S3 bucket name for log transfer"
+  value       = var.enable_bastion ? module.bastion[0].logs_transfer_bucket : null
+}
+
 # =============================================================================
 # API Gateway Outputs
 # =============================================================================

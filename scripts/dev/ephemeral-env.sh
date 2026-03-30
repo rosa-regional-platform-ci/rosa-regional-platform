@@ -37,6 +37,15 @@ VAULT_CRED_KEYS=(
 
 die() { echo "Error: $*" >&2; exit 1; }
 
+# Portable SHA-256: works on both Linux (sha256sum) and macOS (shasum)
+portable_sha256() {
+    if command -v sha256sum &>/dev/null; then
+        sha256sum
+    else
+        shasum -a 256
+    fi
+}
+
 usage() {
     echo "Usage: $0 <command>"
     echo ""
@@ -49,6 +58,7 @@ usage() {
     echo "  bastion         Connect to RC/MC bastion in an ephemeral env"
     echo "  port-forward    Forward ports through RC/MC bastion in an ephemeral env"
     echo "  e2e             Run e2e tests against an ephemeral env"
+    echo "  collect-logs    Collect kubernetes logs from RC/MC in an ephemeral env"
 }
 
 usage_bastion_interactive() {
@@ -202,7 +212,7 @@ bastion_setup() {
 
     # Compute ci_prefix from BUILD_ID (must match ci/ephemeral-provider/main.py)
     local ci_prefix
-    ci_prefix="ci-$(echo -n "$BUILD_ID" | shasum -a 256 | cut -c1-6)"
+    ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)"
 
     # Derive cluster ID and ECS resource names from ci_prefix
     if [[ "$cluster_type" == "regional" ]]; then
@@ -309,6 +319,7 @@ bastion_setup() {
     [[ "$agent_status" == "RUNNING" ]] \
         || die "Execute command agent did not become ready (status: ${agent_status:-unknown})"
 }
+
 
 # Build the CI container image if not already present.
 ensure_image() {
@@ -918,6 +929,37 @@ cmd_e2e() {
         bash ci/e2e-tests.sh
 }
 
+cmd_collect_logs() {
+    local cluster_type="${1:-all}"
+    # Accept short aliases
+    case "$cluster_type" in
+        rc) cluster_type="regional" ;;
+        mc) cluster_type="management" ;;
+    esac
+    # Select environment (ready only)
+    select_env "STATE=ready" \
+        "Select environment for log collection:" \
+        "No ready environments found." \
+        true
+
+    fetch_creds
+
+    local region
+    region=$(get_field "$ENV_LINE" REGION)
+
+    local ci_prefix
+    ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)-"
+
+    export REGIONAL_AK REGIONAL_SK MANAGEMENT_AK MANAGEMENT_SK
+    export AWS_REGION="$region"
+    export CLUSTER_PREFIX="$ci_prefix"
+    if [[ -n "${ARTIFACT_DIR:-}" ]]; then
+        export LOG_OUTPUT_DIR="$ARTIFACT_DIR"
+    fi
+
+    "${REPO_ROOT}/scripts/dev/collect-cluster-logs.sh" "$cluster_type"
+}
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -931,7 +973,7 @@ esac
 
 # Bastion needs vault + aws but not container engine
 case "${1:-help}" in
-    bastion)
+    bastion|collect-logs)
         for tool in vault aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
@@ -956,6 +998,7 @@ case "${1:-help}" in
     bastion)        shift; cmd_bastion_interactive "$@" ;;
     port-forward)   shift; cmd_bastion_port_forward "$@" ;;
     e2e)            cmd_e2e ;;
+    collect-logs)   shift; cmd_collect_logs "$@" ;;
     help|*)
         usage
         ;;

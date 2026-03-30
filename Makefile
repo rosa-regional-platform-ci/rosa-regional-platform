@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e check-docs pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs check-docs pre-push
 
 # Default target
 help:
@@ -15,11 +15,13 @@ help:
 	@echo "  check-rendered-files                  - Verify deploy/ is up to date with config.yaml"
 	@echo "  check-docs                            - Check documentation formatting"
 	@echo ""
-	@echo "🔄 Ephemeral Developer Environments (shared dev accounts):"
+	@echo "🔄 Ephemeral Environments (dev) — Lifecycle:"
 	@echo "  ephemeral-provision                   - Provision an ephemeral environment"
 	@echo "  ephemeral-teardown                    - Tear down an ephemeral environment"
 	@echo "  ephemeral-resync                      - Resync an ephemeral environment to your branch"
 	@echo "  ephemeral-list                        - List ephemeral environments"
+	@echo ""
+	@echo "🔧 Ephemeral Environments (dev) — Interacting:"
 	@echo "  ephemeral-shell                       - Interactive shell for Platform API access"
 	@echo "  ephemeral-bastion-rc                  - Connect to RC bastion in an ephemeral env"
 	@echo "  ephemeral-bastion-mc                  - Connect to MC bastion in an ephemeral env"
@@ -28,6 +30,7 @@ help:
 	@echo "  ephemeral-port-forward-rc-all         - Automatically port forward all services for an RC in an ephemeral env"
 	@echo "  ephemeral-port-forward-mc-all         - Automatically port forward all services for an MC in an ephemeral env"
 	@echo "  ephemeral-e2e                         - Run e2e tests against an ephemeral env"
+	@echo "  ephemeral-collect-logs                - Collect kubernetes logs from an ephemeral env (CLUSTER=rc|mc, default: both)"
 	@echo ""
 	@echo "  help                                  - Show this help message"
 
@@ -209,3 +212,6 @@ ephemeral-port-forward-mc-all:
 
 ephemeral-e2e:
 	@ID="$(ID)" API_REF="$(or $(API_REF),main)" ./scripts/dev/ephemeral-env.sh e2e
+
+ephemeral-collect-logs:
+	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh collect-logs $(CLUSTER)
