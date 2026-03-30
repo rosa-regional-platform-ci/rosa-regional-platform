@@ -51,7 +51,6 @@ This ensures the tenant identity comes from the verified SigV4 caller identity, 
 ## Design Rationale
 
 - **Justification**: REST API v1 with sigv4-proxy provides cross-account IAM auth (via resource policies), server-side tenant injection, and binary payload support — all required for secure multi-tenant metrics ingestion.
-- **Evidence**: End-to-end validated on ephemeral environment `ci-757e09`. Prometheus successfully writes ~2000 samples/batch at ~25ms latency through the full pipeline. Thanos Receive stores metrics under the correct tenant ID (`tenant_id` label matches MC account ID).
 - **Comparison**: HTTP API v2 was tested and confirmed working for payload delivery, but rejected due to the cross-account auth gap. Direct VPC peering was rejected for security reasons.
 
 ## Key Implementation Details
