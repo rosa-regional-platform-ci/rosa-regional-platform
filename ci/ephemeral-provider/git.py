@@ -193,8 +193,19 @@ class GitManager:
         log.info("Fetching latest %s from upstream (%s)", self.source_branch, self.source_repo)
         self._run_git("fetch", "upstream", self.source_branch, auth=True)
 
+        head_before = self._run_git("rev-parse", "HEAD").stdout.strip()
         log.info("Resetting %s to upstream/%s", self.ci_branch, self.source_branch)
         self._run_git("reset", "--hard", f"upstream/{self.source_branch}")
+        head_after = self._run_git("rev-parse", "HEAD").stdout.strip()
+
+        if head_before == head_after:
+            log.info("Reset: %s is already up to date with upstream/%s", self.ci_branch, self.source_branch)
+        else:
+            count = self._run_git("rev-list", "--count", f"{head_before}..{head_after}").stdout.strip()
+            log.info("Reset: %s new commits from upstream/%s", count, self.source_branch)
+
+        branch_url = f"https://github.com/{self.fork_repo}/commits/{self.ci_branch}/"
+        log.info("Resync complete: %s", branch_url)
 
     def push(self, message: str, force: bool = False):
         """Stage all changes, commit, and push to the CI branch."""
