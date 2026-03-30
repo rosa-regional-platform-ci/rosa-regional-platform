@@ -69,7 +69,6 @@ spec:
             has(spec.privateSubnetIds) && spec.privateSubnetIds != ""
               ? spec.privateSubnetIds
               : ""
-          description: "Comma-separated subnet IDs (up to 6). Extra list slots render empty id; omit or extend manifest if your API rejects that."
         - name: "instanceProfile"
           expression: |
             has(spec.workerInstanceProfileName) && spec.workerInstanceProfileName != ""
@@ -288,12 +287,7 @@ spec:
                         vpc: "{{ .vpcId }}"
                         # subnetId is comma-separated; {{ must stay inside quoted scalars or YAML parse fails before templates run.
                         subnet:
-                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 1 }}{{ index (splitList \",\" .subnetId) 0 | trim }}{{ end }}"
-                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 2 }}{{ index (splitList \",\" .subnetId) 1 | trim }}{{ end }}"
-                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 3 }}{{ index (splitList \",\" .subnetId) 2 | trim }}{{ end }}"
-                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 4 }}{{ index (splitList \",\" .subnetId) 3 | trim }}{{ end }}"
-                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 5 }}{{ index (splitList \",\" .subnetId) 4 | trim }}{{ end }}"
-                          - id: "{{ if ge (len (splitList \",\" .subnetId)) 6 }}{{ index (splitList \",\" .subnetId) 5 | trim }}{{ end }}"
+                          id: "{{ .subnetId }}"
                       endpointAccess: Private
                       rolesRef:
                         controlPlaneOperatorARN: "{{ .controlPlaneOperatorARN }}"
@@ -345,12 +339,7 @@ spec:
                         size: 120
                         type: gp3
                       subnet:
-                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 1 }}{{ index (splitList \",\" .subnetId) 0 | trim }}{{ end }}"
-                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 2 }}{{ index (splitList \",\" .subnetId) 1 | trim }}{{ end }}"
-                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 3 }}{{ index (splitList \",\" .subnetId) 2 | trim }}{{ end }}"
-                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 4 }}{{ index (splitList \",\" .subnetId) 3 | trim }}{{ end }}"
-                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 5 }}{{ index (splitList \",\" .subnetId) 4 | trim }}{{ end }}"
-                        - id: "{{ if ge (len (splitList \",\" .subnetId)) 6 }}{{ index (splitList \",\" .subnetId) 5 | trim }}{{ end }}"
+                        id: "{{ .subnetId }}"
                       instanceProfile: "{{ .instanceProfile }}"
                       securityGroups:
                         - id: "{{ .securityGroupId }}"
