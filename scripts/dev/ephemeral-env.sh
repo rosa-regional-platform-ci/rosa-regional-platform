@@ -893,7 +893,8 @@ cmd_bastion_port_forward() {
 }
 
 cmd_e2e() {
-    local api_ref="${API_REF:-main}"
+    local e2e_ref="${E2E_REF:-main}"
+    local e2e_repo="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
 
     # Select environment (ready only)
     select_env "STATE=ready" \
@@ -914,7 +915,8 @@ cmd_e2e() {
     echo "  ID:         $BUILD_ID"
     echo "  API_URL:    $api_url"
     echo "  REGION:     $region"
-    echo "  API_REF:    $api_ref"
+    echo "  E2E_REF:    $e2e_ref"
+    echo "  E2E_REPO:   $e2e_repo"
 
     $CONTAINER_ENGINE run --rm \
         -v "${REPO_ROOT}:/workspace:ro,z" \
@@ -924,7 +926,8 @@ cmd_e2e() {
         -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
-        -e "API_REF=$api_ref" \
+        -e "E2E_REF=$e2e_ref" \
+        -e "E2E_REPO=$e2e_repo" \
         "$CI_IMAGE" \
         bash ci/e2e-tests.sh
 }
