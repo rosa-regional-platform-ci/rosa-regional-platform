@@ -98,6 +98,33 @@ setup_aws_creds() {
     fi
 }
 
+# Ensure the log-collection S3 bucket exists (account-regional namespace).
+# Creates the bucket on first use; subsequent calls are no-ops.
+ensure_logs_bucket() {
+    local account_id="$1"
+    local region="$2"
+    local bucket="bastion-log-collection-${account_id}-${region}-an"
+
+    if aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
+        return 0
+    fi
+
+    echo "  Creating log-collection bucket ${bucket}..."
+    aws s3api create-bucket \
+        --bucket "$bucket" \
+        --bucket-namespace account-regional \
+        --region "$region"
+
+    aws s3api put-public-access-block \
+        --bucket "$bucket" \
+        --public-access-block-configuration \
+            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+
+    aws s3api put-bucket-lifecycle-configuration \
+        --bucket "$bucket" \
+        --lifecycle-configuration '{"Rules":[{"ID":"expire-logs","Status":"Enabled","Filter":{"Prefix":""},"Expiration":{"Days":7},"AbortIncompleteMultipartUpload":{"DaysAfterInitiation":1}}]}'
+}
+
 # Discover MC cluster IDs by listing ECS clusters matching ${prefix}mc*-bastion.
 # Outputs one cluster_id per line (e.g. "ci-a1b2c3-mc01", "mc01").
 discover_mc_clusters() {
@@ -123,10 +150,13 @@ collect_logs_for_cluster() {
 
     local ecs_cluster="${cluster_id}-bastion"
     local task_def="${cluster_id}-log-collector"
-    local account_id
+    local account_id region
     account_id=$(aws sts get-caller-identity --query Account --output text) \
         || { echo "  Could not determine account ID"; return 1; }
-    local s3_bucket="${cluster_id}-bastion-logs-${account_id}"
+    region=$(aws configure get region 2>/dev/null || echo "${AWS_DEFAULT_REGION:-us-east-1}")
+    local s3_bucket="bastion-log-collection-${account_id}-${region}-an"
+
+    ensure_logs_bucket "$account_id" "$region"
     local s3_key="collect-logs-$(date +%s%N)-$$-${RANDOM}.tar.gz"
 
     # Discover network config from the bastion security group
@@ -166,6 +196,7 @@ collect_logs_for_cluster() {
             \"containerOverrides\": [{
                 \"name\": \"log-collector\",
                 \"environment\": [
+                    {\"name\": \"S3_BUCKET\", \"value\": \"$s3_bucket\"},
                     {\"name\": \"INSPECT_NAMESPACES\", \"value\": \"$namespaces\"},
                     {\"name\": \"S3_KEY\", \"value\": \"$s3_key\"}
                 ]
@@ -232,9 +263,11 @@ collect_logs_for_cluster() {
     # In S3-only mode, leave logs in the bucket and print the location.
     # This is used in CI to avoid publishing sensitive data to public artifacts.
     if [[ "${S3_ONLY:-}" == "true" ]]; then
-        echo "  Logs available in S3:"
-        echo "    aws s3 cp s3://${s3_bucket}/${s3_key} ${cluster_id}-logs.tar.gz"
-        echo "  Account: ${account_id}"
+        echo "  Logs available in S3 (account: ${account_id}):"
+        echo "    # Download tarball:"
+        echo "    mkdir -p /tmp/${cluster_id}-logs && aws s3 cp s3://${s3_bucket}/${s3_key} /tmp/${cluster_id}-logs/${s3_key}"
+        echo "    # Download and extract:"
+        echo "    mkdir -p /tmp/${cluster_id}-logs && aws s3 cp s3://${s3_bucket}/${s3_key} /tmp/${cluster_id}-logs/${s3_key} && tar xzf /tmp/${cluster_id}-logs/${s3_key} -C /tmp/${cluster_id}-logs"
         echo "==> ${cluster_id} log collection complete (S3 only)"
         return 0
     fi
