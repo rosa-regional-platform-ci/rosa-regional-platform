@@ -9,5 +9,6 @@
   "alias": "ci-253347-mc01",
   "management_id": "ci-253347-mc01",
   "node_instance_types": ["t3.medium", "t3a.medium"],
-  "enable_bastion": true
+  "enable_bastion": true,
+  "delete": true
 }
