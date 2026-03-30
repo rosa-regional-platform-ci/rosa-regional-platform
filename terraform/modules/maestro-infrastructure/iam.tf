@@ -38,7 +38,16 @@ resource "aws_iam_role" "maestro_server" {
   )
 }
 
-# Maestro Server Policy - IoT Core publish permissions
+# Maestro Server Policy - IoT Core permissions
+#
+# NOTE: These IAM actions only apply to SigV4/HTTP IoT connections (port 443).
+# Maestro uses X.509 certificate-based MQTT (port 8883), for which AWS IoT Core
+# evaluates only the IoT certificate policy (aws_iot_policy in iot.tf) — IAM
+# policies are not consulted. This policy is scoped accurately for defence-in-depth
+# should the authentication method ever change.
+#
+# Server role: publishes sourceevents TO agents, publishes agentevents for
+# spec-resync responses, and subscribes/receives agentevents FROM agents.
 resource "aws_iam_role_policy" "maestro_server_iot" {
   name = "${var.regional_id}-maestro-server-iot-policy"
   role = aws_iam_role.maestro_server.id
@@ -47,17 +56,37 @@ resource "aws_iam_role_policy" "maestro_server_iot" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "Connect"
         Effect = "Allow"
-        Action = [
-          "iot:Connect",
-          "iot:Publish",
-          "iot:Subscribe",
-          "iot:Receive"
-        ]
+        Action = ["iot:Connect"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/maestro-*",
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*",
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/${var.regional_id}/consumers/*"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/maestro-*"
+        ]
+      },
+      {
+        Sid    = "Publish"
+        Effect = "Allow"
+        Action = ["iot:Publish"]
+        Resource = [
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/sourceevents",
+          # Server also publishes to agentevents for spec-resync responses
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/agentevents"
+        ]
+      },
+      {
+        Sid    = "Subscribe"
+        Effect = "Allow"
+        Action = ["iot:Subscribe"]
+        Resource = [
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/${var.regional_id}/consumers/*/agentevents"
+        ]
+      },
+      {
+        Sid    = "Receive"
+        Effect = "Allow"
+        Action = ["iot:Receive"]
+        Resource = [
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/agentevents"
         ]
       }
     ]
