@@ -4,12 +4,11 @@
   "service_phase": "dev",
   "cost_center": "000",
   "environment": "cdoan-central",
-  "account_id": "754250776154",
+  "account_id": "910485845704",
   "region": "us-east-2",
-  "alias": "regional-us-east-2",
-  "enable_bastion": true,
-  "regional_id": "ci-43d24f-regional",
+  "alias": "ci-43d24f-mc01",
+  "management_id": "ci-43d24f-mc01",
+  "regional_aws_account_id": "754250776154",
   "node_instance_types": ["t3.medium", "t3a.medium"],
-  "iot_log_level": "WARN",
-  "management_cluster_account_ids": ["910485845704"]
+  "enable_bastion": true
 }
