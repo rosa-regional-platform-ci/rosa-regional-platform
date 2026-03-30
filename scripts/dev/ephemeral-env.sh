@@ -432,7 +432,7 @@ ensure_image() {
 # Check that required CLI tools are available.
 preflight() {
     local missing=""
-    for tool in vault jq aws git python3 fzf; do
+    for tool in vault jq uv aws git python3 fzf; do
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     [[ -n "$CONTAINER_ENGINE" ]] || missing="$missing podman/docker"
@@ -902,7 +902,7 @@ cmd_bastion_port_forward() {
             services=$(fzf_pick "Select service (${cluster_type}):" "${management_svc_list[@]}" "$custom")
         fi
     fi
-    services=$(awk '{print $1}' <<< "$services")
+    services=$(awk '{print $1}' <<< "$services" | tr '\n' ' ')
 
     local forwards=()
     for service in $services
@@ -995,13 +995,21 @@ cmd_bastion_port_forward() {
     # ── Port forwarding ─────────────────────────────────────────────────────────
 
     ssm_pids=()
+    bastion_pids=()
 
+    # Chain with the existing EXIT trap (setup_aws_config cleanup)
+    _prev_trap=$(trap -p EXIT | sed "s/^trap -- '//;s/' EXIT$//")
     cleanup() {
     echo ""
     echo "Stopping all port-forward sessions..."
     for pid in "${ssm_pids[@]}"; do
         kill "$pid" 2>/dev/null || true
     done
+    for pid in "${bastion_pids[@]}"; do
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+    done
+    eval "$_prev_trap"
     }
     trap cleanup EXIT
 
@@ -1029,8 +1037,8 @@ cmd_bastion_port_forward() {
             --container bastion \
             --interactive \
             --command "kubectl port-forward svc/${k8s_svc} ${remote_port}:${k8s_svc_port} -n ${k8s_ns} --address 0.0.0.0" &
+        bastion_pids+=($!)
     done
-    # Not tracked in SSM_PIDS — the ECS exec processes are expected to exit
 
     # Wait for kubectl to bind inside the bastion
     echo ""
@@ -1189,20 +1197,24 @@ case "${1:-help}" in
     list) cmd_list; exit 0 ;;
 esac
 
-# Bastion needs vault + aws but not container engine
+# Bastion/collect-logs need vault + aws but not container engine
 case "${1:-help}" in
     bastion|collect-logs)
-        for tool in vault jq aws; do
+        for tool in vault jq uv aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
     port-forward)
-        for tool in vault jq aws fzf lsof; do
+        for tool in vault jq uv aws fzf lsof; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
+    shell|e2e)
+        preflight
+        ensure_image
+        ;;
     *)
-        # All other commands need tools + container image
+        # provision, teardown, resync
         preflight
         ensure_image
         ;;
