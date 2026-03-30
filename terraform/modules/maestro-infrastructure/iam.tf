@@ -38,7 +38,8 @@ resource "aws_iam_role" "maestro_server" {
   )
 }
 
-# Maestro Server Policy - IoT Core publish permissions
+# Maestro Server Policy - IoT Core permissions
+# Server publishes source events TO agents, and subscribes/receives agent status events FROM agents.
 resource "aws_iam_role_policy" "maestro_server_iot" {
   name = "${var.regional_id}-maestro-server-iot-policy"
   role = aws_iam_role.maestro_server.id
@@ -47,17 +48,35 @@ resource "aws_iam_role_policy" "maestro_server_iot" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "Connect"
         Effect = "Allow"
-        Action = [
-          "iot:Connect",
-          "iot:Publish",
-          "iot:Subscribe",
-          "iot:Receive"
-        ]
+        Action = ["iot:Connect"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/maestro-*",
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*",
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/${var.regional_id}/consumers/*"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/maestro-*"
+        ]
+      },
+      {
+        Sid    = "PublishSourceEvents"
+        Effect = "Allow"
+        Action = ["iot:Publish"]
+        Resource = [
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/sourceevents"
+        ]
+      },
+      {
+        Sid    = "SubscribeAgentEvents"
+        Effect = "Allow"
+        Action = ["iot:Subscribe"]
+        Resource = [
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/${var.regional_id}/consumers/*/agentevents"
+        ]
+      },
+      {
+        Sid    = "ReceiveAgentEvents"
+        Effect = "Allow"
+        Action = ["iot:Receive"]
+        Resource = [
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/agentevents"
         ]
       }
     ]
