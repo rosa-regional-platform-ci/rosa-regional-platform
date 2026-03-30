@@ -117,11 +117,6 @@ output "log_collector_task_family" {
   value       = var.enable_bastion ? module.bastion[0].log_collector_task_family : null
 }
 
-output "logs_transfer_bucket" {
-  description = "S3 bucket name for log transfer"
-  value       = var.enable_bastion ? module.bastion[0].logs_transfer_bucket : null
-}
-
 output "maestro_agent_cert_secret_name" {
   description = "Secret name for Maestro Agent MQTT certificate"
   value       = module.maestro_agent.maestro_agent_cert_secret_name

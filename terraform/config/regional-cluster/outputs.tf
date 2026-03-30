@@ -122,11 +122,6 @@ output "log_collector_task_family" {
   value       = var.enable_bastion ? module.bastion[0].log_collector_task_family : null
 }
 
-output "logs_transfer_bucket" {
-  description = "S3 bucket name for log transfer"
-  value       = var.enable_bastion ? module.bastion[0].logs_transfer_bucket : null
-}
-
 # =============================================================================
 # API Gateway Outputs
 # =============================================================================

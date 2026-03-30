@@ -3,45 +3,6 @@
 # task completion, then downloads from S3.
 
 # =============================================================================
-# S3 Bucket for Log Transfer
-# =============================================================================
-# Used by the log-collector task to upload oc adm inspect output.
-# Objects expire after 1 day to avoid accumulating stale data.
-
-resource "aws_s3_bucket" "logs_transfer" {
-  bucket        = "${var.cluster_id}-bastion-logs-${local.account_id}"
-  force_destroy = true
-
-  tags = var.tags
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "logs_transfer" {
-  bucket = aws_s3_bucket.logs_transfer.id
-
-  rule {
-    id     = "expire-logs"
-    status = "Enabled"
-
-    expiration {
-      days = 1
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 1
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "logs_transfer" {
-  bucket = aws_s3_bucket.logs_transfer.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# =============================================================================
 # Task Definition
 # =============================================================================
 # Namespaces and S3 key are passed as environment variable overrides at run time.
@@ -97,10 +58,6 @@ resource "aws_ecs_task_definition" "log_collector" {
         {
           name  = "AWS_REGION"
           value = data.aws_region.current.id
-        },
-        {
-          name  = "S3_BUCKET"
-          value = aws_s3_bucket.logs_transfer.id
         },
         {
           name  = "INSPECT_NAMESPACES"
@@ -190,7 +147,7 @@ resource "aws_iam_role_policy" "log_collector_s3" {
         Action = [
           "s3:PutObject"
         ]
-        Resource = "${aws_s3_bucket.logs_transfer.arn}/*"
+        Resource = "arn:aws:s3:::bastion-log-collection-*/*"
       }
     ]
   })
