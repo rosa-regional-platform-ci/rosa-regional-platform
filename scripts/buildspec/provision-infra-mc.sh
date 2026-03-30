@@ -60,7 +60,7 @@ else
         -backend-config="region=${TARGET_REGION}" \
         -backend-config="use_lockfile=true" >/dev/null 2>&1)
     export TF_VAR_rhobs_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw rhobs_api_url 2>/dev/null || echo "")
-    echo "  API URL:  ${TF_VAR_rhobs_api_url:-<not available>}"
+    echo "  RHOBS API URL:  ${TF_VAR_rhobs_api_url:-<not available>}"
 fi
 
 # =====================================================================
