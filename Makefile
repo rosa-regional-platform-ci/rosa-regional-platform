@@ -211,7 +211,7 @@ ephemeral-port-forward-mc-all:
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh port-forward --cluster-type management --all
 
 ephemeral-e2e:
-	@ID="$(ID)" API_REF="$(or $(API_REF),main)" ./scripts/dev/ephemeral-env.sh e2e
+	@ID="$(ID)" E2E_REF="$(or $(E2E_REF),main)" E2E_REPO="$(E2E_REPO)" ./scripts/dev/ephemeral-env.sh e2e
 
 ephemeral-collect-logs:
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh collect-logs $(CLUSTER)
