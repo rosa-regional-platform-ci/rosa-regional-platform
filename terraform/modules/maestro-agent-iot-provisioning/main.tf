@@ -59,7 +59,7 @@ resource "aws_iot_policy" "maestro_agent" {
         Effect = "Allow"
         Action = ["iot:Connect"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/${var.management_cluster_id}-work-agent"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/${var.management_cluster_id}-work-agent-client"
         ]
       },
       {
