@@ -24,12 +24,7 @@ ENVS_FILE=".ephemeral-envs"
 VAULT_ADDR="https://vault.ci.openshift.org"
 VAULT_KV_MOUNT="kv"
 VAULT_SECRET_PATH="selfservice/cluster-secrets-rosa-regional-platform-int/ephemeral-shared-dev-creds"
-VAULT_CRED_KEYS=(
-    central_access_key central_secret_key central_assume_role_arn
-    regional_access_key regional_secret_key
-    management_access_key management_secret_key
-    github_token
-)
+VAULT_ACCOUNTS_FIELD="ephemeral_shared_dev_accounts"
 
 # =============================================================================
 # Helpers
@@ -205,42 +200,102 @@ setup_override_mount() {
     fi
 }
 
-# Fetch credentials from Vault via OIDC login.
-# Sets global: CRED_FLAGS (container -e flags), REGIONAL_AK, REGIONAL_SK,
-#              MANAGEMENT_AK, MANAGEMENT_SK
-# Credentials never touch disk — they live only in this shell process.
-fetch_creds() {
-    echo "Fetching credentials from Vault (OIDC login)..."
+# Fetch config from Vault via OIDC login.
+# Sets: CENTRAL_ACCOUNT, RC_ACCOUNT, MC_ACCOUNT, GITHUB_TOKEN
+fetch_vault_config() {
+    echo "Fetching config from Vault (OIDC login)..."
 
     local vault_token
     vault_token=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
         || die "Vault OIDC login failed."
 
-    CRED_FLAGS=""
-    REGIONAL_AK=""
-    REGIONAL_SK=""
-    MANAGEMENT_AK=""
-    MANAGEMENT_SK=""
+    local accounts_json
+    accounts_json=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$vault_token" \
+        vault kv get -mount="$VAULT_KV_MOUNT" -field="$VAULT_ACCOUNTS_FIELD" "$VAULT_SECRET_PATH" 2>/dev/null) \
+        || die "Failed to fetch '$VAULT_ACCOUNTS_FIELD' from Vault."
 
-    for key in "${VAULT_CRED_KEYS[@]}"; do
-        local val
-        val=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$vault_token" \
-            vault kv get -mount="$VAULT_KV_MOUNT" -field="$key" "$VAULT_SECRET_PATH" 2>/dev/null) \
-            || die "Failed to fetch credential '$key' from Vault."
+    ADMIN_ACCOUNT=$(echo "$accounts_json" | jq -r '.admin') \
+        || die "Failed to parse 'admin' from account IDs."
+    CENTRAL_ACCOUNT=$(echo "$accounts_json" | jq -r '.central') \
+        || die "Failed to parse 'central' from account IDs."
+    RC_ACCOUNT=$(echo "$accounts_json" | jq -r '.rc') \
+        || die "Failed to parse 'rc' from account IDs."
+    MC_ACCOUNT=$(echo "$accounts_json" | jq -r '.mc') \
+        || die "Failed to parse 'mc' from account IDs."
 
-        local upper_key
-        upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
-        CRED_FLAGS="$CRED_FLAGS -e ${upper_key}=${val}"
+    [[ "$ADMIN_ACCOUNT" != "null" ]]   || die "Missing 'admin' in account IDs."
+    [[ "$CENTRAL_ACCOUNT" != "null" ]] || die "Missing 'central' in account IDs."
+    [[ "$RC_ACCOUNT" != "null" ]]      || die "Missing 'rc' in account IDs."
+    [[ "$MC_ACCOUNT" != "null" ]]       || die "Missing 'mc' in account IDs."
 
-        case "$key" in
-            regional_access_key)    REGIONAL_AK="$val" ;;
-            regional_secret_key)    REGIONAL_SK="$val" ;;
-            management_access_key)  MANAGEMENT_AK="$val" ;;
-            management_secret_key)  MANAGEMENT_SK="$val" ;;
-        esac
-    done
+    GITHUB_TOKEN=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$vault_token" \
+        vault kv get -mount="$VAULT_KV_MOUNT" -field="github_token" "$VAULT_SECRET_PATH" 2>/dev/null) \
+        || die "Failed to fetch 'github_token' from Vault."
 
-    echo "Credentials loaded (in-memory only)."
+    echo "Vault config loaded."
+}
+
+# Create temporary AWS config with ephemeral profiles.
+# The credential_process calls into rosa-regional-platform-internal for SAML auth.
+setup_aws_config() {
+    local internal_repo="${INTERNAL_REPO:-$(cd "$REPO_ROOT/../rosa-regional-platform-internal" 2>/dev/null && pwd || true)}"
+    [[ -n "$internal_repo" ]] \
+        || die "rosa-regional-platform-internal not found at $REPO_ROOT/../rosa-regional-platform-internal. Set INTERNAL_REPO."
+    [[ -d "$internal_repo/infra/scripts" ]] \
+        || die "Cannot find infra/scripts/ in $internal_repo"
+
+    fetch_vault_config
+
+    _aws_config_dir=$(mktemp -d)
+    export AWS_CONFIG_FILE="$_aws_config_dir/config"
+    export AWS_SHARED_CREDENTIALS_FILE="$_aws_config_dir/credentials"
+    touch "$AWS_SHARED_CREDENTIALS_FILE"
+
+    cat > "$AWS_CONFIG_FILE" <<AWSCFG
+[profile rrp-ephemeral-admin]
+credential_process = uv run --project ${internal_repo}/infra/scripts python ${internal_repo}/infra/scripts/cached_saml_credentials_process.py ${ADMIN_ACCOUNT} ${ADMIN_ACCOUNT}-rrp-admin
+region = us-east-1
+duration_seconds = 3600
+
+[profile rrp-ephemeral-central]
+role_arn = arn:aws:iam::${CENTRAL_ACCOUNT}:role/OrganizationAccountAccessRole
+source_profile = rrp-ephemeral-admin
+region = us-east-1
+
+[profile rrp-ephemeral-rc]
+role_arn = arn:aws:iam::${RC_ACCOUNT}:role/OrganizationAccountAccessRole
+source_profile = rrp-ephemeral-admin
+region = us-east-1
+
+[profile rrp-ephemeral-mc]
+role_arn = arn:aws:iam::${MC_ACCOUNT}:role/OrganizationAccountAccessRole
+source_profile = rrp-ephemeral-admin
+region = us-east-1
+AWSCFG
+
+    echo "AWS config written to: $AWS_CONFIG_FILE"
+    trap "rm -rf '${_aws_config_dir}'" EXIT
+}
+
+# Resolve temporary credentials from an AWS profile for container injection.
+# Sets: _CRED_AK, _CRED_SK, _CRED_ST
+resolve_creds() {
+    local profile="$1"
+    echo "Resolving credentials for profile $profile..."
+    local creds
+    creds=$(aws configure export-credentials --profile "$profile" --format process 2>/dev/null) \
+        || die "Failed to resolve credentials for profile $profile. Have you authenticated?"
+    _CRED_AK=$(echo "$creds" | jq -r '.AccessKeyId')
+    _CRED_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
+    _CRED_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
+}
+
+profile_for() {
+    case "$1" in
+        regional)   echo "rrp-ephemeral-rc" ;;
+        management) echo "rrp-ephemeral-mc" ;;
+        *)          die "Unknown cluster type: $1" ;;
+    esac
 }
 
 # Initial bastion connectivity and setup
@@ -270,18 +325,13 @@ bastion_setup() {
     fi
     export ecs_cluster="${cluster_id}-bastion"
 
-    # Fetch credentials from Vault
-    fetch_creds
+    setup_aws_config
 
-    # Select the right credentials for the target account
-    local target_ak target_sk
-    if [[ "$cluster_type" == "regional" ]]; then
-        target_ak="$REGIONAL_AK"
-        target_sk="$REGIONAL_SK"
-    else
-        target_ak="$MANAGEMENT_AK"
-        target_sk="$MANAGEMENT_SK"
-    fi
+    local profile
+    profile=$(profile_for "$cluster_type")
+    export AWS_PROFILE="$profile"
+    export AWS_DEFAULT_REGION="$region"
+    export AWS_REGION="$region"
 
     echo "Connecting to ephemeral bastion..."
     echo "  ID:           $BUILD_ID"
@@ -291,11 +341,6 @@ bastion_setup() {
     echo "  ECS cluster:  $ecs_cluster"
     echo "  Region:       $region"
     echo ""
-
-    export AWS_ACCESS_KEY_ID="$target_ak"
-    export AWS_SECRET_ACCESS_KEY="$target_sk"
-    export AWS_DEFAULT_REGION="$region"
-    export AWS_REGION="$region"
 
     # Check for an existing running task
     echo "==> Checking for running bastion tasks..."
@@ -387,7 +432,7 @@ ensure_image() {
 # Check that required CLI tools are available.
 preflight() {
     local missing=""
-    for tool in vault git python3 fzf; do
+    for tool in vault jq aws git python3 fzf; do
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     [[ -n "$CONTAINER_ENGINE" ]] || missing="$missing podman/docker"
@@ -421,7 +466,14 @@ cmd_provision() {
     setup_override_mount
 
     # Fetch credentials
-    fetch_creds
+    setup_aws_config
+
+    resolve_creds "rrp-ephemeral-central"
+    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-rc"
+    local regional_ak="$_CRED_AK" regional_sk="$_CRED_SK" regional_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-mc"
+    local management_ak="$_CRED_AK" management_sk="$_CRED_SK" management_st="$_CRED_ST"
 
     # Print summary
     echo "Provisioning ephemeral environment..."
@@ -444,7 +496,16 @@ cmd_provision() {
     local rc=0
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        $CRED_FLAGS \
+        -e "CENTRAL_ACCESS_KEY=$central_ak" \
+        -e "CENTRAL_SECRET_KEY=$central_sk" \
+        ${central_st:+-e "CENTRAL_SESSION_TOKEN=$central_st"} \
+        -e "REGIONAL_ACCESS_KEY=$regional_ak" \
+        -e "REGIONAL_SECRET_KEY=$regional_sk" \
+        ${regional_st:+-e "REGIONAL_SESSION_TOKEN=$regional_st"} \
+        -e "MANAGEMENT_ACCESS_KEY=$management_ak" \
+        -e "MANAGEMENT_SECRET_KEY=$management_sk" \
+        ${management_st:+-e "MANAGEMENT_SESSION_TOKEN=$management_st"} \
+        -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -v "${tmpdir}:/output:z" \
@@ -506,7 +567,14 @@ cmd_teardown() {
     ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
 
     # Fetch credentials
-    fetch_creds
+    setup_aws_config
+
+    resolve_creds "rrp-ephemeral-central"
+    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-rc"
+    local regional_ak="$_CRED_AK" regional_sk="$_CRED_SK" regional_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-mc"
+    local management_ak="$_CRED_AK" management_sk="$_CRED_SK" management_st="$_CRED_ST"
 
     # Build --ci-branch flag if available (needed after swap-branch)
     local ci_branch_flag=""
@@ -527,7 +595,16 @@ cmd_teardown() {
     local rc=0
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        $CRED_FLAGS \
+        -e "CENTRAL_ACCESS_KEY=$central_ak" \
+        -e "CENTRAL_SECRET_KEY=$central_sk" \
+        ${central_st:+-e "CENTRAL_SESSION_TOKEN=$central_st"} \
+        -e "REGIONAL_ACCESS_KEY=$regional_ak" \
+        -e "REGIONAL_SECRET_KEY=$regional_sk" \
+        ${regional_st:+-e "REGIONAL_SESSION_TOKEN=$regional_st"} \
+        -e "MANAGEMENT_ACCESS_KEY=$management_ak" \
+        -e "MANAGEMENT_SECRET_KEY=$management_sk" \
+        ${management_st:+-e "MANAGEMENT_SESSION_TOKEN=$management_st"} \
+        -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
         -e "BUILD_ID=$BUILD_ID" \
@@ -564,7 +641,14 @@ cmd_resync() {
     setup_override_mount
 
     # Fetch credentials
-    fetch_creds
+    setup_aws_config
+
+    resolve_creds "rrp-ephemeral-central"
+    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-rc"
+    local regional_ak="$_CRED_AK" regional_sk="$_CRED_SK" regional_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-mc"
+    local management_ak="$_CRED_AK" management_sk="$_CRED_SK" management_st="$_CRED_ST"
 
     # Build --ci-branch flag if available (needed after swap-branch)
     local ci_branch_flag=""
@@ -582,7 +666,16 @@ cmd_resync() {
     # Run resync
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        $CRED_FLAGS \
+        -e "CENTRAL_ACCESS_KEY=$central_ak" \
+        -e "CENTRAL_SECRET_KEY=$central_sk" \
+        ${central_st:+-e "CENTRAL_SESSION_TOKEN=$central_st"} \
+        -e "REGIONAL_ACCESS_KEY=$regional_ak" \
+        -e "REGIONAL_SECRET_KEY=$regional_sk" \
+        ${regional_st:+-e "REGIONAL_SESSION_TOKEN=$regional_st"} \
+        -e "MANAGEMENT_ACCESS_KEY=$management_ak" \
+        -e "MANAGEMENT_SECRET_KEY=$management_sk" \
+        ${management_st:+-e "MANAGEMENT_SESSION_TOKEN=$management_st"} \
+        -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
@@ -686,12 +779,16 @@ cmd_shell() {
     region=$(get_field "$ENV_LINE" REGION)
 
     # Fetch credentials
-    fetch_creds
+    setup_aws_config
+    resolve_creds "rrp-ephemeral-rc"
+
+    local cred_flags="-e AWS_ACCESS_KEY_ID=$_CRED_AK -e AWS_SECRET_ACCESS_KEY=$_CRED_SK"
+    [[ -z "$_CRED_ST" ]] || cred_flags="$cred_flags -e AWS_SESSION_TOKEN=$_CRED_ST"
 
     # Launch interactive shell
+    # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm -it \
-        -e "AWS_ACCESS_KEY_ID=$REGIONAL_AK" \
-        -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
+        $cred_flags \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
         -e "API_URL=$api_url" \
@@ -1015,7 +1112,8 @@ cmd_e2e() {
         || die "No API_URL found for ID $BUILD_ID. Was it captured during provision?"
 
     # Fetch credentials
-    fetch_creds
+    setup_aws_config
+    resolve_creds "rrp-ephemeral-rc"
 
     # Run tests
     echo "Running e2e tests..."
@@ -1029,8 +1127,9 @@ cmd_e2e() {
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
         -e "BASE_URL=$api_url" \
-        -e "AWS_ACCESS_KEY_ID=$REGIONAL_AK" \
-        -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
+        -e "AWS_ACCESS_KEY_ID=$_CRED_AK" \
+        -e "AWS_SECRET_ACCESS_KEY=$_CRED_SK" \
+        ${_CRED_ST:+-e "AWS_SESSION_TOKEN=$_CRED_ST"} \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
         -e "E2E_REF=$e2e_ref" \
@@ -1052,7 +1151,7 @@ cmd_collect_logs() {
         "No ready environments found." \
         true
 
-    fetch_creds
+    setup_aws_config
 
     local region
     region=$(get_field "$ENV_LINE" REGION)
@@ -1060,7 +1159,16 @@ cmd_collect_logs() {
     local ci_prefix
     ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)-"
 
-    export REGIONAL_AK REGIONAL_SK MANAGEMENT_AK MANAGEMENT_SK
+    resolve_creds "rrp-ephemeral-rc"
+    export REGIONAL_AK="$_CRED_AK"
+    export REGIONAL_SK="$_CRED_SK"
+    ${_CRED_ST:+export REGIONAL_ST="$_CRED_ST"}
+
+    resolve_creds "rrp-ephemeral-mc"
+    export MANAGEMENT_AK="$_CRED_AK"
+    export MANAGEMENT_SK="$_CRED_SK"
+    ${_CRED_ST:+export MANAGEMENT_ST="$_CRED_ST"}
+
     export AWS_REGION="$region"
     export CLUSTER_PREFIX="$ci_prefix"
     if [[ -n "${ARTIFACT_DIR:-}" ]]; then
@@ -1084,12 +1192,12 @@ esac
 # Bastion needs vault + aws but not container engine
 case "${1:-help}" in
     bastion|collect-logs)
-        for tool in vault aws; do
+        for tool in vault jq aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
     port-forward)
-        for tool in vault aws fzf lsof; do
+        for tool in vault jq aws fzf lsof; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
