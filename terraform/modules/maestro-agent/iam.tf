@@ -51,48 +51,27 @@ resource "aws_iam_role_policy" "maestro_agent_secrets" {
 }
 
 # Policy: Connect to regional IoT Core
-# Agent subscribes/receives source events FROM the server, and publishes agent status events TO the server.
 resource "aws_iam_role_policy" "maestro_agent_iot" {
   name = "${var.management_id}-maestro-agent-iot"
   role = aws_iam_role.maestro_agent.id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "Connect"
-        Effect = "Allow"
-        Action = ["iot:Connect"]
-        Resource = [
-          # IoT Core resources are in the REGIONAL account
-          "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:client/${var.management_id}-maestro-agent-*"
-        ]
-      },
-      {
-        Sid    = "SubscribeSourceEvents"
-        Effect = "Allow"
-        Action = ["iot:Subscribe"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topicfilter/${var.mqtt_topic_prefix}/${var.management_id}/sourceevents"
-        ]
-      },
-      {
-        Sid    = "ReceiveSourceEvents"
-        Effect = "Allow"
-        Action = ["iot:Receive"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topic/${var.mqtt_topic_prefix}/${var.management_id}/sourceevents"
-        ]
-      },
-      {
-        Sid    = "PublishAgentEvents"
-        Effect = "Allow"
-        Action = ["iot:Publish"]
-        Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topic/${var.mqtt_topic_prefix}/${var.management_id}/agentevents"
-        ]
-      }
-    ]
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "iot:Connect",
+        "iot:Subscribe",
+        "iot:Receive",
+        "iot:Publish"
+      ]
+      Resource = [
+        # IoT Core resources are in the REGIONAL account
+        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:client/${var.management_id}-maestro-agent-*",
+        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topic/${var.mqtt_topic_prefix}/${var.management_id}/*",
+        "arn:aws:iot:${data.aws_region.current.id}:${var.regional_aws_account_id}:topicfilter/${var.mqtt_topic_prefix}/${var.management_id}/*"
+      ]
+    }]
   })
 }
 
