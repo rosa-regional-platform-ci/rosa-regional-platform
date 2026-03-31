@@ -42,6 +42,11 @@ data "aws_caller_identity" "current" {}
 module "regional_cluster" {
   source = "../../modules/eks-cluster"
 
+  # Regional cluster sizing
+  node_group_min_size     = 1
+  node_group_max_size     = 5
+  node_group_desired_size = 3
+
   # Required variables
   cluster_type = "regional-cluster"
   cluster_id   = var.regional_id
