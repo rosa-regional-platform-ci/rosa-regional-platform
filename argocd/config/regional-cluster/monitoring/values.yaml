@@ -21,8 +21,8 @@ kube-prometheus-stack:
       # External labels are required for Thanos to differentiate metrics from
       # multiple clusters. These are injected by the ApplicationSet at sync time.
       externalLabels:
-        cluster: '{{ .Values.global.cluster_name }}'
-        cluster_type: '{{ .Values.global.cluster_type }}'
+        cluster: '{{ required "global.cluster_name is required" .Values.global.cluster_name }}'
+        cluster_type: '{{ .Values.global.cluster_type | default "regional" }}'
       remoteWrite:
         - url: http://thanos-receive-router-thanos-receive.thanos:19291/api/v1/receive
       serviceMonitorNamespaceSelector: {}
