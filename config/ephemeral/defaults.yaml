@@ -1,5 +1,5 @@
-regional_cluster:
+management_cluster_defaults:
   enable_bastion: true
 
-management_cluster_defaults:
+regional_cluster:
   enable_bastion: true

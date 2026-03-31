@@ -11,3 +11,5 @@ hypershift:
     region: us-east-1
   externalDns:
     domain: dev.us-east-1.rosa.example.com
+cloudwatch-exporter:
+  region: us-east-1
