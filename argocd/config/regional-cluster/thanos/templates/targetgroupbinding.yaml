@@ -1,4 +1,4 @@
-{{- if and .Values.targetGroupBinding.enabled .Values.targetGroupBinding.targetGroupARN }}
+{{- if .Values.thanos.targetGroup.arn }}
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
@@ -11,8 +11,8 @@ metadata:
 spec:
   serviceRef:
     # Service created by thanos-community operator for the router
-    name: {{ .Values.targetGroupBinding.serviceName | default "thanos-receive-router" }}
-    port: {{ .Values.targetGroupBinding.port }}
-  targetGroupARN: {{ .Values.targetGroupBinding.targetGroupARN | quote }}
-  targetType: {{ .Values.targetGroupBinding.targetType }}
+    name: {{ .Values.thanos.targetGroup.serviceName | default "thanos-receive-router" }}
+    port: {{ .Values.thanos.targetGroup.port | default 19291 }}
+  targetGroupARN: {{ .Values.thanos.targetGroup.arn | quote }}
+  targetType: {{ .Values.thanos.targetGroup.targetType | default "ip" }}
 {{- end }}

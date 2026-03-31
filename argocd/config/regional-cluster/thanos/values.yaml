@@ -60,10 +60,8 @@ serviceAccount:
 
 thanos:
   kmsKeyArn: ""
-
-targetGroupBinding:
-  enabled: true
-  targetGroupARN: ""
-  serviceName: thanos-receive-router
-  port: 19291
-  targetType: ip
+  targetGroup:
+    arn: ""
+    serviceName: thanos-receive-router
+    port: 19291
+    targetType: ip
