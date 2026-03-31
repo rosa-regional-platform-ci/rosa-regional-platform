@@ -304,13 +304,13 @@ spec:
                         type: LoadBalancer
                     - service: OAuthServer
                       servicePublishingStrategy:
-                        type: Route
+                        type: LoadBalancer
                     - service: Konnectivity
                       servicePublishingStrategy:
-                        type: Route
+                        type: LoadBalancer
                     - service: Ignition
                       servicePublishingStrategy:
-                        type: Route
+                        type: LoadBalancer
                   infrastructureAvailabilityPolicy: SingleReplica
                   controllerAvailabilityPolicy: SingleReplica
 
