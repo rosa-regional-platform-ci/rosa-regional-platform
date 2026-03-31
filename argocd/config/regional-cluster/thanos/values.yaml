@@ -62,6 +62,6 @@ thanos:
   kmsKeyArn: ""
   targetGroup:
     arn: ""
-    serviceName: thanos-receive-router
+    serviceName: thanos-receive-router-thanos-receive
     port: 19291
     targetType: ip
