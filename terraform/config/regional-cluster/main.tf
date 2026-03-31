@@ -42,9 +42,14 @@ data "aws_caller_identity" "current" {}
 module "regional_cluster" {
   source = "../../modules/eks-cluster"
 
+  # Regional cluster sizing
+  node_group_min_size     = 1
+  node_group_max_size     = 5
+  node_group_desired_size = 3
+
   # Required variables
   cluster_type = "regional-cluster"
-  cluster_id   = "t3.large"
+  cluster_id   = var.regional_id
 
   # Instance types (configurable via config.yaml)
   node_instance_types = var.node_instance_types
@@ -102,24 +107,6 @@ module "api_gateway" {
   # Custom domain (e.g. api.us-east-1.int0.rosa.devshift.net)
   api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
-}
-
-# =============================================================================
-# RHOBS API Gateway (Metrics Ingestion)
-#
-# Dedicated REST API for Prometheus remote_write from Management Clusters.
-# Separate from the Platform API to enforce independent access control:
-# only MC accounts can invoke this API via resource policy.
-# =============================================================================
-
-module "rhobs_api_gateway" {
-  source = "../../modules/rhobs-api-gateway"
-
-  regional_id         = var.regional_id
-  vpc_link_id         = module.api_gateway.vpc_link_id
-  alb_arn             = module.api_gateway.alb_arn
-  alb_dns_name        = module.api_gateway.alb_dns_name
-  allowed_account_ids = distinct(compact(split(",", var.api_additional_allowed_accounts)))
 }
 
 # =============================================================================
@@ -250,4 +237,17 @@ module "thanos_infrastructure" {
   metrics_retention_days = var.thanos_metrics_retention_days
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
+}
+
+# =============================================================================
+# Grafana Secrets Module
+# Creates Secrets Manager entries for Grafana credentials and the ESO IAM role
+# that allows External Secrets Operator to sync them into K8s Secrets.
+# =============================================================================
+
+module "grafana_secrets" {
+  source = "../../modules/grafana-secrets"
+
+  cluster_id       = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
 }
