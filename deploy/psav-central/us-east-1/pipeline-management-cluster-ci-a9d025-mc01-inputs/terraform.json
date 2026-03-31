@@ -6,8 +6,8 @@
   "environment": "psav-central",
   "account_id": "ssm:///infra/psav-central/us-east-1/mc01/account_id",
   "region": "us-east-1",
-  "alias": "mc01",
-  "management_id": "mc01",
+  "alias": "ci-a9d025-mc01",
+  "management_id": "ci-a9d025-mc01",
   "regional_aws_account_id": "ssm:///infra/psav-central/us-east-1/account_id",
   "node_instance_types": ["t4g.xlarge"],
   "enable_bastion": true
