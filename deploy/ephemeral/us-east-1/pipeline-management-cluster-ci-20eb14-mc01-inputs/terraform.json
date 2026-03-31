@@ -3,12 +3,12 @@
   "app_code": "infra",
   "service_phase": "dev",
   "cost_center": "000",
-  "environment": "cdoan-central",
-  "account_id": "910485845704",
-  "region": "us-east-2",
-  "alias": "mc01",
-  "management_id": "mc01",
-  "regional_aws_account_id": "754250776154",
+  "environment": "ephemeral",
+  "account_id": "855246887846",
+  "region": "us-east-1",
+  "alias": "ci-20eb14-mc01",
+  "management_id": "ci-20eb14-mc01",
+  "regional_aws_account_id": "599476212575",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "enable_bastion": true
 }
