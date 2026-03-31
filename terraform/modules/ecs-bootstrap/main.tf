@@ -113,6 +113,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               dynamodb_region: "$AWS_REGION"
               thanos_kms_key_arn: "$THANOS_KMS_KEY_ARN"
               aws_account_id: "$AWS_ACCOUNT_ID"
+              rhobs_api_url: "$RHOBS_API_URL"
           type: Opaque
           stringData:
             name: in-cluster
