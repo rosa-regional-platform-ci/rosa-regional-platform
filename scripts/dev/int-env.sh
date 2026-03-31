@@ -134,16 +134,19 @@ setup_aws_config() {
 [profile rrp-int-admin]
 credential_process = uv run --project ${internal_repo}/infra/scripts python ${internal_repo}/infra/scripts/cached_saml_credentials_process.py ${CENTRAL_ACCOUNT} ${CENTRAL_ACCOUNT}-rrp-int-admin
 region = ${INT_REGION}
+duration_seconds = 3600
 
 [profile rrp-int-rc]
 role_arn = arn:aws:iam::${RC_ACCOUNT}:role/OrganizationAccountAccessRole
 source_profile = rrp-int-admin
 region = ${INT_REGION}
+duration_seconds = 3600
 
 [profile rrp-int-mc]
 role_arn = arn:aws:iam::${MC_ACCOUNT}:role/OrganizationAccountAccessRole
 source_profile = rrp-int-admin
 region = ${INT_REGION}
+duration_seconds = 3600
 AWSCFG
 
     echo "AWS config written to: $AWS_CONFIG_FILE"
@@ -161,6 +164,32 @@ resolve_creds() {
     _CRED_AK=$(echo "$creds" | jq -r '.AccessKeyId')
     _CRED_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
     _CRED_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
+}
+
+# Build a container-safe AWS config file with resolved static credentials.
+# credential_process won't work inside containers, so we resolve creds on the
+# host and write them as static keys into a temp config file for mounting.
+# Sets: _CONTAINER_CONFIG (path to the temp file)
+write_container_config() {
+    resolve_creds "rrp-int-rc"
+    local rc_ak="$_CRED_AK" rc_sk="$_CRED_SK" rc_st="$_CRED_ST"
+    resolve_creds "rrp-int-mc"
+    local mc_ak="$_CRED_AK" mc_sk="$_CRED_SK" mc_st="$_CRED_ST"
+
+    _CONTAINER_CONFIG=$(mktemp)
+    cat > "$_CONTAINER_CONFIG" <<EOF
+[profile rrp-rc]
+aws_access_key_id = ${rc_ak}
+aws_secret_access_key = ${rc_sk}
+aws_session_token = ${rc_st}
+region = ${INT_REGION}
+
+[profile rrp-mc]
+aws_access_key_id = ${mc_ak}
+aws_secret_access_key = ${mc_sk}
+aws_session_token = ${mc_st}
+region = ${INT_REGION}
+EOF
 }
 
 # Build the CI container image if not already present.
@@ -276,16 +305,16 @@ bastion_setup() {
 
 cmd_shell() {
     setup_aws_config
+    write_container_config
 
     local api_url="${API_URL:-$INT_API_URL}"
-    resolve_creds "rrp-int-rc"
-
-    local cred_flags="-e AWS_ACCESS_KEY_ID=$_CRED_AK -e AWS_SECRET_ACCESS_KEY=$_CRED_SK"
-    [[ -z "$_CRED_ST" ]] || cred_flags="$cred_flags -e AWS_SESSION_TOKEN=$_CRED_ST"
 
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm -it \
-        $cred_flags \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        -e "AWS_PROFILE=rrp-rc" \
         -e "AWS_DEFAULT_REGION=$INT_REGION" \
         -e "AWS_REGION=$INT_REGION" \
         -e "API_URL=$api_url" \
@@ -582,9 +611,9 @@ cmd_e2e() {
     local e2e_repo="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
 
     setup_aws_config
+    write_container_config
 
     local api_url="${API_URL:-$INT_API_URL}"
-    resolve_creds "rrp-int-rc"
 
     echo "Running e2e tests..."
     echo "  API_URL:    $api_url"
@@ -593,12 +622,12 @@ cmd_e2e() {
     echo "  E2E_REPO:   $e2e_repo"
 
     $CONTAINER_ENGINE run --rm \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
         -e "BASE_URL=$api_url" \
-        -e "AWS_ACCESS_KEY_ID=$_CRED_AK" \
-        -e "AWS_SECRET_ACCESS_KEY=$_CRED_SK" \
-        ${_CRED_ST:+-e "AWS_SESSION_TOKEN=$_CRED_ST"} \
         -e "AWS_DEFAULT_REGION=$INT_REGION" \
         -e "AWS_REGION=$INT_REGION" \
         -e "E2E_REF=$e2e_ref" \
@@ -615,18 +644,13 @@ cmd_collect_logs() {
     esac
 
     setup_aws_config
+    write_container_config
 
-    # Resolve credentials for both accounts
-    resolve_creds "rrp-int-rc"
-    export REGIONAL_AK="$_CRED_AK"
-    export REGIONAL_SK="$_CRED_SK"
-    ${_CRED_ST:+export REGIONAL_ST="$_CRED_ST"}
-
-    resolve_creds "rrp-int-mc"
-    export MANAGEMENT_AK="$_CRED_AK"
-    export MANAGEMENT_SK="$_CRED_SK"
-    ${_CRED_ST:+export MANAGEMENT_ST="$_CRED_ST"}
-
+    # collect-cluster-logs.sh runs on the host (not in a container) but needs
+    # the standardized profile names (rrp-rc, rrp-mc). Point it at the resolved
+    # container config which has those profiles with static credentials.
+    export AWS_CONFIG_FILE="$_CONTAINER_CONFIG"
+    export AWS_SHARED_CREDENTIALS_FILE=/dev/null
     export AWS_REGION="$INT_REGION"
     export CLUSTER_PREFIX=""
     if [[ -n "${ARTIFACT_DIR:-}" ]]; then
