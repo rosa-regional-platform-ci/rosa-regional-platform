@@ -6,7 +6,7 @@ thanos-operator:
       pullPolicy: IfNotPresent
     resources:
       requests:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 200m
+        memory: 512Mi
       limits:
-        memory: 256Mi
+        memory: 1Gi

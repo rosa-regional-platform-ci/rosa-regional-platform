@@ -15,26 +15,26 @@ kube-prometheus-stack:
   prometheusOperator:
     resources:
       requests:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 200m
+        memory: 512Mi
       limits:
-        memory: 256Mi
+        memory: 1Gi
 
   kube-state-metrics:
     resources:
       requests:
-        cpu: 50m
-        memory: 128Mi
+        cpu: 200m
+        memory: 512Mi
       limits:
-        memory: 256Mi
+        memory: 1Gi
 
   prometheus-node-exporter:
     resources:
       requests:
-        cpu: 50m
-        memory: 64Mi
+        cpu: 200m
+        memory: 256Mi
       limits:
-        memory: 128Mi
+        memory: 512Mi
 
   prometheus:
     prometheusSpec:
@@ -51,10 +51,10 @@ kube-prometheus-stack:
         - url: http://thanos-receive-router-thanos-receive.thanos:19291/api/v1/receive
       resources:
         requests:
-          cpu: 200m
-          memory: 512Mi
-        limits:
+          cpu: 800m
           memory: 2Gi
+        limits:
+          memory: 8Gi
 
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}

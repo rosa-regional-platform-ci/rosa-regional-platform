@@ -12,11 +12,11 @@ argo-cd:
       minReplicas: 2
     resources:
       limits:
-        cpu: 500m
-        memory: 512Mi
+        cpu: 2000m
+        memory: 2Gi
       requests:
-        cpu: 100m
-        memory: 128Mi
+        cpu: 400m
+        memory: 512Mi
     metrics:
       enabled: true
       serviceMonitor:
@@ -26,11 +26,11 @@ argo-cd:
   controller:
     resources:
       limits:
-        cpu: 1000m
-        memory: 2Gi
+        cpu: 4000m
+        memory: 8Gi
       requests:
-        cpu: 500m
-        memory: 1Gi
+        cpu: 2000m
+        memory: 4Gi
     metrics:
       enabled: true
       serviceMonitor:
@@ -41,6 +41,13 @@ argo-cd:
     autoscaling:
       enabled: true
       minReplicas: 2
+    resources:
+      requests:
+        cpu: 400m
+        memory: 512Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
     metrics:
       enabled: true
       serviceMonitor:
