@@ -87,6 +87,7 @@ resource "aws_api_gateway_deployment" "main" {
   depends_on = [
     aws_api_gateway_integration.proxy,
     aws_api_gateway_integration.root,
+    aws_api_gateway_rest_api_policy.main,
   ]
 
   # Force new deployment when configuration changes
@@ -97,6 +98,7 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_method.root.id,
       aws_api_gateway_integration.proxy.id,
       aws_api_gateway_integration.root.id,
+      aws_api_gateway_rest_api_policy.main.policy,
     ]))
   }
 
