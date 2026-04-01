@@ -35,13 +35,16 @@ resource "aws_secretsmanager_secret_version" "hypershift_config" {
 # individual cluster namespaces via SecretProviderClass when clusters are
 # provisioned.
 #
-# The pull secret is read from SSM Parameter Store at /infra/pull-secret
-# and synchronized to AWS Secrets Manager for consumption by HyperShift.
+# The pull secret can be sourced from SSM Parameter Store (production) or
+# left as a placeholder (CI/ephemeral environments where HyperShift clusters
+# are not actually deployed). Set openshift_pull_secret_ssm_path to the SSM
+# parameter path to enable the SSM lookup.
 # =============================================================================
 
-# Read pull secret from SSM Parameter Store
+# Read pull secret from SSM Parameter Store (optional)
 data "aws_ssm_parameter" "pull_secret" {
-  name = "/infra/pull-secret"
+  count = var.openshift_pull_secret_ssm_path != "" ? 1 : 0
+  name  = var.openshift_pull_secret_ssm_path
 }
 
 resource "aws_secretsmanager_secret" "openshift_pull_secret" {
@@ -59,6 +62,13 @@ resource "aws_secretsmanager_secret" "openshift_pull_secret" {
 resource "aws_secretsmanager_secret_version" "openshift_pull_secret" {
   secret_id = aws_secretsmanager_secret.openshift_pull_secret.id
 
-  # Read pull secret from SSM Parameter Store
-  secret_string = data.aws_ssm_parameter.pull_secret.value
+  # Use SSM-sourced pull secret if configured, otherwise write a placeholder.
+  secret_string = var.openshift_pull_secret_ssm_path != "" ? data.aws_ssm_parameter.pull_secret[0].value : jsonencode({
+    ".dockerconfigjson" = ""
+  })
+
+  lifecycle {
+    # Ignore subsequent changes to allow manual updates or out-of-band population.
+    ignore_changes = [secret_string]
+  }
 }
