@@ -1,23 +1,28 @@
 #!/bin/bash
 # Run e2e API tests from rosa-regional-platform-api against the provisioned environment.
-# API URL is read from ${CREDS_DIR}/api_url if available, otherwise from
-# SHARED_DIR/regional-terraform-outputs.json (written by ci/ephemeral-provider/main.py --save-state).
 #
 # AWS credentials are expected via AWS profiles (AWS_CONFIG_FILE must be set).
 # In CI, source ci/setup-aws-profiles.sh before running this script.
+#
+# API URL resolution (first match wins):
+#   1. BASE_URL env var            — set by local wrapper scripts (ephemeral-env.sh, int-env.sh)
+#   2. CI_SECRETS_DIR/api_url file — Prow-mounted secret for the standing int environment
+#   3. SHARED_DIR terraform output — written by ephemeral-provider during CI provisioning
 
 set -euo pipefail
 
-CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
+# CI_SECRETS_DIR points to Prow-mounted secrets. Only used for the api_url file;
+# credentials come from AWS profiles, not from this directory.
+CI_SECRETS_DIR="${CI_SECRETS_DIR:-/var/run/rosa-credentials}"
 
 if [[ -n "${BASE_URL:-}" ]]; then
   echo "Using BASE_URL from environment: ${BASE_URL}"
 else
-  if [[ -r "${CREDS_DIR}/api_url" ]]; then
-    echo "Using API URL from ${CREDS_DIR}/api_url (pre-existing environment)"
-    BASE_URL="$(cat "${CREDS_DIR}/api_url")"
+  if [[ -r "${CI_SECRETS_DIR}/api_url" ]]; then
+    echo "Using API URL from ${CI_SECRETS_DIR}/api_url (CI pre-existing environment)"
+    BASE_URL="$(cat "${CI_SECRETS_DIR}/api_url")"
   else
-    echo "No ${CREDS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
+    echo "No ${CI_SECRETS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
     TF_OUTPUTS="${SHARED_DIR}/regional-terraform-outputs.json"
     if [[ ! -r "${TF_OUTPUTS}" ]]; then
       echo "ERROR: ${TF_OUTPUTS} does not exist or is not readable" >&2
@@ -58,7 +63,7 @@ if [[ $rc -ne 0 ]]; then
 
     # Pre-existing environment (integration): bare cluster names (regional, mc01)
     # Ephemeral environment: ci_prefix-based names derived from BUILD_ID
-    if [[ -r "${CREDS_DIR}/api_url" ]]; then
+    if [[ -r "${CI_SECRETS_DIR}/api_url" ]]; then
         export CLUSTER_PREFIX=""
     elif [[ -n "${BUILD_ID:-}" ]]; then
         hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \
