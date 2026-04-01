@@ -20,19 +20,19 @@ receive:
 
   resources:
     requests:
-      cpu: 400m
-      memory: 1Gi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      memory: 2Gi
+      memory: 512Mi
 
   router:
     replicas: 1
     resources:
       requests:
-        cpu: 200m
-        memory: 512Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        memory: 1Gi
+        memory: 256Mi
 
   storage:
     size: 50Gi
@@ -44,19 +44,19 @@ query:
 
   resources:
     requests:
-      cpu: 400m
-      memory: 1Gi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      memory: 2Gi
+      memory: 512Mi
 
   frontend:
     replicas: 1
     resources:
       requests:
-        cpu: 200m
-        memory: 512Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        memory: 1Gi
+        memory: 256Mi
 
 storeGateway:
   enabled: true
@@ -64,10 +64,10 @@ storeGateway:
 
   resources:
     requests:
-      cpu: 400m
-      memory: 1Gi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      memory: 4Gi
+      memory: 1Gi
 
   storage:
     size: 20Gi
@@ -78,10 +78,10 @@ compactor:
 
   resources:
     requests:
-      cpu: 400m
-      memory: 1Gi
+      cpu: 100m
+      memory: 256Mi
     limits:
-      memory: 4Gi
+      memory: 1Gi
 
   retentionResolutionRaw: 90d
   retentionResolution5m: 180d

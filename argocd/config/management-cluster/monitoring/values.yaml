@@ -15,26 +15,26 @@ kube-prometheus-stack:
   prometheusOperator:
     resources:
       requests:
-        cpu: 200m
-        memory: 512Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        memory: 1Gi
+        memory: 256Mi
 
   kube-state-metrics:
     resources:
       requests:
-        cpu: 200m
-        memory: 512Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        memory: 1Gi
+        memory: 256Mi
 
   prometheus-node-exporter:
     resources:
       requests:
-        cpu: 200m
-        memory: 256Mi
+        cpu: 50m
+        memory: 64Mi
       limits:
-        memory: 512Mi
+        memory: 128Mi
 
   prometheus:
     prometheusSpec:
@@ -46,10 +46,10 @@ kube-prometheus-stack:
       ruleSelectorNilUsesHelmValues: false
       resources:
         requests:
-          cpu: 800m
-          memory: 2Gi
+          cpu: 200m
+          memory: 512Mi
         limits:
-          memory: 8Gi
+          memory: 2Gi
 
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}
