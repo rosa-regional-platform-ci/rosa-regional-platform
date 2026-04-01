@@ -52,3 +52,15 @@ variable "thanos_kms_key_arn" {
   type        = string
   default     = ""
 }
+
+variable "grafana_admin_secret_arn" {
+  description = "Secrets Manager ARN for Grafana admin credentials (username/password)"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_secret_key_arn" {
+  description = "Secrets Manager ARN for Grafana database secret key"
+  type        = string
+  default     = ""
+}

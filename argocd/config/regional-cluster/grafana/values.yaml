@@ -1,0 +1,153 @@
+grafana:
+  image:
+    registry: docker.io
+    repository: grafana/grafana-oss
+    tag: "11.4.0"
+    pullPolicy: IfNotPresent
+
+  # FedRAMP: non-root (UID/GID 472)
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 472
+    runAsGroup: 472
+    fsGroup: 472
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 472
+    seccompProfile:
+      type: RuntimeDefault
+
+  serviceAccount:
+    create: true
+    name: grafana
+
+  # Admin credentials created by terraform/modules/grafana-secrets as a K8s Secret
+  admin:
+    existingSecret: grafana-admin-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+
+  # AES-256-GCM secret key created by terraform/modules/grafana-secrets as a K8s Secret
+  envFromSecret: grafana-secrets
+
+  "grafana.ini":
+    server:
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s/"
+
+    security:
+      secret_key: "${GF_SECURITY_SECRET_KEY}"
+      disable_gravatar: true
+      # TODO (FedRAMP SC-8): set cookie_secure and strict_transport_security to
+      # true once TLS is terminated at the NLB.
+      cookie_secure: false
+      cookie_samesite: strict
+      content_security_policy: true
+      x_content_type_options: true
+      x_xss_protection: true
+      strict_transport_security: false
+      strict_transport_security_max_age_seconds: 86400
+
+    database:
+      type: sqlite3
+      path: /var/lib/grafana/grafana.db
+      wal: true
+
+    auth:
+      disable_login_form: false
+      login_maximum_lifetime_duration: 8h  # FedRAMP AC-12
+      token_rotation_interval_minutes: 10
+
+    "auth.anonymous":
+      enabled: false
+
+    "auth.basic":
+      enabled: true
+
+    users:
+      allow_sign_up: false
+      auto_assign_org_role: Viewer
+
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      check_for_plugin_updates: false
+
+    log:
+      mode: console
+      level: info
+
+  service:
+    type: LoadBalancer
+    port: 80
+    targetPort: 3000
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "external"
+      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Thanos
+          type: prometheus
+          url: http://thanos-query-frontend-thanos-query.thanos:9090
+          isDefault: true
+          access: proxy
+          editable: false
+          jsonData:
+            timeInterval: "30s"
+            httpMethod: POST
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  replicas: 1
+
+  # Dashboards fetched from grafana.com at startup
+  dashboards:
+    default:
+      node-exporter-full:
+        gnetId: 1860
+        revision: 37
+        datasource: Thanos
+      kubernetes-cluster-monitoring:
+        gnetId: 7249
+        revision: 1
+        datasource: Thanos
+      kubernetes-pods:
+        gnetId: 6417
+        revision: 1
+        datasource: Thanos
+
+  # Sidecar watches ConfigMaps labeled grafana_dashboard="1" and places them
+  # in subdirectories based on the k8s-sidecar-target-directory annotation.
+  # foldersFromFilesStructure creates Grafana folders from the subdirectory names.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+      folderAnnotation: k8s-sidecar-target-directory
+      provider:
+        foldersFromFilesStructure: true
+        allowUiUpdates: true

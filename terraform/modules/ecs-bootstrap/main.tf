@@ -153,6 +153,33 @@ resource "aws_ecs_task_definition" "bootstrap" {
                 - CreateNamespace=true
           APP_EOF
 
+          # Create Grafana namespace and Kubernetes Secrets from Secrets Manager.
+          # Runs inside the VPC so it can reach the private EKS API endpoint.
+          if [ -n "$GRAFANA_ADMIN_SECRET_ARN" ] && [ -n "$GRAFANA_SECRET_KEY_ARN" ]; then
+            echo "Creating Grafana namespace and secrets..."
+            kubectl create namespace grafana --dry-run=client -o yaml | kubectl apply -f -
+
+            GRAFANA_ADMIN_CREDS=$(aws secretsmanager get-secret-value \
+              --secret-id "$GRAFANA_ADMIN_SECRET_ARN" --query SecretString --output text)
+            GRAFANA_ADMIN_USER=$(echo "$GRAFANA_ADMIN_CREDS" | jq -r '.username')
+            GRAFANA_ADMIN_PASS=$(echo "$GRAFANA_ADMIN_CREDS" | jq -r '.password')
+
+            kubectl create secret generic grafana-admin-credentials \
+              --from-literal=admin-user="$GRAFANA_ADMIN_USER" \
+              --from-literal=admin-password="$GRAFANA_ADMIN_PASS" \
+              -n grafana --dry-run=client -o yaml | kubectl apply -f -
+
+            GRAFANA_SECRET_KEY=$(aws secretsmanager get-secret-value \
+              --secret-id "$GRAFANA_SECRET_KEY_ARN" --query SecretString --output text \
+              | jq -r '.secret_key')
+
+            kubectl create secret generic grafana-secrets \
+              --from-literal=GF_SECURITY_SECRET_KEY="$GRAFANA_SECRET_KEY" \
+              -n grafana --dry-run=client -o yaml | kubectl apply -f -
+
+            echo "✓ Grafana namespace and secrets created"
+          fi
+
           echo "=== Bootstrap completed successfully ==="
         EOF
       ]
@@ -167,6 +194,14 @@ resource "aws_ecs_task_definition" "bootstrap" {
         {
           name  = "THANOS_KMS_KEY_ARN"
           value = var.thanos_kms_key_arn
+        },
+        {
+          name  = "GRAFANA_ADMIN_SECRET_ARN"
+          value = var.grafana_admin_secret_arn
+        },
+        {
+          name  = "GRAFANA_SECRET_KEY_ARN"
+          value = var.grafana_secret_key_arn
         },
         {
           name  = "AWS_ACCOUNT_ID"
