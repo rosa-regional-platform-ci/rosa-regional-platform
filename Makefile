@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-grafana ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-grafana int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
 
 # Default target
 help:
@@ -27,6 +27,7 @@ help:
 	@echo "  ephemeral-bastion-mc                  - Connect to MC bastion in an ephemeral env"
 	@echo "  ephemeral-port-forward-rc             - Create a port-forward session to RC service in an ephemeral env"
 	@echo "  ephemeral-port-forward-mc             - Create a port-forward session to MC service in an ephemeral env"
+	@echo "  ephemeral-port-forward-grafana        - Port forward Grafana (port 3000) in an ephemeral env"
 	@echo "  ephemeral-port-forward-rc-all         - Automatically port forward all services for an RC in an ephemeral env"
 	@echo "  ephemeral-port-forward-mc-all         - Automatically port forward all services for an MC in an ephemeral env"
 	@echo "  ephemeral-e2e                         - Run e2e tests against an ephemeral env"
@@ -38,6 +39,7 @@ help:
 	@echo "  int-bastion-mc                        - Connect to MC bastion in int env"
 	@echo "  int-port-forward-rc                   - Create a port-forward session to RC service in int env"
 	@echo "  int-port-forward-mc                   - Create a port-forward session to MC service in int env"
+	@echo "  int-port-forward-rc-grafana           - Port forward Grafana (port 3000) in int env"
 	@echo "  int-port-forward-rc-all               - Automatically port forward all services for RC in int env"
 	@echo "  int-port-forward-mc-all               - Automatically port forward all services for MC in int env"
 	@echo "  int-e2e                               - Run e2e tests against int env"
@@ -215,6 +217,9 @@ ephemeral-port-forward-rc:
 ephemeral-port-forward-mc:
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh port-forward --cluster-type management
 
+ephemeral-port-forward-grafana:
+	@ID="$(ID)" SERVICE=grafana ./scripts/dev/ephemeral-env.sh port-forward --cluster-type regional
+
 ephemeral-port-forward-rc-all:
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh port-forward --cluster-type regional --all
 
@@ -247,6 +252,9 @@ int-port-forward-rc:
 
 int-port-forward-mc:
 	@./scripts/dev/int-env.sh port-forward --cluster-type management
+
+int-port-forward-rc-grafana:
+	@SERVICE=grafana ./scripts/dev/int-env.sh port-forward --cluster-type regional
 
 int-port-forward-rc-all:
 	@./scripts/dev/int-env.sh port-forward --cluster-type regional --all
