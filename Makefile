@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs check-docs pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
 
 # Default target
 help:
@@ -31,6 +31,17 @@ help:
 	@echo "  ephemeral-port-forward-mc-all         - Automatically port forward all services for an MC in an ephemeral env"
 	@echo "  ephemeral-e2e                         - Run e2e tests against an ephemeral env"
 	@echo "  ephemeral-collect-logs                - Collect kubernetes logs from an ephemeral env (CLUSTER=rc|mc, default: both)"
+	@echo ""
+	@echo "🔧 Integration Environment — Interacting:"
+	@echo "  int-shell                             - Interactive shell for Platform API access"
+	@echo "  int-bastion-rc                        - Connect to RC bastion in int env"
+	@echo "  int-bastion-mc                        - Connect to MC bastion in int env"
+	@echo "  int-port-forward-rc                   - Create a port-forward session to RC service in int env"
+	@echo "  int-port-forward-mc                   - Create a port-forward session to MC service in int env"
+	@echo "  int-port-forward-rc-all               - Automatically port forward all services for RC in int env"
+	@echo "  int-port-forward-mc-all               - Automatically port forward all services for MC in int env"
+	@echo "  int-e2e                               - Run e2e tests against int env"
+	@echo "  int-collect-logs                      - Collect kubernetes logs from int env (CLUSTER=rc|mc, default: both)"
 	@echo ""
 	@echo "  help                                  - Show this help message"
 
@@ -215,3 +226,36 @@ ephemeral-e2e:
 
 ephemeral-collect-logs:
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh collect-logs $(CLUSTER)
+
+# =============================================================================
+# Integration Environment
+# =============================================================================
+# Thin wrappers around scripts/dev/int-env.sh.
+# Uses AWS profiles with SAML auth (via rosa-regional-platform-internal).
+
+int-shell:
+	@./scripts/dev/int-env.sh shell
+
+int-bastion-rc:
+	@./scripts/dev/int-env.sh bastion --cluster-type regional
+
+int-bastion-mc:
+	@./scripts/dev/int-env.sh bastion --cluster-type management
+
+int-port-forward-rc:
+	@./scripts/dev/int-env.sh port-forward --cluster-type regional
+
+int-port-forward-mc:
+	@./scripts/dev/int-env.sh port-forward --cluster-type management
+
+int-port-forward-rc-all:
+	@./scripts/dev/int-env.sh port-forward --cluster-type regional --all
+
+int-port-forward-mc-all:
+	@./scripts/dev/int-env.sh port-forward --cluster-type management --all
+
+int-e2e:
+	@E2E_REF="$(or $(E2E_REF),main)" E2E_REPO="$(E2E_REPO)" ./scripts/dev/int-env.sh e2e
+
+int-collect-logs:
+	@./scripts/dev/int-env.sh collect-logs $(CLUSTER)
