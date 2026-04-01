@@ -146,7 +146,7 @@ grafana:
       enabled: true
       label: grafana_dashboard
       labelValue: "1"
-      searchNamespace: ALL
+      searchNamespace: grafana
       folderAnnotation: k8s-sidecar-target-directory
       provider:
         foldersFromFilesStructure: true
