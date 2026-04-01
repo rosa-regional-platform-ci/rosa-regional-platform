@@ -297,6 +297,9 @@ spec:
                         nodePoolManagementARN: "{{ .nodePoolManagementARN }}"
                         networkARN: "{{ .networkARN }}"
                         storageARN: "{{ .storageARN }}"
+                      resourceTags:
+                        - key: red-hat-managed
+                          value: "true"                      
                   issuerURL: "{{ .issuerURL }}"
                   services:
                     - service: APIServer
