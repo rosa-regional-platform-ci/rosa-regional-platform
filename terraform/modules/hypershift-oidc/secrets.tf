@@ -39,9 +39,10 @@ resource "aws_secretsmanager_secret_version" "hypershift_config" {
 # and synchronized to AWS Secrets Manager for consumption by HyperShift.
 # =============================================================================
 
-# Read pull secret from SSM Parameter Store
+# Read pull secret from SSM Parameter Store (SecureString, KMS-encrypted)
 data "aws_ssm_parameter" "pull_secret" {
-  name = "/infra/pull-secret"
+  name            = "/infra/pull-secret"
+  with_decryption = true
 }
 
 resource "aws_secretsmanager_secret" "openshift_pull_secret" {
