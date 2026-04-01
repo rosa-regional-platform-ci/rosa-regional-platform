@@ -563,7 +563,7 @@ resource "aws_eks_pod_identity_association" "maestro_agent" {
       "Effect": "Allow",
       "Action": ["iot:Connect", "iot:Subscribe", "iot:Receive", "iot:Publish"],
       "Resource": [
-        "arn:aws:iot:us-east-1:123456789012:client/mc01-*",
+        "arn:aws:iot:us-east-1:123456789012:client/*",
         "arn:aws:iot:us-east-1:123456789012:topic/sources/{regional_id}/consumers/mc01/*",
         "arn:aws:iot:us-east-1:123456789012:topicfilter/sources/{regional_id}/consumers/mc01/*"
       ]
