@@ -123,12 +123,16 @@ spec:
               ? spec.ebscsiRoleArn
               : ""
           description: "Storage ARN of the cluster"
-        - name: "issuerURL"
-          expression: |
-            has(spec.oidcProviderURL) && spec.oidcProviderURL != ""
-              ? spec.oidcProviderURL
-              : ""
-          description: "Issuer URL of the cluster"
+        - name: "rosaIssuerUrl"
+          expression: "spec.rosaIssuerUrl"
+          description: "Workaround to support passing cloudfront url to the adapter"
+
+        # - name: "issuerURL"
+        #   expression: |
+        #     has(spec.oidcProviderURL) && spec.oidcProviderURL != ""
+        #       ? spec.oidcProviderURL
+        #       : ""
+        #   description: "Issuer URL of the cluster"
 
       # check if the cluster is not ready
       conditions:
@@ -295,7 +299,7 @@ spec:
                         nodePoolManagementARN: "{{ .nodePoolManagementARN }}"
                         networkARN: "{{ .networkARN }}"
                         storageARN: "{{ .storageARN }}"
-                  issuerURL: "{{ .issuerURL }}"
+                  issuerURL: "{{ .rosaIssuerUrl }}/{{ .clusterId }}"
                   services:
                     - service: APIServer
                       servicePublishingStrategy:
