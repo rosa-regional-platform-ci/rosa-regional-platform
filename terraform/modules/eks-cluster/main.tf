@@ -102,6 +102,11 @@ resource "aws_eks_addon" "pod_identity" {
   addon_name   = "eks-pod-identity-agent"
 }
 
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "metrics-server"
+}
+
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)
 resource "aws_eks_addon" "aws_secrets_store_csi_driver_provider" {
   cluster_name = aws_eks_cluster.main.name
