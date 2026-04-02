@@ -20,8 +20,6 @@ spec:
         - name: sigv4-proxy
           image: public.ecr.aws/aws-observability/aws-sigv4-proxy:latest
           args:
-            # TODO: remove -v once metrics pipeline is validated
-            - -v
             - --name
             - execute-api
             - --region
@@ -42,4 +40,4 @@ spec:
               memory: 64Mi
             limits:
               cpu: 100m
-              memory: 128Mi
+              memory: 512Mi
