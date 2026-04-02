@@ -285,6 +285,9 @@ spec:
                     type: AWS
                     aws:
                       region: "{{ .region }}"
+                      resourceTags:
+                      - key: red-hat-managed
+                        value: "true"                      
                       cloudProviderConfig:
                         vpc: "{{ .vpcId }}"
                         # subnetId is comma-separated; {{ must stay inside quoted scalars or YAML parse fails before templates run.
