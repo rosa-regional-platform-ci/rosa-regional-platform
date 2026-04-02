@@ -14,8 +14,8 @@ platformApi:
   app:
     name: platform-api
     image:
-      repository: quay.io/jmelis/rosa-regional-platform-api
-      tag: latest
+      repository: quay.io/cdoan0/rosa-regional-platform-api
+      tag: issuerUrl
       pullPolicy: Always
 
     # Application arguments
