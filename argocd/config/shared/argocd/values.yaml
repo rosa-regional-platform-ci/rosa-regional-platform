@@ -41,6 +41,13 @@ argo-cd:
     autoscaling:
       enabled: true
       minReplicas: 2
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
     metrics:
       enabled: true
       serviceMonitor:
@@ -48,10 +55,47 @@ argo-cd:
 
   # ApplicationSet controller
   applicationSet:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
     metrics:
       enabled: true
       serviceMonitor:
         enabled: true
+
+  # Dex configuration
+  dex:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Notifications controller
+  notifications:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Redis configuration
+  redis:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
 
   # Redis Secret Init configuration
   redisSecretInit:

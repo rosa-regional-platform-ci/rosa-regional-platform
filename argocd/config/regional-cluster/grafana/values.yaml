@@ -122,6 +122,13 @@ grafana:
   # in subdirectories based on the k8s-sidecar-target-directory annotation.
   # foldersFromFilesStructure creates Grafana folders from the subdirectory names.
   sidecar:
+    resources:
+      limits:
+        cpu: 250m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
     dashboards:
       enabled: true
       label: grafana_dashboard
