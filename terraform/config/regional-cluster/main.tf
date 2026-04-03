@@ -251,3 +251,24 @@ module "thanos_infrastructure" {
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
 }
+
+# =============================================================================
+# CloudWatch Dashboards
+# =============================================================================
+
+module "cloudwatch_dashboards" {
+  source = "../../modules/cloudwatch-dashboards"
+
+  regional_id      = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
+
+  # API Gateway
+  platform_api_gateway_id = module.api_gateway.api_gateway_id
+  platform_api_stage_name = module.api_gateway.stage_name
+  rhobs_api_gateway_id    = module.rhobs_api_gateway.api_id
+  rhobs_api_stage_name    = "prod"
+
+  # RDS identifiers follow the pattern: {regional_id}-{component}
+  maestro_rds_identifier    = "${var.regional_id}-maestro"
+  hyperfleet_rds_identifier = "${var.regional_id}-hyperfleet"
+}
