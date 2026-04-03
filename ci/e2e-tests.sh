@@ -40,6 +40,31 @@ else
   echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
 fi
 
+# Wait for hyperfleet-api to be routable through the /api/v0/clusters endpoint.
+# After provisioning completes, ArgoCD still needs time to sync hyperfleet-api
+# (image pulls with pullPolicy: Always, CSI secret store init, replica startups).
+# Without this wait the ginkgo test for /api/v0/clusters often times out.
+echo "Waiting for hyperfleet-api /api/v0/clusters endpoint to become ready..."
+set +e
+clusters_ready=false
+for i in $(seq 1 60); do
+  if awscurl --fail-with-body --service execute-api \
+      --region "${AWS_DEFAULT_REGION:-us-east-1}" \
+      "${BASE_URL}/api/v0/clusters" >/dev/null 2>&1; then
+    echo "clusters endpoint ready (returned 200) after approximately $((i * 10))s"
+    clusters_ready=true
+    break
+  fi
+  echo "clusters endpoint not ready (attempt ${i}/60, $((i * 10))s elapsed)..."
+  sleep 10
+done
+set -e
+if [[ "${clusters_ready}" != "true" ]]; then
+  echo "ERROR: /api/v0/clusters did not return 200 after 600s" \
+    "— hyperfleet-api may not have started. Check ArgoCD sync status." >&2
+  exit 1
+fi
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 E2E_REF="${E2E_REF:-main}"
 E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
