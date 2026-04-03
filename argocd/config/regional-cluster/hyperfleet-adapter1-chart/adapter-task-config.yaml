@@ -283,7 +283,6 @@ spec:
                       region: "{{ .region }}"
                       cloudProviderConfig:
                         vpc: "{{ .vpcId }}"
-                        # subnetId is comma-separated; {{ must stay inside quoted scalars or YAML parse fails before templates run.
                         subnet:
                           id: "{{ .subnetId }}"
                       endpointAccess: Private
@@ -295,6 +294,11 @@ spec:
                         nodePoolManagementARN: "{{ .nodePoolManagementARN }}"
                         networkARN: "{{ .networkARN }}"
                         storageARN: "{{ .storageARN }}"
+                      resourceTags:
+                        - key: kubernetes.io/cluster/{{ .clusterId }}
+                          value: owned
+                        - key: red-hat-managed
+                          value: "true"
                   issuerURL: "{{ .issuerURL }}"
                   services:
                     - service: APIServer
