@@ -74,19 +74,22 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
     local HCP_CLUSTER_NAME="e2e-$(date +%s)"
 
     CLI_WORK_DIR="$(mktemp -d)"
-    trap 'rm -rf "${CLI_WORK_DIR}"' EXIT
+    # Do not replace the outer EXIT trap (WORK_DIR cleanup); append CLI temp cleanup.
+    trap 'rm -rf "${CLI_WORK_DIR}"; rm -rf "${WORK_DIR}"' EXIT
     cd "${CLI_WORK_DIR}"
     git clone --depth 1 --branch "${CLI_REF}" \
       "${CLI_REPO}" "${CLI_WORK_DIR}/cli"
     cd "${CLI_WORK_DIR}/cli"
     make build
+    chmod 755 ./bin/rosactl
+
     # make install
-    export ROSACTL_BIN="$(CLI_WORK_DIR)/cli/bin/rosactl"
+    export ROSACTL_BIN="${CLI_WORK_DIR}/cli/bin/rosactl"
 
     # switch back to the api work dir
     cd "${WORK_DIR}/api"
 
-    $ROSACTL_BIN login --url $BASE_URL
+    "${ROSACTL_BIN}" login --url "${BASE_URL}"
     echo "Creating HCP cluster: ${HCP_CLUSTER_NAME}"
 
     set +e # allow the test to fail without exiting (disable errexit)
