@@ -1,6 +1,6 @@
 # Management Cluster Metrics Pipeline via Remote Write
 
-**Last Updated Date**: 2026-03-31
+**Last Updated Date**: 2026-04-04
 
 ## Summary
 
@@ -93,7 +93,7 @@ The `/prod` stage prefix is required because the sigv4-proxy forwards the path a
 ### API Gateway Configuration
 
 - **Binary media types**: `application/x-protobuf` configured to pass binary payloads through without text encoding
-- **Resource policy**: Allows `execute-api:Invoke` from specific MC account IDs
+- **Resource policy**: Allows `execute-api:Invoke` from any account within the AWS Organization (resolved dynamically via `aws:PrincipalOrgID` — no explicit account IDs required)
 - **Redeployment trigger**: API Gateway must be redeployed when `binary_media_types` changes
 
 ## Consequences
@@ -101,7 +101,7 @@ The `/prod` stage prefix is required because the sigv4-proxy forwards the path a
 ### Positive
 
 - Server-side tenant isolation prevents MC tenant spoofing
-- Cross-account access is controlled via API Gateway resource policy (add/remove MC accounts declaratively)
+- Cross-account access is controlled via API Gateway resource policy scoped to the AWS Organization — no per-account configuration needed as new MCs join
 - Signed payloads provide end-to-end integrity verification
 - No direct network path from MC to RC — all traffic flows through API Gateway
 - Standard Prometheus remote_write protocol — no custom agents or exporters needed
@@ -110,7 +110,6 @@ The `/prod` stage prefix is required because the sigv4-proxy forwards the path a
 
 - sigv4-proxy adds a hop and must hash every payload (CPU overhead proportional to payload size)
 - REST API v1 has a 10MB payload limit (sufficient for Prometheus batches of ~2000 samples)
-- Adding a new MC requires updating the API Gateway resource policy with the new account ID
 - `Content-Encoding: snappy` stripping is a workaround for an API GW v1 limitation — if AWS adds snappy support or we move to HTTP API v2 with cross-account auth, this can be removed
 
 ## Cross-Cutting Concerns
@@ -118,7 +117,7 @@ The `/prod` stage prefix is required because the sigv4-proxy forwards the path a
 ### Security
 
 - **Authentication**: AWS IAM SigV4 via EKS Pod Identity credentials — no static credentials
-- **Authorization**: API Gateway resource policy restricts access to known MC accounts
+- **Authorization**: API Gateway resource policy restricts access to accounts within the AWS Organization (`aws:PrincipalOrgID` condition — org ID resolved dynamically, no account enumeration)
 - **Tenant isolation**: Server-side `THANOS-TENANT` injection from verified caller identity
 - **Payload integrity**: Signed payloads prevent tampering in transit
 - **Network isolation**: No direct MC-to-RC network path; all traffic through API Gateway
