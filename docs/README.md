@@ -35,6 +35,7 @@ Detailed architecture and rationale for key technical decisions:
 | -------------------------------------------------------------------- | --------------------------------------- |
 | [Provision a New Environment](environment-provisioning.md)           | Pipeline-based environment provisioning |
 | [Provisioning a Development Environment](development-environment.md) | Ephemeral dev environments              |
+| [Provision a New Hosted Cluster](hostedcluster-provisioning.md)      | Provision ROSA HCP clusters via rosactl |
 
 ### Reference
 
