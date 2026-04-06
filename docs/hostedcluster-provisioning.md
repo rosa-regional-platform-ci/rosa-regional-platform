@@ -28,7 +28,7 @@ command -v awscurl >/dev/null || echo "Need awscurl installed"
 ## Set AWS account
 
 ```bash
-# assume role into the "customer" acccount
+# assume role into the "customer" account
 # you can create hcp from any aws account, but just to ensure separation
 # you can use a separate account to mimic a customer workflow. Set this
 # to be any AWS profile to an account you have access to.
@@ -37,7 +37,7 @@ export AWS_PROFILE=rrp-customer-dev
 
 ## Using the rosactl command
 
-#### Gather Data
+### Gather Data
 ```bash
 # 1. Get the API_URL, this is output as part of your ephemeral environment or use integration
 # Example raw ephemeral API Gateway URL:
@@ -54,13 +54,13 @@ CLUSTER_NAME=
 <details>
   <summary>Ensure your AWS Account is allowlisted in the environment (only needs to be run once per environment)</summary>
 
-> This only needs to be run once per environment. If you have already run this, feel free to skip to the next step.
-  #### Ephemeral Environment
+> This only needs to be run once per environment. If you have already run this, feel free to unfold this section and skip to the next step.
+#### Ephemeral Environment
 ```bash
 # 1. Get your account ID:
 ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
 
-# 2. For ephemeral envs, log into the bastion for the RC and run - reusing the variabless from above:
+# 2. For ephemeral envs, log into the bastion for the RC and run - reusing the variables from above:
 
 #helper output to give you all the variables again if they've scrolled out of view:
 echo "ACCOUNT=${ACCOUNT} REGION=${REGION} API_URL=${API_URL}"
@@ -71,7 +71,7 @@ make ephemeral-bastion-rc
 # You'll probably need to install awscurl the first time:
 pip install awscurl
 
-# Paste the ouput from the `echo` command above into the bastion session to set the env vars, and then run:
+# Paste the output from the `echo` command above into the bastion session to set the env vars, and then run:
 awscurl --service execute-api --region "${REGION}" -X POST "${API_URL}/api/v0/accounts" -H "Content-Type: application/json" -d "{\"accountId\": \"${ACCOUNT}\", \"privileged\": true}"
 ```
 
@@ -98,7 +98,7 @@ rosactl cluster-iam create $CLUSTER_NAME --region $REGION
 # (also cloudformation stack)
 rosactl cluster-vpc create $CLUSTER_NAME --region $REGION --availability-zones $AZ
 
-# 3. submit the cluster creationt o the platform api
+# 3. submit the cluster creation to the platform api
 # --placement (required only in ephemeral environment)
 PLACEMENT=$(awscurl --service execute-api $API_URL/api/v0/management_clusters | jq -r '.items[0].name')
 
