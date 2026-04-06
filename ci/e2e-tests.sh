@@ -95,6 +95,7 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
     set +e # allow the test to fail without exiting (disable errexit)
 
     # make test-e2e-cli
+    make test-e2e-cli
 
     set -e # re-enable exit on error (errexit)
 
