@@ -15,7 +15,7 @@ platformApi:
     name: platform-api
     image:
       repository: quay.io/cdoan0/rosa-regional-platform-api
-      tag: latest
+      tag: ROSAENG-222
       pullPolicy: Always
 
     # Application arguments
