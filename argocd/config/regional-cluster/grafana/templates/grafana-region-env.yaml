@@ -7,4 +7,4 @@ metadata:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
-  AWS_DEFAULT_REGION: {{ .Values.global.aws_region | quote }}
+  AWS_DEFAULT_REGION: {{ required "global.aws_region is required" .Values.global.aws_region | quote }}
