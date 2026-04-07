@@ -23,7 +23,7 @@ command -v jq >/dev/null || echo "Need jq installed"
 command -v awscurl >/dev/null || echo "Need awscurl installed"
 ```
 
-* [awscurl](https://github.com/okigan/awscurl)
+- [awscurl](https://github.com/okigan/awscurl)
 
 ## Set AWS account
 
@@ -38,6 +38,7 @@ export AWS_PROFILE=rrp-customer-dev
 ## Using the rosactl command
 
 ### Gather Data
+
 ```bash
 # 1. Get the API_URL, this is output as part of your ephemeral environment or use integration
 # Example raw ephemeral API Gateway URL:
@@ -50,12 +51,14 @@ REGION=us-east-1
 AZ=${REGION}a
 CLUSTER_NAME=
 ```
-  
+
 <details>
   <summary>Ensure your AWS Account is allowlisted in the environment (only needs to be run once per environment)</summary>
 
 > This only needs to be run once per environment. If you have already run this, feel free to unfold this section and skip to the next step.
+
 #### Ephemeral Environment
+
 ```bash
 # 1. Get your account ID:
 ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
@@ -76,6 +79,7 @@ awscurl --service execute-api --region "${REGION}" -X POST "${API_URL}/api/v0/ac
 ```
 
 #### Integration/Staging Environments
+
 Have an already-privileged user allow your account. Provide your account to the user, and then they run:
 
 ```bash
@@ -84,7 +88,9 @@ API_URL=https://api.int0.rosa.devshift.net
 REGION=us-east-1
 awscurl --service execute-api --region "${REGION}" -X POST "${API_URL}/api/v0/accounts" -H "Content-Type: application/json" -d "{\"accountId\": \"${ACCOUNT}\", \"privileged\": true}"
 ```
+
 ---
+
 </details>
 
 ```bash
