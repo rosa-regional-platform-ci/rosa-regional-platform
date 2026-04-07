@@ -74,6 +74,14 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
   export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
   echo "Customer credentials loaded from ${CREDS_DIR}"
 
+  # Get customer account ID for CLI tests
+  if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
+    export E2E_CUSTOMER_ACCOUNT_ID="$(AWS_ACCESS_KEY_ID="${CUSTOMER_AWS_ACCESS_KEY_ID}" \
+      AWS_SECRET_ACCESS_KEY="${CUSTOMER_AWS_SECRET_ACCESS_KEY}" \
+      aws sts get-caller-identity --query Account --output text)"
+    echo "Customer account ID: ${E2E_CUSTOMER_ACCOUNT_ID:0:8}..."
+  fi
+
   test_hcp_creation() {
     echo ""
     echo "=== HCP Creation Tests ==="
