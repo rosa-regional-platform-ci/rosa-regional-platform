@@ -602,5 +602,20 @@
 
   ],
   "annotations": { "list": [] },
-  "links": []
+  "links": [
+    {
+      "title": "API Gateway",
+      "url": "/d/api-gateway",
+      "type": "link",
+      "icon": "external link",
+      "tooltip": "Platform API metrics"
+    },
+    {
+      "title": "Infrastructure",
+      "url": "/d/infrastructure",
+      "type": "link",
+      "icon": "external link",
+      "tooltip": "IoT Core & NAT Gateway"
+    }
+  ]
 }
