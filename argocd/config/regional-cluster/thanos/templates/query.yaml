@@ -19,6 +19,12 @@ spec:
   # Query will auto-discover stores via operator labels
   queryFrontend:
     replicas: {{ .Values.query.frontend.replicas | default 1 }}
+    # Disable response compression — it buffers the entire response in memory
+    # before sending, which drives OOMKills under query load.
+    # Intra-cluster Grafana→Thanos traffic does not benefit from compression.
+    compressResponses: false
+    queryRangeMaxRetries: 0
+    labelsMaxRetries: 0
     resourceRequirements:
       requests:
         cpu: {{ .Values.query.frontend.resources.requests.cpu }}
@@ -27,4 +33,19 @@ spec:
         memory: {{ .Values.query.frontend.resources.limits.memory }}
     additionalArgs:
       - "--tracing.config="
+      # Split queries into fixed-boundary intervals so results are cacheable.
+      # Without splitting every query has a unique time range ending at "now"
+      # which is always a cache miss, making the response cache ineffective.
+      - "--query-range.split-interval=1h"
+      - "--labels.split-interval=1h"
+      # Limit parallel downstream sub-queries per request. Default is 14.
+      # Root cause of OOMKills: context.WithTimeout objects accumulate when
+      # downstream queries are slow. Reducing parallelism bounds live contexts.
+      - "--query-range.max-query-parallelism=4"
+      - "--labels.max-query-parallelism=4"
+      {{- if .Values.thanos.cacheRedisEndpoint }}
+      - '--query-range.response-cache-config={type: REDIS, config: {addr: "{{ .Values.thanos.cacheRedisEndpoint }}", tls_enabled: true, tls_config: {insecure_skip_verify: true}}}'
+      {{- else }}
+      - '--query-range.response-cache-config={type: IN-MEMORY, config: {max_size: "1GB"}}'
+      {{- end }}
 {{- end }}
