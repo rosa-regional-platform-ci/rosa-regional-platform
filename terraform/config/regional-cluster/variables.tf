@@ -288,3 +288,19 @@ variable "thanos_service_account" {
   default     = "thanos-operator"
 }
 
+# =============================================================================
+# ElastiCache Configuration Variables
+# =============================================================================
+
+variable "elasticache_node_type" {
+  description = "ElastiCache Redis node instance type for Thanos query cache"
+  type        = string
+  default     = "cache.r7g.large"
+}
+
+variable "elasticache_multi_az" {
+  description = "Enable Multi-AZ with automatic failover for ElastiCache (recommended for production)"
+  type        = bool
+  default     = false
+}
+
