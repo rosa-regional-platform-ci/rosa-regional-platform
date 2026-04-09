@@ -12,6 +12,7 @@
 # =============================================================================
 
 resource "aws_cloudfront_origin_access_control" "oidc" {
+  provider                          = aws.regional
   name                              = "${var.cluster_id}-oidc"
   description                       = "OAC for HyperShift OIDC S3 bucket"
   origin_access_control_origin_type = "s3"
@@ -20,6 +21,7 @@ resource "aws_cloudfront_origin_access_control" "oidc" {
 }
 
 resource "aws_cloudfront_distribution" "oidc" {
+  provider    = aws.regional
   enabled     = true
   comment     = "OIDC endpoint for management cluster ${var.cluster_id}"
   price_class = "PriceClass_100" # US, Canada, Europe only — cheapest

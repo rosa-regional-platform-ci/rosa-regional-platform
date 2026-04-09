@@ -26,6 +26,31 @@ provider "aws" {
   }
 }
 
+# Regional account provider for OIDC bucket resources.
+# Uses OrganizationAccountAccessRole for local dev (same pattern as primary provider).
+# In pipelines, ambient creds already have cross-account access.
+provider "aws" {
+  alias  = "regional"
+  region = var.region
+
+  dynamic "assume_role" {
+    for_each = var.target_account_id != "" ? [1] : []
+    content {
+      role_arn     = "arn:aws:iam::${var.regional_aws_account_id}:role/OrganizationAccountAccessRole"
+      session_name = "terraform-oidc-${var.management_id}"
+    }
+  }
+
+  default_tags {
+    tags = {
+      app-code      = var.app_code
+      service-phase = var.service_phase
+      cost-center   = var.cost_center
+      environment   = var.environment
+    }
+  }
+}
+
 # Call the EKS cluster module for management cluster infrastructure
 module "management_cluster" {
   source = "../../modules/eks-cluster"
@@ -94,6 +119,11 @@ module "maestro_agent" {
 
 module "hypershift_oidc" {
   source = "../../modules/hypershift-oidc"
+
+  providers = {
+    aws          = aws
+    aws.regional = aws.regional
+  }
 
   cluster_id       = var.management_id
   eks_cluster_name = module.management_cluster.cluster_name
