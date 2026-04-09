@@ -379,3 +379,12 @@ output "thanos_helm_values" {
   description = "Helm values for Thanos Receiver chart (use with -f flag)"
   value       = module.thanos_infrastructure.helm_values
 }
+
+# =============================================================================
+# ElastiCache Outputs
+# =============================================================================
+
+output "thanos_cache_redis_endpoint" {
+  description = "Thanos query cache Redis endpoint (host:port) for ArgoCD bootstrap injection"
+  value       = module.elasticache.redis_endpoint
+}
