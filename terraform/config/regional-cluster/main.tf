@@ -262,9 +262,9 @@ module "hyperfleet_infrastructure" {
 module "oidc_bucket" {
   source = "../../modules/oidc-bucket"
 
-  regional_id = var.regional_id
-  org_id      = var.org_id
-  tags        = {}
+  regional_id    = var.regional_id
+  mc_account_ids = var.mc_account_ids
+  tags           = {}
 }
 
 # =============================================================================

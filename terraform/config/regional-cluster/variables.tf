@@ -292,13 +292,14 @@ variable "thanos_service_account" {
 # HyperShift OIDC Configuration
 # =============================================================================
 
-variable "org_id" {
-  description = "AWS Organization ID — used in the shared OIDC S3 bucket policy to allow any management cluster account in the org to write OIDC documents"
-  type        = string
+variable "mc_account_ids" {
+  description = "List of AWS account IDs for management clusters that need cross-account write access to the shared OIDC S3 bucket. Add a new MC account ID here and re-apply before provisioning that management cluster."
+  type        = list(string)
+  default     = []
 
   validation {
-    condition     = can(regex("^o-[a-z0-9]{10,32}$", var.org_id))
-    error_message = "org_id must be a valid AWS Organization ID (e.g., o-aa111bb222cc)."
+    condition     = alltrue([for id in var.mc_account_ids : can(regex("^[0-9]{12}$", id))])
+    error_message = "All mc_account_ids must be 12-digit AWS account IDs."
   }
 }
 

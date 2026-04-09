@@ -9,9 +9,9 @@ The HyperShift OIDC S3 bucket and CloudFront distribution are provisioned as a s
 resource per region in the regional cluster (RC) AWS account, owned by
 `terraform/config/regional-cluster/`. All management clusters (MCs) in the region write to the
 same bucket, with each hosted cluster's documents stored under a path prefix keyed by hosted
-cluster ID (`/{hosted_cluster_id}/`). Cross-account write access is granted to any IAM principal
-within the AWS Organization via `aws:PrincipalOrgID`, eliminating the need to update the bucket
-policy as new MCs are provisioned.
+cluster ID (`/{hosted_cluster_id}/`). Cross-account write access is restricted to explicitly
+enumerated MC account IDs combined with a role-name pattern condition, ensuring only the
+HyperShift operator roles in known MC accounts can write OIDC documents.
 
 ## Context
 
@@ -34,27 +34,44 @@ One shared S3 bucket + CloudFront distribution per region, provisioned by
 `terraform/config/regional-cluster/` as part of RC infrastructure. The bucket is named
 `hypershift-oidc-{regional_id}-{rc_account_id}`.
 
-### Bucket policy: `aws:PrincipalOrgID`
+### Bucket policy: explicit account list + role-name condition
 
-The bucket policy allows any IAM principal in the AWS Organization to write OIDC documents.
-No per-account statement updates are required when a new MC is added:
+OIDC discovery documents are a trust root for hosted cluster identity — they control which
+identity providers Kubernetes trusts for service account tokens. A malicious write to
+`/.well-known/openid-configuration` or the JWKS document (`/keys.json`) lets an attacker forge
+valid service account tokens for any hosted cluster in the region. The write path to this trust
+root must therefore be explicitly enumerated, not derived from broad org membership.
+
+The bucket policy uses a dual condition to restrict writes to the minimum necessary principals:
 
 ```json
 {
-  "Sid": "AllowHyperShiftOperatorOrgWrite",
+  "Sid": "AllowHyperShiftOperatorCrossAccount",
   "Effect": "Allow",
   "Principal": { "AWS": "*" },
   "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
   "Resource": "arn:aws:s3:::hypershift-oidc-<regional_id>-<rc_account_id>/*",
   "Condition": {
-    "StringEquals": { "aws:PrincipalOrgID": "<org_id>" }
+    "StringEquals": { "aws:PrincipalAccount": ["<mc_account_id_1>", "<mc_account_id_2>"] },
+    "StringLike":   { "aws:PrincipalArn": "arn:aws:iam::*:role/*-hypershift-operator" }
   }
 }
 ```
 
-The HyperShift operator IAM role policy (in the MC account) still explicitly allows the same
+The dual condition provides:
+
+1. **Account-level scoping** — only the explicitly listed MC accounts can write.
+2. **Role-name scoping** — within those accounts, only roles matching `*-hypershift-operator`
+   are permitted, preventing any other principal in an MC account from writing OIDC documents.
+
+The HyperShift operator IAM role policy (in the MC account) also explicitly allows the same
 S3 actions on the shared bucket ARN. Both policies must permit the action for cross-account
 access to succeed (standard AWS cross-account dual-authorization model).
+
+When a new MC is provisioned:
+1. Add its account ID to `mc_account_ids` in `deploy/<env>/<region>/pipeline-regional-cluster-inputs/terraform.json`
+2. Re-apply the regional cluster Terraform to update the bucket policy
+3. Then run the MC provisioning pipeline
 
 ### How MC Terraform learns the bucket details
 
@@ -88,15 +105,21 @@ OIDC bucket provisioning has been removed from the minting step entirely.
    the additional concern that OIDC infrastructure logically belongs to the region, not to
    individual MCs.
 
-3. **Provider alias in MC Terraform**: Add an `aws.regional` provider alias to MC Terraform
+3. **`aws:PrincipalOrgID` bucket policy**: Allow any IAM principal in the AWS Organization
+   to write. Rejected because OIDC documents are a trust root — a compromised developer sandbox
+   or CI account within the org would have a write path to cluster identity documents. The blast
+   radius (forged credentials for all hosted clusters in the region) is too large to accept for
+   the sake of avoiding an account-list update when adding an MC.
+
+4. **Provider alias in MC Terraform**: Add an `aws.regional` provider alias to MC Terraform
    that assumes a role in the RC account to create shared OIDC resources. Rejected because
    it widens MC Terraform's blast radius into the RC account on every apply.
 
-4. **Dedicated OIDC writer role in RC account**: Create a single RC-account role that all MC
+5. **Dedicated OIDC writer role in RC account**: Create a single RC-account role that all MC
    HyperShift operators assume. Rejected: adds a hop without improving security, and the
-   trust policy would need updating per MC.
+   trust policy still requires the same account enumeration, just in a different document.
 
-5. **SSM Parameter Store for bucket details**: Write bucket details to SSM instead of reading
+6. **SSM Parameter Store for bucket details**: Write bucket details to SSM instead of reading
    RC Terraform outputs. Rejected: RC Terraform outputs are already authoritative; SSM would
    be an unsynchronised copy.
 
@@ -106,21 +129,21 @@ OIDC bucket provisioning has been removed from the minting step entirely.
 
 - **Stable issuer URL** — The CloudFront domain never changes, regardless of which MC
   hosts a given control plane. Hosted cluster OIDC credentials survive MC migrations.
-- **Zero-touch MC scaling** — New MC accounts automatically inherit write access via
-  `aws:PrincipalOrgID`; no bucket policy update is needed.
+- **Tightly scoped trust root write path** — Only named MC accounts + HyperShift operator
+  role pattern can write OIDC documents. No org-level exposure.
 - **Clean ownership** — OIDC bucket lifecycle is tied to the region, not individual MCs.
   `terraform destroy` on the regional cluster cleans up the shared OIDC endpoint.
 - **No MC blast radius into RC** — MC Terraform never assumes a role in the RC account.
+- **Auditable** — CloudTrail shows the actual MC principal for every write; no intermediate
+  role to trace through.
 
 ### Negative / Trade-offs
 
-- **`aws:PrincipalOrgID` scope** — Any Organisation member account principal with appropriate
-  IAM permissions can write to the bucket. The HyperShift operator role policy limits this in
-  practice, but the bucket policy alone is less restrictive than a named-principal policy.
-- **New required variable** — `org_id` is a new required input for `terraform/config/regional-cluster/`.
-  Existing deploy configs must be updated before the next RC Terraform apply.
-- **RC must be provisioned first** — The RC Terraform apply must complete before the first MC in
-  a region can be provisioned (existing sequencing requirement, now also required for OIDC).
+- **Explicit account list** — `mc_account_ids` must be updated in RC Terraform config and
+  re-applied before provisioning each new MC. This is a sequential dependency but is consistent
+  with how MC provisioning already works (RC deploys before MCs).
+- **RC must be provisioned first** — The RC Terraform apply must complete before the first MC
+  in a region can be provisioned (existing sequencing requirement, now also required for OIDC).
 
 ## Cross-Cutting Concerns
 
@@ -128,6 +151,8 @@ OIDC bucket provisioning has been removed from the minting step entirely.
 
 - Cross-account S3 access uses the dual-authorization model: both the MC IAM role policy and
   the RC bucket policy must permit the action.
+- The bucket policy dual condition (`aws:PrincipalAccount` + `aws:PrincipalArn` StringLike)
+  ensures only the expected HyperShift operator roles in listed MC accounts can write.
 - CloudFront OAC is the sole read path; the bucket blocks all public access.
 - The HyperShift operator IAM role (MC account, EKS Pod Identity) is scoped to the minimum
   required S3 actions on the shared bucket ARN.
@@ -137,3 +162,5 @@ OIDC bucket provisioning has been removed from the minting step entirely.
 - RC Terraform manages the full lifecycle of the shared bucket and CloudFront distribution.
 - The MC deploy pipeline reads OIDC outputs from RC state using the existing pattern established
   for the RHOBS API URL, keeping the build spec structure consistent.
+- Adding an MC requires: (1) add account ID to `mc_account_ids`, (2) apply RC Terraform,
+  (3) provision MC. This is documented in `docs/environment-provisioning.md`.

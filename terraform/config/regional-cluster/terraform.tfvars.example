@@ -70,7 +70,7 @@ maestro_db_deletion_protection = false  # Set to true for production
 # =============================================================================
 # HyperShift OIDC Configuration
 # =============================================================================
-# org_id is the AWS Organization ID used in the shared OIDC S3 bucket policy to
-# allow any management cluster account in the org to write OIDC documents.
-# Find it with: aws organizations describe-organization --query 'Organization.Id' --output text
-org_id = "o-xxxxxxxxxx"
+# mc_account_ids lists the AWS account IDs for management clusters that need
+# cross-account write access to the shared OIDC S3 bucket. Add each MC account
+# ID here and re-apply regional-cluster Terraform before provisioning that MC.
+# mc_account_ids = ["111111111111", "222222222222"]
