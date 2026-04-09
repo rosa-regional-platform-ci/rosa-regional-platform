@@ -70,9 +70,9 @@ hyperfleet-api-chart:
     adapters:
       cluster:
         - adapter1
-        - adapter2
-      nodepool:
-        - adapter3
+        # - adapter2
+      # nodepool:
+      #   - adapter3
 
 # SecretProviderClass configuration for AWS Pod Identity
 secretProviderClass:
