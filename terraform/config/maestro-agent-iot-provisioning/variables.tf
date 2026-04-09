@@ -36,3 +36,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "mc_account_id" {
+  description = "Management cluster AWS account ID"
+  type        = string
+}

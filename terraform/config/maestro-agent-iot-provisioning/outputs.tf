@@ -38,3 +38,19 @@ output "metadata" {
   description = "Provisioning metadata"
   value       = module.maestro_agent_iot.metadata
 }
+
+output "oidc_bucket_name" {
+  value = module.oidc_bucket.bucket_name
+}
+
+output "oidc_bucket_arn" {
+  value = module.oidc_bucket.bucket_arn
+}
+
+output "oidc_bucket_region" {
+  value = module.oidc_bucket.bucket_region
+}
+
+output "oidc_cloudfront_domain" {
+  value = module.oidc_bucket.cloudfront_domain
+}

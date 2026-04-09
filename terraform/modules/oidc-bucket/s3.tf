@@ -1,32 +1,18 @@
 # =============================================================================
 # Private S3 Bucket for OIDC Discovery Documents
 #
-# Stores OIDC discovery documents and signing keys uploaded by the HyperShift
-# operator. Fully private — only accessible via CloudFront (OAC) for reads
-# and the HyperShift operator (Pod Identity) for writes.
-#
-# The bucket is provisioned in the regional account via the aws.regional
-# provider alias. The management cluster's HyperShift operator accesses it
-# cross-account: the IAM role policy (management account) and this bucket
-# policy (regional account) together grant write access.
+# Fully private --- only accessible via CloudFront (OAC) for reads and the
+# HyperShift operator (cross-account Pod Identity) for writes.
 # =============================================================================
 
 resource "aws_s3_bucket" "oidc" {
-  provider = aws.regional
-  bucket   = local.oidc_bucket_name
+  bucket = local.bucket_name
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = local.oidc_bucket_name
-    }
-  )
+  tags = merge(local.common_tags, { Name = local.bucket_name })
 }
 
-# Block all public access
 resource "aws_s3_bucket_public_access_block" "oidc" {
-  provider = aws.regional
-  bucket   = aws_s3_bucket.oidc.id
+  bucket = aws_s3_bucket.oidc.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -34,12 +20,8 @@ resource "aws_s3_bucket_public_access_block" "oidc" {
   restrict_public_buckets = true
 }
 
-# Enable server-side encryption (AES-256) as defence-in-depth.
-# OIDC documents are public via CloudFront, but encrypting at rest aligns with
-# platform security posture and costs nothing with SSE-S3.
 resource "aws_s3_bucket_server_side_encryption_configuration" "oidc" {
-  provider = aws.regional
-  bucket   = aws_s3_bucket.oidc.id
+  bucket = aws_s3_bucket.oidc.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -49,14 +31,13 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "oidc" {
   }
 }
 
-# Allow CloudFront OAC to read objects, and the HyperShift operator
-# (management account) to write objects cross-account.
 resource "aws_s3_bucket_policy" "oidc" {
-  provider = aws.regional
-  bucket   = aws_s3_bucket.oidc.id
+  bucket = aws_s3_bucket.oidc.id
 
-  # Ensure public access block is in place before applying the policy
-  depends_on = [aws_s3_bucket_public_access_block.oidc, aws_s3_bucket_server_side_encryption_configuration.oidc]
+  depends_on = [
+    aws_s3_bucket_public_access_block.oidc,
+    aws_s3_bucket_server_side_encryption_configuration.oidc,
+  ]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -79,7 +60,7 @@ resource "aws_s3_bucket_policy" "oidc" {
         Sid    = "AllowHyperShiftOperatorCrossAccount"
         Effect = "Allow"
         Principal = {
-          AWS = aws_iam_role.hypershift_operator.arn
+          AWS = local.hypershift_operator_role_arn
         }
         Action = [
           "s3:PutObject",
@@ -89,7 +70,7 @@ resource "aws_s3_bucket_policy" "oidc" {
         Resource = "${aws_s3_bucket.oidc.arn}/*"
         Condition = {
           StringEquals = {
-            "aws:PrincipalAccount" = data.aws_caller_identity.current.account_id
+            "aws:PrincipalAccount" = var.mc_account_id
           }
         }
       },

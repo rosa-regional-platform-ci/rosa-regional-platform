@@ -86,9 +86,27 @@ fi
 export TF_VAR_maestro_agent_cert_file
 export TF_VAR_maestro_agent_config_file
 
+# OIDC bucket outputs (consumed by management cluster Terraform)
+TF_VAR_oidc_bucket_name=$(cd "$_READ_IOT_TF_DIR" && terraform output -raw oidc_bucket_name) || true
+TF_VAR_oidc_bucket_arn=$(cd "$_READ_IOT_TF_DIR" && terraform output -raw oidc_bucket_arn) || true
+TF_VAR_oidc_bucket_region=$(cd "$_READ_IOT_TF_DIR" && terraform output -raw oidc_bucket_region) || true
+TF_VAR_oidc_cloudfront_domain=$(cd "$_READ_IOT_TF_DIR" && terraform output -raw oidc_cloudfront_domain) || true
+
+if [ -z "${TF_VAR_oidc_bucket_name:-}" ]; then
+    echo "ERROR: Failed to read oidc_bucket_name from IoT terraform state" >&2
+    return 1
+fi
+
+export TF_VAR_oidc_bucket_name
+export TF_VAR_oidc_bucket_arn
+export TF_VAR_oidc_bucket_region
+export TF_VAR_oidc_cloudfront_domain
+
 echo "IoT state read successfully"
 echo "  Cert file:   $TF_VAR_maestro_agent_cert_file"
 echo "  Config file: $TF_VAR_maestro_agent_config_file"
+echo "  OIDC bucket: $TF_VAR_oidc_bucket_name"
+echo "  OIDC CF:     $TF_VAR_oidc_cloudfront_domain"
 echo ""
 
 # Clean up internal variables

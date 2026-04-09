@@ -112,16 +112,22 @@ variable "node_instance_types" {
   }
 }
 
-variable "regional_oidc_role_arn" {
-  description = <<-EOT
-    ARN of a least-privilege IAM role in the regional account used by Terraform
-    to provision OIDC S3 and CloudFront resources. When empty, falls back to
-    OrganizationAccountAccessRole (acceptable for local dev only).
-
-    In production, set this to a dedicated role with only the S3 and CloudFront
-    permissions required by the hypershift-oidc module. The role should be
-    provisioned by terraform/config/regional-cluster/.
-  EOT
+variable "oidc_bucket_name" {
+  description = "OIDC S3 bucket name provisioned in the regional account during IoT minting"
   type        = string
-  default     = ""
+}
+
+variable "oidc_bucket_arn" {
+  description = "OIDC S3 bucket ARN provisioned in the regional account during IoT minting"
+  type        = string
+}
+
+variable "oidc_bucket_region" {
+  description = "AWS region of the OIDC S3 bucket"
+  type        = string
+}
+
+variable "oidc_cloudfront_domain" {
+  description = "CloudFront domain for the OIDC issuer URL (without https:// prefix)"
+  type        = string
 }

@@ -22,3 +22,23 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "oidc_bucket_name" {
+  description = "OIDC S3 bucket name --- provisioned in the regional account during the IoT minting step"
+  type        = string
+}
+
+variable "oidc_bucket_arn" {
+  description = "OIDC S3 bucket ARN --- used to scope the HyperShift operator IAM policy"
+  type        = string
+}
+
+variable "oidc_bucket_region" {
+  description = "AWS region of the OIDC S3 bucket"
+  type        = string
+}
+
+variable "oidc_cloudfront_domain" {
+  description = "CloudFront domain for the OIDC issuer URL (without https:// prefix)"
+  type        = string
+}

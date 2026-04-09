@@ -27,32 +27,6 @@ provider "aws" {
   }
 }
 
-# Regional account provider for OIDC bucket resources.
-# Always assumes a role into the regional account — unlike the primary provider,
-# the regional provider must cross account boundaries both in pipelines and local dev.
-# Set regional_oidc_role_arn to a least-privilege role in production; falls back
-# to OrganizationAccountAccessRole for local dev when left empty.
-provider "aws" {
-  alias  = "regional"
-  region = var.region
-
-  assume_role {
-    role_arn     = var.regional_oidc_role_arn != "" ? var.regional_oidc_role_arn : "arn:aws:iam::${var.regional_aws_account_id}:role/OrganizationAccountAccessRole"
-    session_name = "terraform-oidc-${var.management_id}"
-  }
-
-  allowed_account_ids = [var.regional_aws_account_id]
-
-  default_tags {
-    tags = {
-      app-code      = var.app_code
-      service-phase = var.service_phase
-      cost-center   = var.cost_center
-      environment   = var.environment
-    }
-  }
-}
-
 # Call the EKS cluster module for management cluster infrastructure
 module "management_cluster" {
   source = "../../modules/eks-cluster"
@@ -122,13 +96,12 @@ module "maestro_agent" {
 module "hypershift_oidc" {
   source = "../../modules/hypershift-oidc"
 
-  providers = {
-    aws          = aws
-    aws.regional = aws.regional
-  }
-
-  cluster_id       = var.management_id
-  eks_cluster_name = module.management_cluster.cluster_name
+  cluster_id             = var.management_id
+  eks_cluster_name       = module.management_cluster.cluster_name
+  oidc_bucket_name       = var.oidc_bucket_name
+  oidc_bucket_arn        = var.oidc_bucket_arn
+  oidc_bucket_region     = var.oidc_bucket_region
+  oidc_cloudfront_domain = var.oidc_cloudfront_domain
 }
 
 # =============================================================================

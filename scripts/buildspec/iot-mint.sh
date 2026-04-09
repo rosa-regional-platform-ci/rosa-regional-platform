@@ -72,6 +72,7 @@ app_code              = "${APP_CODE}"
 service_phase         = "${SERVICE_PHASE}"
 cost_center           = "${COST_CENTER}"
 mqtt_topic_prefix     = "sources/${REGIONAL_ID}/consumers"
+mc_account_id         = "${TARGET_ACCOUNT_ID}"
 EOF
 
 # Run IoT provisioning with persistent remote state
