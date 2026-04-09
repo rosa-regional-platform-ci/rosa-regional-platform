@@ -18,7 +18,7 @@ data "aws_iot_endpoint" "mqtt_ats" {
 
 locals {
   fips_regions      = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
-  iot_mqtt_endpoint = contains(local.fips_regions, data.aws_region.current.name) ? "data.iot-fips.${data.aws_region.current.name}.amazonaws.com" : data.aws_iot_endpoint.mqtt_ats.endpoint_address
+  iot_mqtt_endpoint = contains(local.fips_regions, data.aws_region.current.region) ? "data.iot-fips.${data.aws_region.current.region}.amazonaws.com" : data.aws_iot_endpoint.mqtt_ats.endpoint_address
 }
 
 # Download AWS IoT Root CA certificate
