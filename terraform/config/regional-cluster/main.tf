@@ -1,5 +1,14 @@
+locals {
+  # FIPS endpoints are available in US commercial and GovCloud regions.
+  # EKS is the most restrictive — it excludes Canada — so this set is used
+  # for the provider-level use_fips_endpoint to avoid API call failures.
+  fips_regions = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  use_fips     = contains(local.fips_regions, var.region)
+}
+
 provider "aws" {
-  region = var.region
+  region            = var.region
+  use_fips_endpoint = local.use_fips
 
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
@@ -27,9 +36,10 @@ provider "aws" {
 # so this provider uses a named profile written by the buildspec script.
 # For local dev, central_aws_profile is empty and ambient creds are used.
 provider "aws" {
-  alias   = "central"
-  region  = var.region
-  profile = var.central_aws_profile != "" ? var.central_aws_profile : null
+  alias             = "central"
+  region            = var.region
+  use_fips_endpoint = local.use_fips
+  profile           = var.central_aws_profile != "" ? var.central_aws_profile : null
 }
 
 # =============================================================================

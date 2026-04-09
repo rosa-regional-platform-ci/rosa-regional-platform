@@ -42,7 +42,7 @@ output "agent_config" {
     # Complete config.yaml file ready to mount
     config = <<-EOT
       # MQTT Broker Configuration for AWS IoT Core
-      brokerHost: "${data.aws_iot_endpoint.mqtt.endpoint_address}:8883"
+      brokerHost: "${local.iot_mqtt_endpoint}:8883"
       username: ""
       password: ""
       # Certificate files mounted via ASCP CSI driver
@@ -69,7 +69,7 @@ output "metadata" {
   value = {
     management_cluster_id = var.management_cluster_id
     certificate_id        = aws_iot_certificate.maestro_agent.id
-    mqtt_endpoint         = data.aws_iot_endpoint.mqtt.endpoint_address
+    mqtt_endpoint         = local.iot_mqtt_endpoint
     provisioned_at        = timestamp()
   }
 }

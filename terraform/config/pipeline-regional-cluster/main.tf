@@ -1,5 +1,11 @@
+locals {
+  fips_regions = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  use_fips     = contains(local.fips_regions, var.region)
+}
+
 provider "aws" {
-  region = var.region
+  region            = var.region
+  use_fips_endpoint = local.use_fips
 }
 
 data "aws_caller_identity" "current" {}

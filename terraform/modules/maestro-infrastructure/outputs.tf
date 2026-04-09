@@ -11,7 +11,7 @@
 
 output "iot_mqtt_endpoint" {
   description = "AWS IoT Core MQTT endpoint for broker connection"
-  value       = data.aws_iot_endpoint.mqtt.endpoint_address
+  value       = local.iot_mqtt_endpoint
 }
 
 # =============================================================================
@@ -102,7 +102,7 @@ output "maestro_configuration_summary" {
   description = "Summary of Maestro infrastructure configuration for Helm values"
   value = {
     mqtt = {
-      endpoint    = data.aws_iot_endpoint.mqtt.endpoint_address
+      endpoint    = local.iot_mqtt_endpoint
       port        = 8883
       topicPrefix = "sources/${var.regional_id}/consumers"
     }

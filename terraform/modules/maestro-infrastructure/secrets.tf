@@ -55,7 +55,7 @@ resource "aws_secretsmanager_secret_version" "maestro_server_config" {
   secret_string = jsonencode({
     config = <<-EOT
       # MQTT Broker Configuration for AWS IoT Core
-      brokerHost: "${data.aws_iot_endpoint.mqtt.endpoint_address}:8883"
+      brokerHost: "${local.iot_mqtt_endpoint}:8883"
       username: ""
       password: ""
       # Certificate files mounted via ASCP CSI driver
