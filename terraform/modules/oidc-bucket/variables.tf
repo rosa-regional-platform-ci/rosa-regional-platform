@@ -8,15 +8,21 @@ variable "regional_id" {
   }
 }
 
-variable "mc_account_ids" {
-  description = "List of AWS account IDs for management clusters that need cross-account write access to the shared OIDC bucket. Update and re-apply RC Terraform when provisioning a new management cluster."
+variable "mc_org_paths" {
+  description = <<-EOT
+    List of AWS Organizations path patterns for the OU containing management clusters.
+    Used in the aws:PrincipalOrgPaths bucket policy condition to allow HyperShift operator
+    roles in any MC account within the specified OU to write OIDC documents.
+
+    Format: "<org_id>/<root_id>/<ou_id>/*"
+    Example: ["o-aa111bb222cc/r-ab12/ou-ab12-cd34ef56/*"]
+
+    Populated automatically by provision-infra-rc.sh by querying the Organizations API
+    for the RC account's own OU path (RC and MC accounts share the same OU depth).
+    When empty, no cross-account write statement is added to the bucket policy.
+  EOT
   type        = list(string)
   default     = []
-
-  validation {
-    condition     = alltrue([for id in var.mc_account_ids : can(regex("^[0-9]{12}$", id))])
-    error_message = "All mc_account_ids must be 12-digit AWS account IDs."
-  }
 }
 
 variable "tags" {

@@ -95,6 +95,30 @@ fi
 export TF_VAR_regional_id=$(jq -r '.regional_id' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_environment=$(jq -r '.environment' "$DEPLOY_CONFIG_FILE")
 
+# Discover the OU path for the OIDC bucket policy.
+# RC and MC accounts share the same OU depth --- querying the RC account's own
+# OU membership yields the correct path for aws:PrincipalOrgPaths.
+# All Organizations read API calls are permitted from any member account.
+echo "Discovering OU path for OIDC bucket policy..."
+_OU_ID=$(aws organizations list-parents --child-id "${TARGET_ACCOUNT_ID}" \
+    --query 'Parents[0].Id' --output text 2>/dev/null || true)
+_ROOT_ID=$(aws organizations list-roots \
+    --query 'Roots[0].Id' --output text 2>/dev/null || true)
+_ORG_ID=$(aws organizations describe-organization \
+    --query 'Organization.Id' --output text 2>/dev/null || true)
+
+if [[ -n "${_OU_ID:-}" && -n "${_ROOT_ID:-}" && -n "${_ORG_ID:-}" && "${_OU_ID}" != "None" ]]; then
+    export TF_VAR_mc_org_paths="[\"${_ORG_ID}/${_ROOT_ID}/${_OU_ID}/*\"]"
+    echo "  OU path: ${_ORG_ID}/${_ROOT_ID}/${_OU_ID}/*"
+else
+    # Account may be directly under root (no OU), or Organizations API not available.
+    # Bucket will be created without a cross-account write statement; update manually
+    # by setting mc_org_paths in the deploy config if cross-account writes are needed.
+    export TF_VAR_mc_org_paths="[]"
+    echo "  WARNING: Could not determine OU path — OIDC bucket cross-account write statement will be omitted"
+fi
+unset _OU_ID _ROOT_ID _ORG_ID
+
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"
 echo "  App Code: $TF_VAR_app_code"
@@ -109,6 +133,7 @@ echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
 echo "  Regional ID: $TF_VAR_regional_id"
 echo "  Environment: $TF_VAR_environment"
+echo "  MC Org Paths: ${TF_VAR_mc_org_paths:-<not set>}"
 echo ""
 
 export ENVIRONMENT="${ENVIRONMENT:-staging}"

@@ -292,14 +292,14 @@ variable "thanos_service_account" {
 # HyperShift OIDC Configuration
 # =============================================================================
 
-variable "mc_account_ids" {
-  description = "List of AWS account IDs for management clusters that need cross-account write access to the shared OIDC S3 bucket. Add a new MC account ID here and re-apply before provisioning that management cluster."
+variable "mc_org_paths" {
+  description = <<-EOT
+    List of AWS Organizations OU path patterns for the OU containing management clusters.
+    Format: "<org_id>/<root_id>/<ou_id>/*"
+    Populated automatically by provision-infra-rc.sh — no manual configuration required.
+    When empty, no cross-account write statement is added to the OIDC bucket policy.
+  EOT
   type        = list(string)
   default     = []
-
-  validation {
-    condition     = alltrue([for id in var.mc_account_ids : can(regex("^[0-9]{12}$", id))])
-    error_message = "All mc_account_ids must be 12-digit AWS account IDs."
-  }
 }
 

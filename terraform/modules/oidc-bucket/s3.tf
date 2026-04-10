@@ -4,15 +4,18 @@
 # Fully private --- only accessible via CloudFront (OAC) for reads and the
 # HyperShift operator (cross-account Pod Identity) for writes.
 #
-# The bucket policy restricts cross-account write access to explicitly
-# enumerated management cluster account IDs and further narrows to IAM roles
-# matching the HyperShift operator naming convention (*-hypershift-operator).
-# This dual condition prevents any other principal in an MC account from
-# writing OIDC documents, which are a trust root for hosted cluster identity.
+# The bucket policy uses aws:PrincipalOrgPaths to allow cross-account writes
+# from the OU that contains all management clusters. Combined with a StringLike
+# condition on the principal ARN (role name pattern *-hypershift-operator),
+# this restricts writes to the HyperShift operator role in any MC account
+# within the designated OU — without requiring an explicit per-account list.
 #
-# When a new management cluster is provisioned:
-# 1. Add its AWS account ID to var.mc_account_ids in the RC Terraform config
-# 2. Re-apply regional-cluster Terraform to update the bucket policy
+# The OU path is discovered automatically from the RC account's own OU
+# membership (RC and MC accounts share the same OU depth), so no manual
+# maintenance is required when new management clusters are provisioned.
+#
+# The cross-account write statement is omitted when mc_org_paths is empty
+# (e.g., on initial regional cluster bootstrap before any MC is configured).
 # =============================================================================
 
 resource "aws_s3_bucket" "oidc" {
@@ -68,9 +71,9 @@ resource "aws_s3_bucket_policy" "oidc" {
           }
         },
       ],
-      length(var.mc_account_ids) > 0 ? [
+      length(var.mc_org_paths) > 0 ? [
         {
-          Sid    = "AllowHyperShiftOperatorCrossAccount"
+          Sid    = "AllowHyperShiftOperatorOrgPath"
           Effect = "Allow"
           Principal = {
             AWS = "*"
@@ -82,9 +85,13 @@ resource "aws_s3_bucket_policy" "oidc" {
           ]
           Resource = "${aws_s3_bucket.oidc.arn}/*"
           Condition = {
-            StringEquals = {
-              "aws:PrincipalAccount" = var.mc_account_ids
+            # aws:PrincipalOrgPaths is a multi-value key (contains the full OU ancestry
+            # chain for the principal). ForAnyValue:StringLike matches if ANY element
+            # in the set satisfies the pattern --- required for multi-value condition keys.
+            "ForAnyValue:StringLike" = {
+              "aws:PrincipalOrgPaths" = var.mc_org_paths
             }
+            # Further narrow to HyperShift operator roles within the matched OU
             StringLike = {
               "aws:PrincipalArn" = "arn:aws:iam::*:role/*-hypershift-operator"
             }
