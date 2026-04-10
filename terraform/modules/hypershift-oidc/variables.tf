@@ -3,7 +3,7 @@
 # =============================================================================
 
 variable "cluster_id" {
-  description = "Management cluster identifier, used for S3 bucket naming and resource prefixes"
+  description = "Management cluster identifier, used for resource prefixes"
   type        = string
 
   validation {
@@ -14,6 +14,26 @@ variable "cluster_id" {
 
 variable "eks_cluster_name" {
   description = "EKS cluster name for Pod Identity association"
+  type        = string
+}
+
+variable "oidc_bucket_name" {
+  description = "S3 bucket name for OIDC discovery documents (owned by the Regional Cluster)"
+  type        = string
+}
+
+variable "oidc_bucket_arn" {
+  description = "S3 bucket ARN for OIDC discovery documents (owned by the Regional Cluster)"
+  type        = string
+}
+
+variable "oidc_bucket_region" {
+  description = "AWS region of the OIDC S3 bucket (owned by the Regional Cluster)"
+  type        = string
+}
+
+variable "oidc_cloudfront_domain" {
+  description = "CloudFront domain name for the OIDC issuer URL (owned by the Regional Cluster)"
   type        = string
 }
 
