@@ -228,6 +228,22 @@ variable "node_instance_types" {
 }
 
 # =============================================================================
+# Regional OIDC Configuration Variables
+# =============================================================================
+
+variable "management_cluster_account_ids" {
+  description = "List of AWS account IDs for Management Clusters allowed to write to the regional OIDC bucket"
+  type        = list(string)
+  default     = []
+}
+
+variable "mc_ou_path" {
+  description = "AWS Organizations OU path for Management Cluster accounts (StringLike condition, supports wildcards)"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
 # Thanos Configuration Variables
 # =============================================================================
 
