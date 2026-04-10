@@ -19,6 +19,10 @@ spec:
   # Query will auto-discover stores via operator labels
   queryFrontend:
     replicas: {{ .Values.query.frontend.replicas | default 1 }}
+    # Disable response compression — it buffers the entire response in memory
+    # before sending, which drives OOMKills under query load.
+    # Intra-cluster Grafana→Thanos traffic does not benefit from compression.
+    compressResponses: false
     resourceRequirements:
       requests:
         cpu: {{ .Values.query.frontend.resources.requests.cpu }}
@@ -32,10 +36,6 @@ spec:
       # which is always a cache miss, making the response cache ineffective.
       - "--query-range.split-interval=1h"
       - "--labels.split-interval=1h"
-      # Disable response compression — it buffers the entire response in memory
-      # before sending, which is the primary driver of OOMKills under query load.
-      # Intra-cluster Grafana→Thanos traffic does not benefit from compression.
-      - "--no-query-frontend.compress-responses"
       # Reduce retries to zero — each retry creates an additional response buffer.
       # The query-frontend split+cache already handles transient failures.
       - "--query-range.max-retries-per-request=0"
