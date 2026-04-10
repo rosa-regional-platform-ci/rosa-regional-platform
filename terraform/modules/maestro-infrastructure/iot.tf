@@ -8,17 +8,14 @@
 # and IoT Jobs, which Maestro doesn't use. MQTT only requires cert + policy.
 # =============================================================================
 
-# "iot:Data-FIPS" is not a valid endpoint_type for the aws_iot_endpoint data
-# source, so we construct the FIPS endpoint manually and fall back to the
-# data source (which returns the account-specific ATS endpoint) elsewhere.
-# fips_regions must match the canonical list in terraform/config/*/main.tf.
-data "aws_iot_endpoint" "mqtt_ats" {
+# Get AWS IoT Core MQTT endpoint
+data "aws_iot_endpoint" "mqtt" {
   endpoint_type = "iot:Data-ATS"
 }
 
 locals {
   fips_regions      = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
-  iot_mqtt_endpoint = contains(local.fips_regions, data.aws_region.current.region) ? "data.iot-fips.${data.aws_region.current.region}.amazonaws.com" : data.aws_iot_endpoint.mqtt_ats.endpoint_address
+  iot_mqtt_endpoint = contains(local.fips_regions, data.aws_region.current.region) ? "data.iot-fips.${data.aws_region.current.region}.amazonaws.com" : data.aws_iot_endpoint.mqtt.endpoint_address
 }
 
 # Download AWS IoT Root CA certificate
