@@ -54,31 +54,25 @@ CLUSTER_NAME=
 
 <details>
   <summary>Ensure your AWS Account is allowlisted in the environment (only needs to be run once per environment)</summary>
-
-> This only needs to be run once per environment. If you have already run this, feel free to unfold this section and skip to the next step.
-
-#### Ephemeral Environment
+  
+#### Ephemeral Environment Account Whitelisting
 
 ```bash
 # 1. Get your account ID:
 ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
 
-# 2. For ephemeral envs, log into the bastion for the RC and run - reusing the variables from above:
+# 2. Ensure you have the the variables from above ready to use in the next section:
+# Helper output to give you all the variables again if they've scrolled out of view:
+echo "ACCOUNT=${ACCOUNT} REGION=${REGION}"
 
-#helper output to give you all the variables again if they've scrolled out of view:
-echo "ACCOUNT=${ACCOUNT} REGION=${REGION} API_URL=${API_URL}"
-
-# Connect to the RC
-make ephemeral-bastion-rc
-
-# You'll probably need to install awscurl the first time:
-pip install awscurl
+# Create a shell to the platform api
+make ephemeral-shell
 
 # Paste the output from the `echo` command above into the bastion session to set the env vars, and then run:
 awscurl --service execute-api --region "${REGION}" -X POST "${API_URL}/api/v0/accounts" -H "Content-Type: application/json" -d "{\"accountId\": \"${ACCOUNT}\", \"privileged\": true}"
 ```
 
-#### Integration/Staging Environments
+#### Integration/Staging Environment Account Whistelisting
 
 Have an already-privileged user allow your account. Provide your account to the user, and then they run:
 
@@ -106,7 +100,7 @@ rosactl cluster-vpc create $CLUSTER_NAME --region $REGION --availability-zones $
 
 # 3. submit the cluster creation to the platform api
 # --placement (required only in ephemeral environment)
-PLACEMENT=$(awscurl --service execute-api $API_URL/api/v0/management_clusters | jq -r '.items[0].name')
+PLACEMENT=$(awscurl --service execute-api $API_URL/api/v0/management_clusters --region $REGION | jq -r '.items[0].name')
 
 rosactl cluster create $CLUSTER_NAME --region $REGION --placement $PLACEMENT | tee /tmp/$CLUSTER_NAME.json
 
