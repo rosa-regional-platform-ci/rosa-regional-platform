@@ -8,14 +8,9 @@
 # and IoT Jobs, which Maestro doesn't use. MQTT only requires cert + policy.
 # =============================================================================
 
-# Get AWS IoT Core MQTT endpoint
-data "aws_iot_endpoint" "mqtt" {
-  endpoint_type = "iot:Data-ATS"
-}
-
 locals {
   fips_regions      = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
-  iot_mqtt_endpoint = contains(local.fips_regions, data.aws_region.current.region) ? "data.iot-fips.${data.aws_region.current.region}.amazonaws.com" : data.aws_iot_endpoint.mqtt.endpoint_address
+  iot_mqtt_endpoint = contains(local.fips_regions, data.aws_region.current.region) ? "data.iot-fips.${data.aws_region.current.region}.amazonaws.com" : "data.iot-ats.iot.${data.aws_region.current.region}.amazonaws.com"
 }
 
 # Download AWS IoT Root CA certificate
