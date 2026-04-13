@@ -38,7 +38,11 @@ spec:
       # which is always a cache miss, making the response cache ineffective.
       - "--query-range.split-interval=1h"
       - "--labels.split-interval=1h"
-
+      # Limit parallel downstream sub-queries per request. Default is 14.
+      # Root cause of OOMKills: context.WithTimeout objects accumulate when
+      # downstream queries are slow. Reducing parallelism bounds live contexts.
+      - "--query-range.max-query-parallelism=4"
+      - "--labels.max-query-parallelism=4"
       {{- if .Values.thanos.cacheRedisEndpoint }}
       - '--query-range.response-cache-config={type: REDIS, config: {addr: "{{ .Values.thanos.cacheRedisEndpoint }}", tls_enabled: true, tls_config: {insecure_skip_verify: true}}}'
       {{- else }}
