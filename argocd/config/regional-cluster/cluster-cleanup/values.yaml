@@ -8,7 +8,7 @@ clusterCleanup:
     tag: "16-alpine"
 
   # Maximum age in hours before a cluster is cleaned up
-  maxAgeHours: 0
+  maxAgeHours: 24
 
   # Platform API internal service URL for resource bundle cleanup
   platformApiUrl: http://platform-api.platform-api.svc.cluster.local:8000
