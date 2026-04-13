@@ -38,13 +38,7 @@ spec:
       # which is always a cache miss, making the response cache ineffective.
       - "--query-range.split-interval=1h"
       - "--labels.split-interval=1h"
-      # Cap concurrent downstream requests to bound the number of live context
-      # objects in memory. Root cause of OOMKills: context.WithTimeout objects
-      # accumulate when downstream queries are slow and retries multiply them.
-      - "--query-frontend.max-concurrent=20"
-      # Hard timeout per downstream sub-query so contexts are freed promptly
-      # even if the downstream Thanos query is slow.
-      - "--query-frontend.downstream-url-query-timeout=120s"
+
       {{- if .Values.thanos.cacheRedisEndpoint }}
       - '--query-range.response-cache-config={type: REDIS, config: {addr: "{{ .Values.thanos.cacheRedisEndpoint }}", tls_enabled: true, tls_config: {insecure_skip_verify: true}}}'
       {{- else }}
