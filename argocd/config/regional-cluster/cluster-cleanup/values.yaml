@@ -13,7 +13,7 @@ clusterCleanup:
     tag: "16-alpine"
 
   # Maximum age in hours before a cluster is cleaned up
-  maxAgeHours: 0
+  maxAgeHours: 24
 
   # Database secret (created by hyperfleet-api SecretProviderClass)
   dbSecretName: hyperfleet-api-db-credentials
