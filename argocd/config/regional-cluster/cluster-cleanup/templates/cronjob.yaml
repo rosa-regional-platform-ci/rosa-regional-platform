@@ -70,10 +70,9 @@ spec:
 
                   # Delete ALL resource bundles
                   echo "Listing all bundles from $MAESTRO_URL"
-                  BUNDLES_JSON=$(maestro_exec resourcebundle list --rest-url="$MAESTRO_URL" --size=200 -o json 2>&1)
-                  echo "Response length: ${#BUNDLES_JSON} bytes"
-
-                  ALL_IDS=$(echo "$BUNDLES_JSON" | grep -o '"href": "/api/maestro/v1/resource-bundles/[^"]*"' | sed 's|.*/||;s|"||g')
+                  ALL_IDS=$(maestro_exec resourcebundle list --rest-url="$MAESTRO_URL" --size=200 -o json 2>/dev/null \
+                    | grep -o '"href": "/api/maestro/v1/resource-bundles/[^"]*"' \
+                    | sed 's|.*/||;s|"||g')
                   echo "Found bundle IDs: $(echo $ALL_IDS | tr '\n' ' ')"
 
                   DELETED_COUNT=0
