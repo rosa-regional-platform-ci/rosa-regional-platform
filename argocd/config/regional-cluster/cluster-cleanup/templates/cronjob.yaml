@@ -22,8 +22,10 @@ spec:
               env:
                 - name: MAX_AGE_HOURS
                   value: {{ .Values.clusterCleanup.maxAgeHours | quote }}
-                - name: PLATFORM_API_URL
-                  value: {{ .Values.clusterCleanup.platformApiUrl }}
+                - name: MAESTRO_NS
+                  value: {{ .Values.clusterCleanup.maestroNamespace }}
+                - name: MAESTRO_GRPC
+                  value: {{ .Values.clusterCleanup.maestroGrpcAddress }}
                 - name: PGUSER
                   valueFrom:
                     secretKeyRef:
@@ -52,6 +54,10 @@ spec:
                 - |
                   set -e
 
+                  # Install kubectl
+                  wget -qO /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl"
+                  chmod +x /usr/local/bin/kubectl
+
                   echo "=== Cluster Cleanup - $(date -u) ==="
                   echo "Removing clusters older than ${MAX_AGE_HOURS} hours"
 
@@ -73,7 +79,12 @@ spec:
                     echo "  - $name ($id)"
                   done
 
-                  # Delete each cluster from the database and clean up resource bundles
+                  # Find a maestro pod for CLI exec
+                  MAESTRO_POD=$(kubectl get pod -n "$MAESTRO_NS" -l app=maestro,component=maestro-server \
+                    --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+                  echo "Using maestro pod: $MAESTRO_POD"
+
+                  # Delete each cluster and its resource bundles
                   echo "$STALE_CLUSTERS" | while IFS='|' read -r id name; do
                     echo ""
                     echo "--- Cleaning up cluster: $name ($id) ---"
@@ -86,37 +97,27 @@ spec:
                     psql -c "DELETE FROM adapter_statuses WHERE resource_id = '$id';" 2>/dev/null || true
                     echo "Deleted from adapter_statuses table"
 
-                    # Step 3: Delete resource bundles via Platform API
+                    # Step 3: Delete resource bundles via maestro CLI
                     echo "Cleaning up resource bundles..."
-                    BUNDLES_URL="${PLATFORM_API_URL}/api/v0/resource_bundles"
-                    DELETED_COUNT=0
-                    for page in $(seq 1 10); do
-                      echo "  Fetching bundles page ${page}: ${BUNDLES_URL}?page=${page}&size=100"
-                      RESP=$(wget -qO- "${BUNDLES_URL}?page=${page}&size=100" 2>&1) || {
-                        echo "  ERROR: wget failed (exit $?): $RESP"
-                        break
-                      }
-                      echo "  Response length: ${#RESP} bytes"
-                      echo "  Response preview: $(echo "$RESP" | head -c 200)"
+                    BUNDLE_IDS=$(kubectl exec -n "$MAESTRO_NS" "$MAESTRO_POD" -c service -- \
+                      /usr/local/bin/maestro resourcebundle list \
+                        --grpc-server-address="$MAESTRO_GRPC" \
+                        --search "name like '%${id}%'" \
+                        -o json 2>/dev/null \
+                      | tr ',{}[]' '\n' \
+                      | awk '/"id":/ { gsub(/.*"id":"/, ""); gsub(/".*/, ""); print }') || true
 
-                      BUNDLE_IDS=$(echo "$RESP" | tr ',{}[]' '\n' | awk -v cid="$id" '
-                        /"id":/ { gsub(/.*"id":"/, ""); gsub(/".*/, ""); current_id=$0 }
-                        /"name":/ { gsub(/.*"name":"/, ""); gsub(/".*/, ""); if (index($0, cid) > 0 && current_id != "") print current_id }
-                      ')
-
-                      if [ -z "$BUNDLE_IDS" ]; then
-                        echo "  No matching bundles on page ${page}, stopping pagination"
-                        break
-                      fi
-
-                      echo "  Matched bundle IDs: $(echo $BUNDLE_IDS | tr '\n' ' ')"
+                    if [ -z "$BUNDLE_IDS" ]; then
+                      echo "  No resource bundles found"
+                    else
                       for bid in $BUNDLE_IDS; do
                         echo "  Deleting bundle: $bid"
-                        DEL_RESP=$(wget -qO- --method=DELETE "${BUNDLES_URL}/$bid" 2>&1) || echo "    WARN: delete failed: $DEL_RESP"
-                        DELETED_COUNT=$((DELETED_COUNT + 1))
+                        kubectl exec -n "$MAESTRO_NS" "$MAESTRO_POD" -c service -- \
+                          /usr/local/bin/maestro resourcebundle delete "$bid" -y \
+                            --grpc-server-address="$MAESTRO_GRPC" || echo "    WARN: failed to delete $bid"
                       done
-                    done
-                    echo "Deleted $DELETED_COUNT resource bundle(s)"
+                    fi
+
                     echo "Done cleaning up cluster: $name"
                   done
 
