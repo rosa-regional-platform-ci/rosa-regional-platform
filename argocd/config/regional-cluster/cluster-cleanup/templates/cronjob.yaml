@@ -78,7 +78,7 @@ spec:
                   DELETED_COUNT=0
                   for bid in $ALL_IDS; do
                     echo "Deleting bundle: $bid"
-                    maestro_exec resourcebundle delete "$bid" -y --rest-url="$MAESTRO_URL" 2>&1 || echo "  WARN: failed to delete $bid"
+                    maestro_exec resourcebundle delete "$bid" -y --rest-url="$MAESTRO_URL" --grpc-server-address=127.0.0.1:8090 2>&1 || echo "  WARN: failed to delete $bid"
                     DELETED_COUNT=$((DELETED_COUNT + 1))
                   done
                   echo "Deleted $DELETED_COUNT resource bundle(s)"
