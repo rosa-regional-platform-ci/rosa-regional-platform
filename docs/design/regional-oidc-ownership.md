@@ -65,12 +65,15 @@ sequenceDiagram
 
 The RC S3 bucket policy grants write access to MC HyperShift operator roles using a dual condition: both `aws:PrincipalOrgPaths` (restricting to the MC OU) and an explicit allowlist of MC account IDs must match. No STS hop is required — the MC HyperShift operator's Pod Identity role is granted direct cross-account access via the bucket policy.
 
-```
+```yaml
 Condition:
-  StringEquals:
-    aws:PrincipalOrgPaths: "<org-id>/r-xxxx/<mc-ou-id>/"
-  StringEquals:
-    aws:PrincipalAccount: ["<mc-account-1>", "<mc-account-2>", ...]
+  StringLike:
+    aws:PrincipalOrgPaths: "<org-id>/r-xxxx/<mc-ou-id>/*"
+    aws:PrincipalArn: "arn:*:iam::*:role/*-hypershift-operator"
+  ForAnyValue:StringEquals:
+    aws:PrincipalAccount:
+      - "<mc-account-1>"
+      - "<mc-account-2>"
 ```
 
 Actions granted: `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:ListBucket`.
@@ -81,7 +84,7 @@ OIDC documents are stored under `/{hosted-cluster-name}/`. The path is keyed to 
 
 ### Data Flow for New Region Provisioning
 
-The RC Terraform module provisions the regional OIDC resources and exports `oidc_cloudfront_domain` and `oidc_bucket_name` as outputs. The MC provisioning pipeline reads these values from RC Terraform state — the same pattern used for `rhobs_api_url` — and injects them into MC Terraform variables. The MC then configures HyperShift to write to the regional bucket using its cross-account role.
+The RC Terraform module provisions the regional OIDC resources and exports four outputs consumed by the MC provisioning pipeline: `oidc_cloudfront_domain` (the stable issuer URL base), `oidc_bucket_name` (injected into HyperShift configuration), `oidc_bucket_arn` (used as the IAM policy resource target), and `oidc_bucket_region` (used for S3 API endpoint selection). The MC provisioning pipeline reads these values from RC Terraform state — the same pattern used for `rhobs_api_url` — and injects them into MC Terraform variables. The MC then configures HyperShift to write to the regional bucket using its cross-account role.
 
 ## Alternatives Considered
 
@@ -129,7 +132,7 @@ The RC Terraform module provisions the regional OIDC resources and exports `oidc
 ### Security
 
 - The regional OIDC bucket is fully private. Public reads are served exclusively through CloudFront via Origin Access Control (OAC); no S3 bucket ACLs or public-access exceptions are used.
-- Cross-account write access uses a dual condition (OU path and explicit account allowlist), reducing blast radius from a compromised account to that account's namespace within the bucket.
+- Cross-account write access uses a dual condition (OU path and explicit account allowlist), limiting writers to known MC accounts within the platform OU. This does not prevent a compromised MC account from overwriting OIDC documents belonging to clusters on other MCs; CloudTrail audit is the detection control for that scenario.
 - OIDC key material (the private signing key) is never written to the OIDC bucket. Only the public JWKS (`keys.json`) and the discovery document are stored there.
 - CloudTrail provides a full write audit trail. Any unexpected `PutObject` to another cluster's path is detectable.
 
