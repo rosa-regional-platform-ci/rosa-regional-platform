@@ -97,24 +97,24 @@ spec:
                     psql -c "DELETE FROM adapter_statuses WHERE resource_id = '$id';" 2>/dev/null || true
                     echo "Deleted from adapter_statuses table"
 
-                    # Step 3: Delete resource bundles via maestro CLI
+                    # Step 3: Delete ALL resource bundles via maestro CLI
                     echo "Cleaning up resource bundles..."
                     maestro_exec() {
                       kubectl exec -n "$MAESTRO_NS" "$MAESTRO_POD" -c service -- /usr/local/bin/maestro "$@"
                     }
 
-                    # List all bundles, extract IDs from href (unique to top-level bundle objects)
-                    BUNDLES_JSON=$(maestro_exec resourcebundle list --rest-url="$MAESTRO_URL" --size=200 -o json 2>/dev/null) || true
+                    echo "  Listing all bundles from $MAESTRO_URL"
+                    BUNDLES_JSON=$(maestro_exec resourcebundle list --rest-url="$MAESTRO_URL" --size=200 -o json 2>&1)
+                    echo "  Response length: ${#BUNDLES_JSON} bytes"
+
                     ALL_IDS=$(echo "$BUNDLES_JSON" | grep -o '"href":"/api/maestro/v1/resource-bundles/[^"]*"' | sed 's|.*/||;s|"||g')
+                    echo "  Found bundle IDs: $(echo $ALL_IDS | tr '\n' ' ')"
 
                     DELETED_COUNT=0
                     for bid in $ALL_IDS; do
-                      DETAIL=$(maestro_exec resourcebundle get "$bid" --rest-url="$MAESTRO_URL" -o json 2>/dev/null) || continue
-                      if echo "$DETAIL" | grep -q "$id"; then
-                        echo "  Deleting bundle: $bid"
-                        maestro_exec resourcebundle delete "$bid" -y --rest-url="$MAESTRO_URL" || echo "    WARN: failed to delete $bid"
-                        DELETED_COUNT=$((DELETED_COUNT + 1))
-                      fi
+                      echo "  Deleting bundle: $bid"
+                      maestro_exec resourcebundle delete "$bid" -y --rest-url="$MAESTRO_URL" 2>&1 || echo "    WARN: failed to delete $bid"
+                      DELETED_COUNT=$((DELETED_COUNT + 1))
                     done
                     echo "  Deleted $DELETED_COUNT resource bundle(s)"
 
