@@ -88,20 +88,35 @@ spec:
 
                     # Step 3: Delete resource bundles via Platform API
                     echo "Cleaning up resource bundles..."
+                    BUNDLES_URL="${PLATFORM_API_URL}/api/v0/resource_bundles"
+                    DELETED_COUNT=0
                     for page in $(seq 1 10); do
-                      RESP=$(wget -qO- "${PLATFORM_API_URL}/api/v0/resource_bundles?page=${page}&size=100" 2>/dev/null) || break
+                      echo "  Fetching bundles page ${page}: ${BUNDLES_URL}?page=${page}&size=100"
+                      RESP=$(wget -qO- "${BUNDLES_URL}?page=${page}&size=100" 2>&1) || {
+                        echo "  ERROR: wget failed (exit $?): $RESP"
+                        break
+                      }
+                      echo "  Response length: ${#RESP} bytes"
+                      echo "  Response preview: $(echo "$RESP" | head -c 200)"
+
                       BUNDLE_IDS=$(echo "$RESP" | tr ',{}[]' '\n' | awk -v cid="$id" '
                         /"id":/ { gsub(/.*"id":"/, ""); gsub(/".*/, ""); current_id=$0 }
                         /"name":/ { gsub(/.*"name":"/, ""); gsub(/".*/, ""); if (index($0, cid) > 0 && current_id != "") print current_id }
                       ')
+
                       if [ -z "$BUNDLE_IDS" ]; then
+                        echo "  No matching bundles on page ${page}, stopping pagination"
                         break
                       fi
+
+                      echo "  Matched bundle IDs: $(echo $BUNDLE_IDS | tr '\n' ' ')"
                       for bid in $BUNDLE_IDS; do
                         echo "  Deleting bundle: $bid"
-                        wget -qO- --method=DELETE "${PLATFORM_API_URL}/api/v0/resource_bundles/$bid" 2>/dev/null || true
+                        DEL_RESP=$(wget -qO- --method=DELETE "${BUNDLES_URL}/$bid" 2>&1) || echo "    WARN: delete failed: $DEL_RESP"
+                        DELETED_COUNT=$((DELETED_COUNT + 1))
                       done
                     done
+                    echo "Deleted $DELETED_COUNT resource bundle(s)"
                     echo "Done cleaning up cluster: $name"
                   done
 
