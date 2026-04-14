@@ -24,8 +24,8 @@ spec:
                   value: {{ .Values.clusterCleanup.maxAgeHours | quote }}
                 - name: MAESTRO_NS
                   value: {{ .Values.clusterCleanup.maestroNamespace }}
-                - name: MAESTRO_GRPC
-                  value: {{ .Values.clusterCleanup.maestroGrpcAddress }}
+                - name: MAESTRO_URL
+                  value: {{ .Values.clusterCleanup.maestroRestUrl }}
                 - name: PGUSER
                   valueFrom:
                     secretKeyRef:
@@ -99,24 +99,24 @@ spec:
 
                     # Step 3: Delete resource bundles via maestro CLI
                     echo "Cleaning up resource bundles..."
-                    BUNDLE_IDS=$(kubectl exec -n "$MAESTRO_NS" "$MAESTRO_POD" -c service -- \
-                      /usr/local/bin/maestro resourcebundle list \
-                        --grpc-server-address="$MAESTRO_GRPC" \
-                        --search "name like '%${id}%'" \
-                        -o json 2>/dev/null \
-                      | tr ',{}[]' '\n' \
-                      | awk '/"id":/ { gsub(/.*"id":"/, ""); gsub(/".*/, ""); print }') || true
+                    maestro_exec() {
+                      kubectl exec -n "$MAESTRO_NS" "$MAESTRO_POD" -c service -- /usr/local/bin/maestro "$@"
+                    }
 
-                    if [ -z "$BUNDLE_IDS" ]; then
-                      echo "  No resource bundles found"
-                    else
-                      for bid in $BUNDLE_IDS; do
+                    # List all bundles, extract IDs from href (unique to top-level bundle objects)
+                    BUNDLES_JSON=$(maestro_exec resourcebundle list --rest-url="$MAESTRO_URL" --size=200 -o json 2>/dev/null) || true
+                    ALL_IDS=$(echo "$BUNDLES_JSON" | grep -o '"href":"/api/maestro/v1/resource-bundles/[^"]*"' | sed 's|.*/||;s|"||g')
+
+                    DELETED_COUNT=0
+                    for bid in $ALL_IDS; do
+                      DETAIL=$(maestro_exec resourcebundle get "$bid" --rest-url="$MAESTRO_URL" -o json 2>/dev/null) || continue
+                      if echo "$DETAIL" | grep -q "$id"; then
                         echo "  Deleting bundle: $bid"
-                        kubectl exec -n "$MAESTRO_NS" "$MAESTRO_POD" -c service -- \
-                          /usr/local/bin/maestro resourcebundle delete "$bid" -y \
-                            --grpc-server-address="$MAESTRO_GRPC" || echo "    WARN: failed to delete $bid"
-                      done
-                    fi
+                        maestro_exec resourcebundle delete "$bid" -y --rest-url="$MAESTRO_URL" || echo "    WARN: failed to delete $bid"
+                        DELETED_COUNT=$((DELETED_COUNT + 1))
+                      fi
+                    done
+                    echo "  Deleted $DELETED_COUNT resource bundle(s)"
 
                     echo "Done cleaning up cluster: $name"
                   done

@@ -20,7 +20,7 @@ clusterCleanup:
 
   # Maestro gRPC service for resource bundle cleanup
   maestroNamespace: maestro-server
-  maestroGrpcAddress: maestro-grpc.maestro-server.svc.cluster.local:8090
+  maestroRestUrl: http://maestro-http.maestro-server.svc.cluster.local:8080
 
   resources:
     requests:
