@@ -90,7 +90,13 @@ spec:
                     echo "Cleaning up resource bundles..."
                     for page in $(seq 1 10); do
                       RESP=$(wget -qO- "${PLATFORM_API_URL}/api/v0/resource_bundles?page=${page}&size=100" 2>/dev/null) || break
-                      BUNDLE_IDS=$(echo "$RESP" | sed -n 's/.*"id":"\([^"]*\)".*"name":"[^"]*'"$id"'[^"]*".*/\1/p')
+                      BUNDLE_IDS=$(echo "$RESP" | tr ',{}[]' '\n' | awk -v cid="$id" '
+                        /"id":/ { gsub(/.*"id":"/, ""); gsub(/".*/, ""); current_id=$0 }
+                        /"name":/ { gsub(/.*"name":"/, ""); gsub(/".*/, ""); if (index($0, cid) > 0 && current_id != "") print current_id }
+                      ')
+                      if [ -z "$BUNDLE_IDS" ]; then
+                        break
+                      fi
                       for bid in $BUNDLE_IDS; do
                         echo "  Deleting bundle: $bid"
                         wget -qO- --method=DELETE "${PLATFORM_API_URL}/api/v0/resource_bundles/$bid" 2>/dev/null || true
