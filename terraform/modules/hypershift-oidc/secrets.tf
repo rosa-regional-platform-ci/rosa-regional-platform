@@ -22,9 +22,9 @@ resource "aws_secretsmanager_secret_version" "hypershift_config" {
   secret_id = aws_secretsmanager_secret.hypershift_config.id
 
   secret_string = jsonencode({
-    oidcBucketName    = var.oidc_bucket_name
-    oidcBucketRegion  = var.oidc_bucket_region
-    oidcIssuerUrl     = "https://${var.oidc_cloudfront_domain}"
+    oidcBucketName   = var.oidc_bucket_name
+    oidcBucketRegion = var.oidc_bucket_region
+    oidcIssuerUrl    = "https://${var.oidc_cloudfront_domain}"
   })
 }
 
