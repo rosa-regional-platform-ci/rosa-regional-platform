@@ -14,6 +14,32 @@ resource "aws_kms_key" "oidc" {
         }
         Action   = "kms:*"
         Resource = "*"
+      },
+      {
+        Sid    = "AllowManagementClusterUseViaS3"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+        ]
+        Resource = "*"
+        Condition = {
+          StringLike = {
+            "aws:PrincipalOrgPaths"            = var.mc_ou_path
+            "kms:EncryptionContext:aws:s3:arn" = "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}/*"
+          }
+          "ForAnyValue:StringEquals" = {
+            "aws:PrincipalAccount" = var.management_cluster_account_ids
+          }
+          StringEquals = {
+            "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
       }
     ]
   })

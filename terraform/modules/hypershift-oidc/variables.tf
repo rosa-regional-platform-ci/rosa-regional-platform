@@ -20,21 +20,41 @@ variable "eks_cluster_name" {
 variable "oidc_bucket_name" {
   description = "S3 bucket name for OIDC discovery documents (owned by the Regional Cluster)"
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.oidc_bucket_name)) > 0
+    error_message = "oidc_bucket_name must be provided from RC Terraform state."
+  }
 }
 
 variable "oidc_bucket_arn" {
   description = "S3 bucket ARN for OIDC discovery documents (owned by the Regional Cluster)"
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.oidc_bucket_arn)) > 0
+    error_message = "oidc_bucket_arn must be provided from RC Terraform state."
+  }
 }
 
 variable "oidc_bucket_region" {
   description = "AWS region of the OIDC S3 bucket (owned by the Regional Cluster)"
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.oidc_bucket_region)) > 0
+    error_message = "oidc_bucket_region must be provided from RC Terraform state."
+  }
 }
 
 variable "oidc_cloudfront_domain" {
   description = "CloudFront domain name for the OIDC issuer URL (owned by the Regional Cluster)"
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.oidc_cloudfront_domain)) > 0
+    error_message = "oidc_cloudfront_domain must be provided from RC Terraform state."
+  }
 }
 
 variable "tags" {
