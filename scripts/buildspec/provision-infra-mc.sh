@@ -61,14 +61,25 @@ else
         -backend-config="use_lockfile=true" >/dev/null 2>&1)
     export TF_VAR_rhobs_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw rhobs_api_url 2>/dev/null || echo "")
     echo "  RHOBS API URL:  ${TF_VAR_rhobs_api_url:-<not available>}"
-    export TF_VAR_oidc_cloudfront_domain=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_cloudfront_domain 2>/dev/null || echo "")
-    export TF_VAR_oidc_bucket_name=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_name 2>/dev/null || echo "")
-    export TF_VAR_oidc_bucket_arn=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_arn 2>/dev/null || echo "")
-    export TF_VAR_oidc_bucket_region=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_region 2>/dev/null || echo "")
-    echo "  OIDC CloudFront: ${TF_VAR_oidc_cloudfront_domain:-<not available>}"
-    echo "  OIDC Bucket:     ${TF_VAR_oidc_bucket_name:-<not available>}"
-    echo "  OIDC Bucket ARN: ${TF_VAR_oidc_bucket_arn:-<not available>}"
-    echo "  OIDC Region:     ${TF_VAR_oidc_bucket_region:-<not available>}"
+    TF_VAR_oidc_cloudfront_domain=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_cloudfront_domain 2>/dev/null || true)
+    TF_VAR_oidc_bucket_name=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_name 2>/dev/null || true)
+    TF_VAR_oidc_bucket_arn=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_arn 2>/dev/null || true)
+    TF_VAR_oidc_bucket_region=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_region 2>/dev/null || true)
+    if [ -z "${TF_VAR_oidc_cloudfront_domain}" ] || \
+       [ -z "${TF_VAR_oidc_bucket_name}" ] || \
+       [ -z "${TF_VAR_oidc_bucket_arn}" ] || \
+       [ -z "${TF_VAR_oidc_bucket_region}" ]; then
+        echo "ERROR: Missing required OIDC outputs from RC terraform state." >&2
+        exit 1
+    fi
+    export TF_VAR_oidc_cloudfront_domain
+    export TF_VAR_oidc_bucket_name
+    export TF_VAR_oidc_bucket_arn
+    export TF_VAR_oidc_bucket_region
+    echo "  OIDC CloudFront: ${TF_VAR_oidc_cloudfront_domain}"
+    echo "  OIDC Bucket:     ${TF_VAR_oidc_bucket_name}"
+    echo "  OIDC Bucket ARN: ${TF_VAR_oidc_bucket_arn}"
+    echo "  OIDC Region:     ${TF_VAR_oidc_bucket_region}"
 fi
 
 # =====================================================================
