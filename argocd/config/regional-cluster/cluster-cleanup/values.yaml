@@ -19,8 +19,8 @@ clusterCleanup:
   dbSecretName: hyperfleet-api-db-credentials
 
   # Maestro gRPC service for resource bundle cleanup
-  maestroNamespace: maestro
-  maestroGrpcAddress: maestro-grpc.maestro.svc.cluster.local:8090
+  maestroNamespace: maestro-server
+  maestroGrpcAddress: maestro-grpc.maestro-server.svc.cluster.local:8090
 
   resources:
     requests:
