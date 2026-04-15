@@ -21,7 +21,7 @@ resource "aws_ecs_cluster" "bootstrap" {
 # CloudWatch Log Group for bootstrap tasks
 resource "aws_cloudwatch_log_group" "bootstrap" {
   name              = "/ecs/${var.cluster_id}/bootstrap"
-  retention_in_days = 30
+  retention_in_days = 365 # FedRAMP AU-11: minimum 1-year online retention
 }
 
 # ECS Task Definition for bootstrap execution
