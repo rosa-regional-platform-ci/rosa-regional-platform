@@ -116,3 +116,61 @@ resource "aws_api_gateway_stage" "main" {
     Name = "${var.regional_id}-api-${var.stage_name}"
   }
 }
+
+# -----------------------------------------------------------------------------
+# FedRAMP AC-08: System Use Notification
+#
+# Injects a DoD/FedRAMP-compliant use-notification banner into all API Gateway
+# 4XX and DEFAULT responses so that unauthenticated or unauthorized callers
+# receive the required warning before being granted any access.
+# -----------------------------------------------------------------------------
+
+locals {
+  system_use_notification = "WARNING: This system is for authorized use only. Users (authorized or unauthorized) have no explicit or implicit expectation of privacy. Any or all uses of this system and all files on this system may be intercepted, monitored, recorded, copied, audited, inspected, and disclosed to authorized site, company, and law enforcement personnel, as well as authorized officials of other agencies. By using this system, the user consents to such interception, monitoring, recording, copying, auditing, inspection, and disclosure at the discretion of authorized site or company personnel. Unauthorized or improper use of this system may result in civil and criminal penalties and administrative or disciplinary action, as appropriate."
+}
+
+resource "aws_api_gateway_gateway_response" "unauthorized" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  response_type = "UNAUTHORIZED"
+  status_code   = "401"
+
+  response_parameters = {
+    "gatewayresponse.header.Warning" = "'${local.system_use_notification}'"
+    "gatewayresponse.header.X-System-Use-Notification" = "'${local.system_use_notification}'"
+  }
+
+  response_templates = {
+    "application/json" = jsonencode({
+      message                 = "Unauthorized"
+      systemUseNotification   = local.system_use_notification
+    })
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "access_denied" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  response_type = "ACCESS_DENIED"
+  status_code   = "403"
+
+  response_parameters = {
+    "gatewayresponse.header.Warning" = "'${local.system_use_notification}'"
+    "gatewayresponse.header.X-System-Use-Notification" = "'${local.system_use_notification}'"
+  }
+
+  response_templates = {
+    "application/json" = jsonencode({
+      message                 = "Access Denied"
+      systemUseNotification   = local.system_use_notification
+    })
+  }
+}
+
+resource "aws_api_gateway_gateway_response" "default_4xx" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  response_type = "DEFAULT_4XX"
+
+  response_parameters = {
+    "gatewayresponse.header.Warning" = "'${local.system_use_notification}'"
+    "gatewayresponse.header.X-System-Use-Notification" = "'${local.system_use_notification}'"
+  }
+}
