@@ -72,7 +72,6 @@ spec:
               targetGroup:
                 arn: '{{ .metadata.annotations.thanos_target_group_arn }}'
               cacheRedisEndpoint: '{{ .metadata.annotations.thanos_cache_redis_endpoint | default "" }}'
-
             hyperfleetApi:
               aws:
                 region: '{{ .metadata.labels.aws_region }}'
