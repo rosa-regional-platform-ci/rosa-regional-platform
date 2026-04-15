@@ -1,5 +1,9 @@
 provider "aws" {
   region = var.region
+  # FedRAMP SC-13 / IA-07: Use FIPS 140-2 validated endpoints when available.
+  # FIPS endpoints exist only in US and GovCloud regions; non-US regions (EU, AP, SA)
+  # do not support FIPS endpoints and will fail if this is set to true.
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
