@@ -85,9 +85,9 @@ variable "db_multi_az" {
 }
 
 variable "db_backup_retention_period" {
-  description = "Number of days to retain automated backups"
+  description = "Number of days to retain automated backups. FedRAMP Moderate CP-09 requires a minimum of 7 days; production should be at least 35 days."
   type        = number
-  default     = 7
+  default     = 35
 }
 
 variable "db_deletion_protection" {

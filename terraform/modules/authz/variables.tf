@@ -32,9 +32,9 @@ variable "billing_mode" {
 }
 
 variable "enable_point_in_time_recovery" {
-  description = "Enable point-in-time recovery for DynamoDB tables (recommended for production)"
+  description = "Enable point-in-time recovery for DynamoDB tables. FedRAMP Moderate CP-09 requires PITR to be enabled in production."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_deletion_protection" {

@@ -239,6 +239,16 @@ module "hyperfleet_infrastructure" {
 # Thanos Infrastructure Module (Observability)
 # =============================================================================
 
+# =============================================================================
+# Backup Module (FedRAMP CP-09)
+# =============================================================================
+
+module "backup" {
+  source = "../../modules/backup"
+
+  cluster_id = var.regional_id
+}
+
 module "thanos_infrastructure" {
   source = "../../modules/thanos-infrastructure"
 
