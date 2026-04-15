@@ -115,6 +115,10 @@ resource "aws_cloudwatch_log_group" "api_gateway_access" {
   tags = {
     Name = "${var.regional_id}-api-access-logs"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_api_gateway_stage" "main" {
