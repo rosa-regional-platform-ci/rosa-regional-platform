@@ -36,12 +36,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "pipeline_artifact" {
     id     = "expire-old-artifacts"
     status = "Enabled"
 
+    # FedRAMP SI-12 / AU-11: Pipeline artifacts may include audit-relevant
+    # build logs and deployment records. Retain online for 365 days, then
+    # transition to Glacier for 3-year total retention per FedRAMP.
+    transition {
+      days          = 365
+      storage_class = "GLACIER"
+    }
+
     expiration {
-      days = 90
+      days = 1095 # 3 years total
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = 30
+      noncurrent_days = 365
     }
   }
 }

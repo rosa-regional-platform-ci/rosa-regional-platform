@@ -29,13 +29,13 @@ variable "thanos_service_account" {
 }
 
 variable "metrics_retention_days" {
-  description = "Number of days to retain metrics in S3"
+  description = "Number of days to retain metrics in S3. FedRAMP Moderate SI-12 requires a documented retention schedule; the minimum enforced here is 365 days (1 year) to align with AU-11 online retention requirements."
   type        = number
   default     = 365
 
   validation {
-    condition     = var.metrics_retention_days >= 30
-    error_message = "Metrics retention must be at least 30 days for FedRAMP compliance."
+    condition     = var.metrics_retention_days >= 365
+    error_message = "Metrics retention must be at least 365 days to satisfy FedRAMP Moderate SI-12 and AU-11 online retention requirements."
   }
 }
 
