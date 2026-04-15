@@ -61,7 +61,7 @@ CLUSTER_NAME=
 # 1. Get your account ID:
 ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
 
-# 2. Ensure you have the the variables from above ready to use in the next section:
+# 2. Ensure you have the variables from above ready to use in the next section:
 # Helper output to give you all the variables again if they've scrolled out of view:
 echo "ACCOUNT=${ACCOUNT} REGION=${REGION}"
 
@@ -72,7 +72,7 @@ make ephemeral-shell
 awscurl --service execute-api --region "${REGION}" -X POST "${API_URL}/api/v0/accounts" -H "Content-Type: application/json" -d "{\"accountId\": \"${ACCOUNT}\", \"privileged\": true}"
 ```
 
-#### Integration/Staging Environment Account Whistelisting
+#### Integration/Staging Environment Account Whitelisting
 
 Have an already-privileged user allow your account. Provide your account to the user, and then they run:
 
