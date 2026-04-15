@@ -69,6 +69,30 @@ resource "aws_security_group" "hyperfleet_mq" {
   )
 }
 
+# =============================================================================
+# FedRAMP SC-28: KMS Customer-Managed Key for Amazon MQ Encryption
+# =============================================================================
+
+resource "aws_kms_key" "hyperfleet_mq" {
+  description             = "KMS CMK for HyperFleet Amazon MQ RabbitMQ encryption at rest (FedRAMP SC-28)"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-hyperfleet-mq"
+      Component = "hyperfleet-sentinel"
+      FedRAMP   = "SC-28"
+    }
+  )
+}
+
+resource "aws_kms_alias" "hyperfleet_mq" {
+  name          = "alias/${var.regional_id}-hyperfleet-mq"
+  target_key_id = aws_kms_key.hyperfleet_mq.key_id
+}
+
 # Amazon MQ Broker
 resource "aws_mq_broker" "hyperfleet" {
   broker_name = "${var.regional_id}-hyperfleet"
@@ -97,9 +121,10 @@ resource "aws_mq_broker" "hyperfleet" {
     password = random_password.mq_password.result
   }
 
-  # Encryption at rest (AWS-managed keys)
+  # FedRAMP SC-28: Encryption at rest using customer-managed KMS key
   encryption_options {
-    use_aws_owned_key = true
+    use_aws_owned_key = false
+    kms_key_id        = aws_kms_key.hyperfleet_mq.arn
   }
 
   # Maintenance and updates

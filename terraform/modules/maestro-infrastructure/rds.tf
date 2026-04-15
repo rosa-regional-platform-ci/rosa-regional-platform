@@ -14,6 +14,30 @@ resource "random_password" "db_password" {
   override_special = "!#$%&*()-_=+[]{}:?"
 }
 
+# =============================================================================
+# FedRAMP SC-28: KMS Customer-Managed Key for RDS Encryption
+# =============================================================================
+
+resource "aws_kms_key" "maestro_rds" {
+  description             = "KMS CMK for Maestro RDS PostgreSQL encryption at rest (FedRAMP SC-28)"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-maestro-rds"
+      Component = "maestro-server"
+      FedRAMP   = "SC-28"
+    }
+  )
+}
+
+resource "aws_kms_alias" "maestro_rds" {
+  name          = "alias/${var.regional_id}-maestro-rds"
+  target_key_id = aws_kms_key.maestro_rds.key_id
+}
+
 # DB Subnet Group spanning multiple AZs
 resource "aws_db_subnet_group" "maestro" {
   name       = "${var.regional_id}-maestro-db"
@@ -97,6 +121,7 @@ resource "aws_db_instance" "maestro" {
   allocated_storage = var.db_allocated_storage
   storage_type      = "gp3"
   storage_encrypted = true
+  kms_key_id        = aws_kms_key.maestro_rds.arn
 
   # TODO: Move this into a policy
   # Database configuration

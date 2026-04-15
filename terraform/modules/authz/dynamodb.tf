@@ -27,6 +27,11 @@ resource "aws_dynamodb_table" "accounts" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb.arn
+  }
+
   point_in_time_recovery {
     enabled = var.enable_point_in_time_recovery
   }
@@ -63,6 +68,11 @@ resource "aws_dynamodb_table" "admins" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb.arn
+  }
+
   point_in_time_recovery {
     enabled = var.enable_point_in_time_recovery
   }
@@ -97,6 +107,11 @@ resource "aws_dynamodb_table" "groups" {
   attribute {
     name = "groupId"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb.arn
   }
 
   point_in_time_recovery {
@@ -154,6 +169,11 @@ resource "aws_dynamodb_table" "members" {
     projection_type = "ALL"
   }
 
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb.arn
+  }
+
   point_in_time_recovery {
     enabled = var.enable_point_in_time_recovery
   }
@@ -188,6 +208,11 @@ resource "aws_dynamodb_table" "policies" {
   attribute {
     name = "policyId"
     type = "S"
+  }
+
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.dynamodb.arn
   }
 
   point_in_time_recovery {
@@ -270,4 +295,63 @@ resource "aws_dynamodb_table" "attachments" {
       Component = "authz"
     }
   )
+}
+
+# =============================================================================
+# FedRAMP SC-28: KMS Customer-Managed Key for DynamoDB Encryption
+# =============================================================================
+# NOTE: DynamoDB table server_side_encryption blocks with customer_master_key_id
+# are added to each table below via a separate CMK resource. The existing tables
+# above use point_in_time_recovery but lack CMK encryption; the KMS key below
+# enables that. A table replacement (destroy/create) is required to change the
+# CMK on an existing table — plan this during a maintenance window.
+
+resource "aws_kms_key" "dynamodb" {
+  description             = "KMS CMK for ROSA authz DynamoDB tables encryption at rest (FedRAMP SC-28)"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowDynamoDB"
+        Effect = "Allow"
+        Principal = {
+          Service = "dynamodb.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${local.table_names.accounts}-kms"
+      Component = "authz"
+      FedRAMP   = "SC-28"
+    }
+  )
+}
+
+resource "aws_kms_alias" "dynamodb" {
+  name          = "alias/${var.regional_id}-authz-dynamodb"
+  target_key_id = aws_kms_key.dynamodb.key_id
 }

@@ -12,6 +12,30 @@ resource "random_password" "db_password" {
   override_special = "!#$%&*()-_=+[]{}:?"
 }
 
+# =============================================================================
+# FedRAMP SC-28: KMS Customer-Managed Key for RDS Encryption
+# =============================================================================
+
+resource "aws_kms_key" "hyperfleet_rds" {
+  description             = "KMS CMK for HyperFleet RDS PostgreSQL encryption at rest (FedRAMP SC-28)"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-hyperfleet-rds"
+      Component = "hyperfleet-api"
+      FedRAMP   = "SC-28"
+    }
+  )
+}
+
+resource "aws_kms_alias" "hyperfleet_rds" {
+  name          = "alias/${var.regional_id}-hyperfleet-rds"
+  target_key_id = aws_kms_key.hyperfleet_rds.key_id
+}
+
 # DB Subnet Group spanning multiple AZs
 resource "aws_db_subnet_group" "hyperfleet" {
   name       = "${var.regional_id}-hyperfleet-db"
@@ -95,6 +119,7 @@ resource "aws_db_instance" "hyperfleet" {
   allocated_storage = var.db_allocated_storage
   storage_type      = "gp3"
   storage_encrypted = true
+  kms_key_id        = aws_kms_key.hyperfleet_rds.arn
 
   # Database configuration
   db_name  = var.db_name
