@@ -250,3 +250,18 @@ module "thanos_infrastructure" {
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
 }
+
+# =============================================================================
+# Security Monitoring Module (FedRAMP AU-06 / CA-07)
+# =============================================================================
+
+module "security_monitoring" {
+  source = "../../modules/security-monitoring"
+
+  cluster_id  = var.regional_id
+  alert_email = var.security_alert_email
+
+  # NIST 800-53 v5 and CIS 1.4 standards are only available in US and GovCloud
+  # regions. Disable for EU/AP/SA regions to prevent apply failures.
+  enable_security_hub_standards = can(regex("^(us|us-gov)-", var.region)) ? true : false
+}

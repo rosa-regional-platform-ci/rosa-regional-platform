@@ -254,3 +254,9 @@ variable "thanos_service_account" {
   default     = "thanos-operator"
 }
 
+
+variable "security_alert_email" {
+  description = "Email address for FedRAMP security alert notifications (AU-06). Leave empty to disable email subscription."
+  type        = string
+  default     = ""
+}
