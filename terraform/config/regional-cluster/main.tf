@@ -239,6 +239,16 @@ module "hyperfleet_infrastructure" {
 # Thanos Infrastructure Module (Observability)
 # =============================================================================
 
+# =============================================================================
+# CloudTrail Module (FedRAMP AU-12)
+# =============================================================================
+
+module "cloudtrail" {
+  source = "../../modules/cloudtrail"
+
+  cluster_id = var.regional_id
+}
+
 module "thanos_infrastructure" {
   source = "../../modules/thanos-infrastructure"
 
