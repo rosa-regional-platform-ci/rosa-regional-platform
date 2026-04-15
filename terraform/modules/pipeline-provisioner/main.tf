@@ -46,13 +46,32 @@ resource "aws_s3_bucket_lifecycle_configuration" "pipeline_artifact" {
   }
 }
 
+# KMS key for pipeline artifact bucket (FedRAMP AU-09: protect audit information at rest)
+resource "aws_kms_key" "pipeline_artifact" {
+  description             = "KMS CMK for pipeline artifact S3 bucket encryption (FedRAMP AU-09/SC-28)"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name    = "${local.name_prefix}pipeline-artifact"
+    FedRAMP = "AU-09"
+  }
+}
+
+resource "aws_kms_alias" "pipeline_artifact" {
+  name          = "alias/${local.name_prefix}pipeline-artifact"
+  target_key_id = aws_kms_key.pipeline_artifact.key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "pipeline_artifact" {
   bucket = aws_s3_bucket.pipeline_artifact.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.pipeline_artifact.arn
     }
+    bucket_key_enabled = true
   }
 }
 
