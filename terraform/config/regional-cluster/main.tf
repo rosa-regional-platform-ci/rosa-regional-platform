@@ -247,13 +247,25 @@ module "hyperfleet_infrastructure" {
 # =============================================================================
 
 # =============================================================================
-# CloudTrail Module (FedRAMP AU-12)
+# CloudTrail Module (FedRAMP AU-12, US regions only)
 # =============================================================================
 
 module "cloudtrail" {
+  count  = startswith(var.region, "us-") ? 1 : 0
   source = "../../modules/cloudtrail"
 
   cluster_id = var.regional_id
+}
+
+# =============================================================================
+# WAF Module (FedRAMP SC-05)
+# =============================================================================
+
+module "waf" {
+  source = "../../modules/waf"
+
+  cluster_id            = var.regional_id
+  api_gateway_stage_arn = module.api_gateway.stage_arn
 }
 
 module "thanos_infrastructure" {
