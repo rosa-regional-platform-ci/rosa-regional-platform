@@ -239,6 +239,25 @@ module "hyperfleet_infrastructure" {
 # Thanos Infrastructure Module (Observability)
 # =============================================================================
 
+# =============================================================================
+# Vulnerability Scanning Module (FedRAMP RA-05 / SI-02)
+# =============================================================================
+# NOTE: This module requires the security-monitoring module's SNS topic ARN.
+# Wire it after deploying ROSAENG-268 (security-monitoring module) first.
+# For now the vulnerability_scanning module is declared without the SNS ARN
+# to allow independent deployment; update after security-monitoring is applied.
+
+module "vulnerability_scanning" {
+  source = "../../modules/vulnerability-scanning"
+
+  cluster_id                = var.regional_id
+  security_alerts_topic_arn = var.vulnerability_alerts_topic_arn
+
+  # Amazon Inspector v2 is not available in all AWS regions.
+  # Disable for non-US regions that do not support Inspector v2.
+  enable_inspector = can(regex("^(us|us-gov)-", var.region)) ? true : false
+}
+
 module "thanos_infrastructure" {
   source = "../../modules/thanos-infrastructure"
 
