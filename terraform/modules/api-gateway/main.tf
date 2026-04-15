@@ -107,12 +107,47 @@ resource "aws_api_gateway_deployment" "main" {
   }
 }
 
+# CloudWatch Log Group for API Gateway access logs (FedRAMP AU-02)
+resource "aws_cloudwatch_log_group" "api_gateway_access" {
+  name              = "/aws/api-gateway/${var.regional_id}/${var.stage_name}/access"
+  retention_in_days = 365
+
+  tags = {
+    Name = "${var.regional_id}-api-access-logs"
+  }
+}
+
 resource "aws_api_gateway_stage" "main" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
   deployment_id = aws_api_gateway_deployment.main.id
   stage_name    = var.stage_name
 
+  # FedRAMP AU-02: Enable access logging to capture caller identity, request
+  # path, response codes, and latency for all API Gateway requests.
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_access.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      ip             = "$context.identity.sourceIp"
+      caller         = "$context.identity.caller"
+      user           = "$context.identity.user"
+      userArn        = "$context.identity.userArn"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      resourcePath   = "$context.resourcePath"
+      status         = "$context.status"
+      protocol       = "$context.protocol"
+      responseLength = "$context.responseLength"
+      errorMessage   = "$context.error.message"
+      errorType      = "$context.error.responseType"
+      integrationLatency = "$context.integrationLatency"
+      responseLatency    = "$context.responseLatency"
+    })
+  }
+
   tags = {
     Name = "${var.regional_id}-api-${var.stage_name}"
   }
+
+  depends_on = [aws_cloudwatch_log_group.api_gateway_access]
 }
