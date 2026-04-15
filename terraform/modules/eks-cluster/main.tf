@@ -7,12 +7,74 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# FedRAMP AU-09: KMS Key for Audit Log Protection
+#
+# Customer-managed KMS key used to encrypt the EKS CloudWatch log group so
+# that audit records cannot be read or deleted without KMS key authorization,
+# satisfying the protection-of-audit-information requirement.
+# -----------------------------------------------------------------------------
+
+resource "aws_kms_key" "cloudwatch_logs" {
+  description             = "KMS key for EKS cluster CloudWatch log group encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/eks/${local.cluster_id}/cluster"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name    = "${local.cluster_id}-cloudwatch-logs"
+    FedRAMP = "AU-09"
+  }
+}
+
+resource "aws_kms_alias" "cloudwatch_logs" {
+  name          = "alias/${local.cluster_id}-cloudwatch-logs"
+  target_key_id = aws_kms_key.cloudwatch_logs.key_id
+}
+
+# -----------------------------------------------------------------------------
 # CloudWatch Logging
 # -----------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.cluster_id}/cluster"
   retention_in_days = local.log_retention_days
+  kms_key_id        = aws_kms_key.cloudwatch_logs.arn
+
+  depends_on = [aws_kms_key.cloudwatch_logs]
 }
 
 # -----------------------------------------------------------------------------
