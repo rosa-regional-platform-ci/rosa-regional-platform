@@ -264,4 +264,11 @@ module "security_monitoring" {
   # NIST 800-53 v5 and CIS 1.4 standards are only available in US and GovCloud
   # regions. Disable for EU/AP/SA regions to prevent apply failures.
   enable_security_hub_standards = can(regex("^(us|us-gov)-", var.region)) ? true : false
+
+  # The metric filter targets /aws/eks/${var.cluster_id}/cluster, a log group
+  # created by EKS when control-plane logging is enabled. Because the reference
+  # is a plain string (no Terraform resource attribute), Terraform cannot infer
+  # the dependency automatically — this explicit depends_on ensures the EKS
+  # cluster (and its log group) exists before the metric filter is created.
+  depends_on = [module.regional_cluster]
 }

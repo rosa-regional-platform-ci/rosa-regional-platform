@@ -12,6 +12,7 @@
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+data "aws_partition" "current" {}
 
 # =============================================================================
 # SNS Topic for Security Alerts
@@ -37,6 +38,23 @@ resource "aws_sns_topic_policy" "security_alerts" {
         Effect = "Allow"
         Principal = {
           Service = "cloudwatch.amazonaws.com"
+        }
+        Action   = "SNS:Publish"
+        Resource = aws_sns_topic.security_alerts.arn
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      },
+      {
+        # EventBridge (events.amazonaws.com) delivers Security Hub findings to
+        # this topic via aws_cloudwatch_event_target.securityhub_alerts.
+        # Without this statement the event target is silently denied.
+        Sid    = "AllowEventBridge"
+        Effect = "Allow"
+        Principal = {
+          Service = "events.amazonaws.com"
         }
         Action   = "SNS:Publish"
         Resource = aws_sns_topic.security_alerts.arn
@@ -76,14 +94,14 @@ resource "aws_cloudwatch_metric_alarm" "eks_unauthorized_api_calls" {
   treat_missing_data  = "notBreaching"
 
   tags = {
-    Name      = "${var.cluster_id}-eks-unauthorized-api-calls"
-    FedRAMP   = "AU-06"
+    Name    = "${var.cluster_id}-eks-unauthorized-api-calls"
+    FedRAMP = "AU-06"
   }
 }
 
 resource "aws_cloudwatch_log_metric_filter" "eks_unauthorized_api_calls" {
   name           = "${var.cluster_id}-eks-unauthorized-api-calls"
-  pattern        = "[timestamp, request_id, level, ..., http_status_code=401 || http_status_code=403, ...]"
+  pattern        = "{ ($.responseStatus.code = 401) || ($.responseStatus.code = 403) }"
   log_group_name = "/aws/eks/${var.cluster_id}/cluster"
 
   metric_transformation {
@@ -119,7 +137,7 @@ resource "aws_cloudwatch_metric_alarm" "console_signin_failure" {
 
 resource "aws_cloudwatch_log_metric_filter" "console_signin_failure" {
   name           = "${var.cluster_id}-console-signin-failures"
-  pattern        = "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
+  pattern        = "{ ($.eventName = ConsoleLogin) && ($.responseElements.ConsoleLogin = \"Failure\") }"
   log_group_name = "aws-controltower/CloudTrailLogs"
 
   metric_transformation {
@@ -141,13 +159,13 @@ resource "aws_securityhub_account" "main" {}
 resource "aws_securityhub_standards_subscription" "nist_800_53" {
   count         = var.enable_security_hub_standards ? 1 : 0
   depends_on    = [aws_securityhub_account.main]
-  standards_arn = "arn:aws:securityhub:${data.aws_region.current.name}::standards/nist-800-53/v/5.0.0"
+  standards_arn = "arn:${data.aws_partition.current.partition}:securityhub:${data.aws_region.current.name}::standards/nist-800-53/v/5.0.0"
 }
 
 resource "aws_securityhub_standards_subscription" "cis_aws" {
   count         = var.enable_security_hub_standards ? 1 : 0
   depends_on    = [aws_securityhub_account.main]
-  standards_arn = "arn:aws:securityhub:${data.aws_region.current.name}::standards/cis-aws-foundations-benchmark/v/1.4.0"
+  standards_arn = "arn:${data.aws_partition.current.partition}:securityhub:${data.aws_region.current.name}::standards/cis-aws-foundations-benchmark/v/1.4.0"
 }
 
 # Export Security Hub findings to SNS via EventBridge
