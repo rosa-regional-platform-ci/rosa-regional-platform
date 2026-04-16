@@ -224,6 +224,16 @@ resource "aws_iam_role_policy" "build_platform_image_policy" {
         ]
       },
       {
+        Sid    = "KMSArtifactBucket"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.pipeline_artifact.arn
+      },
+      {
         Sid    = "ECRPublicAccess"
         Effect = "Allow"
         Action = [
