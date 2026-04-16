@@ -55,7 +55,7 @@ resource "aws_kms_key" "bootstrap_logs" {
   })
 
   tags = {
-    Name    = "${var.cluster_id}-bootstrap-logs"
+    Name = "${var.cluster_id}-bootstrap-logs"
   }
 }
 
