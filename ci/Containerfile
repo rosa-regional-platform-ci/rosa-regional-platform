@@ -11,6 +11,7 @@ ARG AWS_CLI_VERSION=2.34.19
 ARG AWS_NUKE_VERSION=3.63.4
 ARG PRETTIER_VERSION=3.8.1
 ARG YQ_VERSION=v4.44.3
+ARG K6_VERSION=0.55.0
 
 # System packages
 RUN dnf install -y \
@@ -102,6 +103,22 @@ RUN arch=$(uname -m) && \
     curl -fsSL "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_${YQ_ARCH}" -o /usr/local/bin/yq && \
     chmod +x /usr/local/bin/yq && \
     yq --version
+
+# k6 (load testing, checksum-verified)
+RUN arch=$(uname -m) && \
+    case "${arch}" in \
+        x86_64)  K6_ARCH="amd64" ;; \
+        aarch64) K6_ARCH="arm64" ;; \
+    esac && \
+    K6_BASE="https://github.com/grafana/k6/releases/download/v${K6_VERSION}" && \
+    K6_TAR="k6-v${K6_VERSION}-linux-${K6_ARCH}.tar.gz" && \
+    curl -fsSLO "${K6_BASE}/${K6_TAR}" && \
+    curl -fsSLO "${K6_BASE}/k6-v${K6_VERSION}-checksums.txt" && \
+    grep "${K6_TAR}" "k6-v${K6_VERSION}-checksums.txt" | sha256sum -c - && \
+    tar -xzf "${K6_TAR}" --strip-components=1 -C /usr/local/bin "k6-v${K6_VERSION}-linux-${K6_ARCH}/k6" && \
+    chmod +x /usr/local/bin/k6 && \
+    rm -f "${K6_TAR}" "k6-v${K6_VERSION}-checksums.txt" && \
+    k6 version
 
 # Pre-create cache directories writable by any UID (OpenShift runs as random UID)
 RUN mkdir -p /tmp/.uv-cache /tmp/.uv-python /tmp/.terraform.d /tmp/.cache/go-build /tmp/gopath && \

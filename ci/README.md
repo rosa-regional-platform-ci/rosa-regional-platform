@@ -16,6 +16,30 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 | [`ephemeral-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-ephemeral-resources-janitor)                       | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources across all ephemeral CI accounts using [aws-nuke](https://github.com/ekristen/aws-nuke)                                     |
 | [`customer-account-ephemeral-ci-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-customer-account-ephemeral-ci-janitor)   | Daily at 02:00 UTC        | Purges leaked HCP customer account resources (ephemeral CI) — mitigates missing HCP teardown flow                                                       |
 | [`customer-account-ephemeral-dev-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-customer-account-ephemeral-dev-janitor) | Daily at 02:00 UTC        | Purges leaked HCP customer account resources (ephemeral dev) — mitigates missing HCP teardown flow                                                      |
+| `nightly-m6i` (planned)                                                                                                                                                                                             | Mon/Wed/Fri at 05:00 UTC  | Nightly ephemeral with `m6i.large` instance types — validates general-purpose Intel machines                                                            |
+| `nightly-c6i` (planned)                                                                                                                                                                                             | Tue/Thu/Sat at 05:00 UTC  | Nightly ephemeral with `c6i.xlarge` instance types — validates compute-optimized Intel machines                                                         |
+
+> **Note:** `nightly-m6i` and `nightly-c6i` are pending periodic job definitions in [openshift/release](https://github.com/openshift/release). Scripts and override files are ready in this repo.
+
+## Load Testing (Planned)
+
+Load testing scripts are implemented but not yet wired into the Prow workflow. The `rosa-regional-platform-load-test` step needs to be added to the `rosa-regional-platform-ephemeral-e2e` workflow in [openshift/release](https://github.com/openshift/release).
+
+- **Entrypoint**: `ci/nightly-load-test.sh` (will run as a Prow step after e2e, before teardown)
+- **Scripts**: `ci/load-test/scripts/platform-api-load.js` (API throughput), `ci/load-test/scripts/hcp-lifecycle-load.js` (concurrent HCP creation)
+- **Results**: JSON summaries saved to `${ARTIFACT_DIR}/load-test-results/` (visible in Prow artifacts)
+- **Baseline comparison**: `ci/load-test/compare-baseline.py` checks for regressions against an S3-stored baseline
+
+### Machine-Type Overrides
+
+The `ci/nightly-machine-type.sh` script provisions ephemeral environments with non-default EC2 instance types. Override files in `ci/nightly-overrides/machine-types/` are injected via `--provision-override-file`:
+
+```bash
+# Run locally with a specific machine type
+MACHINE_TYPE_OVERRIDE=m6i-large.yaml ./ci/nightly-machine-type.sh
+```
+
+To add a new machine type, create a YAML file in `ci/nightly-overrides/machine-types/` with `regional_cluster.node_instance_types` and `management_cluster_defaults.node_instance_types` overrides.
 
 ## Cross-Component E2E Testing
 

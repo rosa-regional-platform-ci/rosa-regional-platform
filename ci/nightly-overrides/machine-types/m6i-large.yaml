@@ -1,0 +1,5 @@
+regional_cluster:
+  node_instance_types: ["m6i.large"]
+
+management_cluster_defaults:
+  node_instance_types: ["m6i.large"]
