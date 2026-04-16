@@ -16,21 +16,21 @@ argocd/
 │   ├── shared/                          # Shared charts (ArgoCD, etc.)
 │   ├── management-cluster/              # MC-specific charts
 │   └── regional-cluster/                # RC-specific charts
-└── config.yaml                          # Source of truth for all region deployments
+└── README.md
+
+config/                                  # Region deployment configuration
+└── <env>/
+    ├── defaults.yaml                    # Per-environment defaults
+    └── <region>.yaml                   # Per-region values (git.revision for pinning)
 
 scripts/
 └── render.py                            # Generates values, ApplicationSets, and terraform configs
 
 deploy/                                  # Generated outputs (DO NOT EDIT)
-└── {environment}/{region_deployment}/
-    ├── argocd/
-    │   ├── {cluster_type}-values.yaml
-    │   └── {cluster_type}-manifests/
-    │       └── applicationset.yaml
-    └── terraform/
-        ├── regional.json
-        └── management/
-            └── {management_id}.json
+└── {environment}/{region}/
+    ├── argocd-values-{cluster_type}.yaml
+    └── argocd-bootstrap-{cluster_type}/
+        └── applicationset.yaml
 ```
 
 ## Configuration Modes
@@ -43,42 +43,11 @@ deploy/                                  # Generated outputs (DO NOT EDIT)
 
 ### Pinned Commits (Staging/Production)
 
-- **"Cut releases"** by specifying commit hashes in `config.yaml`
+- **"Cut releases"** by setting `git.revision` to a commit hash in the region config
 - **Progressive delivery** - roll through staging region deployments, then production region deployments
 - **Immutable deployments** - exact reproducible state
 
-## config.yaml - Source of Truth
-
-This file defines which region deployments (environment + name combinations) exist and how they're configured:
-
-```yaml
-region_deployments:
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    account_id: "123456789"
-    management_clusters:
-      - id: "mc01"
-        account_id: "987654321"
-    # No config_revision = uses current git revision
-    values:
-      management-cluster:
-        hypershift:
-          replicas: 1
-
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    account_id: "123456789"
-    management_clusters:
-      - id: "mc01"
-        account_id: "987654321"
-    config_revision: # Pinned commits for stability
-      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-    values:
-      management-cluster:
-        hypershift:
-          replicas: 3
-```
+See [Config Directory](../config/README.md) for the full configuration hierarchy and examples.
 
 ## Workflow
 
