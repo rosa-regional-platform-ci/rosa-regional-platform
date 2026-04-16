@@ -55,7 +55,7 @@ resource "aws_kms_key" "cloudwatch_logs" {
   })
 
   tags = {
-    Name    = "${local.cluster_id}-cloudwatch-logs"
+    Name = "${local.cluster_id}-cloudwatch-logs"
   }
 }
 
