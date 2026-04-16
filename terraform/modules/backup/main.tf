@@ -18,9 +18,38 @@ resource "aws_kms_key" "backup" {
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableIAMUserPermissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowBackupServiceRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.backup.arn
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+          "kms:CreateGrant",
+          "kms:ReEncrypt*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
   tags = {
     Name    = "${var.cluster_id}-backup"
-    FedRAMP = "CP-09"
   }
 }
 
@@ -39,11 +68,12 @@ resource "aws_backup_vault" "main" {
 
   tags = {
     Name    = "${var.cluster_id}-backup-vault"
-    FedRAMP = "CP-09"
   }
 }
 
-# Vault access policy — deny backup deletion without MFA
+# Vault access policy — deny DeleteRecoveryPoint and UpdateRecoveryPointLifecycle
+# for all principals except the BreakGlass IAM role (var.break_glass_role_arn).
+# The BreakGlass role must be provisioned externally (e.g., central account bootstrap).
 resource "aws_backup_vault_policy" "main" {
   backup_vault_name = aws_backup_vault.main.name
 
@@ -63,7 +93,7 @@ resource "aws_backup_vault_policy" "main" {
         Resource = "*"
         Condition = {
           StringNotLike = {
-            "aws:PrincipalArn" = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/BreakGlassRole"
+            "aws:PrincipalArn" = var.break_glass_role_arn
           }
         }
       }
@@ -92,7 +122,6 @@ resource "aws_backup_plan" "main" {
     }
 
     recovery_point_tags = {
-      FedRAMP = "CP-09"
     }
   }
 
@@ -119,14 +148,12 @@ resource "aws_backup_plan" "main" {
     }
 
     recovery_point_tags = {
-      FedRAMP   = "CP-09"
       Frequency = "weekly"
     }
   }
 
   tags = {
     Name    = "${var.cluster_id}-backup-plan"
-    FedRAMP = "CP-09"
   }
 }
 
@@ -169,12 +196,6 @@ resource "aws_backup_selection" "tagged_resources" {
   name         = "${var.cluster_id}-backup-selection"
   iam_role_arn = aws_iam_role.backup.arn
   plan_id      = aws_backup_plan.main.id
-
-  selection_tag {
-    type  = "STRINGEQUALS"
-    key   = "aws:cloudformation:stack-name"
-    value = var.cluster_id
-  }
 
   # Explicitly include all RDS instances and DynamoDB tables by ARN pattern
   resources = [

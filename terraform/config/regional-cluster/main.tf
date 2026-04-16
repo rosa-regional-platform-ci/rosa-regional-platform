@@ -246,7 +246,8 @@ module "hyperfleet_infrastructure" {
 module "backup" {
   source = "../../modules/backup"
 
-  cluster_id = var.regional_id
+  cluster_id           = var.regional_id
+  break_glass_role_arn = var.break_glass_role_arn
 }
 
 module "thanos_infrastructure" {

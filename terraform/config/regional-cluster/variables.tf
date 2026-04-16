@@ -59,6 +59,15 @@ variable "cost_center" {
 }
 
 # =============================================================================
+# Backup Configuration Variables
+# =============================================================================
+
+variable "break_glass_role_arn" {
+  description = "ARN of the BreakGlass IAM role exempt from backup vault delete/lifecycle deny policy. Must be provisioned externally (e.g., central account bootstrap). Example: arn:aws:iam::123456789012:role/BreakGlassRole"
+  type        = string
+}
+
+# =============================================================================
 # ArgoCD Bootstrap Configuration Variables
 # =============================================================================
 
