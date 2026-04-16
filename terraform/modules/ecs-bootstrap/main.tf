@@ -56,7 +56,6 @@ resource "aws_kms_key" "bootstrap_logs" {
 
   tags = {
     Name    = "${var.cluster_id}-bootstrap-logs"
-    FedRAMP = "AU-09"
   }
 }
 
