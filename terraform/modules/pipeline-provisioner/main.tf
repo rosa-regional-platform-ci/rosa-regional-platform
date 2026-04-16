@@ -52,8 +52,36 @@ resource "aws_kms_key" "pipeline_artifact" {
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableIAMUserPermissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowBuildPlatformImageRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.build_platform_image_role.arn
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
   tags = {
-    Name    = "${local.name_prefix}pipeline-artifact"
+    Name = "${local.name_prefix}pipeline-artifact"
   }
 }
 
