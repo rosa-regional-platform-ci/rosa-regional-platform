@@ -138,12 +138,16 @@ resource "aws_backup_plan" "main" {
       delete_after       = 395
     }
 
-    copy_action {
-      destination_vault_arn = var.cross_region_backup_vault_arn != "" ? var.cross_region_backup_vault_arn : aws_backup_vault.main.arn
+    dynamic "copy_action" {
+      for_each = var.cross_region_backup_vault_arn != "" ? [var.cross_region_backup_vault_arn] : []
 
-      lifecycle {
-        cold_storage_after = 30
-        delete_after       = 395
+      content {
+        destination_vault_arn = copy_action.value
+
+        lifecycle {
+          cold_storage_after = 30
+          delete_after       = 395
+        }
       }
     }
 
