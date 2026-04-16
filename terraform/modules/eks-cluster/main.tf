@@ -56,7 +56,6 @@ resource "aws_kms_key" "cloudwatch_logs" {
 
   tags = {
     Name    = "${local.cluster_id}-cloudwatch-logs"
-    FedRAMP = "AU-09"
   }
 }
 

@@ -54,7 +54,6 @@ resource "aws_kms_key" "pipeline_artifact" {
 
   tags = {
     Name    = "${local.name_prefix}pipeline-artifact"
-    FedRAMP = "AU-09"
   }
 }
 
