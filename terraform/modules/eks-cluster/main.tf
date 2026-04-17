@@ -68,6 +68,10 @@ resource "aws_kms_alias" "cloudwatch_logs" {
 # CloudWatch Logging
 # -----------------------------------------------------------------------------
 
+# Note: setting kms_key_id on an existing log group only encrypts newly ingested
+# events. Historical events remain under the previously configured key (or no key).
+# For brownfield clusters, a manual migration (delete + recreate the log group)
+# is required to ensure all events are encrypted under this CMK.
 resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.cluster_id}/cluster"
   retention_in_days = local.log_retention_days
