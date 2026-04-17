@@ -1,5 +1,6 @@
 provider "aws" {
-  region = var.region
+  region            = var.region
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
@@ -27,9 +28,10 @@ provider "aws" {
 # so this provider uses a named profile written by the buildspec script.
 # For local dev, central_aws_profile is empty and ambient creds are used.
 provider "aws" {
-  alias   = "central"
-  region  = var.region
-  profile = var.central_aws_profile != "" ? var.central_aws_profile : null
+  alias             = "central"
+  region            = var.region
+  profile           = var.central_aws_profile != "" ? var.central_aws_profile : null
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 }
 
 # =============================================================================
