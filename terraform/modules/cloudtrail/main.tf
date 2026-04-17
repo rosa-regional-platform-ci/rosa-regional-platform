@@ -11,6 +11,11 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
+locals {
+  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+  log_retention_days = startswith(data.aws_region.current.name, "us-") ? 365 : 30
+}
+
 # =============================================================================
 # KMS Key for CloudTrail S3 Encryption
 # =============================================================================
@@ -67,8 +72,7 @@ resource "aws_kms_key" "cloudtrail" {
   })
 
   tags = {
-    Name    = "${var.cluster_id}-cloudtrail"
-    FedRAMP = "AU-12"
+    Name = "${var.cluster_id}-cloudtrail"
   }
 }
 
@@ -86,8 +90,7 @@ resource "aws_s3_bucket" "cloudtrail" {
   force_destroy = false
 
   tags = {
-    Name    = "${var.cluster_id}-cloudtrail"
-    FedRAMP = "AU-12"
+    Name = "${var.cluster_id}-cloudtrail"
   }
 }
 
@@ -184,11 +187,10 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
 
 resource "aws_cloudwatch_log_group" "cloudtrail" {
   name              = "/aws/cloudtrail/${var.cluster_id}"
-  retention_in_days = 365
+  retention_in_days = local.log_retention_days
 
   tags = {
-    Name    = "${var.cluster_id}-cloudtrail"
-    FedRAMP = "AU-12"
+    Name = "${var.cluster_id}-cloudtrail"
   }
 }
 
@@ -260,7 +262,6 @@ resource "aws_cloudtrail" "main" {
   ]
 
   tags = {
-    Name    = "${var.cluster_id}-cloudtrail"
-    FedRAMP = "AU-12"
+    Name = "${var.cluster_id}-cloudtrail"
   }
 }
