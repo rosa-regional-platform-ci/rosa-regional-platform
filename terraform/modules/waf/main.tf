@@ -146,4 +146,28 @@ resource "aws_cloudwatch_log_group" "waf_api_gateway" {
 resource "aws_wafv2_web_acl_logging_configuration" "api_gateway" {
   log_destination_configs = [aws_cloudwatch_log_group.waf_api_gateway.arn]
   resource_arn            = aws_wafv2_web_acl.api_gateway.arn
+
+  redacted_fields {
+    field_to_match {
+      single_header {
+        name = "authorization"
+      }
+    }
+  }
+
+  redacted_fields {
+    field_to_match {
+      single_header {
+        name = "cookie"
+      }
+    }
+  }
+
+  redacted_fields {
+    field_to_match {
+      single_header {
+        name = "x-api-key"
+      }
+    }
+  }
 }
