@@ -117,8 +117,8 @@ resource "aws_backup_plan" "main" {
     completion_window = 180
 
     lifecycle {
-      cold_storage_after = 90  # Move to cold storage after 90 days
-      delete_after       = 395 # Keep 13 months total (FedRAMP CP-09 / AU-11)
+      cold_storage_after = 90   # Move to cold storage after 90 days
+      delete_after       = 1095 # Keep 3 years total (FedRAMP CP-09 / AU-11)
     }
 
     recovery_point_tags = {
