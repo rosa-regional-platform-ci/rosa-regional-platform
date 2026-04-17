@@ -60,9 +60,10 @@ resource "aws_api_gateway_integration" "root" {
 
   # Forward AWS IAM identity information to the backend
   request_parameters = {
-    "integration.request.header.X-Amz-Caller-Arn" = "context.identity.userArn"
-    "integration.request.header.X-Amz-Account-Id" = "context.identity.accountId"
-    "integration.request.header.X-Amz-User-Id"    = "context.identity.user"
-    "integration.request.header.X-Amz-Source-Ip"  = "context.identity.sourceIp"
+    "integration.request.header.X-Amz-Caller-Arn"       = "context.identity.userArn"
+    "integration.request.header.X-Amz-Account-Id"       = "context.identity.accountId"
+    "integration.request.header.X-Amz-User-Id"          = "context.identity.user"
+    "integration.request.header.X-Amz-Source-Ip"        = "context.identity.sourceIp"
+    "integration.request.header.X-Amz-Principal-Org-Id" = "context.identity.principalOrgId"
   }
 }
