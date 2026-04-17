@@ -49,7 +49,7 @@ resource "aws_kms_key" "backup" {
   })
 
   tags = {
-    Name    = "${var.cluster_id}-backup"
+    Name = "${var.cluster_id}-backup"
   }
 }
 
@@ -67,7 +67,7 @@ resource "aws_backup_vault" "main" {
   kms_key_arn = aws_kms_key.backup.arn
 
   tags = {
-    Name    = "${var.cluster_id}-backup-vault"
+    Name = "${var.cluster_id}-backup-vault"
   }
 }
 
@@ -157,7 +157,7 @@ resource "aws_backup_plan" "main" {
   }
 
   tags = {
-    Name    = "${var.cluster_id}-backup-plan"
+    Name = "${var.cluster_id}-backup-plan"
   }
 }
 
