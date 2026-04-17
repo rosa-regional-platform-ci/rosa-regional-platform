@@ -1,10 +1,17 @@
 # =============================================================================
 # EKS Cluster Configuration
 #
-# Creates a fully private EKS cluster with Auto Mode enabled. 
+# Creates a fully private EKS cluster with Auto Mode enabled.
 # Includes KMS encryption for secrets, proper networking,
 # and managed addons for a complete cluster deployment.
 # =============================================================================
+
+data "aws_region" "current" {}
+
+locals {
+  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+  log_retention_days = startswith(data.aws_region.current.name, "us-") ? 365 : 30
+}
 
 # -----------------------------------------------------------------------------
 # CloudWatch Logging
@@ -12,7 +19,7 @@
 
 resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.cluster_id}/cluster"
-  retention_in_days = 365 # FedRAMP AU-11: minimum 1-year online retention
+  retention_in_days = local.log_retention_days
 }
 
 # -----------------------------------------------------------------------------
