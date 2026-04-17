@@ -131,6 +131,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
     id     = "cloudtrail-retention"
     status = "Enabled"
 
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+
     transition {
       days          = 365
       storage_class = "GLACIER"
@@ -172,7 +176,7 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
         Resource = "${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl" = "bucket-owner-full-control"
+            "s3:x-amz-acl"  = "bucket-owner-full-control"
             "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
           }
         }
@@ -206,6 +210,12 @@ resource "aws_iam_role" "cloudtrail_cloudwatch" {
           Service = "cloudtrail.amazonaws.com"
         }
         Action = "sts:AssumeRole"
+        Condition = {
+          StringEquals = {
+            "aws:SourceArn"     = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
       }
     ]
   })
@@ -258,7 +268,8 @@ resource "aws_cloudtrail" "main" {
 
   depends_on = [
     aws_s3_bucket_policy.cloudtrail,
-    aws_cloudwatch_log_group.cloudtrail
+    aws_cloudwatch_log_group.cloudtrail,
+    aws_iam_role_policy.cloudtrail_cloudwatch,
   ]
 
   tags = {
