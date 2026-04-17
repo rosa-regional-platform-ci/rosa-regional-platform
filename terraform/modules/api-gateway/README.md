@@ -1,6 +1,6 @@
 # API Gateway Module
 
-Creates an API Gateway REST API with VPC Link integration to an internal ALB.
+Creates an API Gateway REST API with VPC Link integration to an internal ALB, with CloudWatch access logging enabled for FedRAMP AU-02 compliance.
 
 This creates the Internal ALB directly in Terraform, instead of relying on `Ingress` in EKS, in order to be able to set up the API Gateway integrations during the Terraform step.
 
@@ -28,6 +28,16 @@ Target Group (IP type, empty)
     │
 Backend Pods (:8080)
 ```
+
+## Access Logging (FedRAMP AU-02)
+
+The module creates a CloudWatch log group at `/aws/api-gateway/{regional_id}/{stage_name}/access`
+with 365-day retention and `prevent_destroy` lifecycle protection. All API Gateway requests are
+logged with caller identity, request path, response code, and latency fields.
+
+This requires an account-level IAM role and `aws_api_gateway_account` resource, both created by
+this module. These are region-scoped singletons — if another API Gateway module is ever added to
+the same region, the `aws_api_gateway_account` resource would conflict and must be extracted.
 
 ## Connecting the Backend
 
