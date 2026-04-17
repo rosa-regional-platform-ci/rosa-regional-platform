@@ -3,6 +3,8 @@
 
 locals {
   bootstrap_container_name = "bootstrap"
+  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+  log_retention_days = startswith(data.aws_region.current.name, "us-") ? 365 : 30
 }
 
 # Current AWS region information
@@ -62,7 +64,7 @@ resource "aws_kms_key" "bootstrap_logs" {
 # CloudWatch Log Group for bootstrap tasks
 resource "aws_cloudwatch_log_group" "bootstrap" {
   name              = "/ecs/${var.cluster_id}/bootstrap"
-  retention_in_days = 365
+  retention_in_days = local.log_retention_days
   kms_key_id        = aws_kms_key.bootstrap_logs.arn
 
   depends_on = [aws_kms_key.bootstrap_logs]

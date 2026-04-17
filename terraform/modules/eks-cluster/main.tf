@@ -74,7 +74,7 @@ resource "aws_kms_alias" "cloudwatch_logs" {
 # is required to ensure all events are encrypted under this CMK.
 resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.cluster_id}/cluster"
-  retention_in_days = 365
+  retention_in_days = local.log_retention_days
   kms_key_id        = aws_kms_key.cloudwatch_logs.arn
 
   depends_on = [aws_kms_key.cloudwatch_logs]
