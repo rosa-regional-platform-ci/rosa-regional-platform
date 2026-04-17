@@ -38,6 +38,11 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  # 35-day RDS backup retention is required for FedRAMP US regions; elsewhere 7 days satisfies CP-09.
+  db_backup_retention_period = startswith(var.region, "us-") ? 35 : 7
+}
+
 # Call the EKS cluster module for regional cluster infrastructure
 module "regional_cluster" {
   source = "../../modules/eks-cluster"
@@ -170,9 +175,10 @@ module "maestro_infrastructure" {
   bastion_security_group_id = var.enable_bastion ? module.bastion[0].security_group_id : null
 
   # Database configuration (adjust for production)
-  db_instance_class      = var.maestro_db_instance_class
-  db_multi_az            = var.maestro_db_multi_az
-  db_deletion_protection = var.maestro_db_deletion_protection
+  db_instance_class          = var.maestro_db_instance_class
+  db_multi_az                = var.maestro_db_multi_az
+  db_deletion_protection     = var.maestro_db_deletion_protection
+  db_backup_retention_period = local.db_backup_retention_period
 
   # MQTT topic prefix
   mqtt_topic_prefix = var.maestro_mqtt_topic_prefix
@@ -226,9 +232,10 @@ module "hyperfleet_infrastructure" {
   bastion_security_group_id = var.enable_bastion ? module.bastion[0].security_group_id : null
 
   # Database configuration
-  db_instance_class      = var.hyperfleet_db_instance_class
-  db_multi_az            = var.hyperfleet_db_multi_az
-  db_deletion_protection = var.hyperfleet_db_deletion_protection
+  db_instance_class          = var.hyperfleet_db_instance_class
+  db_multi_az                = var.hyperfleet_db_multi_az
+  db_deletion_protection     = var.hyperfleet_db_deletion_protection
+  db_backup_retention_period = local.db_backup_retention_period
 
   # Message queue configuration
   mq_instance_type   = var.hyperfleet_mq_instance_type
