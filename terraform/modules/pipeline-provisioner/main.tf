@@ -48,8 +48,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "pipeline_artifact" {
       days = 1095 # 3 years total
     }
 
-    noncurrent_version_expiration {
+    noncurrent_version_transition {
       noncurrent_days = 365
+      storage_class   = "GLACIER"
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 1095 # 3 years total (FedRAMP AU-11)
     }
   }
 }
