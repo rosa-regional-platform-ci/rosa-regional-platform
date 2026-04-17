@@ -242,10 +242,6 @@ module "hyperfleet_infrastructure" {
 # =============================================================================
 # Vulnerability Scanning Module (FedRAMP RA-05 / SI-02)
 # =============================================================================
-# NOTE: This module requires the security-monitoring module's SNS topic ARN.
-# Wire it after deploying ROSAENG-268 (security-monitoring module) first.
-# For now the vulnerability_scanning module is declared without the SNS ARN
-# to allow independent deployment; update after security-monitoring is applied.
 
 module "vulnerability_scanning" {
   source = "../../modules/vulnerability-scanning"
