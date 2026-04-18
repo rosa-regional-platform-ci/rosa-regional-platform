@@ -42,7 +42,7 @@ hyperfleet-api-chart:
     replicaCount: 2
     
     database:
-      sslMode: require
+      ssl-mode: require
       postgresql:
         enabled: false
       external:
