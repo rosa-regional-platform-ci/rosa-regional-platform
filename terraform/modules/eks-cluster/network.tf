@@ -66,9 +66,11 @@ resource "aws_subnet" "private" {
 # Used for container image pulls from external registries.
 # -----------------------------------------------------------------------------
 
-# Create one NAT Gateway per Availability Zone for high availability
+# Create one NAT Gateway per Availability Zone for high availability,
+# or a single NAT Gateway when single_nat_gateway = true (for CI environments
+# to avoid hitting the default AWS NAT gateway quota of 5 per region).
 resource "aws_eip" "nat" {
-  count  = length(aws_subnet.public)
+  count  = var.single_nat_gateway ? 1 : length(aws_subnet.public)
   domain = "vpc"
   tags = {
     Name = "${local.cluster_id}-nat-eip-${local.azs[count.index]}"
@@ -76,7 +78,7 @@ resource "aws_eip" "nat" {
 }
 
 resource "aws_nat_gateway" "main" {
-  count         = length(aws_subnet.public)
+  count         = var.single_nat_gateway ? 1 : length(aws_subnet.public)
   allocation_id = aws_eip.nat[count.index].id
   subnet_id     = aws_subnet.public[count.index].id
   depends_on    = [aws_internet_gateway.main]
@@ -136,14 +138,16 @@ resource "aws_route_table" "public" {
   tags = { Name = "${local.cluster_id}-public-rt" }
 }
 
-# Create separate route table for each AZ to route to its local NAT Gateway
+# Create separate route table for each AZ to route to its local NAT Gateway.
+# When single_nat_gateway is true, all private subnets route through the single
+# NAT gateway (index 0) instead of per-AZ gateways.
 resource "aws_route_table" "private" {
   count  = length(aws_subnet.private)
   vpc_id = aws_vpc.main.id
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[var.single_nat_gateway ? 0 : count.index].id
   }
 
   tags = {

@@ -99,6 +99,12 @@ variable "public_subnet_cidrs" {
 }
 
 
+variable "single_nat_gateway" {
+  description = "Use a single NAT gateway instead of one per AZ. Reduces AWS NAT gateway count at the cost of cross-AZ fault tolerance. Recommended for ephemeral CI environments to avoid NAT gateway quota exhaustion."
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # EKS node group configuration
 # =============================================================================

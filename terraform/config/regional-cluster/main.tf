@@ -48,6 +48,11 @@ module "regional_cluster" {
 
   # Instance types (configurable via config.yaml)
   node_instance_types = var.node_instance_types
+
+  # Use a single NAT gateway in ephemeral CI environments to avoid hitting
+  # the default AWS limit of 5 NAT gateways per region. Orphaned gateways
+  # from failed CI teardowns can exhaust this quota across nightly runs.
+  single_nat_gateway = var.environment == "ephemeral"
 }
 
 # Call the ECS bootstrap module for external bootstrap execution

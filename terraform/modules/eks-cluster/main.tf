@@ -93,24 +93,32 @@ resource "aws_eks_cluster" "main" {
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_addon" "coredns" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "coredns"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "coredns"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
 }
 
 resource "aws_eks_addon" "pod_identity" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "eks-pod-identity-agent"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
 }
 
 resource "aws_eks_addon" "metrics_server" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "metrics-server"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "metrics-server"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
 }
 
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)
 resource "aws_eks_addon" "aws_secrets_store_csi_driver_provider" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "aws-secrets-store-csi-driver-provider"
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "aws-secrets-store-csi-driver-provider"
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
 
   configuration_values = jsonencode({
     secrets-store-csi-driver = {
