@@ -42,7 +42,7 @@ hyperfleetSentinelChart:
     image:
       registry: quay.io/openshift-hyperfleet
       repository: hyperfleet-sentinel
-      tag: v0.1.1
+      tag: v0.2.1
       pullPolicy: Always
     replicaCount: 1
 
