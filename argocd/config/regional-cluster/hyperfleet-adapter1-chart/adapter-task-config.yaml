@@ -14,12 +14,12 @@ params:
 
 preconditions:
   - name: "clusterStatus"
-    apiCall:
+    api_call:
       method: "GET"
       url: "/clusters/{{ .clusterId }}"
       timeout: 10s
-      retryAttempts: 3
-      retryBackoff: "exponential"
+      retry_attempts: 3
+      retry_backoff: "exponential"
     capture:
       - name: "clusterName"
         field: "name"
@@ -145,7 +145,7 @@ resources:
     transport:
       client: "maestro"
       maestro:
-        targetCluster: "{{ .placementClusterName }}"      
+        target_cluster: "{{ .placementClusterName }}"      
     manifest:
       # ref: "/etc/adapter/manifestwork.yaml"
       apiVersion: work.open-cluster-management.io/v1
@@ -360,20 +360,20 @@ resources:
               data:
                 id_rsa.pub: ""
 
-        deleteOption:
-          propagationPolicy: "Foreground"
-          gracePeriodSeconds: 30
+        delete_option:
+          propagation_policy: "Foreground"
+          grace_period_seconds: 30
 
-        manifestConfigs:
-          - resourceIdentifier:
+        manifest_configs:
+          - resource_identifier:
               group: ""
               resource: "namespaces"
               name: "clusters-{{ .clusterId }}"
-            updateStrategy:
+            update_strategy:
               type: "ServerSideApply"
-            feedbackRules:
+            feedback_rules:
               - type: "JSONPaths"
-                jsonPaths:
+                json_paths:
                   - name: "phase"
                     path: ".status.phase"
                   - name: "conditions"
@@ -381,16 +381,16 @@ resources:
                   - name: "creationTimestamp"
                     path: ".metadata.creationTimestamp"
 
-          - resourceIdentifier:
+          - resource_identifier:
               group: "hypershift.openshift.io"
               resource: "hostedclusters"
               namespace: "clusters-{{ .clusterId }}"
               name: "{{ .clusterName }}"
-            updateStrategy:
+            update_strategy:
               type: "ServerSideApply"
-            feedbackRules:
+            feedback_rules:
               - type: "JSONPaths"
-                jsonPaths:
+                json_paths:
                   - name: "availableCondition"
                     path: ".status.conditions[?(@.type==\"Available\")].status"
                   - name: "degradedCondition"
@@ -401,21 +401,21 @@ resources:
                     path: ".status.version.history[0].version"
     
     discovery:
-      byName: "work-{{ .clusterId }}"
+      by_name: "work-{{ .clusterId }}"
 
-    nestedDiscoveries:
+    nested_discoveries:
       - name: "clusterNamespace"
         discovery:
-          bySelectors:
-            labelSelector:
+          by_selectors:
+            label_selector:
               hyperfleet.io/resource-type: "namespace"
               hyperfleet.io/cluster-id: "{{ .clusterId }}"  
       - name: "hostedCluster"
         discovery:
-          byName: "{{ .clusterName }}"
+          by_name: "{{ .clusterName }}"
       - name: "clusterConfig"
         discovery:
-          byName: "cluster-config"
+          by_name: "cluster-config"
           namespace: "{{ .clusterId }}"
 
 post:
@@ -559,9 +559,9 @@ post:
                 ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "version")[0].fieldValue.string
                 : ""
 
-  postActions:
+  post_actions:
     - name: "reportClusterStatus"
-      apiCall:
+      api_call:
         method: "POST"
         url: "/clusters/{{ .clusterId }}/statuses"
         headers:
