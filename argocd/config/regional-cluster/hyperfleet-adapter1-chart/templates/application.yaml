@@ -25,14 +25,12 @@ spec:
         # Uses hyperfleet-broker library: https://github.com/openshift-hyperfleet/hyperfleet-broker
         broker:
           create: true
-          type: rabbitmq  # Explicitly set broker type
           rabbitmq:
-            enabled: false
             url: "amqps://placeholder@localhost:5671/"
-
-        # Subscriber configuration
-        subscriber:
-          parallelism: 1
+            queue: "clusters"
+            exchange: "hyperfleet"
+            routingKey: "#"
+            exchangeType: "topic"
 
         # Environment variables - BROKER_RABBITMQ_URL overrides broker.yaml config
         env:
