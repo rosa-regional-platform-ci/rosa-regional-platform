@@ -42,9 +42,20 @@ hyperfleet-api-chart:
       pullPolicy: Always
     replicaCount: 2
 
+    # Application configuration (generates ConfigMap)
+    config:
+      database:
+        ssl:
+          mode: require
+      adapters:
+        required:
+          cluster:
+            - adapter1
+          nodepool:
+            - adapter3
+
+    # Database infrastructure configuration
     database:
-      ssl:
-        mode: require
       postgresql:
         enabled: false
       external:
@@ -68,12 +79,6 @@ hyperfleet-api-chart:
       - name: secrets-store-inline
         mountPath: /mnt/secrets-store
         readOnly: true
-
-    adapters:
-      cluster:
-        - adapter1
-      nodepool:
-        - adapter3
 
 # SecretProviderClass configuration for AWS Pod Identity
 secretProviderClass:
