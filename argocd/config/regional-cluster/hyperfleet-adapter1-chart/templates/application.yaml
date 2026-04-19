@@ -17,7 +17,7 @@ spec:
         image:
           registry: quay.io/openshift-hyperfleet
           repository: hyperfleet-adapter
-          tag: v0.1.1
+          tag: v0.2.1
           pullPolicy: Always
         replicaCount: 1
 
@@ -25,14 +25,15 @@ spec:
         # Uses hyperfleet-broker library: https://github.com/openshift-hyperfleet/hyperfleet-broker
         broker:
           create: true
-          type: rabbitmq  # Explicitly set broker type
-          rabbitmq:
-            enabled: false
-            url: "amqps://placeholder@localhost:5671/"
-
-        # Subscriber configuration
-        subscriber:
-          parallelism: 1
+          yaml: |
+            broker:
+              type: rabbitmq
+              rabbitmq:
+                url: "amqps://placeholder@localhost:5671/"
+                queue: "clusters"
+                exchange: "hyperfleet"
+                routing_key: "#"
+                exchange_type: "topic"
 
         # Environment variables - BROKER_RABBITMQ_URL overrides broker.yaml config
         env:

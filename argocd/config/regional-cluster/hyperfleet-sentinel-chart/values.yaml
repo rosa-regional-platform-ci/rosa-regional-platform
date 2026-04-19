@@ -16,11 +16,11 @@ hyperfleetSentinelChart:
   # Source configuration
   source:
     # Repository URL for the hyperfleet-sentinel chart
-    repoURL: https://github.com/cdoan1/hyperfleet-sentinel
+    repoURL: https://github.com/openshift-hyperfleet/hyperfleet-sentinel
     # Chart path within the repository
     path: charts
     # Target revision/tag
-    targetRevision: cdoan/ROSAENG-133-v0.1.1
+    targetRevision: v0.2.1
 
   # Sync policy configuration
   syncPolicy:
@@ -42,16 +42,9 @@ hyperfleetSentinelChart:
     image:
       registry: quay.io/openshift-hyperfleet
       repository: hyperfleet-sentinel
-      tag: v0.1.1
+      tag: v0.2.1
       pullPolicy: Always
     replicaCount: 1
-
-    extraEnv:
-      - name: LOG_LEVEL
-        value: debug
-
-    logging:
-      level: debug
 
     # Broker configuration for hyperfleet-sentinel
     # Uses hyperfleet-broker library: https://github.com/openshift-hyperfleet/hyperfleet-broker
@@ -64,9 +57,7 @@ hyperfleetSentinelChart:
         # Placeholder URL - actual value comes from BROKER_RABBITMQ_URL env var
         # which is populated from the secret created by SecretProviderClass
         url: "amqp://placeholder:placeholder@localhost:5672/"
-        queue: "hyperfleet-clusters-landing-zone"
         exchangeType: topic
-        routingKey: "#"
         # Prefetch settings for performance tuning
         # prefetchCount: 10  # Max unacknowledged messages per consumer
         # prefetchSize: 0    # Max size in bytes (0 = unlimited)
@@ -77,23 +68,29 @@ hyperfleetSentinelChart:
 
     # Sentinel configuration - monitors cluster resources via hyperfleet-api
     config:
+      # Logging configuration
+      log:
+        level: debug
+        format: json
+        output: stdout
+
+      # Resource type to watch
       resourceType: clusters
-      # This is a list of resource types to monitor.
-      # The resource types are:
-      # - clusters
-      # - nodepools
-      # - namespaces
-      # - configmaps
-      # - secrets
-      # - services
-      # resourceSelector: [] is used to select the resources to monitor.
+
+      # Resource selector for horizontal sharding
       resourceSelector: []
+
+      # Poll interval for API queries
       pollInterval: 5s
-      maxAgeNotReady: 10s
-      maxAgeReady: 30m
-      hyperfleetApi:
-        baseUrl: http://hyperfleet-api:8000
-        timeout: 5s
+
+      # Client configurations
+      clients:
+        hyperfleetApi:
+          baseUrl: http://hyperfleet-api:8000
+          version: v1
+          timeout: 5s
+
+      # CloudEvents data payload configuration
       messageData:
         id: "resource.id"
         kind: "resource.kind"
