@@ -36,9 +36,9 @@ hyperfleet-api-chart:
   helmValues:
 
     image:
-      registry: quay.io/openshift-hyperfleet
+      registry: quay.io/cdoan0
       repository: hyperfleet-api
-      tag: v0.2.1
+      tag: delete
       pullPolicy: Always
     replicaCount: 2
 
