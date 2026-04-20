@@ -16,14 +16,9 @@ variable "alert_email" {
 }
 
 variable "cloudtrail_log_group" {
-  description = "CloudWatch log group name where CloudTrail events are delivered (e.g. aws-controltower/CloudTrailLogs in the management account, or a regional trail group in member accounts). Must be non-empty."
+  description = "CloudWatch log group name where CloudTrail events are delivered (e.g. aws-controltower/CloudTrailLogs). Leave empty to disable the console sign-in failure metric filter."
   type        = string
-  default     = "aws-controltower/CloudTrailLogs"
-
-  validation {
-    condition     = length(trimspace(var.cloudtrail_log_group)) > 0
-    error_message = "cloudtrail_log_group must be a non-empty log group name."
-  }
+  default     = ""
 }
 
 variable "notification_endpoint" {
