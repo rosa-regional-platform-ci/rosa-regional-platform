@@ -254,7 +254,7 @@ module "cloudtrail" {
   source = "../../modules/cloudtrail"
 
   cluster_id    = var.regional_id
-  force_destroy = var.cloudtrail_force_destroy
+  force_destroy = var.environment == "ephemeral"
 }
 
 module "thanos_infrastructure" {
