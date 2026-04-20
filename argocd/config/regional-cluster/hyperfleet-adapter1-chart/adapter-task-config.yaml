@@ -134,7 +134,7 @@ resources:
       maestro:
         target_cluster: "{{ .placementClusterName }}"      
     manifest:
-      ref: "/etc/adapter/manifestwork.yaml"
+      ref: "/etc/manifestwork/manifestwork.yaml"
     
     discovery:
       by_name: "work-{{ .clusterId }}"

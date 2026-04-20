@@ -71,8 +71,7 @@ spec:
             mountPath: /mnt/secrets-store
             readOnly: true
           - name: manifestwork
-            mountPath: /etc/adapter/manifestwork.yaml
-            subPath: manifestwork.yaml
+            mountPath: /etc/manifestwork
             readOnly: true
 
         # AdapterConfig loaded from adapter-config.yaml file
