@@ -128,6 +128,17 @@ variable "regional_hosted_zone_id" {
   default     = null
 }
 
+variable "api_gateway_access_log_retention_days" {
+  description = "CloudWatch log retention in days for API Gateway access logs. When null, defaults to 365 for US regions and 30 elsewhere."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.api_gateway_access_log_retention_days == null || contains([0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365], var.api_gateway_access_log_retention_days)
+    error_message = "api_gateway_access_log_retention_days must be null or one of: 0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365."
+  }
+}
+
 # =============================================================================
 # Method Settings Variables
 # =============================================================================
