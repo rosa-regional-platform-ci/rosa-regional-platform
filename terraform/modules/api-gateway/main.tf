@@ -12,7 +12,8 @@
 data "aws_region" "current" {}
 
 locals {
-  log_retention_days = var.api_gateway_access_log_retention_days != null ? var.api_gateway_access_log_retention_days : (startswith(data.aws_region.current.id, "us-") ? 365 : 30)
+  fips_regions       = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  log_retention_days = var.api_gateway_access_log_retention_days != null ? var.api_gateway_access_log_retention_days : (contains(local.fips_regions, data.aws_region.current.id) ? 365 : 30)
 }
 
 # -----------------------------------------------------------------------------
