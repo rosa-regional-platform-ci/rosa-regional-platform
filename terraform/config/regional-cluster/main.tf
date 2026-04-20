@@ -39,8 +39,8 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  us_regions                 = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
-  is_us_region               = contains(local.us_regions, var.region)
+  us_regions   = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  is_us_region = contains(local.us_regions, var.region)
   # 35-day RDS backup retention is required for FedRAMP US regions; elsewhere 7 days satisfies CP-09.
   db_backup_retention_period = local.is_us_region ? 35 : 7
 }
