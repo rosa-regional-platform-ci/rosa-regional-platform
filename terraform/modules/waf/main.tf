@@ -1,12 +1,10 @@
 # =============================================================================
 # WAF Module — FedRAMP SC-05 Denial of Service Protection
 #
-# Creates AWS WAFv2 Web ACLs with AWS managed rule groups for:
-#  - API Gateway stage (REGIONAL scope)
-#  - CloudFront distributions (CLOUDFRONT scope, us-east-1)
-#
-# Managed rule groups protect against common layer-7 attacks (SQLi, XSS,
-# known bad inputs) and provide rate limiting to mitigate volumetric DoS.
+# Creates AWS WAFv2 Web ACLs with AWS managed rule groups for regional
+# API Gateway stages (REGIONAL scope). Managed rule groups protect against
+# common layer-7 attacks (SQLi, XSS, known bad inputs) and provide rate
+# limiting to mitigate volumetric DoS.
 # =============================================================================
 
 # =============================================================================
@@ -148,26 +146,20 @@ resource "aws_wafv2_web_acl_logging_configuration" "api_gateway" {
   resource_arn            = aws_wafv2_web_acl.api_gateway.arn
 
   redacted_fields {
-    field_to_match {
-      single_header {
-        name = "authorization"
-      }
+    single_header {
+      name = "authorization"
     }
   }
 
   redacted_fields {
-    field_to_match {
-      single_header {
-        name = "cookie"
-      }
+    single_header {
+      name = "cookie"
     }
   }
 
   redacted_fields {
-    field_to_match {
-      single_header {
-        name = "x-api-key"
-      }
+    single_header {
+      name = "x-api-key"
     }
   }
 }
