@@ -3,6 +3,7 @@
 .local
 .vscode
 *.tfvars
+.claude/worktrees/
 *.tfvars.json
 *.terraform.lock.hcl
 *_override.tf
