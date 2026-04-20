@@ -203,7 +203,7 @@ resource "aws_backup_selection" "tagged_resources" {
 
   # Explicitly include all RDS instances and DynamoDB tables by ARN pattern
   resources = [
-    "arn:aws:rds:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:db:${var.cluster_id}-*",
-    "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${var.cluster_id}-*",
+    "arn:aws:rds:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:db:${var.cluster_id}-*",
+    "arn:aws:dynamodb:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:table/${var.cluster_id}-*",
   ]
 }
