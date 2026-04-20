@@ -54,6 +54,14 @@ resource "aws_kms_key" "sns" {
           "kms:Decrypt"
         ]
         Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnLike = {
+            "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:sns:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:${var.cluster_id}-security-alerts"
+          }
+        }
       }
     ]
   })
