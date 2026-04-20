@@ -100,7 +100,6 @@ module "hypershift_oidc" {
 # =============================================================================
 
 module "cloudtrail" {
-  count  = startswith(var.region, "us-") ? 1 : 0
   source = "../../modules/cloudtrail"
 
   cluster_id = var.management_id
