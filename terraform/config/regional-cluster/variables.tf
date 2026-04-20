@@ -296,9 +296,9 @@ variable "security_alert_email" {
 }
 
 variable "security_cloudtrail_log_group" {
-  description = "CloudWatch log group name where CloudTrail events are delivered. Defaults to aws-controltower/CloudTrailLogs for Control Tower environments."
+  description = "CloudWatch log group name where CloudTrail events are delivered (e.g. aws-controltower/CloudTrailLogs). Leave empty to disable the console sign-in failure metric filter — required for environments without Control Tower."
   type        = string
-  default     = "aws-controltower/CloudTrailLogs"
+  default     = ""
 }
 
 variable "security_notification_endpoint" {
