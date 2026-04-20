@@ -51,14 +51,15 @@ hyperfleetSentinelChart:
     # The BROKER_RABBITMQ_URL environment variable overrides this value
     broker:
       type: rabbitmq
+      topic: "clusters"
       rabbitmq:
         # Placeholder URL - actual value comes from BROKER_RABBITMQ_URL env var
         # which is populated from the secret created by SecretProviderClass
         # AWS MQ requires TLS (amqps://)
         url: "amqps://placeholder:placeholder@localhost:5671/"
+        exchangeType: topic
         exchange: "hyperfleet"
         routingKey: "clusters"
-        exchangeType: topic
         # Prefetch settings for performance tuning
         # prefetchCount: 10  # Max unacknowledged messages per consumer
         # prefetchSize: 0    # Max size in bytes (0 = unlimited)

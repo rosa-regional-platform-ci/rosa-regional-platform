@@ -3,7 +3,7 @@ params:
     source: "event.id"
     type: "string"
     required: true
-  - name: "generationId"
+  - name: "generation"
     source: "event.generation"
     type: "int"
     required: true
@@ -23,7 +23,7 @@ preconditions:
     capture:
       - name: "clusterName"
         field: "name"
-      - name: "generationId"
+      - name: "generation"
         field: "generation"
       - name: "timestamp"
         field: "created_time"
@@ -132,10 +132,10 @@ resources:
     transport:
       client: "maestro"
       maestro:
-        target_cluster: "{{ .placementClusterName }}"      
+        target_cluster: "{{ .placementClusterName }}"
     manifest:
       ref: "/etc/adapter/manifestwork.yaml"
-    
+
     discovery:
       by_name: "work-{{ .clusterId }}"
 
@@ -263,7 +263,7 @@ post:
 
         # Use CEL expression for numeric fields to preserve type (not Go template which outputs strings)
         observed_generation:
-          expression: "generationId"
+          expression: "generation"
         observed_time: "{{ now | date \"2006-01-02T15:04:05Z07:00\" }}"
 
         data:

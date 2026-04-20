@@ -7,7 +7,7 @@ metadata:
     hyperfleet.io/cluster-id: "{{ .clusterId }}"
     hyperfleet.io/adapter: "{{ .adapterName }}"
     hyperfleet.io/component: "infrastructure"
-    hyperfleet.io/generation: "{{ .generationId }}"
+    hyperfleet.io/generation: "{{ .generation }}"
     hyperfleet.io/resource-group: "cluster-setup"
 
     # Maestro-specific labels
@@ -29,7 +29,7 @@ metadata:
     # Tracking and lifecycle
     hyperfleet.io/created-by: "hyperfleet-adapter-framework"
     hyperfleet.io/managed-by: "{{ .adapterName }}"
-    hyperfleet.io/generation: "{{ .generationId }}"
+    hyperfleet.io/generation: "{{ .generation }}"
     hyperfleet.io/cluster-name: "{{ .clusterId }}"
     hyperfleet.io/deployment-time: "{{ .timestamp }}"
 
@@ -56,7 +56,7 @@ spec:
             hyperfleet.io/resource-type: "namespace"
           annotations:
             hyperfleet.io/created-by: "hyperfleet-adapter"
-            hyperfleet.io/generation: "{{ .generationId }}"
+            hyperfleet.io/generation: "{{ .generation }}"
       - apiVersion: v1
         kind: ConfigMap
         metadata:
@@ -65,7 +65,7 @@ spec:
           labels:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
+            hyperfleet.io/generation: "{{ .generation }}"
         data:
           cluster_id: "{{ .clusterId }}"
           cluster_name: "{{ .clusterName }}"
@@ -79,7 +79,7 @@ spec:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
             hyperfleet.io/resource-type: "pull-secret"
           annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
+            hyperfleet.io/generation: "{{ .generation }}"
         spec:
           refreshInterval: 1h
           secretStoreRef:
@@ -103,7 +103,7 @@ spec:
           labels:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
+            hyperfleet.io/generation: "{{ .generation }}"
             hypershift.openshift.io/pod-security-admission-label-override: privileged
             hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
         spec:
@@ -170,7 +170,7 @@ spec:
           labels:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
+            hyperfleet.io/generation: "{{ .generation }}"
         spec:
           clusterName: "{{ .clusterName }}"
           replicas: 2
@@ -202,7 +202,7 @@ spec:
           labels:
             hyperfleet.io/cluster-id: "{{ .clusterId }}"
           annotations:
-            hyperfleet.io/generation: "{{ .generationId }}"
+            hyperfleet.io/generation: "{{ .generation }}"
         type: Opaque
         data:
           id_rsa.pub: ""
