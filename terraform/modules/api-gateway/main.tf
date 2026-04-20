@@ -146,7 +146,7 @@ resource "aws_api_gateway_account" "main" {
 # Allow time for the account-level CloudWatch role to propagate before the
 # stage attempts to enable access logging.
 resource "time_sleep" "api_gateway_account_propagation" {
-  create_duration = "15s"
+  create_duration = var.api_gateway_account_propagation_wait
   depends_on      = [aws_api_gateway_account.main]
 }
 

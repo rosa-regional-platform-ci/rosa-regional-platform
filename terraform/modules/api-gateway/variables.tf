@@ -166,3 +166,9 @@ variable "throttling_rate_limit" {
   type        = number
   default     = 100
 }
+
+variable "api_gateway_account_propagation_wait" {
+  description = "Duration to wait after setting the API Gateway account CloudWatch role to allow IAM propagation before enabling stage access logging (e.g. '15s', '30s')."
+  type        = string
+  default     = "15s"
+}
