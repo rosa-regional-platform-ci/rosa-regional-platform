@@ -96,6 +96,17 @@ module "hypershift_oidc" {
 }
 
 # =============================================================================
+# CloudTrail Module (FedRAMP AU-12)
+# =============================================================================
+
+module "cloudtrail" {
+  count  = startswith(var.region, "us-") ? 1 : 0
+  source = "../../modules/cloudtrail"
+
+  cluster_id = var.management_id
+}
+
+# =============================================================================
 # Prometheus Remote Write (MC -> RC metrics forwarding via API Gateway)
 # =============================================================================
 
