@@ -300,3 +300,15 @@ variable "security_cloudtrail_log_group" {
   type        = string
   default     = "aws-controltower/CloudTrailLogs"
 }
+
+variable "security_notification_endpoint" {
+  description = "Endpoint for security alert notifications (e.g. PagerDuty Events API v2 HTTPS URL, SQS ARN, or Lambda ARN). Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "security_notification_protocol" {
+  description = "SNS subscription protocol for security_notification_endpoint. One of: https, sqs, lambda."
+  type        = string
+  default     = "https"
+}

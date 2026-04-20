@@ -132,6 +132,16 @@ resource "aws_sns_topic_subscription" "security_alerts_email" {
   endpoint  = var.alert_email
 }
 
+# Supports PagerDuty (https), SQS, or Lambda endpoints.
+# For PagerDuty: set notification_protocol = "https" and notification_endpoint
+# to your PagerDuty Events API v2 integration URL.
+resource "aws_sns_topic_subscription" "security_alerts_notification" {
+  count     = var.notification_endpoint != "" ? 1 : 0
+  topic_arn = aws_sns_topic.security_alerts.arn
+  protocol  = var.notification_protocol
+  endpoint  = var.notification_endpoint
+}
+
 # =============================================================================
 # AU-06: CloudWatch Metric Filters — EKS Unauthorized API Calls
 # =============================================================================
