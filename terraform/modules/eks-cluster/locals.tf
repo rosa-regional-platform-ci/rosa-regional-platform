@@ -10,5 +10,5 @@ locals {
   azs = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 3)
 
   # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
-  log_retention_days = startswith(data.aws_region.current.name, "us-") ? 365 : 30
+  log_retention_days = startswith(data.aws_region.current.id, "us-") ? 365 : 30
 }

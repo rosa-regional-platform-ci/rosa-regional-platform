@@ -20,9 +20,7 @@ data "aws_cloudwatch_log_group" "eks_cluster" {
   name = "/aws/eks/${var.cluster_id}/cluster"
 }
 
-data "aws_cloudwatch_log_group" "cloudtrail" {
-  name = var.cloudtrail_log_group
-}
+
 
 # =============================================================================
 # KMS Key for SNS Topic Encryption (FedRAMP SC-28)
@@ -206,7 +204,7 @@ resource "aws_cloudwatch_metric_alarm" "console_signin_failure" {
 resource "aws_cloudwatch_log_metric_filter" "console_signin_failure" {
   name           = "${var.cluster_id}-console-signin-failures"
   pattern        = "{ ($.eventName = ConsoleLogin) && ($.responseElements.ConsoleLogin = \"Failure\") }"
-  log_group_name = data.aws_cloudwatch_log_group.cloudtrail.name
+  log_group_name = var.cloudtrail_log_group
 
   metric_transformation {
     name          = "ConsoleSignInFailures"
@@ -227,13 +225,13 @@ resource "aws_securityhub_account" "main" {}
 resource "aws_securityhub_standards_subscription" "nist_800_53" {
   count         = var.enable_security_hub_standards ? 1 : 0
   depends_on    = [aws_securityhub_account.main]
-  standards_arn = "arn:${data.aws_partition.current.partition}:securityhub:${data.aws_region.current.name}::standards/nist-800-53/v/5.0.0"
+  standards_arn = "arn:${data.aws_partition.current.partition}:securityhub:${data.aws_region.current.id}::standards/nist-800-53/v/5.0.0"
 }
 
 resource "aws_securityhub_standards_subscription" "cis_aws" {
   count         = var.enable_security_hub_standards ? 1 : 0
   depends_on    = [aws_securityhub_account.main]
-  standards_arn = "arn:${data.aws_partition.current.partition}:securityhub:${data.aws_region.current.name}::standards/cis-aws-foundations-benchmark/v/1.4.0"
+  standards_arn = "arn:${data.aws_partition.current.partition}:securityhub:${data.aws_region.current.id}::standards/cis-aws-foundations-benchmark/v/1.4.0"
 }
 
 # Export Security Hub findings to SNS via EventBridge
@@ -252,7 +250,6 @@ resource "aws_cloudwatch_event_rule" "securityhub_high_findings" {
         Workflow = {
           Status = ["NEW"]
         }
-        RecordState = ["ACTIVE"]
       }]
     }
   })
