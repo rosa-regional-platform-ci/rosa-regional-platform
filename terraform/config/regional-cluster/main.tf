@@ -275,8 +275,9 @@ module "thanos_infrastructure" {
 module "security_monitoring" {
   source = "../../modules/security-monitoring"
 
-  cluster_id  = var.regional_id
-  alert_email = var.security_alert_email
+  cluster_id           = var.regional_id
+  alert_email          = var.security_alert_email
+  cloudtrail_log_group = var.security_cloudtrail_log_group
 
   # NIST 800-53 v5 and CIS 1.4 standards are only available in US and GovCloud
   # regions. Disable for EU/AP/SA regions to prevent apply failures.

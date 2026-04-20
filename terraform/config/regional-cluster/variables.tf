@@ -294,3 +294,9 @@ variable "security_alert_email" {
   type        = string
   default     = ""
 }
+
+variable "security_cloudtrail_log_group" {
+  description = "CloudWatch log group name where CloudTrail events are delivered. Defaults to aws-controltower/CloudTrailLogs for Control Tower environments."
+  type        = string
+  default     = "aws-controltower/CloudTrailLogs"
+}
