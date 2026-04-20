@@ -25,12 +25,58 @@ data "aws_cloudwatch_log_group" "cloudtrail" {
 }
 
 # =============================================================================
+# KMS Key for SNS Topic Encryption (FedRAMP SC-28)
+# =============================================================================
+
+resource "aws_kms_key" "sns" {
+  description             = "CMK for security-monitoring SNS topic encryption (FedRAMP SC-28)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowSNS"
+        Effect = "Allow"
+        Principal = {
+          Service = "sns.amazonaws.com"
+        }
+        Action = [
+          "kms:GenerateDataKey*",
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_id}-security-alerts-sns"
+  }
+}
+
+resource "aws_kms_alias" "sns" {
+  name          = "alias/${var.cluster_id}-security-alerts-sns"
+  target_key_id = aws_kms_key.sns.key_id
+}
+
+# =============================================================================
 # SNS Topic for Security Alerts
 # =============================================================================
 
 resource "aws_sns_topic" "security_alerts" {
   name              = "${var.cluster_id}-security-alerts"
-  kms_master_key_id = var.kms_key_id
+  kms_master_key_id = aws_kms_key.sns.arn
 
   tags = {
     Name = "${var.cluster_id}-security-alerts"

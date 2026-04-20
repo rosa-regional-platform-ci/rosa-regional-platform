@@ -3,15 +3,6 @@ variable "cluster_id" {
   type        = string
 }
 
-variable "kms_key_id" {
-  description = "Customer-managed KMS key ID or ARN for SNS topic encryption at rest (required for FedRAMP SC-28). Must not be the AWS-managed alias/aws/sns."
-  type        = string
-
-  validation {
-    condition     = var.kms_key_id != "alias/aws/sns" && length(var.kms_key_id) > 0
-    error_message = "kms_key_id must be a customer-managed KMS key ARN or alias, not the AWS-managed alias/aws/sns."
-  }
-}
 
 variable "alert_email" {
   description = "Email address to receive security alert notifications (leave empty to skip email subscription)"
