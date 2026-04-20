@@ -202,6 +202,7 @@ resource "aws_cloudwatch_metric_alarm" "console_signin_failure" {
 }
 
 resource "aws_cloudwatch_log_metric_filter" "console_signin_failure" {
+  count          = var.cloudtrail_log_group != "" ? 1 : 0
   name           = "${var.cluster_id}-console-signin-failures"
   pattern        = "{ ($.eventName = ConsoleLogin) && ($.responseElements.ConsoleLogin = \"Failure\") }"
   log_group_name = var.cloudtrail_log_group
@@ -218,7 +219,14 @@ resource "aws_cloudwatch_log_metric_filter" "console_signin_failure" {
 # AU-06 / CA-07: AWS Security Hub
 # =============================================================================
 
-resource "aws_securityhub_account" "main" {}
+resource "aws_securityhub_account" "main" {
+  # Security Hub is an account-level singleton. If already enabled (e.g. by a
+  # prior environment or org policy), Terraform import is required rather than
+  # recreation. ignore_changes prevents spurious conflicts on re-apply.
+  lifecycle {
+    ignore_changes = all
+  }
+}
 
 # NIST 800-53 v5 and CIS 1.4 standards are not available in all AWS regions.
 # Use var.enable_security_hub_standards = false for regions that do not support them.
@@ -242,16 +250,6 @@ resource "aws_cloudwatch_event_rule" "securityhub_high_findings" {
   event_pattern = jsonencode({
     source      = ["aws.securityhub"]
     detail-type = ["Security Hub Findings - Imported"]
-    detail = {
-      findings = [{
-        Severity = {
-          Label = ["HIGH", "CRITICAL"]
-        }
-        Workflow = {
-          Status = ["NEW"]
-        }
-      }]
-    }
   })
 
   tags = {
