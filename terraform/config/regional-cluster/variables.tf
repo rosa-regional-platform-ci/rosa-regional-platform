@@ -288,3 +288,9 @@ variable "thanos_service_account" {
   default     = "thanos-operator"
 }
 
+variable "cloudtrail_force_destroy" {
+  description = "Allow the CloudTrail S3 bucket to be destroyed even if it contains objects. Set to true for ephemeral/CI environments; leave false for production."
+  type        = bool
+  default     = false
+}
+
