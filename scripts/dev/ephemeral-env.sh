@@ -53,6 +53,7 @@ usage() {
     echo "  provision       Provision an ephemeral environment"
     echo "  teardown        Tear down an ephemeral environment"
     echo "  resync          Resync an ephemeral environment to your branch"
+    echo "  swap-branch     Swap an ephemeral environment to a different branch"
     echo "  list            List ephemeral environments"
     echo "  shell           Interactive shell for Platform API access"
     echo "  bastion         Connect to RC/MC bastion in an ephemeral env"
@@ -81,8 +82,9 @@ usage_port_forward() {
 }
 
 # Extract a KEY=VALUE field from an .ephemeral-envs line.
+# Uses a space prefix to match exact keys (e.g. BRANCH vs CI_BRANCH).
 get_field() {
-    echo "$1" | sed -n "s/.*${2}=\([^ ]*\).*/\1/p"
+    echo "$1" | sed -n "s/.* ${2}=\([^ ]*\).*/\1/p"
 }
 
 # Update the STATE field for a BUILD_ID in .ephemeral-envs.
@@ -99,6 +101,52 @@ append_field() {
     local id="$1" key="$2" value="$3"
     sed "s|^${id} .*|& ${key}=${value}|" "$ENVS_FILE" > "${ENVS_FILE}.tmp" \
         && mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
+}
+
+# Update one or more KEY=VALUE fields (update existing or append).
+# Usage: update_fields <id> KEY1=VAL1 [KEY2=VAL2 ...]
+update_fields() {
+    local id="$1"; shift
+    cp "$ENVS_FILE" "${ENVS_FILE}.tmp"
+    for pair in "$@"; do
+        local key="${pair%%=*}" value="${pair#*=}"
+        if grep "^${id} " "${ENVS_FILE}.tmp" | grep -q " ${key}="; then
+            sed -i.bak "/^${id} /s| ${key}=[^ ]*| ${key}=${value}|" "${ENVS_FILE}.tmp"
+        else
+            sed -i.bak "s|^${id} .*|& ${key}=${value}|" "${ENVS_FILE}.tmp"
+        fi
+    done
+    rm -f "${ENVS_FILE}.tmp.bak"
+    mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
+}
+
+# Derive the CI branch name from a BUILD_ID and branch name.
+# Must match the Python logic in ci/ephemeral-provider/git.py and main.py.
+derive_ci_branch() {
+    local build_id="$1" branch="$2"
+    local ci_prefix="ci-$(echo -n "$build_id" | portable_sha256 | cut -c1-6)"
+    echo "${ci_prefix}-$(echo "$branch" | tr '/' '-')-ci"
+}
+
+# Interactive fzf picker for remote + branch.
+# Sets globals: PICKED_REPO, PICKED_BRANCH
+pick_remote_branch() {
+    local prompt="${1:-Select branch:}"
+
+    local remote
+    remote=$(git remote -v | grep '(fetch)' \
+        | awk '{printf "%-15s %s\n", $1, $2}' \
+        | fzf --height=10 --header="Select remote:" \
+        | awk '{print $1}') \
+        || { echo "Aborted."; exit 1; }
+
+    PICKED_REPO=$(git remote get-url "$remote" | sed 's|.*github\.com[:/]||; s|\.git$||')
+    echo "Fetching branches from $remote ($PICKED_REPO)..."
+
+    PICKED_BRANCH=$(git ls-remote --heads "$remote" 2>/dev/null \
+        | sed 's|.*refs/heads/||' \
+        | fzf --height=20 --header="$prompt") \
+        || { echo "Aborted."; exit 1; }
 }
 
 # Select an environment by explicit ID or interactive fzf picker.
@@ -363,23 +411,10 @@ cmd_provision() {
     if [[ -z "${BRANCH:-}" ]] && command -v fzf >/dev/null 2>&1; then
         echo "Current branch: $branch"
         echo "Select a remote to pick a branch from (or Esc to abort):"
-
-        local remote
-        remote=$(git remote -v | grep '(fetch)' \
-            | awk '{printf "%-15s %s\n", $1, $2}' \
-            | fzf --height=10 --header="Select remote:" \
-            | awk '{print $1}') \
-            || { echo "Aborted."; exit 1; }
-
-        repo=$(git remote get-url "$remote" | sed 's|.*github\.com[:/]||; s|\.git$||')
-        echo "Fetching branches from $remote ($repo)..."
-
-        branch=$(git ls-remote --heads "$remote" 2>/dev/null \
-            | sed 's|.*refs/heads/||' \
-            | fzf --height=20 --header="Select branch:") \
-            || { echo "Aborted."; exit 1; }
-
-        echo "Selected branch: $branch (from $remote)"
+        pick_remote_branch "Select branch:"
+        repo="$PICKED_REPO"
+        branch="$PICKED_BRANCH"
+        echo "Selected branch: $branch (from $repo)"
     fi
 
     # Check for local config overrides
@@ -436,6 +471,9 @@ cmd_provision() {
         [[ -z "$region" ]]  || append_field "$ID" "REGION" "$region"
         [[ -z "$api_url" ]] || append_field "$ID" "API_URL" "$api_url"
 
+        # Store CI branch name so it survives branch swaps
+        append_field "$ID" "CI_BRANCH" "$(derive_ci_branch "$ID" "$branch")"
+
         echo ""
         echo "Environment recorded in $ENVS_FILE."
         [[ -z "$api_url" ]] || echo -e "\n  API Gateway:  $api_url"
@@ -461,13 +499,18 @@ cmd_teardown() {
         "Select environment to tear down:" \
         "No active environments found."
 
-    local repo branch region
+    local repo branch region ci_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
     region=$(get_field "$ENV_LINE" REGION)
+    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
 
     # Fetch credentials
     fetch_creds
+
+    # Build --ci-branch flag if available (needed after swap-branch)
+    local ci_branch_flag=""
+    [[ -z "$ci_branch" ]] || ci_branch_flag="--ci-branch $ci_branch"
 
     # Print summary
     echo "Tearing down ephemeral environment..."
@@ -492,6 +535,7 @@ cmd_teardown() {
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
             --teardown --repo "$repo" --branch "$branch" \
+            $ci_branch_flag \
     || rc=$?
 
     # Update state
@@ -511,15 +555,20 @@ cmd_resync() {
         "Select environment to resync:" \
         "No active environments found."
 
-    local repo branch
+    local repo branch ci_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
+    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
 
     # Check for local config overrides
     setup_override_mount
 
     # Fetch credentials
     fetch_creds
+
+    # Build --ci-branch flag if available (needed after swap-branch)
+    local ci_branch_flag=""
+    [[ -z "$ci_branch" ]] || ci_branch_flag="--ci-branch $ci_branch"
 
     # Print summary
     echo "Resyncing ephemeral environment..."
@@ -541,7 +590,59 @@ cmd_resync() {
         -e WORKSPACE_DIR=/workspace \
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
-            --resync --repo "$repo" --branch "$branch"
+            --resync --repo "$repo" --branch "$branch" \
+            $ci_branch_flag
+}
+
+cmd_swap_branch() {
+    local new_branch="${NEW_BRANCH:-}"
+    local new_repo="${NEW_REPO:-}"
+
+    # Select environment
+    select_env "STATE=ready" \
+        "Select environment to swap branch:" \
+        "No ready environments found."
+
+    local repo branch ci_branch
+    repo=$(get_field "$ENV_LINE" REPO)
+    branch=$(get_field "$ENV_LINE" BRANCH)
+    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
+
+    # Compute CI_BRANCH for pre-existing envs that don't have it yet
+    [[ -n "$ci_branch" ]] || ci_branch=$(derive_ci_branch "$BUILD_ID" "$branch")
+
+    # Interactive branch picker if NEW_BRANCH not set
+    if [[ -z "$new_branch" ]] && command -v fzf >/dev/null 2>&1; then
+        echo "Current: $branch (repo: $repo)"
+        echo "Select a remote to pick a new branch from (or Esc to abort):"
+        pick_remote_branch "Select branch to swap to:"
+        new_repo="$PICKED_REPO"
+        new_branch="$PICKED_BRANCH"
+        echo "Selected: $new_branch (from $new_repo)"
+    elif [[ -z "$new_branch" ]]; then
+        die "NEW_BRANCH is required. Usage: make ephemeral-swap-branch NEW_BRANCH=<branch> [NEW_REPO=<owner/repo>]"
+    fi
+
+    # Default new_repo to the current repo if not specified
+    [[ -n "$new_repo" ]] || new_repo="$repo"
+
+    # Skip if already on the target branch
+    if [[ "$new_repo" == "$repo" && "$new_branch" == "$branch" ]]; then
+        echo "Already on $repo @ $branch. Nothing to do."
+        return
+    fi
+
+    echo ""
+    echo "Swapping ephemeral environment branch..."
+    echo "  ID:      $BUILD_ID"
+    echo "  FROM:    $repo @ $branch"
+    echo "  TO:      $new_repo @ $new_branch"
+
+    # Update .ephemeral-envs with new branch/repo and persist CI_BRANCH (single write)
+    update_fields "$BUILD_ID" "REPO=$new_repo" "BRANCH=$new_branch" "CI_BRANCH=$ci_branch"
+
+    # Resync to the new branch
+    ID="$BUILD_ID" cmd_resync
 }
 
 cmd_list() {
@@ -1003,6 +1104,7 @@ case "${1:-help}" in
     provision)      cmd_provision ;;
     teardown)       cmd_teardown ;;
     resync)         cmd_resync ;;
+    swap-branch)    cmd_swap_branch ;;
     shell)          cmd_shell ;;
     bastion)        shift; cmd_bastion_interactive "$@" ;;
     port-forward)   shift; cmd_bastion_port_forward "$@" ;;

@@ -86,6 +86,12 @@ def main():
         help="Source branch to test (default: from REPOSITORY_BRANCH env var)",
     )
     parser.add_argument(
+        "--ci-branch",
+        default=None,
+        help="Explicit CI branch name (overrides derivation from --branch). "
+             "Used after swap-branch to preserve the CI branch identity.",
+    )
+    parser.add_argument(
         "--creds-dir",
         default=os.environ.get("CREDS_DIR", "/var/run/rosa-credentials/"),
         help="Directory containing CI credentials (optional if credentials are passed as env vars)",
@@ -169,6 +175,7 @@ def main():
         ci_prefix=ci_prefix,
         override_dir=override_dir,
         provision_overrides=provision_overrides,
+        ci_branch_name=args.ci_branch,
     )
 
     try:

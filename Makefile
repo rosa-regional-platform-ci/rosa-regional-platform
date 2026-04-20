@@ -161,6 +161,10 @@ ephemeral-teardown: ## Tear down an ephemeral environment
 ephemeral-resync: ## Resync an ephemeral environment to your branch
 	@ID="$(ID)" ./scripts/dev/ephemeral-env.sh resync
 
+ephemeral-swap-branch: ## Swap an ephemeral environment to a different branch
+	@ID="$(ID)" NEW_BRANCH="$(NEW_BRANCH)" NEW_REPO="$(NEW_REPO)" \
+		./scripts/dev/ephemeral-env.sh swap-branch
+
 ephemeral-list: ## List ephemeral environments
 	@./scripts/dev/ephemeral-env.sh list
 

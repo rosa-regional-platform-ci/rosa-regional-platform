@@ -60,7 +60,8 @@ class EphemeralEnvOrchestrator:
 
     def __init__(self, repo: str, branch: str, creds_dir: str, region: str, ci_prefix: str,
                  override_dir: str | None = None,
-                 provision_overrides: list[tuple[str, str]] | None = None):
+                 provision_overrides: list[tuple[str, str]] | None = None,
+                 ci_branch_name: str | None = None):
         self.repo = repo
         self.branch = branch
         self.creds_dir = creds_dir
@@ -68,6 +69,7 @@ class EphemeralEnvOrchestrator:
         self.ci_prefix = ci_prefix
         self.override_dir = Path(override_dir) if override_dir else None
         self.provision_overrides = provision_overrides or []
+        self.ci_branch_name = ci_branch_name
         self.provisioner_name = f"{ci_prefix}-pipeline-provisioner"
         # TODO: compute deterministic RC/MC pipeline names from rendered config
         # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
@@ -125,7 +127,8 @@ class EphemeralEnvOrchestrator:
                 external means (a periodic janitor job).
         """
         # Check out the CI branch first to discover region from its config
-        git = GitManager(self.creds_dir, self.repo, self.branch)
+        git = GitManager(self.creds_dir, self.repo, self.branch,
+                         ci_branch_name=self.ci_branch_name)
         self.git = git
         git.checkout_ci_branch(self.ci_prefix)
 
@@ -153,7 +156,8 @@ class EphemeralEnvOrchestrator:
         """
         self._setup_aws()
 
-        git = GitManager(self.creds_dir, self.repo, self.branch)
+        git = GitManager(self.creds_dir, self.repo, self.branch,
+                         ci_branch_name=self.ci_branch_name)
         self.git = git
         git.resync_ci_branch(self.ci_prefix)
 

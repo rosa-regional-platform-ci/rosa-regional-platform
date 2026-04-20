@@ -23,7 +23,8 @@ class GitManager:
     pushes. CI branches are intentionally kept for post-run troubleshooting.
     """
 
-    def __init__(self, creds_dir: str, repo: str, branch: str):
+    def __init__(self, creds_dir: str, repo: str, branch: str,
+                 ci_branch_name: str | None = None):
         self.creds_dir = Path(creds_dir)
         self.source_repo = repo
         self.source_branch = branch
@@ -32,6 +33,7 @@ class GitManager:
         self.ci_prefix = None
         self.fork_repo = None
         self._auth_header = None
+        self._ci_branch_override = ci_branch_name
 
     def _github_token(self) -> str:
         """Read the git token from credentials directory or environment."""
@@ -144,8 +146,16 @@ class GitManager:
             ci_prefix: The CI prefix used during provisioning (e.g. 'ci-a1b2c3').
         """
         self.ci_prefix = ci_prefix
-        sanitized = re.sub(r"[/]", "-", self.source_branch)
-        self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
+        if self._ci_branch_override:
+            if not self._ci_branch_override.startswith(f"{ci_prefix}-"):
+                log.warning(
+                    "CI branch override '%s' does not match expected prefix '%s-'",
+                    self._ci_branch_override, ci_prefix,
+                )
+            self.ci_branch = self._ci_branch_override
+        else:
+            sanitized = re.sub(r"[/]", "-", self.source_branch)
+            self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
 
         token = self._github_token()
         self._setup_auth(token)
