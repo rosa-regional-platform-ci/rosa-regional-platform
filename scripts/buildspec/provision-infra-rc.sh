@@ -113,6 +113,24 @@ echo ""
 
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
 
+# Fetch PagerDuty API token from Secrets Manager (central account, us-east-1)
+_RAW_PD=$(jq -r '.enable_pagerduty // false' "$DEPLOY_CONFIG_FILE")
+if [ "$_RAW_PD" == "true" ] || [ "$_RAW_PD" == "1" ]; then
+    export TF_VAR_enable_pagerduty="true"
+    export TF_VAR_pagerduty_escalation_policy_id=$(jq -r '.pagerduty_escalation_policy_id // ""' "$DEPLOY_CONFIG_FILE")
+    PAGERDUTY_TOKEN=$(aws secretsmanager get-secret-value \
+        --secret-id "pagerduty/service-account" \
+        --region us-east-1 \
+        --profile central \
+        --query SecretString \
+        --output text)
+    export PAGERDUTY_TOKEN
+    echo "  PagerDuty Enabled: true"
+    echo "    - PagerDuty token loaded from Secrets Manager"
+    echo "  Escalation Policy ID: $TF_VAR_pagerduty_escalation_policy_id"
+    echo ""
+fi
+
 # Read delete flag from config (GitOps-driven deletion)
 DELETE_FLAG=$(jq -r '.delete // false' "$DEPLOY_CONFIG_FILE")
 # Manual override: IS_DESTROY pipeline variable takes precedence

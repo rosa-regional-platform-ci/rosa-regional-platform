@@ -32,6 +32,10 @@ provider "aws" {
   profile = var.central_aws_profile != "" ? var.central_aws_profile : null
 }
 
+# PagerDuty provider — requires PAGERDUTY_TOKEN environment variable.
+# Only used when enable_pagerduty = true.
+provider "pagerduty" {}
+
 # =============================================================================
 # Data Sources
 # =============================================================================
@@ -233,6 +237,24 @@ module "hyperfleet_infrastructure" {
   # Message queue configuration
   mq_instance_type   = var.hyperfleet_mq_instance_type
   mq_deployment_mode = var.hyperfleet_mq_deployment_mode
+}
+
+# =============================================================================
+# Thanos Infrastructure Module (Observability)
+# =============================================================================
+
+# =============================================================================
+# PagerDuty Service (Optional)
+# =============================================================================
+
+module "pagerduty_service" {
+  count  = var.enable_pagerduty ? 1 : 0
+  source = "../../modules/pagerduty-service"
+
+  regional_id          = var.regional_id
+  environment          = var.environment
+  region               = var.region
+  escalation_policy_id = var.pagerduty_escalation_policy_id
 }
 
 # =============================================================================
