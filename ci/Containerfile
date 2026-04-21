@@ -2,7 +2,7 @@
 # Used by ci-operator via build_root.project_image.dockerfile_path.
 # Tools are layer-cached — installs only re-run when this file changes.
 
-FROM registry.access.redhat.com/ubi9/ubi:latest
+FROM registry.access.redhat.com/ubi9/ubi:9.5
 
 ARG TERRAFORM_VERSION=1.14.3
 ARG HELM_VERSION=v3.16.0

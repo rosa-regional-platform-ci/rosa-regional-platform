@@ -23,9 +23,9 @@ grafana:
     seccompProfile:
       type: RuntimeDefault
 
-  # Static password prevents ArgoCD out-of-sync diffs.
-  # Login form is disabled; this value is not used for access.
-  adminPassword: "admin"
+  # Admin password must be supplied via an ExternalSecret or a Kubernetes Secret
+  # mounted as the GF_SECURITY_ADMIN_PASSWORD environment variable.
+  # Do NOT set adminPassword here — hardcoding credentials in git is prohibited.
 
   serviceAccount:
     create: true
@@ -47,8 +47,7 @@ grafana:
       disable_login_form: true
 
     "auth.anonymous":
-      enabled: true
-      org_role: Admin
+      enabled: false
 
     "auth.basic":
       enabled: false

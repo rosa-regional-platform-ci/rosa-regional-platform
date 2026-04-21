@@ -14,5 +14,8 @@ hypershift:
     domain: ".example.com"
 
   # Hypershift configuration
+  # IMPORTANT: Use an official, immutable image reference pinned by SHA-256 digest.
+  # Do NOT use personal registry namespaces or mutable tags (e.g., :test20, :latest).
+  # Example: registry.redhat.io/openshift4/ose-hypershift-operator@sha256:<digest>
   hypershift:
-    image: quay.io/psav/hypershift:test20
+    image: registry.redhat.io/openshift4/ose-hypershift-operator@sha256:REPLACE_WITH_VERIFIED_DIGEST
