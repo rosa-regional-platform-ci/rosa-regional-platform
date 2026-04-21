@@ -1,7 +1,7 @@
 # =============================================================================
 # EKS Cluster Configuration
 #
-# Creates a fully private EKS cluster with Auto Mode enabled. 
+# Creates a fully private EKS cluster with Auto Mode enabled.
 # Includes KMS encryption for secrets, proper networking,
 # and managed addons for a complete cluster deployment.
 # =============================================================================

@@ -29,9 +29,9 @@ variable "private_subnet_ids" {
 }
 
 variable "log_retention_days" {
-  description = "Number of days to retain CloudWatch logs. FedRAMP Moderate AU-11 requires a minimum of 365 days online retention."
+  description = "Number of days to retain CloudWatch logs. In US regions, 365 days is enforced for FedRAMP AU-11 compliance regardless of this value."
   type        = number
-  default     = 365
+  default     = 30
 }
 
 variable "cpu" {

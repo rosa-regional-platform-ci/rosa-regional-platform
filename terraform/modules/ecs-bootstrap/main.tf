@@ -3,6 +3,8 @@
 
 locals {
   bootstrap_container_name = "bootstrap"
+  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+  log_retention_days = 365
 }
 
 # Current AWS region information
@@ -21,7 +23,7 @@ resource "aws_ecs_cluster" "bootstrap" {
 # CloudWatch Log Group for bootstrap tasks
 resource "aws_cloudwatch_log_group" "bootstrap" {
   name              = "/ecs/${var.cluster_id}/bootstrap"
-  retention_in_days = 30
+  retention_in_days = local.log_retention_days
 }
 
 # ECS Task Definition for bootstrap execution
