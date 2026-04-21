@@ -12,7 +12,10 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 locals {
+<<<<<<< HEAD
   # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+=======
+>>>>>>> 18af0f5 (fix: set 365-day log retention for all regions, not just US (ROSAENG-271))
   log_retention_days = 365
 }
 
@@ -65,6 +68,26 @@ resource "aws_kms_key" "cloudtrail" {
         Condition = {
           StringEquals = {
             "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+          }
+        }
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/cloudtrail/${var.cluster_id}"
           }
         }
       }
@@ -192,6 +215,9 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
 resource "aws_cloudwatch_log_group" "cloudtrail" {
   name              = "/aws/cloudtrail/${var.cluster_id}"
   retention_in_days = local.log_retention_days
+  kms_key_id        = aws_kms_key.cloudtrail.arn
+
+  depends_on = [aws_kms_key.cloudtrail]
 
   tags = {
     Name = "${var.cluster_id}-cloudtrail"

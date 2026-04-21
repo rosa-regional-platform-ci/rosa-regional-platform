@@ -7,12 +7,78 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# FedRAMP AU-09: KMS Key for Audit Log Encryption
+#
+# Customer-managed KMS key encrypts EKS CloudWatch log data at rest so that
+# audit records cannot be read without KMS key authorization. Note: KMS does
+# not prevent deletion — log group deletion and retention are controlled by
+# IAM permissions (logs:DeleteLogGroup) and the retention_in_days setting.
+# -----------------------------------------------------------------------------
+
+resource "aws_kms_key" "cloudwatch_logs" {
+  description             = "KMS key for EKS cluster CloudWatch log group encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/eks/${local.cluster_id}/cluster"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.cluster_id}-cloudwatch-logs"
+  }
+}
+
+resource "aws_kms_alias" "cloudwatch_logs" {
+  name          = "alias/${local.cluster_id}-cloudwatch-logs"
+  target_key_id = aws_kms_key.cloudwatch_logs.key_id
+}
+
+# -----------------------------------------------------------------------------
 # CloudWatch Logging
 # -----------------------------------------------------------------------------
 
+# Note: setting kms_key_id on an existing log group only encrypts newly ingested
+# events. Historical events remain under the previously configured key (or no key).
+# For brownfield clusters, a manual migration (delete + recreate the log group)
+# is required to ensure all events are encrypted under this CMK.
 resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.cluster_id}/cluster"
   retention_in_days = local.log_retention_days
+  kms_key_id        = aws_kms_key.cloudwatch_logs.arn
+
+  depends_on = [aws_kms_key.cloudwatch_logs]
 }
 
 # -----------------------------------------------------------------------------

@@ -3,8 +3,7 @@
 
 locals {
   bootstrap_container_name = "bootstrap"
-  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
-  log_retention_days = 365
+  log_retention_days       = 365
 }
 
 # Current AWS region information
@@ -20,10 +19,57 @@ resource "aws_ecs_cluster" "bootstrap" {
   }
 }
 
+# KMS key for CloudWatch log group encryption (FedRAMP AU-09)
+resource "aws_kms_key" "bootstrap_logs" {
+  description             = "KMS key for ECS bootstrap CloudWatch log group encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_id}-bootstrap-logs"
+  }
+}
+
 # CloudWatch Log Group for bootstrap tasks
 resource "aws_cloudwatch_log_group" "bootstrap" {
   name              = "/ecs/${var.cluster_id}/bootstrap"
   retention_in_days = local.log_retention_days
+<<<<<<< HEAD
+=======
+  kms_key_id        = aws_kms_key.bootstrap_logs.arn
+
+  depends_on = [aws_kms_key.bootstrap_logs]
+>>>>>>> 35b3556 (feat(fedramp): AU-09 KMS encryption for CloudWatch logs and pipeline S3, scoped AU-11 retention (ROSAENG-269))
 }
 
 # ECS Task Definition for bootstrap execution
