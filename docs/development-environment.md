@@ -265,6 +265,23 @@ make ephemeral-resync
 make ephemeral-resync ID=6bd2d3d7
 ```
 
+## Swap Branch
+
+Redirect a running environment to a different branch or fork without tearing it down and reprovisioning. The environment identity (and its managed CI branch) is preserved — only the source branch being tracked changes. After swapping, a resync runs automatically to apply the new branch.
+
+```bash
+# Interactive — fzf pickers for environment and branch selection
+make ephemeral-swap-branch
+
+# Explicit — swap to a branch on the same repo
+make ephemeral-swap-branch ID=6bd2d3d7 NEW_BRANCH=my-other-feature
+
+# Explicit — swap to a branch on a different fork
+make ephemeral-swap-branch ID=6bd2d3d7 NEW_BRANCH=my-feature NEW_REPO=my-fork/rosa-regional-platform
+```
+
+> ⚠️ _Ensure the new branch is pushed to the remote before swapping — the environment is built from the remote ref._
+
 ## Tear Down
 
 Destroy an environment and all its resources:
