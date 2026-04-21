@@ -132,6 +132,11 @@ variable "alb_certificate_arn" {
   description = "ACM certificate ARN for the internal ALB HTTPS listener (FedRAMP SC-08). When set, the ALB listener uses HTTPS/TLS on port 443. Leave empty only during initial bootstrap before a certificate is available."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.alb_certificate_arn == "" || can(regex("^arn:[a-z0-9-]+:acm:[a-z0-9-]+:[0-9]{12}:certificate/[a-f0-9-]+$", var.alb_certificate_arn))
+    error_message = "alb_certificate_arn must be empty or a valid ACM certificate ARN (arn:aws:acm:<region>:<account>:certificate/<uuid>)."
+  }
 }
 
 # =============================================================================
