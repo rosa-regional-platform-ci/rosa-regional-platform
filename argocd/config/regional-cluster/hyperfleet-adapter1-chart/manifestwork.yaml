@@ -110,6 +110,7 @@ spec:
           infraID: "{{ .clusterId }}"
           dns:
             baseDomain: example.com
+          fips: true
           release:
             image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
           pullSecret:
