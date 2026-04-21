@@ -239,10 +239,9 @@ spec:
       feedbackRules:
         - type: "JSONPaths"
           jsonPaths:
-            - name: "availableCondition"
-              path: ".status.conditions[?(@.type==\"Available\")].status"
-            - name: "degradedCondition"
-              path: ".status.conditions[?(@.type==\"Degraded\")].status"
+            # Capture full conditions array - filter in CEL instead of JSONPath
+            - name: "conditions"
+              path: ".status.conditions"
             - name: "controlPlaneEndpoint"
               path: ".status.controlPlaneEndpoint.host"
             - name: "version"
