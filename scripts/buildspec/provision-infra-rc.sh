@@ -121,7 +121,6 @@ if [ "$_RAW_PD" == "true" ] || [ "$_RAW_PD" == "1" ]; then
     PAGERDUTY_TOKEN=$(aws secretsmanager get-secret-value \
         --secret-id "pagerduty/service-account" \
         --region us-east-1 \
-        --profile central \
         --query SecretString \
         --output text)
     export PAGERDUTY_TOKEN
