@@ -1,3 +1,9 @@
+variable "force_destroy" {
+  description = "Allow the S3 bucket to be destroyed even if it contains objects. Enable only for ephemeral environments."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_id" {
   description = "Unique cluster identifier used as a name prefix for all resources"
   type        = string
@@ -8,8 +14,3 @@ variable "cluster_id" {
   }
 }
 
-variable "force_destroy" {
-  description = "Allow the CloudTrail S3 bucket to be destroyed even if it contains objects. Set to true only for ephemeral/CI environments; leave false for production."
-  type        = bool
-  default     = false
-}
