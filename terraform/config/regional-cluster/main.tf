@@ -251,7 +251,6 @@ module "hyperfleet_infrastructure" {
 # =============================================================================
 
 module "cloudtrail" {
-  count  = startswith(var.region, "us-") ? 1 : 0
   source = "../../modules/cloudtrail"
 
   cluster_id = var.regional_id
