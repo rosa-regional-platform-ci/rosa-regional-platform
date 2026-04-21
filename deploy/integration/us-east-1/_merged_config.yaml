@@ -71,6 +71,17 @@ management_cluster_defaults:
   # @used-by management_cluster_defaults.node_instance_types _context
   node_instance_types: ["t3.medium", "t3a.medium"]
 
+observability:
+  pagerduty:
+    # @doc observability.pagerduty.enabled Enable PagerDuty service provisioning for the region.
+    # @used-by observability.pagerduty.enabled _context
+    # @used-by observability.pagerduty.enabled pipeline-regional-cluster-inputs/terraform.json.j2
+    enabled: false
+    # @doc observability.pagerduty.escalation_policy_id PagerDuty escalation policy ID for regional services.
+    # @used-by observability.pagerduty.escalation_policy_id _context
+    # @used-by observability.pagerduty.escalation_policy_id pipeline-regional-cluster-inputs/terraform.json.j2
+    escalation_policy_id: "P5KE444"
+
 applications:
   management-cluster:
     hypershift:
@@ -93,6 +104,10 @@ applications:
       # @doc applications.regional-cluster.maestro.iotLogLevel AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG).
       # @used-by applications.regional-cluster.maestro.iotLogLevel pipeline-regional-cluster-inputs/terraform.json.j2
       iotLogLevel: "WARN"
+    pagerduty:
+      # @doc applications.regional-cluster.pagerduty.enabled Enable PagerDuty alerting in the monitoring stack.
+      # @used-by applications.regional-cluster.pagerduty.enabled _context
+      enabled: "{{ observability.pagerduty.enabled }}"
 
 # provision_mcs: MC topology, defined per-region. Keys are MC IDs.
 # Fields below are injected into templates as mc.* by render.py.

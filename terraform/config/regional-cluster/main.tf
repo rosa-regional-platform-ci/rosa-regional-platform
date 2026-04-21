@@ -39,6 +39,13 @@ provider "aws" {
   use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 }
 
+# PagerDuty provider — requires PAGERDUTY_TOKEN environment variable.
+# Only used when enable_pagerduty = true; skip validation so plan/init
+# succeed in environments where the token is not available.
+provider "pagerduty" {
+  skip_credentials_validation = true
+}
+
 # =============================================================================
 # Data Sources
 # =============================================================================
@@ -259,10 +266,6 @@ module "cloudwatch_exporter" {
 }
 
 # =============================================================================
-# Thanos Infrastructure Module (Observability)
-# =============================================================================
-
-# =============================================================================
 # CloudTrail Module (FedRAMP AU-12)
 # =============================================================================
 
@@ -274,6 +277,23 @@ module "cloudtrail" {
   environment = var.environment
 }
 
+# =============================================================================
+# PagerDuty Service (Optional)
+# =============================================================================
+
+module "pagerduty_service" {
+  count  = var.enable_pagerduty ? 1 : 0
+  source = "../../modules/pagerduty-service"
+
+  regional_id          = var.regional_id
+  environment          = var.environment
+  region               = var.region
+  escalation_policy_id = var.pagerduty_escalation_policy_id
+}
+
+# =============================================================================
+# Thanos Infrastructure Module (Observability)
+# =============================================================================
 module "thanos_infrastructure" {
   source = "../../modules/thanos-infrastructure"
 
