@@ -8,7 +8,7 @@ provider "aws" {
   dynamic "assume_role" {
     for_each = var.target_account_id != "" ? [1] : []
     content {
-      role_arn     = "arn:${data.aws_partition.current.partition}:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
+      role_arn     = "arn:${local.aws_partition}:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
       session_name = "terraform-regional-${var.regional_id}"
     }
   }
@@ -44,6 +44,8 @@ data "aws_partition" "current" {}
 locals {
   us_regions   = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
   is_us_region = contains(local.us_regions, var.region)
+  # Compute partition from region to avoid data source cycle in provider blocks
+  aws_partition = startswith(var.region, "us-gov-") ? "aws-us-gov" : "aws"
 }
 
 # Call the EKS cluster module for regional cluster infrastructure
