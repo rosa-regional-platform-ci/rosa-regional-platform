@@ -23,7 +23,7 @@ preconditions:
     capture:
       - name: "clusterName"
         field: "name"
-      - name: "generation"
+      - name: "apiGeneration"
         field: "generation"
       - name: "timestamp"
         field: "created_time"
