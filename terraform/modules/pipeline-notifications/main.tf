@@ -3,8 +3,7 @@ data "aws_region" "current" {}
 
 locals {
   # Use name_prefix if provided, otherwise empty string
-  resource_prefix = var.name_prefix != "" ? "${var.name_prefix}-" : ""
-  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+  resource_prefix    = var.name_prefix != "" ? "${var.name_prefix}-" : ""
   log_retention_days = 365
 }
 
