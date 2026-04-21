@@ -5,7 +5,7 @@
 locals {
   container_name = "bastion"
   # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
-  effective_log_retention_days = startswith(data.aws_region.current.name, "us-") ? max(365, var.log_retention_days) : var.log_retention_days
+  effective_log_retention_days = max(365, var.log_retention_days)
 }
 
 data "aws_region" "current" {}
