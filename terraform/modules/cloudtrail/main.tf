@@ -12,10 +12,6 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-<<<<<<< HEAD
-  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
-=======
->>>>>>> 18af0f5 (fix: set 365-day log retention for all regions, not just US (ROSAENG-271))
   log_retention_days = 365
 }
 

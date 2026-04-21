@@ -64,12 +64,9 @@ resource "aws_kms_key" "bootstrap_logs" {
 resource "aws_cloudwatch_log_group" "bootstrap" {
   name              = "/ecs/${var.cluster_id}/bootstrap"
   retention_in_days = local.log_retention_days
-<<<<<<< HEAD
-=======
   kms_key_id        = aws_kms_key.bootstrap_logs.arn
 
   depends_on = [aws_kms_key.bootstrap_logs]
->>>>>>> 35b3556 (feat(fedramp): AU-09 KMS encryption for CloudWatch logs and pipeline S3, scoped AU-11 retention (ROSAENG-269))
 }
 
 # ECS Task Definition for bootstrap execution
