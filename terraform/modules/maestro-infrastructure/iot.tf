@@ -115,8 +115,8 @@ resource "null_resource" "iot_logging" {
         --policy-arn "arn:aws:iam::aws:policy/service-role/AWSIoTLogging" \
         2>&1 || true
 
-      # Brief wait for IAM propagation
-      sleep 5
+      # Wait for IAM propagation (role + policy attachment can take ~10s)
+      sleep 15
 
       # Set IoT logging options (idempotent — overwrites existing config)
       aws iot set-v2-logging-options \
