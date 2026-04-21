@@ -128,6 +128,12 @@ variable "regional_hosted_zone_id" {
   default     = null
 }
 
+variable "alb_certificate_arn" {
+  description = "ACM certificate ARN for the internal ALB HTTPS listener (FedRAMP SC-08). When set, the ALB listener uses HTTPS/TLS on port 443. Leave empty only during initial bootstrap before a certificate is available."
+  type        = string
+  default     = ""
+}
+
 # =============================================================================
 # Method Settings Variables
 # =============================================================================

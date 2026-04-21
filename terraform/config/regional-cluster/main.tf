@@ -106,6 +106,8 @@ module "api_gateway" {
   node_security_group_id = module.regional_cluster.node_security_group_id
   cluster_name           = module.regional_cluster.cluster_name
 
+  alb_certificate_arn = var.alb_certificate_arn
+
   # Custom domain (e.g. api.us-east-1.int0.rosa.devshift.net)
   api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
@@ -129,10 +131,11 @@ module "api_gateway" {
 module "rhobs_api_gateway" {
   source = "../../modules/rhobs-api-gateway"
 
-  regional_id  = var.regional_id
-  vpc_link_id  = module.api_gateway.vpc_link_id
-  alb_arn      = module.api_gateway.alb_arn
-  alb_dns_name = module.api_gateway.alb_dns_name
+  regional_id         = var.regional_id
+  vpc_link_id         = module.api_gateway.vpc_link_id
+  alb_arn             = module.api_gateway.alb_arn
+  alb_dns_name        = module.api_gateway.alb_dns_name
+  alb_certificate_arn = var.alb_certificate_arn
 }
 
 # =============================================================================

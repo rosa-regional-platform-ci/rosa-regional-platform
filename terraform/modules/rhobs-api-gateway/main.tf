@@ -91,7 +91,7 @@ resource "aws_api_gateway_integration" "thanos_receive" {
   connection_type         = "VPC_LINK"
   connection_id           = var.vpc_link_id
   integration_target      = var.alb_arn
-  uri                     = "http://${var.alb_dns_name}/api/v1/receive"
+  uri                     = "${var.alb_certificate_arn != "" ? "https" : "http"}://${var.alb_dns_name}/api/v1/receive"
 
   request_parameters = {
     "integration.request.header.THANOS-TENANT"    = "context.identity.accountId"
@@ -143,6 +143,7 @@ resource "aws_api_gateway_deployment" "rhobs" {
       aws_api_gateway_integration.thanos_receive.id,
       aws_api_gateway_rest_api.rhobs.binary_media_types,
       aws_api_gateway_rest_api_policy.rhobs.policy,
+      var.alb_certificate_arn,
     ]))
   }
 

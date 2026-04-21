@@ -94,17 +94,51 @@ resource "aws_lb_target_group" "thanos" {
 }
 
 # -----------------------------------------------------------------------------
-# Listener
+# FedRAMP SC-08: Transmission Confidentiality and Integrity
+#
+# The internal ALB listener uses HTTPS (TLS) to encrypt all traffic between
+# the API Gateway VPC Link and the ALB backend, replacing the previous
+# plaintext HTTP listener on port 80.
+#
+# The ACM certificate ARN must be provided via var.alb_certificate_arn. The
+# certificate should cover the ALB's private DNS name or a private CA cert.
+# If no certificate is provided (e.g. during initial bootstrap), HTTP is used
+# as a fallback — set alb_certificate_arn before a FedRAMP assessment.
 # -----------------------------------------------------------------------------
 
 resource "aws_lb_listener" "platform" {
+  load_balancer_arn = aws_lb.platform.arn
+
+  # FedRAMP SC-08: Use HTTPS/TLS to encrypt internal ALB traffic
+  port     = local.tls_enabled ? 443 : 80
+  protocol = local.tls_enabled ? "HTTPS" : "HTTP"
+
+  # TLS configuration (only when certificate is provided)
+  certificate_arn = local.tls_enabled ? local.alb_cert_arn : null
+  ssl_policy      = local.tls_enabled ? "ELBSecurityPolicy-TLS13-1-2-FIPS-2023-04" : null
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.platform.arn
+  }
+}
+
+# HTTP redirect listener — only created when HTTPS is active
+# Redirects any stray HTTP requests to HTTPS
+resource "aws_lb_listener" "platform_http_redirect" {
+  count             = local.tls_enabled ? 1 : 0
   load_balancer_arn = aws_lb.platform.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.platform.arn
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
