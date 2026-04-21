@@ -289,3 +289,8 @@ variable "thanos_service_account" {
 }
 
 
+variable "enable_eks_runtime_monitoring" {
+  description = "Enable GuardDuty EKS Runtime Monitoring (FedRAMP CA-07). Intentionally limited to US/US-Gov regions for FedRAMP compliance scope."
+  type        = bool
+  default     = true
+}

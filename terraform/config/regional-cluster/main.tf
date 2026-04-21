@@ -1,11 +1,6 @@
 provider "aws" {
-  region = var.region
-
-  # FedRAMP IA-07 / SC-13: Use FIPS 140-2 validated endpoints for all AWS API
-  # calls from Terraform when operating in US and GovCloud regions where FIPS
-  # endpoints are available. Non-US regions (EU, AP, SA, etc.) do not have FIPS
-  # endpoints; enabling them there would cause all API calls to fail.
-  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
+  region            = var.region
+  use_fips_endpoint = local.is_us_region
 
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
@@ -13,7 +8,7 @@ provider "aws" {
   dynamic "assume_role" {
     for_each = var.target_account_id != "" ? [1] : []
     content {
-      role_arn     = "arn:aws:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
+      role_arn     = "arn:${data.aws_partition.current.partition}:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
       session_name = "terraform-regional-${var.regional_id}"
     }
   }
@@ -36,7 +31,7 @@ provider "aws" {
   alias             = "central"
   region            = var.region
   profile           = var.central_aws_profile != "" ? var.central_aws_profile : null
-  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
+  use_fips_endpoint = local.is_us_region
 }
 
 # =============================================================================
@@ -44,6 +39,12 @@ provider "aws" {
 # =============================================================================
 
 data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
+locals {
+  us_regions   = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  is_us_region = contains(local.us_regions, var.region)
+}
 
 # Call the EKS cluster module for regional cluster infrastructure
 module "regional_cluster" {
@@ -274,4 +275,16 @@ module "thanos_infrastructure" {
   metrics_retention_days = var.thanos_metrics_retention_days
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
+}
+
+# =============================================================================
+# Continuous Monitoring Module (FedRAMP CA-07)
+# =============================================================================
+
+module "continuous_monitoring" {
+  source = "../../modules/continuous-monitoring"
+
+  cluster_id = var.regional_id
+
+  enable_eks_runtime_monitoring = var.enable_eks_runtime_monitoring
 }

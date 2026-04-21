@@ -11,6 +11,10 @@
 
 data "aws_region" "current" {}
 
+locals {
+  log_retention_days = var.api_gateway_access_log_retention_days != null ? var.api_gateway_access_log_retention_days : 365
+}
+
 # -----------------------------------------------------------------------------
 # REST API
 # -----------------------------------------------------------------------------
@@ -146,7 +150,7 @@ resource "aws_api_gateway_account" "main" {
 # CloudWatch Log Group for API Gateway access logs (FedRAMP AU-02)
 resource "aws_cloudwatch_log_group" "api_gateway_access" {
   name              = "/aws/api-gateway/${var.regional_id}/${var.stage_name}/access"
-  retention_in_days = 365
+  retention_in_days = local.log_retention_days
 
   tags = {
     Name = "${var.regional_id}-api-access-logs"
