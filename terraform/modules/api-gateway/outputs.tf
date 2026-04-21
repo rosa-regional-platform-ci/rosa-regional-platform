@@ -114,3 +114,8 @@ output "acm_certificate_arn" {
   value       = var.api_domain_name != null ? aws_acm_certificate.api[0].arn : null
 }
 
+
+output "stage_arn" {
+  description = "ARN of the API Gateway stage (used for WAF association)"
+  value       = aws_api_gateway_stage.main.arn
+}
