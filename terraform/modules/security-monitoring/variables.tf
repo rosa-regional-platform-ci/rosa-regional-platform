@@ -25,6 +25,11 @@ variable "notification_endpoint" {
   description = "Endpoint to receive security alert notifications. Use a PagerDuty Events API v2 HTTPS URL, an SQS ARN, or a Lambda ARN. Leave empty to disable. Pair with notification_protocol."
   type        = string
   default     = ""
+
+  validation {
+    condition = var.notification_endpoint == "" || can(regex("^https://", var.notification_endpoint)) || can(regex("^arn:[a-z0-9-]+:sqs:", var.notification_endpoint)) || can(regex("^arn:[a-z0-9-]+:lambda:", var.notification_endpoint))
+    error_message = "notification_endpoint must be empty or a valid HTTPS URL (https://...), SQS ARN (arn:aws:sqs:...), or Lambda ARN (arn:aws:lambda:...)."
+  }
 }
 
 variable "notification_protocol" {
