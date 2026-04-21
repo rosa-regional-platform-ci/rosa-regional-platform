@@ -38,7 +38,7 @@ hyperfleet-api-chart:
     image:
       registry: quay.io/cdoan0
       repository: hyperfleet-api
-      tag: delete
+      tag: v0.2.1-1-g153ec89-dirty
       pullPolicy: Always
     replicaCount: 2
 
