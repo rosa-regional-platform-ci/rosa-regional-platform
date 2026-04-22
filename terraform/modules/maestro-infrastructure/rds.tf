@@ -18,10 +18,48 @@ resource "random_password" "db_password" {
 # FedRAMP SC-28: KMS Customer-Managed Key for RDS Encryption
 # =============================================================================
 
+data "aws_partition" "current" {}
+
 resource "aws_kms_key" "maestro_rds" {
   description             = "KMS CMK for Maestro RDS PostgreSQL encryption at rest (FedRAMP SC-28)"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowRDS"
+        Effect = "Allow"
+        Principal = {
+          Service = "rds.amazonaws.com"
+        }
+        Action = [
+          "kms:CreateGrant",
+          "kms:DescribeKey",
+          "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService"    = "rds.${data.aws_region.current.id}.amazonaws.com"
+            "kms:CallerAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
 
   tags = merge(
     local.common_tags,
