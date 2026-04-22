@@ -83,7 +83,6 @@ resource "aws_kms_key" "hyperfleet_mq" {
     {
       Name      = "${var.regional_id}-hyperfleet-mq"
       Component = "hyperfleet-sentinel"
-      FedRAMP   = "SC-28"
     }
   )
 }

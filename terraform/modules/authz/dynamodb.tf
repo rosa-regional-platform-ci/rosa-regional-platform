@@ -346,7 +346,6 @@ resource "aws_kms_key" "dynamodb" {
     {
       Name      = "${local.table_names.accounts}-kms"
       Component = "authz"
-      FedRAMP   = "SC-28"
     }
   )
 }

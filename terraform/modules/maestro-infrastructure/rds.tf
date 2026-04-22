@@ -28,7 +28,6 @@ resource "aws_kms_key" "maestro_rds" {
     {
       Name      = "${var.regional_id}-maestro-rds"
       Component = "maestro-server"
-      FedRAMP   = "SC-28"
     }
   )
 }

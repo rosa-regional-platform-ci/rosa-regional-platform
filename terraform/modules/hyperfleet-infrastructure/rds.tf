@@ -26,7 +26,6 @@ resource "aws_kms_key" "hyperfleet_rds" {
     {
       Name      = "${var.regional_id}-hyperfleet-rds"
       Component = "hyperfleet-api"
-      FedRAMP   = "SC-28"
     }
   )
 }
