@@ -6,8 +6,9 @@ locals {
   log_retention_days       = 365
 }
 
-# Current AWS region information
+# Current AWS region/account/partition information
 data "aws_region" "current" {}
+data "aws_partition" "current" {}
 
 # ECS Cluster for bootstrap tasks
 resource "aws_ecs_cluster" "bootstrap" {
@@ -51,6 +52,14 @@ resource "aws_kms_key" "bootstrap_logs" {
           "kms:DescribeKey"
         ]
         Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.cluster_id}/bootstrap"
+          }
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
       }
     ]
   })
