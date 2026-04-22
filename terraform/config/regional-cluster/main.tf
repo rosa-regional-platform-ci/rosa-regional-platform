@@ -250,18 +250,26 @@ module "hyperfleet_infrastructure" {
 }
 
 # =============================================================================
-# Thanos Infrastructure Module (Observability)
-# =============================================================================
-
-# =============================================================================
-# CloudTrail Module (FedRAMP AU-12)
+# CloudTrail Module
 # =============================================================================
 
 module "cloudtrail" {
+  count  = var.environment != "ephemeral" ? 1 : 0
   source = "../../modules/cloudtrail"
 
   cluster_id  = var.regional_id
   environment = var.environment
+}
+
+# =============================================================================
+# WAF Module (FedRAMP SC-05)
+# =============================================================================
+
+module "waf" {
+  source = "../../modules/waf"
+
+  cluster_id            = var.regional_id
+  api_gateway_stage_arn = module.api_gateway.stage_arn
 }
 
 module "thanos_infrastructure" {

@@ -12,7 +12,8 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  log_retention_days = 365
+  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
+  log_retention_days = 365 # 365 days for all regions
 }
 
 # =============================================================================
@@ -64,6 +65,7 @@ resource "aws_kms_key" "cloudtrail" {
         Condition = {
           StringEquals = {
             "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+<<<<<<< HEAD
           }
         }
       },
@@ -84,6 +86,8 @@ resource "aws_kms_key" "cloudtrail" {
         Condition = {
           ArnLike = {
             "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/cloudtrail/${var.cluster_id}"
+=======
+>>>>>>> e630140 (feat(fedramp): SC-05 WAFv2 with parameterized rate limits, CloudWatch alarms, deprecated .name fixes, and redacted headers (ROSAENG-279))
           }
         }
       }
