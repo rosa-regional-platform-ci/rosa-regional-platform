@@ -45,7 +45,6 @@ metadata:
 spec:
   workload:
     manifests:
-
       - apiVersion: v1
         kind: Namespace
         metadata:
@@ -208,41 +207,41 @@ spec:
         data:
           id_rsa.pub: ""
 
-  deleteOption:
-    propagationPolicy: "Foreground"
-    gracePeriodSeconds: 30
+    deleteOption:
+      propagationPolicy: "Foreground"
+      gracePeriodSeconds: 30
 
-  manifestConfigs:
-    - resourceIdentifier:
-        group: ""
-        resource: "namespaces"
-        name: "clusters-{{ .clusterId }}"
-      updateStrategy:
-        type: "ServerSideApply"
-      feedbackRules:
-        - type: "JSONPaths"
-          jsonPaths:
-            - name: "phase"
-              path: ".status.phase"
-            - name: "conditions"
-              path: ".status.conditions"
-            - name: "creationTimestamp"
-              path: ".metadata.creationTimestamp"
+    manifestConfigs:
+      - resourceIdentifier:
+          group: ""
+          resource: "namespaces"
+          name: "clusters-{{ .clusterId }}"
+        updateStrategy:
+          type: "ServerSideApply"
+        feedbackRules:
+          - type: "JSONPaths"
+            jsonPaths:
+              - name: "phase"
+                path: ".status.phase"
+              - name: "conditions"
+                path: ".status.conditions"
+              - name: "creationTimestamp"
+                path: ".metadata.creationTimestamp"
 
-    - resourceIdentifier:
-        group: "hypershift.openshift.io"
-        resource: "hostedclusters"
-        namespace: "clusters-{{ .clusterId }}"
-        name: "{{ .clusterName }}"
-      updateStrategy:
-        type: "ServerSideApply"
-      feedbackRules:
-        - type: "JSONPaths"
-          jsonPaths:
-            # Capture full conditions array - filter in CEL instead of JSONPath
-            - name: "conditions"
-              path: ".status.conditions"
-            - name: "controlPlaneEndpoint"
-              path: ".status.controlPlaneEndpoint.host"
-            - name: "version"
-              path: ".status.version.history[0].version"
+      - resourceIdentifier:
+          group: "hypershift.openshift.io"
+          resource: "hostedclusters"
+          namespace: "clusters-{{ .clusterId }}"
+          name: "{{ .clusterName }}"
+        updateStrategy:
+          type: "ServerSideApply"
+        feedbackRules:
+          - type: "JSONPaths"
+            jsonPaths:
+              # Capture full conditions array - filter in CEL instead of JSONPath
+              - name: "conditions"
+                path: ".status.conditions"
+              - name: "controlPlaneEndpoint"
+                path: ".status.controlPlaneEndpoint.host"
+              - name: "version"
+                path: ".status.version.history[0].version"
