@@ -148,6 +148,10 @@ resource "aws_api_gateway_account" "main" {
 resource "time_sleep" "api_gateway_account_propagation" {
   create_duration = var.api_gateway_account_propagation_wait
   depends_on      = [aws_api_gateway_account.main]
+
+  triggers = {
+    cloudwatch_role_arn = aws_api_gateway_account.main.cloudwatch_role_arn
+  }
 }
 
 # CloudWatch Log Group for API Gateway access logs (FedRAMP AU-02)
