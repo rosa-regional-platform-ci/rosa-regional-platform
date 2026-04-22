@@ -106,7 +106,7 @@ Before creating the issue, confirm with the user:
 About to create ROSAENG Jira:
 
 Summary: [extracted summary]
-Type: [Story/Bug/Epic]
+Type: [Story/Bug/Task/Epic]
 Component: ROSA Regionality Platform
 Parent Epic: [ROSAENG-XXXX] (if applicable)
 
