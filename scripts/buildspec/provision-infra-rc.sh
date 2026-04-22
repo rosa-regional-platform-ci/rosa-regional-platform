@@ -27,7 +27,6 @@ export TF_VAR_central_aws_profile="central"
 # But only if we are enabling PD - no need to fetch the secret otherwise
 PD_ENABLED="  PagerDuty Enabled: false"
 _RAW_PD=$(jq -r '.enable_pagerduty // false' "$DEPLOY_CONFIG_FILE")
-aws sts get-caller-identity
 if [ "$_RAW_PD" == "true" ] || [ "$_RAW_PD" == "1" ]; then
     export TF_VAR_enable_pagerduty="true"
     export TF_VAR_pagerduty_escalation_policy_id=$(jq -r '.pagerduty_escalation_policy_id // ""' "$DEPLOY_CONFIG_FILE")

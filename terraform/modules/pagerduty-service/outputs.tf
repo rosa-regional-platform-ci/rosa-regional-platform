@@ -14,7 +14,7 @@ output "service_name" {
 
 output "escalation_policy_id" {
   description = "PagerDuty escalation policy ID"
-  value       = pagerduty_escalation_policy.regional.id
+  value       = var.escalation_policy_id
 }
 
 output "integration_key_secret_name" {
