@@ -11,5 +11,6 @@
   "regional_id": "ci-2bee0d-regional",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "iot_log_level": "WARN",
-  "management_cluster_account_ids": ["129678139271"]
+  "management_cluster_account_ids": ["129678139271"],
+  "delete": true
 }
