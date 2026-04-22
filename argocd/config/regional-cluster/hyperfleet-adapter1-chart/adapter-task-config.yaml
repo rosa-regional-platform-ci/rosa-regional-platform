@@ -158,7 +158,7 @@ post:
   payloads:
     - name: "clusterStatusPayload"
       build:
-        adapter: "{{ .adapter.name }}"
+        adapter: "{{ .adapterName }}"
         conditions:
           - type: "Applied"
             status:
@@ -189,27 +189,24 @@ post:
               expression: |
                 has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
                 && has(resources.hostedCluster.statusFeedback.values)
-                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "conditions")
-                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Degraded").size() > 0
-                   && resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Degraded")[0].status == "False"
+                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
                   ? "True" : "False")
                 : "False"
             reason:
               expression: |
                 has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
                 && has(resources.hostedCluster.statusFeedback.values)
-                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "conditions")
-                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Degraded").size() > 0
-                   && resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Degraded")[0].status == "False"
+                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
                   ? "NotDegraded" : "HostedClusterDegraded")
                 : "StatusNotReady"
             message:
               expression: |
                 has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
                 && has(resources.hostedCluster.statusFeedback.values)
-                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "conditions")
-                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Degraded").size() > 0
-                   && resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Degraded")[0].status == "False"
+                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "degradedCondition")
+                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "degradedCondition")[0].fieldValue.string == "False"
                   ? "HostedCluster is healthy"
                   : "HostedCluster is degraded")
                 : "Waiting for HostedCluster status feedback"
@@ -219,26 +216,23 @@ post:
               expression: |
                 has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
                 && has(resources.hostedCluster.statusFeedback.values)
-                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "conditions")
-                && resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Available").size() > 0
-                ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Available")[0].status
+                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                ? resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string
                 : "False"
             reason:
               expression: |
                 has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
                 && has(resources.hostedCluster.statusFeedback.values)
-                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "conditions")
-                && resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Available").size() > 0
-                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Available")[0].status == "True"
+                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
                   ? "HostedClusterAvailable" : "HostedClusterNotAvailable")
                 : "StatusNotReady"
             message:
               expression: |
                 has(resources.hostedCluster) && has(resources.hostedCluster.statusFeedback)
                 && has(resources.hostedCluster.statusFeedback.values)
-                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "conditions")
-                && resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Available").size() > 0
-                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "conditions")[0].fieldValue.filter(c, c.type == "Available")[0].status == "True"
+                && resources.hostedCluster.statusFeedback.values.exists(v, has(v.name) && v.name == "availableCondition")
+                ? (resources.hostedCluster.statusFeedback.values.filter(v, v.name == "availableCondition")[0].fieldValue.string == "True"
                   ? "HostedCluster is available"
                   : "HostedCluster not yet available")
                 : "Waiting for HostedCluster status feedback"
