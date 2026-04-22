@@ -260,8 +260,7 @@ module "hyperfleet_infrastructure" {
 module "cloudtrail" {
   source = "../../modules/cloudtrail"
 
-  cluster_id  = var.regional_id
-  environment = var.environment
+  cluster_id = var.regional_id
 }
 
 module "thanos_infrastructure" {
