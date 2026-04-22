@@ -143,6 +143,13 @@ resource "aws_api_gateway_account" "main" {
   depends_on = [aws_iam_role_policy_attachment.api_gateway_cloudwatch]
 }
 
+# Allow time for the account-level CloudWatch role to propagate before the
+# stage attempts to enable access logging.
+resource "time_sleep" "api_gateway_account_propagation" {
+  create_duration = var.api_gateway_account_propagation_wait
+  depends_on      = [aws_api_gateway_account.main]
+}
+
 # CloudWatch Log Group for API Gateway access logs (FedRAMP AU-02)
 resource "aws_cloudwatch_log_group" "api_gateway_access" {
   name              = "/aws/api-gateway/${var.regional_id}/${var.stage_name}/access"
@@ -192,7 +199,7 @@ resource "aws_api_gateway_stage" "main" {
 
   depends_on = [
     aws_cloudwatch_log_group.api_gateway_access,
-    aws_api_gateway_account.main,
+    time_sleep.api_gateway_account_propagation,
   ]
 }
 

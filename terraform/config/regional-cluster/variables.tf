@@ -289,3 +289,26 @@ variable "thanos_service_account" {
 }
 
 
+variable "security_alert_email" {
+  description = "Email address for FedRAMP security alert notifications (AU-06). Leave empty to disable email subscription."
+  type        = string
+  default     = ""
+}
+
+variable "security_cloudtrail_log_group" {
+  description = "CloudWatch log group name where CloudTrail events are delivered (e.g. aws-controltower/CloudTrailLogs). Leave empty to disable the console sign-in failure metric filter — required for environments without Control Tower."
+  type        = string
+  default     = ""
+}
+
+variable "security_notification_endpoint" {
+  description = "Endpoint for security alert notifications (e.g. PagerDuty Events API v2 HTTPS URL, SQS ARN, or Lambda ARN). Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "security_notification_protocol" {
+  description = "SNS subscription protocol for security_notification_endpoint. One of: https, sqs, lambda."
+  type        = string
+  default     = "https"
+}

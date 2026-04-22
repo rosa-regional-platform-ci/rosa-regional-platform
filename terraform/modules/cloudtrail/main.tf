@@ -12,7 +12,8 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  log_retention_days = 365
+  log_retention_days   = 365
+  cloudtrail_trail_arn = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
 }
 
 # =============================================================================
@@ -49,7 +50,7 @@ resource "aws_kms_key" "cloudtrail" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+            "aws:SourceArn" = local.cloudtrail_trail_arn
           }
         }
       },
@@ -63,27 +64,7 @@ resource "aws_kms_key" "cloudtrail" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "kms:EncryptionContext:aws:cloudtrail:arn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
-          }
-        }
-      },
-      {
-        Sid    = "AllowCloudWatchLogs"
-        Effect = "Allow"
-        Principal = {
-          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
-        }
-        Action = [
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey"
-        ]
-        Resource = "*"
-        Condition = {
-          ArnLike = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/cloudtrail/${var.cluster_id}"
+            "kms:EncryptionContext:aws:cloudtrail:arn" = local.cloudtrail_trail_arn
           }
         }
       }
@@ -181,7 +162,7 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
         Resource = aws_s3_bucket.cloudtrail.arn
         Condition = {
           StringEquals = {
-            "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+            "aws:SourceArn" = local.cloudtrail_trail_arn
           }
         }
       },
@@ -196,7 +177,7 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
         Condition = {
           StringEquals = {
             "s3:x-amz-acl"  = "bucket-owner-full-control"
-            "aws:SourceArn" = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+            "aws:SourceArn" = local.cloudtrail_trail_arn
           }
         }
       }
@@ -234,7 +215,7 @@ resource "aws_iam_role" "cloudtrail_cloudwatch" {
         Action = "sts:AssumeRole"
         Condition = {
           StringEquals = {
-            "aws:SourceArn"     = "arn:${data.aws_partition.current.partition}:cloudtrail:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:trail/${var.cluster_id}-cloudtrail"
+            "aws:SourceArn"     = local.cloudtrail_trail_arn
             "aws:SourceAccount" = data.aws_caller_identity.current.account_id
           }
         }

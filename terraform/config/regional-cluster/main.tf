@@ -275,3 +275,28 @@ module "thanos_infrastructure" {
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
 }
+
+# =============================================================================
+# Security Monitoring Module (FedRAMP AU-06 / CA-07)
+# =============================================================================
+
+module "security_monitoring" {
+  source = "../../modules/security-monitoring"
+
+  cluster_id            = var.regional_id
+  alert_email           = var.security_alert_email
+  cloudtrail_log_group  = var.security_cloudtrail_log_group
+  notification_endpoint = var.security_notification_endpoint
+  notification_protocol = var.security_notification_protocol
+
+  # NIST 800-53 v5 and CIS 1.4 standards are only available in US and GovCloud
+  # regions. Disable for EU/AP/SA regions to prevent apply failures.
+  enable_security_hub_standards = can(regex("^(us|us-gov)-", var.region)) ? true : false
+
+  # The metric filter targets /aws/eks/${var.cluster_id}/cluster, a log group
+  # created by EKS when control-plane logging is enabled. Because the reference
+  # is a plain string (no Terraform resource attribute), Terraform cannot infer
+  # the dependency automatically — this explicit depends_on ensures the EKS
+  # cluster (and its log group) exists before the metric filter is created.
+  depends_on = [module.regional_cluster]
+}

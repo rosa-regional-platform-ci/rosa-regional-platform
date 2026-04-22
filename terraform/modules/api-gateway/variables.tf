@@ -166,3 +166,14 @@ variable "throttling_rate_limit" {
   type        = number
   default     = 100
 }
+
+variable "api_gateway_account_propagation_wait" {
+  description = "Duration to wait after setting the API Gateway account CloudWatch role to allow IAM propagation before enabling stage access logging (e.g. '15s', '30s')."
+  type        = string
+  default     = "15s"
+
+  validation {
+    condition     = can(regex("^\\d+(?:ns|us|ms|s|m|h)(?:\\d+(?:ns|us|ms|s|m|h))*$", var.api_gateway_account_propagation_wait))
+    error_message = "api_gateway_account_propagation_wait must be a valid Terraform duration (e.g. '15s', '1m30s')."
+  }
+}
