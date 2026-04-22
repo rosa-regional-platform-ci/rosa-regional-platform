@@ -12,8 +12,7 @@ data "aws_region" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  # FedRAMP AU-11 requires 365-day retention; only US regions are FedRAMP-scoped
-  log_retention_days = 365 # 365 days for all regions
+  log_retention_days = 365
 }
 
 # =============================================================================
@@ -107,7 +106,7 @@ resource "aws_kms_alias" "cloudtrail" {
 
 resource "aws_s3_bucket" "cloudtrail" {
   bucket        = "${var.cluster_id}-cloudtrail-${data.aws_caller_identity.current.account_id}"
-  force_destroy = var.environment == "ephemeral"
+  force_destroy = false
 
   tags = {
     Name = "${var.cluster_id}-cloudtrail"

@@ -7,8 +7,3 @@ variable "cluster_id" {
     error_message = "cluster_id must contain only lowercase letters, numbers, and hyphens."
   }
 }
-
-variable "environment" {
-  description = "Deployment environment name (e.g. 'ephemeral', 'integration', 'production'). The S3 bucket force_destroy is enabled only for ephemeral environments."
-  type        = string
-}
