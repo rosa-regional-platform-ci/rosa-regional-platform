@@ -106,7 +106,7 @@ resource "aws_kms_alias" "cloudtrail" {
 
 resource "aws_s3_bucket" "cloudtrail" {
   bucket        = "${var.cluster_id}-cloudtrail-${data.aws_caller_identity.current.account_id}"
-  force_destroy = var.force_destroy
+  force_destroy = false
 
   tags = {
     Name = "${var.cluster_id}-cloudtrail"
