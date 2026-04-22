@@ -27,8 +27,8 @@ resource "aws_vpc_security_group_egress_rule" "vpc_link_to_alb" {
   security_group_id            = aws_security_group.vpc_link.id
   description                  = "Allow traffic to ALB"
   ip_protocol                  = "tcp"
-  from_port                    = 80
-  to_port                      = 80
+  from_port                    = local.tls_enabled ? 443 : 80
+  to_port                      = local.tls_enabled ? 443 : 80
   referenced_security_group_id = aws_security_group.alb.id
 }
 
@@ -53,8 +53,8 @@ resource "aws_vpc_security_group_ingress_rule" "alb_from_vpc_link" {
   security_group_id            = aws_security_group.alb.id
   description                  = "Allow traffic from VPC Link"
   ip_protocol                  = "tcp"
-  from_port                    = 80
-  to_port                      = 80
+  from_port                    = local.tls_enabled ? 443 : 80
+  to_port                      = local.tls_enabled ? 443 : 80
   referenced_security_group_id = aws_security_group.vpc_link.id
 }
 
