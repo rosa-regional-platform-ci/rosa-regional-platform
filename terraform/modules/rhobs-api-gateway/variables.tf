@@ -22,6 +22,12 @@ variable "alb_dns_name" {
   type        = string
 }
 
+variable "alb_certificate_arn" {
+  description = "ACM certificate ARN for the internal ALB. When set, the integration URI uses HTTPS; otherwise HTTP."
+  type        = string
+  default     = ""
+}
+
 variable "stage_name" {
   description = "API Gateway stage name"
   type        = string

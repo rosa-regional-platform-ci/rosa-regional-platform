@@ -11,6 +11,12 @@
 
 data "aws_region" "current" {}
 
+locals {
+  alb_cert_arn = trim(var.alb_certificate_arn, " ")
+  tls_enabled  = local.alb_cert_arn != ""
+  lb_protocol  = local.tls_enabled ? "https" : "http"
+}
+
 # -----------------------------------------------------------------------------
 # REST API
 # -----------------------------------------------------------------------------
