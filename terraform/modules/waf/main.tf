@@ -7,6 +7,8 @@
 # limiting to mitigate volumetric DoS.
 # =============================================================================
 
+data "aws_region" "current" {}
+
 # =============================================================================
 # REGIONAL WAF Web ACL — for API Gateway
 # =============================================================================
@@ -186,7 +188,7 @@ resource "aws_cloudwatch_metric_alarm" "waf_rate_limit_blocked" {
 
   dimensions = {
     WebACL = aws_wafv2_web_acl.api_gateway.name
-    Region = "us-east-1"
+    Region = data.aws_region.current.id
     Rule   = "rate-limit-per-ip"
   }
 }
@@ -209,7 +211,7 @@ resource "aws_cloudwatch_metric_alarm" "waf_acl_blocked" {
 
   dimensions = {
     WebACL = aws_wafv2_web_acl.api_gateway.name
-    Region = "us-east-1"
+    Region = data.aws_region.current.id
     Rule   = "ALL"
   }
 }
