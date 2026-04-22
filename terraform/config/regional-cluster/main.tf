@@ -261,10 +261,10 @@ module "hyperfleet_infrastructure" {
 # =============================================================================
 
 module "cloudtrail" {
+  count  = var.environment != "ephemeral" ? 1 : 0
   source = "../../modules/cloudtrail"
 
-  cluster_id  = var.regional_id
-  environment = var.environment
+  cluster_id = var.regional_id
 }
 
 # =============================================================================
