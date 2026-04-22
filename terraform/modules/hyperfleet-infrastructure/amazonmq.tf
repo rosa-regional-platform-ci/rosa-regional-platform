@@ -78,6 +78,36 @@ resource "aws_kms_key" "hyperfleet_mq" {
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowAmazonMQ"
+        Effect = "Allow"
+        Principal = {
+          Service = "mq.amazonaws.com"
+        }
+        Action   = "kms:CreateGrant"
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService"    = "mq.${data.aws_region.current.id}.amazonaws.com"
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+
   tags = merge(
     local.common_tags,
     {
