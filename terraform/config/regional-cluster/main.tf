@@ -5,7 +5,7 @@ provider "aws" {
   # calls from Terraform when operating in US and GovCloud regions where FIPS
   # endpoints are available. Non-US regions (EU, AP, SA, etc.) do not have FIPS
   # endpoints; enabling them there would cause all API calls to fail.
-  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
+  use_fips_endpoint = local.is_us_region
 
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
@@ -13,7 +13,7 @@ provider "aws" {
   dynamic "assume_role" {
     for_each = var.target_account_id != "" ? [1] : []
     content {
-      role_arn     = "arn:aws:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
+      role_arn     = "arn:${local.aws_partition}:iam::${var.target_account_id}:role/OrganizationAccountAccessRole"
       session_name = "terraform-regional-${var.regional_id}"
     }
   }
@@ -36,7 +36,7 @@ provider "aws" {
   alias             = "central"
   region            = var.region
   profile           = var.central_aws_profile != "" ? var.central_aws_profile : null
-  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
+  use_fips_endpoint = local.is_us_region
 }
 
 # =============================================================================
@@ -44,6 +44,13 @@ provider "aws" {
 # =============================================================================
 
 data "aws_caller_identity" "current" {}
+data "aws_partition" "current" {}
+
+locals {
+  us_regions    = ["us-east-1", "us-east-2", "us-west-1", "us-west-2", "us-gov-east-1", "us-gov-west-1"]
+  is_us_region  = contains(local.us_regions, var.region)
+  aws_partition = startswith(var.region, "us-gov-") ? "aws-us-gov" : "aws"
+}
 
 # Call the EKS cluster module for regional cluster infrastructure
 module "regional_cluster" {
@@ -250,10 +257,6 @@ module "hyperfleet_infrastructure" {
 }
 
 # =============================================================================
-# Thanos Infrastructure Module (Observability)
-# =============================================================================
-
-# =============================================================================
 # CloudTrail Module (FedRAMP AU-12)
 # =============================================================================
 
@@ -263,6 +266,22 @@ module "cloudtrail" {
   cluster_id  = var.regional_id
   environment = var.environment
 }
+
+# =============================================================================
+# Vulnerability Scanning Module (FedRAMP RA-05 / SI-02, US regions only)
+# =============================================================================
+
+module "vulnerability_scanning" {
+  count  = trimspace(var.vulnerability_alerts_topic_arn) != "" ? 1 : 0
+  source = "../../modules/vulnerability-scanning"
+
+  cluster_id                = var.regional_id
+  security_alerts_topic_arn = var.vulnerability_alerts_topic_arn
+}
+
+# =============================================================================
+# Thanos Infrastructure Module (Observability)
+# =============================================================================
 
 module "thanos_infrastructure" {
   source = "../../modules/thanos-infrastructure"
