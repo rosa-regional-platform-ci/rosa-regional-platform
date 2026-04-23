@@ -200,6 +200,8 @@ destroy_pipeline() {
 # custom config. Passed as a CodePipeline variable from ci/e2e.sh.
 FORCE_DELETE_ALL_PIPELINES="${FORCE_DELETE_ALL_PIPELINES:-false}"
 echo "Force delete all pipelines: $FORCE_DELETE_ALL_PIPELINES"
+
+PROVISION_FAILURES=0
 # --- END TEMPORARY CI HACK ---
 
 echo "Processing environment: $ENVIRONMENT"
@@ -372,6 +374,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             else
                 cd ../../..
                 echo "❌ Failed to create regional pipeline for ${ENVIRONMENT}-${REGION_DEPLOYMENT} after retries"
+                PROVISION_FAILURES=$((PROVISION_FAILURES + 1))
                 echo "⏭️  Continuing with next region..."
                 continue
             fi
@@ -471,6 +474,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 else
                     cd ../../..
                     echo "❌ Failed to create management pipeline for $CLUSTER_NAME after retries"
+                    PROVISION_FAILURES=$((PROVISION_FAILURES + 1))
                     echo "⏭️  Continuing with next management cluster..."
                     continue
                 fi
@@ -482,3 +486,8 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
 
     echo ""
 done
+
+if [ "$PROVISION_FAILURES" -gt 0 ]; then
+    echo "❌ Pipeline provisioning completed with $PROVISION_FAILURES failure(s)"
+    exit 1
+fi
