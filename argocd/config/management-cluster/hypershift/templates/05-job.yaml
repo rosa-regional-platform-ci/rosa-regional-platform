@@ -40,11 +40,20 @@ spec:
         - /bin/sh
         - -c
         - |
+          # hack(typeid): 
+          # The operator validates AWS_SHARED_CREDENTIALS_FILE is set for private
+          # clusters, but actual auth is handled by EKS Pod Identity. Create a
+          # placeholder file to satisfy the check.
+          mkdir -p /tmp/aws
+          echo -e "[default]\n# pod identity handles auth" > /tmp/aws/credentials
           hypershift install \
             --namespace hypershift \
             --enable-conversion-webhook=false \
             --hypershift-image {{ .Values.hypershift.hypershift.image }} \
             --limit-crd-install AWS \
+            --private-platform AWS \
+            --aws-private-creds /tmp/aws/credentials \
+            --aws-private-region {{ .Values.hypershift.region }} \
             --oidc-storage-provider-s3-bucket-name $(OIDC_BUCKET_NAME) \
             --oidc-storage-provider-s3-region $(OIDC_BUCKET_REGION) \
             --external-dns-provider aws \
