@@ -150,7 +150,7 @@ duration_seconds = 3600
 AWSCFG
 
     echo "AWS config written to: $AWS_CONFIG_FILE"
-    trap "rm -rf '${_aws_config_dir}'" EXIT
+    trap 'rm -rf "${_aws_config_dir:-}" "${_CONTAINER_CONFIG:-}"' EXIT
 }
 
 # Resolve temporary credentials from an AWS profile for container injection.
