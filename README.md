@@ -39,3 +39,4 @@ For local development and testing, use the ephemeral workflow to provision a sho
 CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system (Prow + ci-operator). The job configuration lives in [openshift/release](https://github.com/openshift/release/tree/master/ci-operator/config/openshift-online/rosa-regional-platform).
 
 For the list of jobs, how to trigger them, AWS credentials setup, and local execution, see [ci/README.md](ci/README.md).
+.
