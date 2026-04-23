@@ -156,6 +156,10 @@ resource "aws_s3_bucket" "pipeline_artifact" {
     create = "30s" # Fail fast if bucket creation hangs (explicit names should be instant)
     delete = "2m"
   }
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_s3_bucket_versioning" "pipeline_artifact" {
