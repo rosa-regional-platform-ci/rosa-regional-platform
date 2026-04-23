@@ -522,7 +522,8 @@ cmd_provision() {
     # Run the ephemeral provider
     local tmpdir
     tmpdir=$(mktemp -d)
-    trap 'rm -rf "${tmpdir:-}" "${_CONTAINER_CONFIG:-}"' EXIT
+    _prev_trap=$(trap -p EXIT | sed "s/^trap -- '//;s/' EXIT$//")
+    trap 'rm -rf "${tmpdir:-}"; eval "$_prev_trap"' EXIT
 
     local rc=0
     # shellcheck disable=SC2086
