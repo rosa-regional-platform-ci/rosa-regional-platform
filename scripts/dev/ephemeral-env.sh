@@ -387,7 +387,7 @@ ensure_image() {
 # Check that required CLI tools are available.
 preflight() {
     local missing=""
-    for tool in vault git python3; do
+    for tool in vault git python3 fzf; do
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     [[ -n "$CONTAINER_ENGINE" ]] || missing="$missing podman/docker"
