@@ -1,15 +1,18 @@
 #!/bin/bash
 # Run e2e API tests from rosa-regional-platform-api against the provisioned environment.
 #
-# AWS credentials are expected via AWS profiles (AWS_CONFIG_FILE must be set).
-# In CI, source ci/setup-aws-profiles.sh before running this script.
-#
 # API URL resolution (first match wins):
 #   1. BASE_URL env var            — set by local wrapper scripts (ephemeral-env.sh, int-env.sh)
 #   2. CI_SECRETS_DIR/api_url file — Prow-mounted secret for the standing int environment
 #   3. SHARED_DIR terraform output — written by ephemeral-provider during CI provisioning
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Generate AWS profiles from Prow-mounted credential files.
+# Each Prow step runs in its own pod, so profiles must be set up here.
+source "${SCRIPT_DIR}/setup-aws-profiles.sh"
 
 # CI_SECRETS_DIR points to Prow-mounted secrets. Only used for the api_url file;
 # credentials come from AWS profiles, not from this directory.
