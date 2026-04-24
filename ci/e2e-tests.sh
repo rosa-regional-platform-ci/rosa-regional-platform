@@ -1,20 +1,31 @@
 #!/bin/bash
 # Run e2e API tests from rosa-regional-platform-api against the provisioned environment.
-# API URL is read from ${CREDS_DIR}/api_url if available, otherwise from
-# SHARED_DIR/regional-terraform-outputs.json (written by ci/ephemeral-provider/main.py --save-state).
+#
+# API URL resolution (first match wins):
+#   1. BASE_URL env var            — set by local wrapper scripts (ephemeral-env.sh, int-env.sh)
+#   2. CI_SECRETS_DIR/api_url file — Prow-mounted secret for the standing int environment
+#   3. SHARED_DIR terraform output — written by ephemeral-provider during CI provisioning
 
 set -euo pipefail
 
-CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Generate AWS profiles from Prow-mounted credential files.
+# Each Prow step runs in its own pod, so profiles must be set up here.
+source "${SCRIPT_DIR}/setup-aws-profiles.sh"
+
+# CI_SECRETS_DIR points to Prow-mounted secrets. Only used for the api_url file;
+# credentials come from AWS profiles, not from this directory.
+CI_SECRETS_DIR="${CI_SECRETS_DIR:-/var/run/rosa-credentials}"
 
 if [[ -n "${BASE_URL:-}" ]]; then
   echo "Using BASE_URL from environment: ${BASE_URL}"
 else
-  if [[ -r "${CREDS_DIR}/api_url" ]]; then
-    echo "Using API URL from ${CREDS_DIR}/api_url (pre-existing environment)"
-    BASE_URL="$(cat "${CREDS_DIR}/api_url")"
+  if [[ -r "${CI_SECRETS_DIR}/api_url" ]]; then
+    echo "Using API URL from ${CI_SECRETS_DIR}/api_url (CI pre-existing environment)"
+    BASE_URL="$(cat "${CI_SECRETS_DIR}/api_url")"
   else
-    echo "No ${CREDS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
+    echo "No ${CI_SECRETS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
     TF_OUTPUTS="${SHARED_DIR}/regional-terraform-outputs.json"
     if [[ ! -r "${TF_OUTPUTS}" ]]; then
       echo "ERROR: ${TF_OUTPUTS} does not exist or is not readable" >&2
@@ -30,15 +41,9 @@ fi
 export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
-# Set up AWS credentials for authenticated API calls (e.g. aws sts get-caller-identity)
-if [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
-  export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
-  export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
-  export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
-  echo "AWS credentials loaded from ${CREDS_DIR}"
-else
-  echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
-fi
+# Use the regional account profile for authenticated API calls
+export AWS_PROFILE="rrp-rc"
+export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 E2E_REF="${E2E_REF:-main}"
@@ -61,7 +66,7 @@ if [[ $rc -ne 0 ]]; then
 
     # Pre-existing environment (integration): bare cluster names (regional, mc01)
     # Ephemeral environment: ci_prefix-based names derived from BUILD_ID
-    if [[ -r "${CREDS_DIR}/api_url" ]]; then
+    if [[ -r "${CI_SECRETS_DIR}/api_url" ]]; then
         export CLUSTER_PREFIX=""
     elif [[ -n "${BUILD_ID:-}" ]]; then
         hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \

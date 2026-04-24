@@ -9,5 +9,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
+# Generate AWS profiles from Prow-mounted credential files.
+source ci/setup-aws-profiles.sh
+
 echo "Running load tests..."
 ./ci/load-test/run-load-test.sh
