@@ -92,7 +92,6 @@ spec:
           annotations:
             hyperfleet.io/generation: "{{ .generationId }}"
             hypershift.openshift.io/pod-security-admission-label-override: privileged
-            hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
         spec:
           infraID: "{{ .clusterId | lower }}"
           dns:
