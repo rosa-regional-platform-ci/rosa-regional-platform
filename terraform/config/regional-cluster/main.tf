@@ -250,6 +250,15 @@ module "hyperfleet_infrastructure" {
 }
 
 # =============================================================================
+# CloudWatch Exporter (Pod Identity for YACE)
+# =============================================================================
+
+module "cloudwatch_exporter" {
+  source       = "../../modules/cloudwatch-exporter"
+  cluster_name = module.regional_cluster.cluster_name
+}
+
+# =============================================================================
 # Thanos Infrastructure Module (Observability)
 # =============================================================================
 

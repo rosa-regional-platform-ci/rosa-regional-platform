@@ -1,0 +1,50 @@
+prometheus-yet-another-cloudwatch-exporter:
+  fullnameOverride: cloudwatch-exporter
+
+  serviceAccount:
+    create: true
+    name: cloudwatch-exporter
+
+  # Disable the subchart's built-in ConfigMap — we provide our own via
+  # templates/configmap.yaml so the region can be templated from
+  # global.aws_region injected by the ApplicationSet.
+  configMap:
+    enabled: false
+
+  # FedRAMP SC-13 / IA-07: Use FIPS 140-2 validated AWS API endpoints.
+  # YACE's -fips flag switches the AWS SDK to FIPS endpoints for all
+  # CloudWatch and tagging API calls.
+  extraArgs:
+    fips: true
+    scraping-interval: 120
+
+  serviceMonitor:
+    enabled: true
+
+  # FedRAMP: non-root with read-only root filesystem
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+  aws:
+    role: ""
