@@ -29,8 +29,6 @@ prometheus-yet-another-cloudwatch-exporter:
         metrics:
           - name: CPUUtilization
             statistics: [Average]
-          - name: BurstBalance
-            statistics: [Average]
           - name: FreeableMemory
             statistics: [Average]
           - name: SwapUsage
@@ -51,6 +49,7 @@ prometheus-yet-another-cloudwatch-exporter:
             statistics: [Average]
           - name: Deadlocks
             statistics: [Sum]
+            nilToZero: true
           - name: MaximumUsedTransactionIDs
             statistics: [Average]
           - name: NetworkReceiveThroughput
@@ -71,8 +70,6 @@ prometheus-yet-another-cloudwatch-exporter:
         metrics:
           - name: CPUUtilization
             statistics: [Average]
-          - name: BurstBalance
-            statistics: [Average]
           - name: FreeableMemory
             statistics: [Average]
           - name: SwapUsage
@@ -93,6 +90,7 @@ prometheus-yet-another-cloudwatch-exporter:
             statistics: [Average]
           - name: Deadlocks
             statistics: [Sum]
+            nilToZero: true
           - name: MaximumUsedTransactionIDs
             statistics: [Average]
           - name: NetworkReceiveThroughput
@@ -130,6 +128,29 @@ prometheus-yet-another-cloudwatch-exporter:
         dimensions:
           - name: ApiName
             value: {{ .Values.global.cluster_name }}-api
+        period: 120
+        length: 120
+        delay: 120
+        nilToZero: true
+        metrics:
+          - name: Count
+            statistics: [SampleCount]
+          - name: Latency
+            statistics: [Average, p50, p99]
+          - name: IntegrationLatency
+            statistics: [Average, p50, p99]
+          - name: 4XXError
+            statistics: [Sum]
+          - name: 5XXError
+            statistics: [Sum]
+
+      - namespace: AWS/ApiGateway
+        name: {{ .Values.global.cluster_name }}-rhobs-api
+        regions:
+          - {{ .Values.global.aws_region }}
+        dimensions:
+          - name: ApiName
+            value: {{ .Values.global.cluster_name }}-rhobs-api
         period: 120
         length: 120
         delay: 120
