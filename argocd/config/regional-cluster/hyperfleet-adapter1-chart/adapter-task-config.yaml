@@ -58,6 +58,12 @@ spec:
               ? spec.region
               : "us-east-1"
           description: "Region of the cluster"
+        - name: "zone"
+          expression: |
+            has(spec.zone) && spec.zone != ""
+              ? spec.zone
+              : "us-east-1a"
+          description: "Availability zone of the cluster"
         - name: "vpcId"
           expression: |
             has(spec.vpcId) && spec.vpcId != ""
@@ -277,6 +283,7 @@ spec:
                     aws:
                       region: "{{ .region }}"
                       cloudProviderConfig:
+                        zone: "{{ .zone }}"
                         vpc: "{{ .vpcId }}"
                         subnet:
                           id: "{{ .subnetId }}"

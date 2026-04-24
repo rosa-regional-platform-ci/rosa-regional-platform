@@ -56,6 +56,7 @@ spec:
             --aws-private-region {{ .Values.hypershift.region }} \
             --oidc-storage-provider-s3-bucket-name $(OIDC_BUCKET_NAME) \
             --oidc-storage-provider-s3-region $(OIDC_BUCKET_REGION) \
+            --oidc-storage-provider-s3-credentials /tmp/aws/credentials \
             --external-dns-provider aws \
             --external-dns-domain-filter {{ .Values.hypershift.externalDns.domain }} \
             --external-dns-secret external-dns \

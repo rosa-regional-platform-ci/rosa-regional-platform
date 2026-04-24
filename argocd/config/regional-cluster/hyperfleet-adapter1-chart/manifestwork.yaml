@@ -115,6 +115,7 @@ spec:
             aws:
               region: us-east-2
               cloudProviderConfig:
+                zone: "{{ .zone }}"
                 vpc: vpc-079c97f14c382addd
                 subnet:
                   id: subnet-06facdd1662309198
@@ -187,6 +188,36 @@ spec:
         type: Opaque
         data:
           id_rsa.pub: ""
+
+      # Workaround: CPO informer blocks on SecretProviderClass when running on
+      # non-OpenShift management clusters (EKS). Fixed on HyperShift main
+      # (952d98ba3) but not backported to 4.21. Remove once the release payload
+      # includes the fix or when we bump our HCP to 4.22.
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        metadata:
+          name: cpo-secretproviderclass-reader
+          labels:
+            hyperfleet.io/component: "infrastructure"
+        rules:
+          - apiGroups: ["secrets-store.csi.x-k8s.io"]
+            resources: ["secretproviderclasses"]
+            verbs: ["get", "list", "watch"]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: "cpo-secretproviderclass-reader-{{ .clusterId | lower }}"
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+            hyperfleet.io/component: "infrastructure"
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: cpo-secretproviderclass-reader
+        subjects:
+          - kind: ServiceAccount
+            name: control-plane-operator
+            namespace: "clusters-{{ .clusterId | lower }}-{{ .clusterName }}"
 
   deleteOption:
     propagationPolicy: "Foreground"
