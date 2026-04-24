@@ -26,15 +26,33 @@ data:
         metrics:
           - name: CPUUtilization
             statistics: [Average]
+          - name: BurstBalance
+            statistics: [Average]
           - name: FreeableMemory
+            statistics: [Average]
+          - name: SwapUsage
+            statistics: [Average]
+          - name: FreeStorageSpace
             statistics: [Average]
           - name: DatabaseConnections
             statistics: [Sum]
+          - name: DiskQueueDepth
+            statistics: [Average]
+          - name: ReadIOPS
+            statistics: [Average]
+          - name: WriteIOPS
+            statistics: [Average]
           - name: ReadLatency
             statistics: [Average]
           - name: WriteLatency
             statistics: [Average]
-          - name: FreeStorageSpace
+          - name: Deadlocks
+            statistics: [Sum]
+          - name: MaximumUsedTransactionIDs
+            statistics: [Average]
+          - name: NetworkReceiveThroughput
+            statistics: [Average]
+          - name: NetworkTransmitThroughput
             statistics: [Average]
 
       - namespace: AWS/RDS
@@ -50,15 +68,33 @@ data:
         metrics:
           - name: CPUUtilization
             statistics: [Average]
+          - name: BurstBalance
+            statistics: [Average]
           - name: FreeableMemory
+            statistics: [Average]
+          - name: SwapUsage
+            statistics: [Average]
+          - name: FreeStorageSpace
             statistics: [Average]
           - name: DatabaseConnections
             statistics: [Sum]
+          - name: DiskQueueDepth
+            statistics: [Average]
+          - name: ReadIOPS
+            statistics: [Average]
+          - name: WriteIOPS
+            statistics: [Average]
           - name: ReadLatency
             statistics: [Average]
           - name: WriteLatency
             statistics: [Average]
-          - name: FreeStorageSpace
+          - name: Deadlocks
+            statistics: [Sum]
+          - name: MaximumUsedTransactionIDs
+            statistics: [Average]
+          - name: NetworkReceiveThroughput
+            statistics: [Average]
+          - name: NetworkTransmitThroughput
             statistics: [Average]
 
       - namespace: AWS/EKS
@@ -84,24 +120,110 @@ data:
           - name: scheduler_pending_pods_GATED
             statistics: [Sum]
 
-    {{- if .Values.apiGatewayId }}
       - namespace: AWS/ApiGateway
         name: {{ $clusterName }}-api
         regions:
           - {{ $region }}
         dimensions:
-          - name: ApiId
-            value: {{ .Values.apiGatewayId }}
+          - name: ApiName
+            value: {{ $clusterName }}-api
         period: 120
         length: 120
         delay: 120
+        nilToZero: true
         metrics:
           - name: Count
             statistics: [SampleCount]
           - name: Latency
-            statistics: [Average, p99]
+            statistics: [Average, p50, p99]
+          - name: IntegrationLatency
+            statistics: [Average, p50, p99]
           - name: 4XXError
             statistics: [Sum]
           - name: 5XXError
             statistics: [Sum]
-    {{- end }}
+
+    discovery:
+      jobs:
+        - type: AWS/NATGateway
+          regions:
+            - {{ $region }}
+          searchTags:
+            - key: Name
+              value: ^{{ $clusterName }}-nat-gw-
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: PacketsDropCount
+              statistics: [Sum]
+              nilToZero: true
+            - name: ErrorPortAllocation
+              statistics: [Sum]
+              nilToZero: true
+            - name: ActiveConnectionCount
+              statistics: [Maximum]
+              nilToZero: true
+
+        - type: AWS/IoT
+          regions:
+            - {{ $region }}
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: Connect.Success
+              statistics: [Sum]
+              nilToZero: true
+            - name: Connect.AuthError
+              statistics: [Sum]
+              nilToZero: true
+            - name: PublishIn.Success
+              statistics: [Sum]
+              nilToZero: true
+            - name: PublishOut.Success
+              statistics: [Sum]
+              nilToZero: true
+
+        - type: AWS/AmazonMQ
+          regions:
+            - {{ $region }}
+          searchTags:
+            - key: Name
+              value: ^{{ $clusterName }}-hyperfleet-mq$
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: MessageCount
+              statistics: [Average]
+              nilToZero: true
+            - name: MessageUnacknowledgedCount
+              statistics: [Average]
+              nilToZero: true
+            - name: ConsumerCount
+              statistics: [Average]
+              nilToZero: true
+            - name: QueueCount
+              statistics: [Average]
+              nilToZero: true
+            - name: NetworkIn
+              statistics: [Average]
+              nilToZero: true
+            - name: NetworkOut
+              statistics: [Average]
+              nilToZero: true
+
+        - type: AWS/CertificateManager
+          regions:
+            - {{ $region }}
+          searchTags:
+            - key: Name
+              value: ^{{ $clusterName }}-api-cert$
+          period: 86400
+          length: 86400
+          delay: 3600
+          metrics:
+            - name: DaysToExpiry
+              statistics: [Minimum]
+              nilToZero: true

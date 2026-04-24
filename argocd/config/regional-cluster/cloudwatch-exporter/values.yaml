@@ -48,9 +48,3 @@ prometheus-yet-another-cloudwatch-exporter:
 
   aws:
     role: ""
-
-# API Gateway REST API ID — required for API Gateway metrics.
-# This is the API ID (e.g. "nass3jvo36"), not the name.
-# Injected by the ApplicationSet from Terraform outputs.
-# When empty, API Gateway metrics are skipped.
-apiGatewayId: ""
