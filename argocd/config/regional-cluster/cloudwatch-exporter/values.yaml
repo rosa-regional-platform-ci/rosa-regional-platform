@@ -167,6 +167,27 @@ prometheus-yet-another-cloudwatch-exporter:
           - name: 5XXError
             statistics: [Sum]
 
+      - namespace: AWS/IoT
+        name: iot-mqtt
+        regions:
+          - {{ .Values.global.aws_region }}
+        dimensions:
+          - name: Protocol
+            value: MQTT
+        period: 120
+        length: 120
+        delay: 120
+        nilToZero: true
+        metrics:
+          - name: Connect.Success
+            statistics: [Sum]
+          - name: Connect.AuthError
+            statistics: [Sum]
+          - name: PublishIn.Success
+            statistics: [Sum]
+          - name: PublishOut.Success
+            statistics: [Sum]
+
     discovery:
       jobs:
         - type: AWS/NATGateway
@@ -187,26 +208,6 @@ prometheus-yet-another-cloudwatch-exporter:
               nilToZero: true
             - name: ActiveConnectionCount
               statistics: [Maximum]
-              nilToZero: true
-
-        - type: AWS/IoT
-          regions:
-            - {{ .Values.global.aws_region }}
-          period: 120
-          length: 120
-          delay: 120
-          metrics:
-            - name: Connect.Success
-              statistics: [Sum]
-              nilToZero: true
-            - name: Connect.AuthError
-              statistics: [Sum]
-              nilToZero: true
-            - name: PublishIn.Success
-              statistics: [Sum]
-              nilToZero: true
-            - name: PublishOut.Success
-              statistics: [Sum]
               nilToZero: true
 
         - type: AWS/AmazonMQ
