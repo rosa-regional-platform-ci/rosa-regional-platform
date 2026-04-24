@@ -199,7 +199,7 @@ class EphemeralEnvOrchestrator:
         log.info("Setup: AWS Credentials")
         log.info("==========================================")
 
-        self.aws = AWSCredentials(self.creds_dir, self.region)
+        self.aws = AWSCredentials(self.region)
         self.aws.setup_central_account()
 
     def _inject_ephemeral_config(self, git: GitManager):

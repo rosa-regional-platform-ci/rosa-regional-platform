@@ -12,6 +12,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
+# Generate AWS profiles from Prow-mounted credential files.
+source ci/setup-aws-profiles.sh
+
 # Teardown does not require a machine type override — the environment is
 # identified by BUILD_ID/eph-prefix, not by instance types.
 if [[ "${1:-}" == "--teardown" ]] || [[ "${1:-}" == "--teardown-fire-and-forget" ]]; then

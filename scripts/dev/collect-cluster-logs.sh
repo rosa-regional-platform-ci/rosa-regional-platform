@@ -2,7 +2,7 @@
 # Collect RC and MC kubernetes logs via the log-collector ECS task.
 #
 # This script is the single implementation for log collection, used by both
-# the local dev CLI (ephemeral-env.sh) and CI (ci/e2e-tests.sh).
+# the local dev CLI (ephemeral-env.sh, int-env.sh) and CI (ci/e2e-tests.sh).
 #
 # Callers set CLUSTER_PREFIX to control cluster name resolution:
 #   - Ephemeral: CLUSTER_PREFIX="eph-a1b2c3-" → eph-a1b2c3-regional, eph-a1b2c3-mc01
@@ -15,14 +15,8 @@
 #   collect-cluster-logs.sh [regional|management|all]
 #
 # Required environment variables:
-#   CLUSTER_PREFIX  — Cluster name prefix (e.g. "eph-a1b2c3-" for ephemeral envs or "" for bare names)
-#
-# Credentials (one of the following):
-#   REGIONAL_AK / REGIONAL_SK   — Direct credential env vars (dev workflow)
-#   MANAGEMENT_AK / MANAGEMENT_SK
-#     -- or --
-#   CREDS_DIR                   — Directory with credential files (CI workflow)
-#                                 (regional_access_key, management_access_key, etc.)
+#   CLUSTER_PREFIX  — Cluster name prefix (e.g. "ci-a1b2c3-" or "" for bare names)
+#   AWS_CONFIG_FILE — Path to AWS config with rrp-rc and rrp-mc profiles
 #
 # Optional:
 #   LOG_OUTPUT_DIR  — Output directory (default: /tmp/<prefix>logs-<timestamp>)
@@ -36,10 +30,8 @@
 
 set -uo pipefail
 
-CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
-
-RC_NAMESPACES="all"
-MC_NAMESPACES="all"
+RC_NAMESPACES="ns/argocd ns/maestro-server ns/platform-api ns/hyperfleet-system ns/monitoring"
+MC_NAMESPACES="ns/argocd ns/hypershift ns/maestro-agent ns/monitoring ns/cert-manager"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -68,34 +60,15 @@ redact_logs() {
     done
 }
 
-# Set AWS credentials for a given account type ("regional" or "management").
-# Prefers direct env vars (REGIONAL_AK/SK), falls back to CREDS_DIR files.
-setup_aws_creds() {
+# Switch AWS credentials by setting the active profile.
+# Expects AWS_CONFIG_FILE to point at a config with rrp-rc and rrp-mc profiles.
+use_profile() {
     local account_type="$1"
-
-    if [[ "$account_type" == "regional" ]]; then
-        if [[ -n "${REGIONAL_AK:-}" && -n "${REGIONAL_SK:-}" ]]; then
-            export AWS_ACCESS_KEY_ID="$REGIONAL_AK"
-            export AWS_SECRET_ACCESS_KEY="$REGIONAL_SK"
-        elif [[ -r "${CREDS_DIR}/regional_access_key" && -r "${CREDS_DIR}/regional_secret_key" ]]; then
-            export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
-            export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
-        else
-            echo "  No credentials available for regional account"
-            return 1
-        fi
-    else
-        if [[ -n "${MANAGEMENT_AK:-}" && -n "${MANAGEMENT_SK:-}" ]]; then
-            export AWS_ACCESS_KEY_ID="$MANAGEMENT_AK"
-            export AWS_SECRET_ACCESS_KEY="$MANAGEMENT_SK"
-        elif [[ -r "${CREDS_DIR}/management_access_key" && -r "${CREDS_DIR}/management_secret_key" ]]; then
-            export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/management_access_key")"
-            export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/management_secret_key")"
-        else
-            echo "  No credentials available for management account"
-            return 1
-        fi
-    fi
+    case "$account_type" in
+        regional)   export AWS_PROFILE="rrp-rc" ;;
+        management) export AWS_PROFILE="rrp-mc" ;;
+        *) echo "  Unknown account type: $account_type"; return 1 ;;
+    esac
 }
 
 # Ensure the log-collection S3 bucket exists (account-regional namespace).
@@ -318,7 +291,7 @@ failed=0
 # --- Regional cluster (one per environment) ---
 if [[ "$CLUSTER_SCOPE" == "all" || "$CLUSTER_SCOPE" == "regional" ]]; then
     echo ""
-    if setup_aws_creds "regional"; then
+    if use_profile "regional"; then
         collect_logs_for_cluster "${PREFIX}regional" "$RC_NAMESPACES" "${OUTPUT_DIR}/rc" || failed=1
     else
         failed=1
@@ -328,7 +301,7 @@ fi
 # --- Management clusters (dynamically discovered) ---
 if [[ "$CLUSTER_SCOPE" == "all" || "$CLUSTER_SCOPE" == "management" ]]; then
     echo ""
-    if setup_aws_creds "management"; then
+    if use_profile "management"; then
         mc_clusters=$(discover_mc_clusters "$PREFIX")
         if [[ -z "$mc_clusters" ]]; then
             echo "  No management clusters found matching '${PREFIX}mc*'"
