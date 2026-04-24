@@ -277,9 +277,12 @@
           div.setAttribute("data-state-key", stateKey);
           div.setAttribute("data-repo", repoName);
 
+          var repoFullName = "openshift-online/" + repoName;
           var h3 = document.createElement("h3");
           h3.innerHTML =
+            '<a class="pr-title" href="https://github.com/' + esc(repoFullName) + '/pulls" target="_blank" rel="noopener">' +
             esc(shortName) +
+            "</a>" +
             ' <span class="count">' +
             repoPrs.length +
             "</span>";
