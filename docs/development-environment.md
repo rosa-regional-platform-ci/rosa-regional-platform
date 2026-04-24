@@ -4,6 +4,20 @@ Ephemeral environments are short-lived, isolated stacks for developing and testi
 
 Each environment gets a unique ID that prefixes all provisioned resources, keeping environments isolated from each other. The ephemeral provider creates a managed clone of your remote branch and uses it to drive provisioning and ArgoCD syncs. To push subsequent changes into a running environment, use [Resync](#resync).
 
+## Prerequisites
+
+The following tools must be in `PATH` for all ephemeral environment commands:
+
+| Tool              | Purpose                                     |
+| ----------------- | ------------------------------------------- |
+| `vault`           | Fetching AWS credentials                    |
+| `git`             | Repository operations                       |
+| `python3`         | Config rendering                            |
+| `fzf`             | Interactive selection menus                 |
+| `podman`/`docker` | Running the ephemeral environment container |
+
+Port forwarding additionally requires `aws` and `lsof`.
+
 ## Provision
 
 > ⚠️ _Ensure your changes are pushed to the remote branch before provisioning — the environment is built from the remote ref, not your local working tree._
