@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Review Dashboard - ROSA Regional Platform</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path fill='%230969da' d='M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z'/></svg>" />
+    <title>PR Dashboard - ROSA Regional Platform</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -186,7 +187,7 @@
   </head>
   <body>
     <header>
-      <h1>Review Dashboard</h1>
+      <h1>PR Dashboard</h1>
       <div class="subtitle">ROSA Regional Platform</div>
       <div class="header-row">
         <span class="updated" id="updated"></span>
@@ -201,6 +202,10 @@
       <section class="label-section">
         <h2>Discussion Needed <span class="count" id="dn-count">-</span></h2>
         <div id="discussion-needed"><span class="empty">Loading...</span></div>
+      </section>
+      <section class="label-section">
+        <h2>Automated & AI PRs <span class="count" id="okt-count">-</span></h2>
+        <div id="needs-ok-to-test"><span class="empty">Loading...</span></div>
       </section>
     </main>
     <script>
@@ -226,6 +231,7 @@
             esc(err.message) +
             "</div>";
           document.getElementById("discussion-needed").innerHTML = "";
+          document.getElementById("needs-ok-to-test").innerHTML = "";
         });
 
       function render(data) {
@@ -235,8 +241,11 @@
           data.review_ready.length;
         document.getElementById("dn-count").textContent =
           data.discussion_needed.length;
+        document.getElementById("okt-count").textContent =
+          data.needs_ok_to_test.length;
         renderSection("review-ready", data.review_ready);
         renderSection("discussion-needed", data.discussion_needed);
+        renderSection("needs-ok-to-test", data.needs_ok_to_test);
       }
 
       function renderSection(containerId, prs) {
