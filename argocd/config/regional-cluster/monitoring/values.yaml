@@ -7,7 +7,29 @@ kube-prometheus-stack:
 
   alertmanager:
     enabled: true
+    config:
+      route:
+        receiver: pagerduty
+        group_by: ['alertname', 'namespace']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 4h
+        routes:
+          - receiver: "null"
+            matchers:
+              - alertname = "Watchdog"
+          - receiver: "null"
+            matchers:
+              - alertname = "InfoInhibitor"
+      receivers:
+        - name: "null"
+        - name: pagerduty
+          pagerduty_configs:
+            - routing_key_file: /etc/alertmanager/secrets/pagerduty-integration-key/integration_key
+              send_resolved: true
     alertmanagerSpec:
+      secrets:
+        - pagerduty-integration-key
       replicas: 2
       resources:
         requests:
