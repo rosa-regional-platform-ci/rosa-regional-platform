@@ -80,6 +80,7 @@ spec:
             hyperfleetAdapter:
               aws:
                 region: '{{ .metadata.labels.aws_region }}'
+            apiGatewayId: '{{ .metadata.annotations.api_gateway_id }}'
         path: '{{ .path.path }}'
         repoURL: '{{ .metadata.annotations.git_repo }}'
         targetRevision: '{{ .metadata.annotations.git_revision }}'
