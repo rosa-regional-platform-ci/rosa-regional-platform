@@ -1,3 +1,5 @@
+{{- $region := required "global.aws_region is required" .Values.global.aws_region }}
+{{- $clusterName := required "global.cluster_name is required" .Values.global.cluster_name }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,92 +11,97 @@ metadata:
 data:
   config.yml: |
     apiVersion: v1alpha1
-    sts-region: {{ required "global.aws_region is required" .Values.global.aws_region }}
-    discovery:
-      jobs:
-        - type: AWS/ApiGateway
-          regions:
-            - {{ .Values.global.aws_region }}
-          period: 120
-          length: 120
-          delay: 120
-          metrics:
-            - name: Count
-              statistics: [SampleCount]
-            - name: Latency
-              statistics: [Average, p99]
-            - name: 4XXError
-              statistics: [Sum]
-            - name: 5XXError
-              statistics: [Sum]
+    sts-region: {{ $region }}
+    static:
+      - namespace: AWS/RDS
+        name: {{ $clusterName }}-maestro
+        regions:
+          - {{ $region }}
+        dimensions:
+          - name: DBInstanceIdentifier
+            value: {{ $clusterName }}-maestro
+        period: 120
+        length: 120
+        delay: 120
+        metrics:
+          - name: CPUUtilization
+            statistics: [Average]
+          - name: FreeableMemory
+            statistics: [Average]
+          - name: DatabaseConnections
+            statistics: [Sum]
+          - name: ReadLatency
+            statistics: [Average]
+          - name: WriteLatency
+            statistics: [Average]
+          - name: FreeStorageSpace
+            statistics: [Average]
 
-        - type: AWS/RDS
-          regions:
-            - {{ .Values.global.aws_region }}
-          period: 120
-          length: 120
-          delay: 120
-          metrics:
-            - name: CPUUtilization
-              statistics: [Average]
-            - name: FreeableMemory
-              statistics: [Average]
-            - name: DatabaseConnections
-              statistics: [Sum]
-            - name: ReadLatency
-              statistics: [Average]
-            - name: WriteLatency
-              statistics: [Average]
-            - name: FreeStorageSpace
-              statistics: [Average]
+      - namespace: AWS/RDS
+        name: {{ $clusterName }}-hyperfleet
+        regions:
+          - {{ $region }}
+        dimensions:
+          - name: DBInstanceIdentifier
+            value: {{ $clusterName }}-hyperfleet
+        period: 120
+        length: 120
+        delay: 120
+        metrics:
+          - name: CPUUtilization
+            statistics: [Average]
+          - name: FreeableMemory
+            statistics: [Average]
+          - name: DatabaseConnections
+            statistics: [Sum]
+          - name: ReadLatency
+            statistics: [Average]
+          - name: WriteLatency
+            statistics: [Average]
+          - name: FreeStorageSpace
+            statistics: [Average]
 
-        - type: AWS/EKS
-          regions:
-            - {{ .Values.global.aws_region }}
-          searchTags:
-            - key: Name
-              value: ^{{ required "global.cluster_name is required" .Values.global.cluster_name }}$
-          period: 120
-          length: 120
-          delay: 120
-          metrics:
-            # API Server - Requests
-            - name: apiserver_request_total
-              statistics: [Sum]
-            - name: apiserver_request_total_4XX
-              statistics: [Sum]
-            - name: apiserver_request_total_5XX
-              statistics: [Sum]
-            - name: apiserver_request_total_429
-              statistics: [Sum]
-            # API Server - Latency (per-verb P99)
-            - name: apiserver_request_duration_seconds_GET_P99
-              statistics: [Average]
-            - name: apiserver_request_duration_seconds_LIST_P99
-              statistics: [Average]
-            - name: apiserver_request_duration_seconds_POST_P99
-              statistics: [Average]
-            - name: apiserver_request_duration_seconds_PUT_P99
-              statistics: [Average]
-            - name: apiserver_request_duration_seconds_DELETE_P99
-              statistics: [Average]
-            # API Server - Inflight
-            - name: apiserver_current_inflight_requests_READONLY
-              statistics: [Sum]
-            - name: apiserver_current_inflight_requests_MUTATING
-              statistics: [Sum]
-            # API Server - Webhooks
-            - name: apiserver_admission_webhook_rejection_count
-              statistics: [Sum]
-            # Storage
-            - name: apiserver_storage_size_bytes
-              statistics: [Maximum]
-            # Scheduler
-            - name: scheduler_schedule_attempts_total
-              statistics: [Sum]
-            - name: scheduler_pending_pods
-              statistics: [Sum]
-            - name: scheduler_pending_pods_UNSCHEDULABLE
-              statistics: [Sum]
-            - name: scheduler_pending_pods_GATED
-              statistics: [Sum]
+      - namespace: AWS/EKS
+        name: {{ $clusterName }}
+        regions:
+          - {{ $region }}
+        dimensions:
+          - name: ClusterName
+            value: {{ $clusterName }}
+        period: 120
+        length: 120
+        delay: 120
+        nilToZero: true
+        metrics:
+          - name: apiserver_storage_size_bytes
+            statistics: [Maximum]
+          - name: scheduler_schedule_attempts_total
+            statistics: [Sum]
+          - name: scheduler_pending_pods
+            statistics: [Sum]
+          - name: scheduler_pending_pods_UNSCHEDULABLE
+            statistics: [Sum]
+          - name: scheduler_pending_pods_GATED
+            statistics: [Sum]
+
+    {{- if .Values.apiGatewayId }}
+      - namespace: AWS/ApiGateway
+        name: {{ $clusterName }}-api
+        regions:
+          - {{ $region }}
+        dimensions:
+          - name: ApiId
+            value: {{ .Values.apiGatewayId }}
+        period: 120
+        length: 120
+        delay: 120
+        metrics:
+          - name: Count
+            statistics: [SampleCount]
+          - name: Latency
+            statistics: [Average, p99]
+          - name: 4XXError
+            statistics: [Sum]
+          - name: 5XXError
+            statistics: [Sum]
+    {{- end }}

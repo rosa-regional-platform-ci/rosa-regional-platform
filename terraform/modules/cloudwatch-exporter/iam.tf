@@ -55,6 +55,14 @@ resource "aws_iam_role_policy" "cloudwatch_exporter_metrics" {
         Resource = "*"
       },
       {
+        Sid    = "ApiGatewayDiscovery"
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "AccountAliases"
         Effect = "Allow"
         Action = [

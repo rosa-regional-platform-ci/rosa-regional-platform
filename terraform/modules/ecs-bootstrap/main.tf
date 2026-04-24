@@ -160,6 +160,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               thanos_target_group_arn: "$THANOS_TARGET_GROUP_ARN"
               aws_account_id: "$AWS_ACCOUNT_ID"
               rhobs_api_url: "$RHOBS_API_URL"
+              api_gateway_id: "$API_GATEWAY_ID"
           type: Opaque
           stringData:
             name: in-cluster
