@@ -41,12 +41,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_iot_connect_success_sum{dimension_Protocol=\"MQTT\"}",
+          "expr": "max by (dimension_Protocol) (aws_iot_connect_success_sum{dimension_Protocol=\"MQTT\"})",
           "legendFormat": "Connect.Success"
         },
         {
           "refId": "B",
-          "expr": "aws_iot_connect_autherror_sum{dimension_Protocol=\"MQTT\"}",
+          "expr": "max by (dimension_Protocol) (aws_iot_connect_autherror_sum{dimension_Protocol=\"MQTT\"})",
           "legendFormat": "Connect.AuthError"
         }
       ],
@@ -71,12 +71,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_iot_publish_in_success_sum{dimension_Protocol=\"MQTT\"}",
+          "expr": "max by (dimension_Protocol) (aws_iot_publish_in_success_sum{dimension_Protocol=\"MQTT\"})",
           "legendFormat": "PublishIn.Success"
         },
         {
           "refId": "B",
-          "expr": "aws_iot_publish_out_success_sum{dimension_Protocol=\"MQTT\"}",
+          "expr": "max by (dimension_Protocol) (aws_iot_publish_out_success_sum{dimension_Protocol=\"MQTT\"})",
           "legendFormat": "PublishOut.Success"
         }
       ],
@@ -96,18 +96,18 @@
       "id": 5,
       "type": "timeseries",
       "title": "NAT Gateway – Packet Drops & Port Allocation Errors",
-      "description": "These metrics only emit when events occur. Zero values from nilToZero mean no drops or port exhaustion — that is the healthy state.",
+      "description": "Zero values from nilToZero mean no drops or port exhaustion — that is the healthy state.",
       "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_natgateway_packets_drop_count_sum",
+          "expr": "max by (dimension_NatGatewayId) (aws_natgateway_packets_drop_count_sum)",
           "legendFormat": "{{ dimension_NatGatewayId }} drops"
         },
         {
           "refId": "B",
-          "expr": "aws_natgateway_error_port_allocation_sum",
+          "expr": "max by (dimension_NatGatewayId) (aws_natgateway_error_port_allocation_sum)",
           "legendFormat": "{{ dimension_NatGatewayId }} port err"
         }
       ],
@@ -124,7 +124,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_natgateway_active_connection_count_maximum",
+          "expr": "max by (dimension_NatGatewayId) (aws_natgateway_active_connection_count_maximum)",
           "legendFormat": "{{ dimension_NatGatewayId }}"
         }
       ],
@@ -150,7 +150,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(aws_amazonmq_message_count_average)",
+          "expr": "sum(max by (dimension_Broker, dimension_Queue) (aws_amazonmq_message_count_average))",
           "legendFormat": "Messages Ready"
         }
       ],
@@ -177,7 +177,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(aws_amazonmq_message_unacknowledged_count_average)",
+          "expr": "sum(max by (dimension_Broker, dimension_Queue) (aws_amazonmq_message_unacknowledged_count_average))",
           "legendFormat": "Unacknowledged"
         }
       ],
@@ -203,7 +203,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(aws_amazonmq_consumer_count_average)",
+          "expr": "sum(max by (dimension_Broker, dimension_Queue) (aws_amazonmq_consumer_count_average))",
           "legendFormat": "Consumers"
         }
       ],
@@ -220,7 +220,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_amazonmq_queue_count_average",
+          "expr": "max by (dimension_Broker) (aws_amazonmq_queue_count_average)",
           "legendFormat": "Queues"
         }
       ],
@@ -237,12 +237,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (dimension_Broker) (aws_amazonmq_message_count_average)",
+          "expr": "sum by (dimension_Broker) (max by (dimension_Broker, dimension_Queue) (aws_amazonmq_message_count_average))",
           "legendFormat": "{{ dimension_Broker }} Ready"
         },
         {
           "refId": "B",
-          "expr": "sum by (dimension_Broker) (aws_amazonmq_message_unacknowledged_count_average)",
+          "expr": "sum by (dimension_Broker) (max by (dimension_Broker, dimension_Queue) (aws_amazonmq_message_unacknowledged_count_average))",
           "legendFormat": "{{ dimension_Broker }} Unacknowledged"
         }
       ],
@@ -259,12 +259,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (dimension_Broker) (aws_amazonmq_network_in_average)",
+          "expr": "max by (dimension_Broker) (aws_amazonmq_network_in_average)",
           "legendFormat": "{{ dimension_Broker }} In"
         },
         {
           "refId": "B",
-          "expr": "sum by (dimension_Broker) (aws_amazonmq_network_out_average)",
+          "expr": "max by (dimension_Broker) (aws_amazonmq_network_out_average)",
           "legendFormat": "{{ dimension_Broker }} Out"
         }
       ],
@@ -290,7 +290,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "min(aws_certificatemanager_days_to_expiry_minimum)",
+          "expr": "min(max by (name) (aws_certificatemanager_days_to_expiry_minimum))",
           "legendFormat": "Days to Expiry"
         }
       ],
@@ -326,7 +326,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_certificatemanager_days_to_expiry_minimum",
+          "expr": "max by (name) (aws_certificatemanager_days_to_expiry_minimum)",
           "legendFormat": "{{ name }}"
         }
       ],

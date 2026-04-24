@@ -50,7 +50,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_count_sample_count{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_count_sample_count{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Requests"
         }
       ],
@@ -76,7 +76,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_4_xxerror_sum{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_4_xxerror_sum{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "4xx"
         }
       ],
@@ -105,7 +105,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_5_xxerror_sum{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_5_xxerror_sum{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "5xx"
         }
       ],
@@ -134,7 +134,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_latency_p50{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_latency_p50{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "p50"
         }
       ],
@@ -150,7 +150,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_latency_p99{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_latency_p99{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "p99"
         }
       ],
@@ -179,7 +179,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_integration_latency_p99{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_integration_latency_p99{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Integration p99"
         }
       ],
@@ -195,17 +195,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_count_sample_count{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_count_sample_count{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Requests"
         },
         {
           "refId": "B",
-          "expr": "aws_apigateway_4_xxerror_sum{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_4_xxerror_sum{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "4xx"
         },
         {
           "refId": "C",
-          "expr": "aws_apigateway_5_xxerror_sum{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_5_xxerror_sum{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "5xx"
         }
       ],
@@ -221,22 +221,22 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "aws_apigateway_latency_p50{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_latency_p50{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Latency p50"
         },
         {
           "refId": "B",
-          "expr": "aws_apigateway_latency_p99{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_latency_p99{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Latency p99"
         },
         {
           "refId": "C",
-          "expr": "aws_apigateway_integration_latency_p50{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_integration_latency_p50{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Integration p50"
         },
         {
           "refId": "D",
-          "expr": "aws_apigateway_integration_latency_p99{dimension_ApiName=\"${apigw_name}\"}",
+          "expr": "max by (dimension_ApiName) (aws_apigateway_integration_latency_p99{dimension_ApiName=\"${apigw_name}\"})",
           "legendFormat": "Integration p99"
         }
       ],
