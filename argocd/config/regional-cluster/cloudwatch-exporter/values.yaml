@@ -5,15 +5,233 @@ prometheus-yet-another-cloudwatch-exporter:
     create: true
     name: cloudwatch-exporter
 
-  # Disable the subchart's built-in ConfigMap — we provide our own via
-  # templates/configmap.yaml so the region can be templated from
-  # global.aws_region injected by the ApplicationSet.
+  # The subchart's ConfigMap uses `tpl` so Helm templates inside `config:`
+  # are rendered at deploy time. global.* values are passed automatically.
+  # The subchart's Deployment includes a checksum/config annotation that
+  # triggers an automatic rollout whenever the config content changes.
   configMap:
-    enabled: false
+    enabled: true
+
+  config: |
+    apiVersion: v1alpha1
+    sts-region: {{ .Values.global.aws_region }}
+    static:
+      - namespace: AWS/RDS
+        name: {{ .Values.global.cluster_name }}-maestro
+        regions:
+          - {{ .Values.global.aws_region }}
+        dimensions:
+          - name: DBInstanceIdentifier
+            value: {{ .Values.global.cluster_name }}-maestro
+        period: 120
+        length: 120
+        delay: 120
+        metrics:
+          - name: CPUUtilization
+            statistics: [Average]
+          - name: BurstBalance
+            statistics: [Average]
+          - name: FreeableMemory
+            statistics: [Average]
+          - name: SwapUsage
+            statistics: [Average]
+          - name: FreeStorageSpace
+            statistics: [Average]
+          - name: DatabaseConnections
+            statistics: [Sum]
+          - name: DiskQueueDepth
+            statistics: [Average]
+          - name: ReadIOPS
+            statistics: [Average]
+          - name: WriteIOPS
+            statistics: [Average]
+          - name: ReadLatency
+            statistics: [Average]
+          - name: WriteLatency
+            statistics: [Average]
+          - name: Deadlocks
+            statistics: [Sum]
+          - name: MaximumUsedTransactionIDs
+            statistics: [Average]
+          - name: NetworkReceiveThroughput
+            statistics: [Average]
+          - name: NetworkTransmitThroughput
+            statistics: [Average]
+
+      - namespace: AWS/RDS
+        name: {{ .Values.global.cluster_name }}-hyperfleet
+        regions:
+          - {{ .Values.global.aws_region }}
+        dimensions:
+          - name: DBInstanceIdentifier
+            value: {{ .Values.global.cluster_name }}-hyperfleet
+        period: 120
+        length: 120
+        delay: 120
+        metrics:
+          - name: CPUUtilization
+            statistics: [Average]
+          - name: BurstBalance
+            statistics: [Average]
+          - name: FreeableMemory
+            statistics: [Average]
+          - name: SwapUsage
+            statistics: [Average]
+          - name: FreeStorageSpace
+            statistics: [Average]
+          - name: DatabaseConnections
+            statistics: [Sum]
+          - name: DiskQueueDepth
+            statistics: [Average]
+          - name: ReadIOPS
+            statistics: [Average]
+          - name: WriteIOPS
+            statistics: [Average]
+          - name: ReadLatency
+            statistics: [Average]
+          - name: WriteLatency
+            statistics: [Average]
+          - name: Deadlocks
+            statistics: [Sum]
+          - name: MaximumUsedTransactionIDs
+            statistics: [Average]
+          - name: NetworkReceiveThroughput
+            statistics: [Average]
+          - name: NetworkTransmitThroughput
+            statistics: [Average]
+
+      - namespace: AWS/EKS
+        name: {{ .Values.global.cluster_name }}
+        regions:
+          - {{ .Values.global.aws_region }}
+        dimensions:
+          - name: ClusterName
+            value: {{ .Values.global.cluster_name }}
+        period: 120
+        length: 120
+        delay: 120
+        nilToZero: true
+        metrics:
+          - name: apiserver_storage_size_bytes
+            statistics: [Maximum]
+          - name: scheduler_schedule_attempts_total
+            statistics: [Sum]
+          - name: scheduler_pending_pods
+            statistics: [Sum]
+          - name: scheduler_pending_pods_UNSCHEDULABLE
+            statistics: [Sum]
+          - name: scheduler_pending_pods_GATED
+            statistics: [Sum]
+
+      - namespace: AWS/ApiGateway
+        name: {{ .Values.global.cluster_name }}-api
+        regions:
+          - {{ .Values.global.aws_region }}
+        dimensions:
+          - name: ApiName
+            value: {{ .Values.global.cluster_name }}-api
+        period: 120
+        length: 120
+        delay: 120
+        nilToZero: true
+        metrics:
+          - name: Count
+            statistics: [SampleCount]
+          - name: Latency
+            statistics: [Average, p50, p99]
+          - name: IntegrationLatency
+            statistics: [Average, p50, p99]
+          - name: 4XXError
+            statistics: [Sum]
+          - name: 5XXError
+            statistics: [Sum]
+
+    discovery:
+      jobs:
+        - type: AWS/NATGateway
+          regions:
+            - {{ .Values.global.aws_region }}
+          searchTags:
+            - key: Name
+              value: ^{{ .Values.global.cluster_name }}-nat-gw-
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: PacketsDropCount
+              statistics: [Sum]
+              nilToZero: true
+            - name: ErrorPortAllocation
+              statistics: [Sum]
+              nilToZero: true
+            - name: ActiveConnectionCount
+              statistics: [Maximum]
+              nilToZero: true
+
+        - type: AWS/IoT
+          regions:
+            - {{ .Values.global.aws_region }}
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: Connect.Success
+              statistics: [Sum]
+              nilToZero: true
+            - name: Connect.AuthError
+              statistics: [Sum]
+              nilToZero: true
+            - name: PublishIn.Success
+              statistics: [Sum]
+              nilToZero: true
+            - name: PublishOut.Success
+              statistics: [Sum]
+              nilToZero: true
+
+        - type: AWS/AmazonMQ
+          regions:
+            - {{ .Values.global.aws_region }}
+          searchTags:
+            - key: Name
+              value: ^{{ .Values.global.cluster_name }}-hyperfleet-mq$
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: MessageCount
+              statistics: [Average]
+              nilToZero: true
+            - name: MessageUnacknowledgedCount
+              statistics: [Average]
+              nilToZero: true
+            - name: ConsumerCount
+              statistics: [Average]
+              nilToZero: true
+            - name: QueueCount
+              statistics: [Average]
+              nilToZero: true
+            - name: NetworkIn
+              statistics: [Average]
+              nilToZero: true
+            - name: NetworkOut
+              statistics: [Average]
+              nilToZero: true
+
+        - type: AWS/CertificateManager
+          regions:
+            - {{ .Values.global.aws_region }}
+          searchTags:
+            - key: Name
+              value: ^{{ .Values.global.cluster_name }}-api-cert$
+          period: 86400
+          length: 86400
+          delay: 3600
+          metrics:
+            - name: DaysToExpiry
+              statistics: [Minimum]
+              nilToZero: true
 
   # FedRAMP SC-13 / IA-07: Use FIPS 140-2 validated AWS API endpoints.
-  # YACE's -fips flag switches the AWS SDK to FIPS endpoints for all
-  # CloudWatch and tagging API calls.
   extraArgs:
     fips: true
     scraping-interval: 120
