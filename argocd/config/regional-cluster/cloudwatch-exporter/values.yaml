@@ -26,6 +26,7 @@ prometheus-yet-another-cloudwatch-exporter:
         period: 120
         length: 120
         delay: 120
+        nilToZero: true
         metrics:
           - name: CPUUtilization
             statistics: [Average]
@@ -49,7 +50,6 @@ prometheus-yet-another-cloudwatch-exporter:
             statistics: [Average]
           - name: Deadlocks
             statistics: [Sum]
-            nilToZero: true
           - name: MaximumUsedTransactionIDs
             statistics: [Average]
           - name: NetworkReceiveThroughput
@@ -67,6 +67,7 @@ prometheus-yet-another-cloudwatch-exporter:
         period: 120
         length: 120
         delay: 120
+        nilToZero: true
         metrics:
           - name: CPUUtilization
             statistics: [Average]
@@ -90,7 +91,6 @@ prometheus-yet-another-cloudwatch-exporter:
             statistics: [Average]
           - name: Deadlocks
             statistics: [Sum]
-            nilToZero: true
           - name: MaximumUsedTransactionIDs
             statistics: [Average]
           - name: NetworkReceiveThroughput
