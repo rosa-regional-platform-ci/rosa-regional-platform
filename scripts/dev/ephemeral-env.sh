@@ -205,22 +205,52 @@ setup_override_mount() {
     fi
 }
 
-# Fetch credentials from Vault via OIDC login.
+# Fetch credentials from Vault via OIDC login, or use pre-set env vars.
 # Sets global: CRED_FLAGS (container -e flags), REGIONAL_AK, REGIONAL_SK,
 #              MANAGEMENT_AK, MANAGEMENT_SK
 # Credentials never touch disk — they live only in this shell process.
 fetch_creds() {
-    echo "Fetching credentials from Vault (OIDC login)..."
-
-    local vault_token
-    vault_token=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
-        || die "Vault OIDC login failed."
-
     CRED_FLAGS=""
     REGIONAL_AK=""
     REGIONAL_SK=""
     MANAGEMENT_AK=""
     MANAGEMENT_SK=""
+
+    # If all credential env vars are already set, skip Vault entirely.
+    local all_set=true
+    for key in "${VAULT_CRED_KEYS[@]}"; do
+        local upper_key
+        upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+        if [[ -z "${!upper_key:-}" ]]; then
+            all_set=false
+            break
+        fi
+    done
+
+    if [[ "$all_set" == "true" ]]; then
+        echo "Using pre-set credentials from environment."
+        for key in "${VAULT_CRED_KEYS[@]}"; do
+            local upper_key
+            upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+            local val="${!upper_key}"
+            CRED_FLAGS="$CRED_FLAGS -e ${upper_key}=${val}"
+
+            case "$key" in
+                regional_access_key)    REGIONAL_AK="$val" ;;
+                regional_secret_key)    REGIONAL_SK="$val" ;;
+                management_access_key)  MANAGEMENT_AK="$val" ;;
+                management_secret_key)  MANAGEMENT_SK="$val" ;;
+            esac
+        done
+        echo "Credentials loaded from environment."
+        return
+    fi
+
+    echo "Fetching credentials from Vault (OIDC login)..."
+
+    local vault_token
+    vault_token=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
+        || die "Vault OIDC login failed."
 
     for key in "${VAULT_CRED_KEYS[@]}"; do
         local val
