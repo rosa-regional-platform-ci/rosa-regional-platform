@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -133,6 +134,16 @@ class GitManager:
 
         # Create and push CI branch to the fork
         self._run_git("checkout", "-b", self.ci_branch)
+
+        # Strip .github/workflows/ before pushing: the bot PAT lacks the
+        # `workflow` scope that GitHub requires to push branches containing
+        # workflow files, and CI branches don't run Actions in the fork.
+        workflows_dir = self.work_dir / ".github" / "workflows"
+        if workflows_dir.exists():
+            shutil.rmtree(workflows_dir)
+            self._run_git("add", "-A")
+            self._run_git("commit", "-m", "ci: strip .github/workflows (bot PAT lacks workflow scope)")
+
         self._run_git("push", "-u", "ci", self.ci_branch, auth=True)
 
         log.info("Created CI branch: %s on %s", self.ci_branch, self.fork_repo)

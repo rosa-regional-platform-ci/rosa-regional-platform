@@ -8,13 +8,13 @@ Each environment gets a unique ID that prefixes all provisioned resources, keepi
 
 The following tools must be in `PATH` for all ephemeral environment commands:
 
-| Tool              | Purpose                                     |
-| ----------------- | ------------------------------------------- |
-| `vault`           | Fetching AWS credentials                    |
-| `git`             | Repository operations                       |
-| `python3`         | Config rendering                            |
-| `fzf`             | Interactive selection menus                 |
-| `podman`/`docker` | Running the ephemeral environment container |
+| Tool              | Purpose                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------- |
+| `vault`           | Fetching AWS credentials (not required if all credential environment variables are pre-set) |
+| `git`             | Repository operations                                                                       |
+| `python3`         | Config rendering                                                                            |
+| `fzf`             | Interactive selection menus                                                                 |
+| `podman`/`docker` | Running the ephemeral environment container                                                 |
 
 Port forwarding additionally requires `aws` and `lsof`.
 

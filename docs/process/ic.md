@@ -23,9 +23,9 @@ The IC is responsible for the following tasks:
   - [Nightly Integration](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)
   - [On-demand E2E](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)
     - Note that only consistent, platform-level failures are the IC's responsibility, as opposed to one-off failures caused by the PRs being tested
-- Monitor the PR queue:
-  - Ensure all [PRs labeled `review-ready`](https://github.com/openshift-online/rosa-regional-platform/pulls?q=is%3Apr+is%3Aopen+label%3Areview-ready) have active reviewers
-  - Review all [`rrp-bot` PRs](https://github.com/openshift-online/rosa-regional-platform/pulls?q=is%3Apr+is%3Aopen+author%3Arrp-bot)
+- Monitor the PR queue via the [PR Dashboard](https://openshift-online.github.io/rosa-regional-platform/pr-dashboard):
+  - Ensure all review-ready PRs have assigned reviewers
+  - Run `/ok-to-test` on bot PRs (dependabot, rosa-regional-platform-ci, rrp-bot) after verifying they are safe
 - Work on items in [ROSAENG-140 - Technical Debt and Continuous Improvement of RRP](https://redhat.atlassian.net/browse/ROSAENG-140).
   - This Epic should only contain urgent tasks to be addressed during the ongoing week.
   - Items on this epic should always be down to zero.

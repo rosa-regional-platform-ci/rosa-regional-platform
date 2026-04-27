@@ -151,6 +151,50 @@
       a:hover {
         text-decoration: underline;
       }
+      .ic-tasks {
+        margin-bottom: 2rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem;
+        background: var(--bg-secondary);
+      }
+      .ic-tasks h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      .ic-tasks ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .ic-tasks li {
+        padding: 0.25rem 0;
+        font-size: 0.875rem;
+      }
+      .status-ok {
+        color: #1a7f37;
+      }
+      .status-fail {
+        color: #d1242f;
+      }
+      @media (prefers-color-scheme: dark) {
+        .status-ok {
+          color: #3fb950;
+        }
+        .status-fail {
+          color: #f85149;
+        }
+      }
+      .missing-reviewer {
+        background: #d1242f;
+        color: #fff;
+        padding: 0.125rem 0.5rem;
+        border-radius: 2em;
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+      }
       .pr-title {
         color: var(--text);
       }
@@ -195,6 +239,13 @@
       </div>
     </header>
     <main>
+      <div class="ic-tasks" id="ic-tasks">
+        <h2>IC Tasks</h2>
+        <ul>
+          <li id="ic-reviewers"><span class="empty">Loading...</span></li>
+          <li id="ic-bot-prs"><span class="empty">Loading...</span></li>
+        </ul>
+      </div>
       <section class="label-section">
         <h2>Review Ready <span class="count" id="rr-count">-</span></h2>
         <div id="review-ready"><span class="empty">Loading...</span></div>
@@ -243,9 +294,37 @@
           data.discussion_needed.length;
         document.getElementById("okt-count").textContent =
           data.needs_ok_to_test.length;
+        renderIcTasks(data);
         renderSection("review-ready", data.review_ready);
         renderSection("discussion-needed", data.discussion_needed);
         renderSection("needs-ok-to-test", data.needs_ok_to_test);
+      }
+
+      function renderIcTasks(data) {
+        var allHaveReviewers = data.review_ready.length > 0 &&
+          data.review_ready.every(function (pr) {
+            return pr.reviewRequests && pr.reviewRequests.length > 0;
+          });
+        var noBotPrs = data.needs_ok_to_test.length === 0;
+
+        var reviewerEl = document.getElementById("ic-reviewers");
+        if (data.review_ready.length === 0) {
+          reviewerEl.innerHTML = '<span class="status-ok">&#10003;</span> No review-ready PRs';
+        } else if (allHaveReviewers) {
+          reviewerEl.innerHTML = '<span class="status-ok">&#10003;</span> All review-ready PRs have reviewers';
+        } else {
+          var missing = data.review_ready.filter(function (pr) {
+            return !pr.reviewRequests || pr.reviewRequests.length === 0;
+          }).length;
+          reviewerEl.innerHTML = '<span class="status-fail">&#10007;</span> ' + missing + ' review-ready PR' + (missing > 1 ? 's' : '') + ' missing reviewers';
+        }
+
+        var botEl = document.getElementById("ic-bot-prs");
+        if (noBotPrs) {
+          botEl.innerHTML = '<span class="status-ok">&#10003;</span> No bot PRs waiting for /ok-to-test';
+        } else {
+          botEl.innerHTML = '<span class="status-fail">&#10007;</span> ' + data.needs_ok_to_test.length + ' bot PR' + (data.needs_ok_to_test.length > 1 ? 's' : '') + ' need /ok-to-test';
+        }
       }
 
       function renderSection(containerId, prs) {
@@ -277,9 +356,12 @@
           div.setAttribute("data-state-key", stateKey);
           div.setAttribute("data-repo", repoName);
 
+          var repoFullName = "openshift-online/" + repoName;
           var h3 = document.createElement("h3");
           h3.innerHTML =
+            '<a class="pr-title" href="https://github.com/' + esc(repoFullName) + '/pulls" target="_blank" rel="noopener">' +
             esc(shortName) +
+            "</a>" +
             ' <span class="count">' +
             repoPrs.length +
             "</span>";
@@ -376,7 +458,9 @@
             esc(pr.author.login) +
             "</td>" +
             "<td>" +
-            (reviewers || '<span class="empty-cell">-</span>') +
+            (reviewers || (stateKey.indexOf("review-ready") === 0
+              ? '<span class="missing-reviewer">MISSING REVIEWER</span>'
+              : '<span class="empty-cell">-</span>')) +
             "</td>" +
             '<td class="labels">' +
             labels +

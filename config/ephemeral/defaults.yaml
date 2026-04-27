@@ -1,6 +1,7 @@
 regional_cluster:
   enable_bastion: true
   enable_pagerduty: true
+  enable_cloudtrail: false
 
 management_cluster_defaults:
   enable_bastion: true
