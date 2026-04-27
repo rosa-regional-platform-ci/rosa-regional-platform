@@ -60,6 +60,7 @@ The **ROSA Regional Platform** is a strategic redesign of Red Hat OpenShift Serv
 - **Declarative State**: CLM maintains single source of truth for all cluster state
 - **Event-Driven**: Maestro handles CLM ↔ MC communication for configuration distribution
 - **Regional Isolation**: Each region operates independently with minimal cross-region dependencies
+- **Explicit Feature Flags**: New infrastructure and services should be gated behind explicit `enable_*` configuration flags, especially if there are quota limits at play or the functionality may not behave properly when colocated. Avoid patterns like checking against the environment's name to change behavior or functionality.
 
 ### Key Design Decisions
 
