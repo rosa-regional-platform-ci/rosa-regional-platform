@@ -71,13 +71,13 @@ extract_tfvar() {
 # Argument Validation
 # =============================================================================
 
-if [ $# -ne 1 ]; then
-  log_error "Usage: $0 <path-to-management-cluster-tfvars>"
-  log_info "Example: $0 terraform/config/management-cluster/terraform.tfvars"
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+  log_error "Usage: $0 <path-to-management-cluster-tfvars> [regional-id]"
   exit 1
 fi
 
 MGMT_TFVARS="$1"
+REGIONAL_ID="${2:-${REGIONAL_ID:-}}"
 
 if [ ! -f "$MGMT_TFVARS" ]; then
   log_error "Management cluster tfvars file not found: ${MGMT_TFVARS}"
@@ -142,8 +142,14 @@ if [ -z "$APP_CODE" ] || [ -z "$SERVICE_PHASE" ] || [ -z "$COST_CENTER" ]; then
   exit 1
 fi
 
+if [ -z "$REGIONAL_ID" ]; then
+  log_error "regional-id is required. Pass as second argument or set REGIONAL_ID env var."
+  exit 1
+fi
+
 log_success "Configuration parsed successfully"
 log_info "  Management Cluster: ${CLUSTER_ID}"
+log_info "  Regional ID:        ${REGIONAL_ID}"
 echo ""
 
 # =============================================================================
@@ -176,7 +182,7 @@ management_cluster_id = "${CLUSTER_ID}"
 app_code              = "${APP_CODE}"
 service_phase         = "${SERVICE_PHASE}"
 cost_center           = "${COST_CENTER}"
-mqtt_topic_prefix     = "sources/maestro/consumers"
+mqtt_topic_prefix     = "sources/${REGIONAL_ID}/consumers"
 EOF
 
 log_success "terraform.tfvars generated"

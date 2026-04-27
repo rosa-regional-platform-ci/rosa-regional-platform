@@ -27,11 +27,17 @@ resource "aws_api_gateway_integration" "proxy" {
   request_parameters = {
     "integration.request.path.proxy" = "method.request.path.proxy"
 
-    # Forward AWS IAM identity information to the backend
-    "integration.request.header.X-Amz-Caller-Arn" = "context.identity.userArn"
-    "integration.request.header.X-Amz-Account-Id" = "context.identity.accountId"
-    "integration.request.header.X-Amz-User-Id"    = "context.identity.user"
-    "integration.request.header.X-Amz-Source-Ip"  = "context.identity.sourceIp"
+    # Forward AWS IAM identity information to the backend.
+    # FedRAMP IA-08(01): When SAML-federated PIV/CAC users authenticate via
+    # IAM Identity Center, the userArn reflects the federated principal (e.g.,
+    # arn:aws:sts::ACCOUNT:assumed-role/piv-customer/USERNAME). The backend
+    # must validate that the assumed role is from the piv-federation module and
+    # not a direct IAM user, enforcing the PIV credential chain for non-org users.
+    "integration.request.header.X-Amz-Caller-Arn"       = "context.identity.userArn"
+    "integration.request.header.X-Amz-Account-Id"       = "context.identity.accountId"
+    "integration.request.header.X-Amz-User-Id"          = "context.identity.user"
+    "integration.request.header.X-Amz-Source-Ip"        = "context.identity.sourceIp"
+    "integration.request.header.X-Amz-Principal-Org-Id" = "context.identity.principalOrgId"
   }
 }
 
@@ -54,9 +60,10 @@ resource "aws_api_gateway_integration" "root" {
 
   # Forward AWS IAM identity information to the backend
   request_parameters = {
-    "integration.request.header.X-Amz-Caller-Arn" = "context.identity.userArn"
-    "integration.request.header.X-Amz-Account-Id" = "context.identity.accountId"
-    "integration.request.header.X-Amz-User-Id"    = "context.identity.user"
-    "integration.request.header.X-Amz-Source-Ip"  = "context.identity.sourceIp"
+    "integration.request.header.X-Amz-Caller-Arn"       = "context.identity.userArn"
+    "integration.request.header.X-Amz-Account-Id"       = "context.identity.accountId"
+    "integration.request.header.X-Amz-User-Id"          = "context.identity.user"
+    "integration.request.header.X-Amz-Source-Ip"        = "context.identity.sourceIp"
+    "integration.request.header.X-Amz-Principal-Org-Id" = "context.identity.principalOrgId"
   }
 }

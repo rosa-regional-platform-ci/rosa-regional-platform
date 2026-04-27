@@ -240,10 +240,14 @@ _DOC_RE = re.compile(r"^\s*#\s*(?:#\s*)?@doc\s+(\S+)\s+(.+)$", re.MULTILINE)
 _USED_BY_RE = re.compile(r"^\s*#\s*(?:#\s*)?@used-by\s+(\S+)\s+(.+)$", re.MULTILINE)
 
 # Jinja2 variable patterns: {{ var.path }} and {% if var.path %}
+# The first pattern excludes bracket-string access (e.g. var['key']) to avoid
+# capturing the bare root variable; those are handled by _TPL_BRACKET_PATTERN.
 _TPL_PATTERNS = [
-    re.compile(r"\{\{[\s-]*([a-zA-Z_][\w.]*?)(?:\s*[|}\[])"),
+    re.compile(r"\{\{[\s-]*([a-zA-Z_][\w.]*?)(?:\s*(?:[|}]|\[(?!')))"),
     re.compile(r"\{%[\s-]*(?:if|elif)\s+([a-zA-Z_][\w.]*?)[\s%]"),
 ]
+# Matches bracket-string access: {{ var['key'].rest }} → var.key.rest
+_TPL_BRACKET_PATTERN = re.compile(r"\{\{[\s-]*([a-zA-Z_]\w*)\['([^']+)'\]([\w.]*)")
 
 
 def scan_annotations(content: str) -> dict[str, dict[str, Any]]:
@@ -275,6 +279,12 @@ def scan_template_variables(templates_dir: Path) -> dict[str, list[str]]:
                     var_to_templates[var] = []
                 if rel not in var_to_templates[var]:
                     var_to_templates[var].append(rel)
+        for match in _TPL_BRACKET_PATTERN.finditer(content):
+            var = match.group(1) + "." + match.group(2) + match.group(3)
+            if var not in var_to_templates:
+                var_to_templates[var] = []
+            if rel not in var_to_templates[var]:
+                var_to_templates[var].append(rel)
     return var_to_templates
 
 
@@ -422,11 +432,15 @@ def update_docs(config_dir: Path, templates_dir: Path) -> int:
         doc_match = _DOC_RE.match(stripped)
         if doc_match:
             key = doc_match.group(1)
+            # Extract the prefix (indent + comment chars) from the @doc line so
+            # that @used-by lines are aligned identically, even inside commented
+            # YAML blocks where lines begin with "# " rather than whitespace.
+            prefix_match = re.match(r"(.*#\s*)@doc\s", line)
+            prefix = prefix_match.group(1) if prefix_match else "  # "
             if key in annotations and "_context" in annotations[key]["used_by"]:
-                new_lines.append(f"# @used-by {key} _context")
-            else:
-                for consumer in key_consumers.get(key, []):
-                    new_lines.append(f"# @used-by {key} {consumer}")
+                new_lines.append(f"{prefix}@used-by {key} _context")
+            for consumer in key_consumers.get(key, []):
+                new_lines.append(f"{prefix}@used-by {key} {consumer}")
 
     new_content = "\n".join(new_lines)
     if not new_content.endswith("\n"):

@@ -4,6 +4,20 @@ Ephemeral environments are short-lived, isolated stacks for developing and testi
 
 Each environment gets a unique ID that prefixes all provisioned resources, keeping environments isolated from each other. The ephemeral provider creates a managed clone of your remote branch and uses it to drive provisioning and ArgoCD syncs. To push subsequent changes into a running environment, use [Resync](#resync).
 
+## Prerequisites
+
+The following tools must be in `PATH` for all ephemeral environment commands:
+
+| Tool              | Purpose                                     |
+| ----------------- | ------------------------------------------- |
+| `vault`           | Fetching AWS credentials                    |
+| `git`             | Repository operations                       |
+| `python3`         | Config rendering                            |
+| `fzf`             | Interactive selection menus                 |
+| `podman`/`docker` | Running the ephemeral environment container |
+
+Port forwarding additionally requires `aws` and `lsof`.
+
 ## Provision
 
 > ⚠️ _Ensure your changes are pushed to the remote branch before provisioning — the environment is built from the remote ref, not your local working tree._
@@ -166,6 +180,47 @@ ip-10-0-1-42.ec2.internal    Ready    <none>   2h    v1.31.4-eks-aeac579
 
 The bastion task stays running until explicitly stopped or until the environment is torn down (teardown automatically cleans up running bastion tasks).
 
+## Port Forwarding
+
+Forward ports from cluster-internal services to your local machine through the bastion, without needing an interactive shell. This is useful for accessing ArgoCD, Prometheus, and Maestro UIs directly in your browser.
+
+> ⚠️ _Bastion must be enabled in your environment config (`enable_bastion: true` in `defaults.yaml`). The default ephemeral preset already has it enabled._
+
+### Interactive service selection
+
+```bash
+# Select services interactively (fzf multi-select) — Regional Cluster
+make ephemeral-port-forward-rc
+
+# Select services interactively — Management Cluster
+make ephemeral-port-forward-mc
+
+# Explicit environment selection
+make ephemeral-port-forward-rc ID=6bd2d3d7
+```
+
+### Forward all services at once
+
+```bash
+# Forward all available services — Regional Cluster
+make ephemeral-port-forward-rc-all
+
+# Forward all available services — Management Cluster
+make ephemeral-port-forward-mc-all
+```
+
+Available services per cluster type:
+
+| Service    | RC  | MC  | Local address                                       |
+| ---------- | --- | --- | --------------------------------------------------- |
+| ArgoCD     | yes | yes | https://localhost:8443                              |
+| Prometheus | yes | yes | http://localhost:9090                               |
+| Maestro    | yes | no  | http://localhost:8080 (HTTP), localhost:8090 (gRPC) |
+
+The command fetches the ArgoCD admin password automatically and prints it to the terminal. Port forwards remain active until you press `Ctrl+C`.
+
+Prerequisites: `vault`, `aws`, `fzf`, and `lsof` must be in `PATH`.
+
 ## Run E2E Tests
 
 Run the end-to-end test suite against one of your development environments:
@@ -177,6 +232,38 @@ make ephemeral-e2e
 # Explicit
 make ephemeral-e2e ID=6bd2d3d7
 ```
+
+By default, tests are cloned from the `main` branch of `rosa-regional-platform-api`. Use `E2E_REF` and `E2E_REPO` to run against a different branch or fork:
+
+```bash
+# Run tests from a feature branch
+make ephemeral-e2e ID=6bd2d3d7 E2E_REF=my-feature-branch
+
+# Run tests from a fork
+make ephemeral-e2e ID=6bd2d3d7 E2E_REPO=https://github.com/my-fork/rosa-regional-platform-api.git E2E_REF=my-feature-branch
+```
+
+## Collect Cluster Logs
+
+Collect kubernetes diagnostic logs (`oc adm inspect`) from the RC and/or MC clusters in an ephemeral environment. Logs are gathered by a dedicated log-collector ECS task, uploaded to S3, and downloaded locally.
+
+```bash
+# Collect from both RC and all MCs
+make ephemeral-collect-logs
+
+# Collect from RC only
+make ephemeral-collect-logs CLUSTER=rc
+
+# Collect from MCs only
+make ephemeral-collect-logs CLUSTER=mc
+
+# Explicit environment selection
+make ephemeral-collect-logs ID=6bd2d3d7
+```
+
+Output is written to `/tmp/<ci-prefix>-logs-<timestamp>/`. In CI, logs are automatically collected on e2e test failure and written to `ARTIFACT_DIR` for the Prow artifacts UI.
+
+> ⚠️ _Bastion must be enabled in your environment config (`enable_bastion: true` in `defaults.yaml`). The default ephemeral preset already has it enabled._
 
 ## Resync
 
@@ -191,6 +278,23 @@ make ephemeral-resync
 # Explicit
 make ephemeral-resync ID=6bd2d3d7
 ```
+
+## Swap Branch
+
+Redirect a running environment to a different branch or fork without tearing it down and reprovisioning. The environment identity (and its managed CI branch) is preserved — only the source branch being tracked changes. After swapping, a resync runs automatically to apply the new branch.
+
+```bash
+# Interactive — fzf pickers for environment and branch selection
+make ephemeral-swap-branch
+
+# Explicit — swap to a branch on the same repo
+make ephemeral-swap-branch ID=6bd2d3d7 NEW_BRANCH=my-other-feature
+
+# Explicit — swap to a branch on a different fork
+make ephemeral-swap-branch ID=6bd2d3d7 NEW_BRANCH=my-feature NEW_REPO=my-fork/rosa-regional-platform
+```
+
+> ⚠️ _Ensure the new branch is pushed to the remote before swapping — the environment is built from the remote ref._
 
 ## Tear Down
 

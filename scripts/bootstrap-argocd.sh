@@ -100,9 +100,14 @@ APPLICATIONSET_PATH="deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-bootstrap-${C
 # Extract cluster-type specific outputs
 if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
     API_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.api_target_group_arn.value // ""')
+    THANOS_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.thanos_target_group_arn.value // ""')
 else
     API_TARGET_GROUP_ARN=""
+    THANOS_TARGET_GROUP_ARN=""
 fi
+
+# Extract API URL and host (available from both RC and MC terraform outputs)
+RHOBS_API_URL=$(echo "$OUTPUTS" | jq -r '.rhobs_api_url.value // ""')
 
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
@@ -128,7 +133,9 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"AWS_REGION\", \"value\": \"$AWS_REGION\"},
         {\"name\": \"REGION_DEPLOYMENT\", \"value\": \"$REGION_DEPLOYMENT\"},
         {\"name\": \"CLUSTER_TYPE\", \"value\": \"$CLUSTER_TYPE\"},
-        {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"}
+        {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"},
+        {\"name\": \"THANOS_TARGET_GROUP_ARN\", \"value\": \"$THANOS_TARGET_GROUP_ARN\"},
+        {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"}
       ]
     }]
   }" 2>&1)

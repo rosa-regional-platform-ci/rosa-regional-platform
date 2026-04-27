@@ -229,7 +229,7 @@ sequenceDiagram
     Note over Agent: Agent reads from Management account Secrets Manager
     Agent->>Agent: Read agent MQTT cert via ASCP (local)
     Agent->>IoT: Connect with X.509 cert (cross-account via IAM)
-    Agent->>IoT: Subscribe to topic:<br/>sources/maestro/consumers/mc01/sourceevents
+    Agent->>IoT: Subscribe to topic:<br/>sources/{regional_id}/consumers/mc01/sourceevents
 
     Note over User,K8s: ManifestWork Creation
     User->>API: POST /api/maestro/v1/resources<br/>ManifestWork manifest
@@ -237,7 +237,7 @@ sequenceDiagram
     Server->>DB: Store ManifestWork (status: pending)
     DB-->>Server: Stored (ID: abc123)
     Server->>Server: Wrap in CloudEvent envelope
-    Server->>IoT: Publish to topic:<br/>sources/maestro/consumers/mc01/sourceevents
+    Server->>IoT: Publish to topic:<br/>sources/{regional_id}/consumers/mc01/sourceevents
 
     Note over User,K8s: Message Delivery
     IoT->>Agent: Deliver MQTT message
@@ -249,7 +249,7 @@ sequenceDiagram
 
     Note over User,K8s: Status Reporting
     Agent->>Agent: Wrap status in CloudEvent
-    Agent->>IoT: Publish to topic:<br/>sources/maestro/consumers/mc01/agentevents
+    Agent->>IoT: Publish to topic:<br/>sources/{regional_id}/consumers/mc01/agentevents
     IoT->>Server: Deliver status message
     Server->>Server: Parse status CloudEvent
     Server->>DB: Update ManifestWork<br/>(status: Applied)
@@ -283,9 +283,11 @@ sequenceDiagram
 
 The hierarchical topic organization provides consumer isolation and message routing. Each Management Cluster has dedicated topics that enforce strict authorization boundaries.
 
+The topic root is scoped by `{regional_id}` — the identifier of the Regional Cluster. This ensures topic namespaces are fully isolated across environments (e.g., ephemeral, integration, production), so multiple Regional Clusters sharing the same AWS IoT Core endpoint cannot interfere with each other's message flows.
+
 ```mermaid
 graph TB
-    Root["MQTT Topic Root<br/>sources/maestro/consumers"]
+    Root["MQTT Topic Root<br/>sources/{regional_id}/consumers"]
 
     Root --> C1["/{consumer-name-1}"]
     Root --> C2["/{consumer-name-2}"]
@@ -312,35 +314,37 @@ graph TB
 
 **Topic Examples:**
 
-- **Server publishes to**: `sources/maestro/consumers/mc01/sourceevents`
-- **Agent subscribes to**: `sources/maestro/consumers/mc01/sourceevents`
-- **Agent publishes to**: `sources/maestro/consumers/mc01/agentevents`
-- **Server subscribes to**: `sources/maestro/consumers/+/agentevents` (wildcard)
+- **Server publishes to**: `sources/{regional_id}/consumers/mc01/sourceevents`
+- **Agent subscribes to**: `sources/{regional_id}/consumers/mc01/sourceevents`
+- **Agent publishes to**: `sources/{regional_id}/consumers/mc01/agentevents`
+- **Server subscribes to**: `sources/{regional_id}/consumers/+/agentevents` (wildcard)
 
 **Topic Security Model:**
 
 - Each agent has IoT Policy allowing subscribe/receive ONLY on its consumer-specific topic
-- Server has IoT Policy allowing publish to all `sourceevents` topics
-- Topic isolation ensures multi-tenant security - agents cannot intercept messages for other clusters
+- Server has IoT Policy allowing publish to all `sourceevents` topics within its `{regional_id}` namespace
+- Topic isolation ensures multi-tenant security — agents cannot intercept messages for other clusters
 - Wildcard subscriptions (`+`) are restricted to the Maestro Server role only
+- Environment isolation — the `{regional_id}` prefix prevents cross-environment message leakage when multiple environments (e.g., ephemeral, integration) share the same AWS IoT Core endpoint
+- Client IDs for the Maestro Server are set to the pod name, preventing connection collisions across replicas
 
 ## Implementation Design
 
 ### Maestro Server (Regional Cluster)
 
 - Runs in Regional Cluster with HTTP (8080) and gRPC (8090) APIs
-- Connects to AWS IoT Core using X.509 certificate authentication
+- Connects to AWS IoT Core using X.509 certificate authentication; each pod uses its pod name as the MQTT client ID to avoid connection collisions across replicas
 - Stores resource state in dedicated RDS PostgreSQL database
-- Publishes ManifestWork resources to consumer-specific MQTT topics
+- Publishes ManifestWork resources to consumer-specific MQTT topics scoped under `sources/{regional_id}/consumers/`
 - Subscribes to status update topics from all agents
 
 ### Maestro Agent (Management Cluster)
 
 - Runs in each Management Cluster (single replica per cluster)
 - Connects to Regional AWS account IoT Core via cross-account IAM permissions
-- Subscribes to consumer-specific topic: `sources/maestro/consumers/{cluster-id}/sourceevents`
+- Subscribes to consumer-specific topic: `sources/{regional_id}/consumers/{cluster-id}/sourceevents`
 - Applies received Kubernetes resources to local Management Cluster API
-- Reports status back via: `sources/maestro/consumers/{cluster-id}/agentevents`
+- Reports status back via: `sources/{regional_id}/consumers/{cluster-id}/agentevents`
 - See [MQTT Topic Structure](#mqtt-topic-structure) section for detailed topic organization
 
 ### Authentication & Security
@@ -559,9 +563,9 @@ resource "aws_eks_pod_identity_association" "maestro_agent" {
       "Effect": "Allow",
       "Action": ["iot:Connect", "iot:Subscribe", "iot:Receive", "iot:Publish"],
       "Resource": [
-        "arn:aws:iot:us-east-1:123456789012:client/mc01-*",
-        "arn:aws:iot:us-east-1:123456789012:topic/sources/maestro/consumers/mc01/*",
-        "arn:aws:iot:us-east-1:123456789012:topicfilter/sources/maestro/consumers/mc01/*"
+        "arn:aws:iot:us-east-1:123456789012:client/*",
+        "arn:aws:iot:us-east-1:123456789012:topic/sources/{regional_id}/consumers/mc01/*",
+        "arn:aws:iot:us-east-1:123456789012:topicfilter/sources/{regional_id}/consumers/mc01/*"
       ]
     }
   ]

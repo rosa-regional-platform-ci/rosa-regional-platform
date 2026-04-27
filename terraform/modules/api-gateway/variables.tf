@@ -90,6 +90,17 @@ variable "stage_name" {
   }
 }
 
+variable "thanos_target_port" {
+  description = "Thanos Receive remote-write port"
+  type        = number
+  default     = 19291
+
+  validation {
+    condition     = var.thanos_target_port >= 1 && var.thanos_target_port <= 65535
+    error_message = "Thanos target port must be between 1 and 65535."
+  }
+}
+
 variable "api_description" {
   description = "Description for the API Gateway REST API"
   type        = string
@@ -115,4 +126,43 @@ variable "regional_hosted_zone_id" {
   description = "Route53 hosted zone ID for the regional delegation zone (e.g. the zone for us-east-1.int0.rosa.devshift.net) in the RC account. Used for ACM DNS validation and the API alias record. When null, ACM cert is created but DNS records must be managed externally."
   type        = string
   default     = null
+}
+
+# =============================================================================
+# Method Settings Variables
+# =============================================================================
+
+variable "metrics_enabled" {
+  description = "Enable detailed CloudWatch metrics for all API methods"
+  type        = bool
+  default     = true
+}
+
+variable "logging_level" {
+  description = "CloudWatch logging level for API methods (OFF, ERROR, INFO)"
+  type        = string
+  default     = "ERROR"
+
+  validation {
+    condition     = contains(["OFF", "ERROR", "INFO"], var.logging_level)
+    error_message = "logging_level must be one of: OFF, ERROR, INFO."
+  }
+}
+
+variable "data_trace_enabled" {
+  description = "Enable full request/response data tracing in CloudWatch logs (avoid in production — logs may contain sensitive data)"
+  type        = bool
+  default     = false
+}
+
+variable "throttling_burst_limit" {
+  description = "Maximum concurrent requests allowed (burst). -1 inherits stage/account default."
+  type        = number
+  default     = 500
+}
+
+variable "throttling_rate_limit" {
+  description = "Steady-state requests per second allowed. -1 inherits stage/account default."
+  type        = number
+  default     = 100
 }

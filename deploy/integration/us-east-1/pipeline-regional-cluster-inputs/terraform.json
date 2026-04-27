@@ -10,5 +10,6 @@
   "enable_bastion": true,
   "regional_id": "regional",
   "node_instance_types": ["t3.medium", "t3a.medium"],
+  "iot_log_level": "WARN",
   "management_cluster_account_ids": ["ssm:///infra/integration/us-east-1/mc01/account_id"]
 }

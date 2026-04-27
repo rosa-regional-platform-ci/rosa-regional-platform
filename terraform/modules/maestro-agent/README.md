@@ -40,7 +40,7 @@ module "maestro_agent" {
 
   # Optional overrides
   # mqtt_cert_secret_name = "custom/path/to/secret"
-  # mqtt_topic_prefix     = "custom/topic/prefix"
+  # mqtt_topic_prefix     = "sources/<regional_id>/consumers"  # Must match the regional cluster's regional_id
 
   tags = {
     Environment = "production"
@@ -56,14 +56,14 @@ output "maestro_agent_helm_values" {
 
 ## Variables
 
-| Name                      | Description                                  | Type          | Default                              | Required |
-| ------------------------- | -------------------------------------------- | ------------- | ------------------------------------ | -------- |
-| `management_id`           | Management cluster identifier (e.g., `mc01`) | `string`      | n/a                                  | yes      |
-| `regional_aws_account_id` | Regional cluster AWS account ID              | `string`      | n/a                                  | yes      |
-| `eks_cluster_name`        | EKS cluster name                             | `string`      | n/a                                  | yes      |
-| `mqtt_cert_secret_name`   | Override default secret path                 | `string`      | `{management_id}-maestro-agent-cert` | no       |
-| `mqtt_topic_prefix`       | MQTT topic prefix                            | `string`      | `sources/maestro/consumers`          | no       |
-| `tags`                    | Additional resource tags                     | `map(string)` | `{}`                                 | no       |
+| Name                      | Description                                                                                                             | Type          | Default                              | Required |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------ | -------- |
+| `management_id`           | Management cluster identifier (e.g., `mc01`)                                                                            | `string`      | n/a                                  | yes      |
+| `regional_aws_account_id` | Regional cluster AWS account ID                                                                                         | `string`      | n/a                                  | yes      |
+| `eks_cluster_name`        | EKS cluster name                                                                                                        | `string`      | n/a                                  | yes      |
+| `mqtt_cert_secret_name`   | Override default secret path                                                                                            | `string`      | `{management_id}-maestro-agent-cert` | no       |
+| `mqtt_topic_prefix`       | MQTT topic prefix — must match `sources/{regional_id}/consumers` where `regional_id` is the Regional Cluster identifier | `string`      | `sources/maestro/consumers`          | no       |
+| `tags`                    | Additional resource tags                                                                                                | `map(string)` | `{}`                                 | no       |
 
 ## Outputs
 

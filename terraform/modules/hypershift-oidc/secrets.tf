@@ -26,3 +26,4 @@ resource "aws_secretsmanager_secret_version" "hypershift_config" {
     oidcBucketRegion = data.aws_region.current.id
   })
 }
+

@@ -104,7 +104,7 @@ output "maestro_configuration_summary" {
     mqtt = {
       endpoint    = data.aws_iot_endpoint.mqtt.endpoint_address
       port        = 8883
-      topicPrefix = var.mqtt_topic_prefix
+      topicPrefix = "sources/${var.regional_id}/consumers"
     }
     database = {
       host = aws_db_instance.maestro.address

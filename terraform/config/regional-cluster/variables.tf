@@ -105,6 +105,40 @@ variable "environment_hosted_zone_id" {
   default     = null
 }
 
+# =============================================================================
+# API Gateway Method Settings Variables
+# =============================================================================
+
+variable "api_metrics_enabled" {
+  description = "Enable detailed CloudWatch metrics for all API methods"
+  type        = bool
+  default     = true
+}
+
+variable "api_logging_level" {
+  description = "CloudWatch logging level for API methods (OFF, ERROR, INFO)"
+  type        = string
+  default     = "ERROR"
+}
+
+variable "api_data_trace_enabled" {
+  description = "Enable full request/response data tracing in CloudWatch logs (avoid in production)"
+  type        = bool
+  default     = false
+}
+
+variable "api_throttling_burst_limit" {
+  description = "Maximum concurrent requests allowed (burst) for API Gateway methods"
+  type        = number
+  default     = 500
+}
+
+variable "api_throttling_rate_limit" {
+  description = "Steady-state requests per second allowed for API Gateway methods"
+  type        = number
+  default     = 100
+}
+
 # Maestro Configuration Variables
 # =============================================================================
 
@@ -130,6 +164,17 @@ variable "maestro_mqtt_topic_prefix" {
   description = "Prefix for MQTT topics used by Maestro"
   type        = string
   default     = "maestro/consumers"
+}
+
+variable "iot_log_level" {
+  description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
+  type        = string
+  default     = "WARN"
+
+  validation {
+    condition     = contains(["DISABLED", "ERROR", "WARN", "INFO", "DEBUG"], var.iot_log_level)
+    error_message = "iot_log_level must be one of: DISABLED, ERROR, WARN, INFO, DEBUG"
+  }
 }
 
 # =============================================================================
@@ -191,7 +236,7 @@ variable "hyperfleet_db_deletion_protection" {
 variable "hyperfleet_mq_instance_type" {
   description = "Amazon MQ instance type for HyperFleet RabbitMQ broker"
   type        = string
-  default     = "mq.t3.micro"
+  default     = "mq.m5.large"
 }
 
 variable "hyperfleet_mq_deployment_mode" {
@@ -215,3 +260,32 @@ variable "node_instance_types" {
     error_message = "Must specify at least one instance type."
   }
 }
+
+# =============================================================================
+# Thanos Configuration Variables
+# =============================================================================
+
+variable "thanos_metrics_retention_days" {
+  description = "Number of days to retain metrics in S3 (FedRAMP minimum: 30 days)"
+  type        = number
+  default     = 365
+}
+
+variable "thanos_namespace" {
+  description = "Kubernetes namespace where Thanos is deployed"
+  type        = string
+  default     = "thanos"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", var.thanos_namespace))
+    error_message = "Namespace must conform to DNS-1123 label: lowercase alphanumeric and '-', starting and ending with alphanumeric, max 63 characters."
+  }
+}
+
+variable "thanos_service_account" {
+  description = "Kubernetes service account name for Thanos"
+  type        = string
+  default     = "thanos-operator"
+}
+
+

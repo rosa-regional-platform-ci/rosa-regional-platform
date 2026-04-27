@@ -7,9 +7,6 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-PROVISION_TIMEOUT = 3600  # seconds (1 hour); total time for provisioning
-TEARDOWN_TIMEOUT = 3600  # seconds (1 hour); total time for teardown
-
 import yaml
 
 from __init__ import TARGET_ENVIRONMENT
@@ -17,6 +14,10 @@ from aws import AWSCredentials
 from codebuild_logs import download_codebuild_logs
 from git import GitManager
 from pipeline import PipelineMonitor
+from yaml_utils import deep_merge, load_and_merge
+
+PROVISION_TIMEOUT = 3600  # seconds (1 hour); total time for provisioning
+TEARDOWN_TIMEOUT = 3600  # seconds (1 hour); total time for teardown
 
 log = logging.getLogger(__name__)
 
@@ -58,13 +59,17 @@ class EphemeralEnvOrchestrator:
     """
 
     def __init__(self, repo: str, branch: str, creds_dir: str, region: str, ci_prefix: str,
-                 override_dir: str | None = None):
+                 override_dir: str | None = None,
+                 provision_overrides: list[tuple[str, str]] | None = None,
+                 ci_branch_name: str | None = None):
         self.repo = repo
         self.branch = branch
         self.creds_dir = creds_dir
         self.region = region
         self.ci_prefix = ci_prefix
         self.override_dir = Path(override_dir) if override_dir else None
+        self.provision_overrides = provision_overrides or []
+        self.ci_branch_name = ci_branch_name
         self.provisioner_name = f"{ci_prefix}-pipeline-provisioner"
         # TODO: compute deterministic RC/MC pipeline names from rendered config
         # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
@@ -88,6 +93,10 @@ class EphemeralEnvOrchestrator:
 
         # Inject ephemeral environment into config.yaml (not checked into the repo)
         self._inject_ephemeral_config(git)
+
+        # Apply provision override files (deep-merge YAML fragments into repo files)
+        self._apply_provision_overrides(git)
+
         git.render_and_push("ci: add ephemeral environment and render deploy files")
 
         # Bootstrap pipeline provisioner
@@ -115,10 +124,11 @@ class EphemeralEnvOrchestrator:
                 for pipelines to complete. Phase 2 (delete_pipeline flags) and
                 Phase 3 (pipeline-provisioner destruction) are intentionally
                 skipped — teardown is expected to be driven to completion by
-                external means (a periodic janitor job).
+                the in-account aws-nuke-cf janitor.
         """
         # Check out the CI branch first to discover region from its config
-        git = GitManager(self.creds_dir, self.repo, self.branch)
+        git = GitManager(self.creds_dir, self.repo, self.branch,
+                         ci_branch_name=self.ci_branch_name)
         self.git = git
         git.checkout_ci_branch(self.ci_prefix)
 
@@ -146,12 +156,13 @@ class EphemeralEnvOrchestrator:
         """
         self._setup_aws()
 
-        git = GitManager(self.creds_dir, self.repo, self.branch)
+        git = GitManager(self.creds_dir, self.repo, self.branch,
+                         ci_branch_name=self.ci_branch_name)
         self.git = git
         git.resync_ci_branch(self.ci_prefix)
 
         self._inject_ephemeral_config(git)
-        git.render_and_push("ci: resync ephemeral environment config")
+        git.render_and_push("ci: resync ephemeral environment config", force=True)
 
     def collect_codebuild_logs(self):
         """Download CloudWatch logs for all CodeBuild projects matching our CI prefix.
@@ -267,6 +278,37 @@ class EphemeralEnvOrchestrator:
 
         with open(region_file, "w") as f:
             yaml.dump(region_config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+
+    def _apply_provision_overrides(self, git: GitManager):
+        """Deep-merge provision override files into the cloned repo.
+
+        Each override is a (target_path, override_file) tuple where target_path
+        is relative to the repo root and override_file is an absolute path to a
+        YAML fragment. The fragment is deep-merged into the target file —
+        dict keys are merged recursively, and list items are matched by 'name'
+        field when present.
+        """
+        if not self.provision_overrides:
+            return
+
+        log.info("")
+        log.info("Applying %d provision override(s):", len(self.provision_overrides))
+
+        for target_path, override_file in self.provision_overrides:
+            root = git.work_dir.resolve()
+            target = (root / target_path).resolve()
+            if not target.is_relative_to(root):
+                raise ValueError(
+                    f"Override target escapes repo root: {target_path}"
+                )
+            if not target.exists():
+                raise FileNotFoundError(
+                    f"Override target not found: {target_path} "
+                    f"(resolved to {target})"
+                )
+
+            log.info("  %s <- %s", target_path, override_file)
+            load_and_merge(target, override_file)
 
     def _bootstrap_pipeline_provisioner(self, git: GitManager):
         """Bootstrap the pipeline-provisioner pointing at the CI branch."""

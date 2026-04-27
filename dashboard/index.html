@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path fill='%230969da' d='M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z'/></svg>" />
+    <title>PR Dashboard - ROSA Regional Platform</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-secondary: #f6f8fa;
+        --text: #1f2328;
+        --text-secondary: #656d76;
+        --border: #d0d7de;
+        --link: #0969da;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --bg-secondary: #161b22;
+          --text: #e6edf3;
+          --text-secondary: #8b949e;
+          --border: #30363d;
+          --link: #58a6ff;
+        }
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+          Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      header {
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1rem;
+      }
+      header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+      .subtitle {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+      }
+      .header-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+      }
+      .updated {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+      }
+      .refresh-btn {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .refresh-btn:hover {
+        color: var(--text);
+        text-decoration: none;
+      }
+      .label-section {
+        margin-bottom: 2.5rem;
+      }
+      .label-section > h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .repo-group {
+        margin-bottom: 1.5rem;
+      }
+      .repo-group h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .count {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 2em;
+        padding: 0.125rem 0.625rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+      }
+      th {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-weight: 500;
+        font-size: 0.75rem;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      th:hover {
+        color: var(--text);
+      }
+      th .sort-arrow {
+        display: inline-block;
+        width: 1em;
+        text-align: center;
+        opacity: 0.4;
+      }
+      th.sorted .sort-arrow {
+        opacity: 1;
+      }
+      td {
+        padding: 0.625rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      tr:hover td {
+        background: var(--bg-secondary);
+      }
+      a {
+        color: var(--link);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .ic-tasks {
+        margin-bottom: 2rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 1rem;
+        background: var(--bg-secondary);
+      }
+      .ic-tasks h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      .ic-tasks ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .ic-tasks li {
+        padding: 0.25rem 0;
+        font-size: 0.875rem;
+      }
+      .status-ok {
+        color: #1a7f37;
+      }
+      .status-fail {
+        color: #d1242f;
+      }
+      @media (prefers-color-scheme: dark) {
+        .status-ok {
+          color: #3fb950;
+        }
+        .status-fail {
+          color: #f85149;
+        }
+      }
+      .missing-reviewer {
+        background: #d1242f;
+        color: #fff;
+        padding: 0.125rem 0.5rem;
+        border-radius: 2em;
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .pr-title {
+        color: var(--text);
+      }
+      .pr-title:hover {
+        color: var(--link);
+      }
+      .labels {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+      }
+      .label {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 2em;
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .time {
+        white-space: nowrap;
+        color: var(--text-secondary);
+      }
+      .empty {
+        color: var(--text-secondary);
+        font-style: italic;
+        padding: 1rem 0;
+      }
+      .error {
+        color: #f85149;
+        padding: 1rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>PR Dashboard</h1>
+      <div class="subtitle">ROSA Regional Platform</div>
+      <div class="header-row">
+        <span class="updated" id="updated"></span>
+        <a class="refresh-btn" href="https://github.com/openshift-online/rosa-regional-platform/actions/workflows/review-dashboard.yml" target="_blank" rel="noopener">Refresh</a>
+      </div>
+    </header>
+    <main>
+      <div class="ic-tasks" id="ic-tasks">
+        <h2>IC Tasks</h2>
+        <ul>
+          <li id="ic-reviewers"><span class="empty">Loading...</span></li>
+          <li id="ic-bot-prs"><span class="empty">Loading...</span></li>
+        </ul>
+      </div>
+      <section class="label-section">
+        <h2>Review Ready <span class="count" id="rr-count">-</span></h2>
+        <div id="review-ready"><span class="empty">Loading...</span></div>
+      </section>
+      <section class="label-section">
+        <h2>Discussion Needed <span class="count" id="dn-count">-</span></h2>
+        <div id="discussion-needed"><span class="empty">Loading...</span></div>
+      </section>
+      <section class="label-section">
+        <h2>Automated & AI PRs <span class="count" id="okt-count">-</span></h2>
+        <div id="needs-ok-to-test"><span class="empty">Loading...</span></div>
+      </section>
+    </main>
+    <script>
+      var SHORT = {
+        "rosa-regional-platform": "platform",
+        "rosa-regional-platform-api": "api",
+        "rosa-regional-platform-cli": "cli",
+        "rosa-regional-platform-internal": "internal",
+      };
+
+      // Sort state per container element, keyed by repo name
+      var sortState = {};
+
+      fetch("./data.json?t=" + Date.now())
+        .then(function (r) {
+          if (!r.ok) throw new Error("Failed to load data");
+          return r.json();
+        })
+        .then(render)
+        .catch(function (err) {
+          document.getElementById("review-ready").innerHTML =
+            '<div class="error">Failed to load dashboard data: ' +
+            esc(err.message) +
+            "</div>";
+          document.getElementById("discussion-needed").innerHTML = "";
+          document.getElementById("needs-ok-to-test").innerHTML = "";
+        });
+
+      function render(data) {
+        document.getElementById("updated").textContent =
+          "Last updated " + timeAgo(data.updated);
+        document.getElementById("rr-count").textContent =
+          data.review_ready.length;
+        document.getElementById("dn-count").textContent =
+          data.discussion_needed.length;
+        document.getElementById("okt-count").textContent =
+          data.needs_ok_to_test.length;
+        renderIcTasks(data);
+        renderSection("review-ready", data.review_ready);
+        renderSection("discussion-needed", data.discussion_needed);
+        renderSection("needs-ok-to-test", data.needs_ok_to_test);
+      }
+
+      function renderIcTasks(data) {
+        var allHaveReviewers = data.review_ready.length > 0 &&
+          data.review_ready.every(function (pr) {
+            return pr.reviewRequests && pr.reviewRequests.length > 0;
+          });
+        var noBotPrs = data.needs_ok_to_test.length === 0;
+
+        var reviewerEl = document.getElementById("ic-reviewers");
+        if (data.review_ready.length === 0) {
+          reviewerEl.innerHTML = '<span class="status-ok">&#10003;</span> No review-ready PRs';
+        } else if (allHaveReviewers) {
+          reviewerEl.innerHTML = '<span class="status-ok">&#10003;</span> All review-ready PRs have reviewers';
+        } else {
+          var missing = data.review_ready.filter(function (pr) {
+            return !pr.reviewRequests || pr.reviewRequests.length === 0;
+          }).length;
+          reviewerEl.innerHTML = '<span class="status-fail">&#10007;</span> ' + missing + ' review-ready PR' + (missing > 1 ? 's' : '') + ' missing reviewers';
+        }
+
+        var botEl = document.getElementById("ic-bot-prs");
+        if (noBotPrs) {
+          botEl.innerHTML = '<span class="status-ok">&#10003;</span> No bot PRs waiting for /ok-to-test';
+        } else {
+          botEl.innerHTML = '<span class="status-fail">&#10007;</span> ' + data.needs_ok_to_test.length + ' bot PR' + (data.needs_ok_to_test.length > 1 ? 's' : '') + ' need /ok-to-test';
+        }
+      }
+
+      function renderSection(containerId, prs) {
+        var container = document.getElementById(containerId);
+        if (prs.length === 0) {
+          container.innerHTML =
+            '<div class="empty">No open PRs with this label.</div>';
+          return;
+        }
+
+        var groups = groupByRepo(prs);
+        container.innerHTML = "";
+
+        // Sort repo names so order is stable
+        var repoNames = Object.keys(groups).sort();
+        for (var i = 0; i < repoNames.length; i++) {
+          var repoName = repoNames[i];
+          var repoPrs = groups[repoName];
+          var shortName = SHORT[repoName] || repoName;
+          var stateKey = containerId + "/" + repoName;
+
+          // Initialize sort state: default sort by createdAt ascending (oldest first)
+          if (!sortState[stateKey]) {
+            sortState[stateKey] = { col: "createdAt", dir: "asc" };
+          }
+
+          var div = document.createElement("div");
+          div.className = "repo-group";
+          div.setAttribute("data-state-key", stateKey);
+          div.setAttribute("data-repo", repoName);
+
+          var repoFullName = "openshift-online/" + repoName;
+          var h3 = document.createElement("h3");
+          h3.innerHTML =
+            '<a class="pr-title" href="https://github.com/' + esc(repoFullName) + '/pulls" target="_blank" rel="noopener">' +
+            esc(shortName) +
+            "</a>" +
+            ' <span class="count">' +
+            repoPrs.length +
+            "</span>";
+          div.appendChild(h3);
+
+          var tableDiv = document.createElement("div");
+          tableDiv.className = "table-container";
+          div.appendChild(tableDiv);
+
+          container.appendChild(div);
+
+          renderTable(stateKey, repoPrs, tableDiv);
+        }
+      }
+
+      function renderTable(stateKey, prs, container) {
+        var state = sortState[stateKey];
+        var sorted = sortPrs(prs, state.col, state.dir);
+
+        var cols = [
+          { key: "number", label: "#" },
+          { key: "title", label: "PR" },
+          { key: "author", label: "Author" },
+          { key: "reviewers", label: "Reviewers" },
+          { key: "labels", label: "Labels" },
+          { key: "createdAt", label: "Created" },
+          { key: "updatedAt", label: "Updated" },
+        ];
+
+        var thead = "<thead><tr>";
+        for (var c = 0; c < cols.length; c++) {
+          var col = cols[c];
+          var sortable = col.key !== "labels" && col.key !== "reviewers";
+          var isSorted = state.col === col.key;
+          var arrow = "";
+          if (sortable) {
+            arrow = isSorted
+              ? state.dir === "asc"
+                ? " &#9650;"
+                : " &#9660;"
+              : "";
+          }
+          thead +=
+            "<th" +
+            (sortable
+              ? ' data-col="' + col.key + '" class="' + (isSorted ? "sorted" : "") + '"'
+              : "") +
+            ">" +
+            col.label +
+            (sortable
+              ? '<span class="sort-arrow">' + arrow + "</span>"
+              : "") +
+            "</th>";
+        }
+        thead += "</tr></thead>";
+
+        var tbody = "<tbody>";
+        for (var i = 0; i < sorted.length; i++) {
+          var pr = sorted[i];
+          var labels = pr.labels
+            .map(function (l) {
+              return (
+                '<span class="label" style="' +
+                labelStyle(l) +
+                '">' +
+                esc(l.name) +
+                "</span>"
+              );
+            })
+            .join("");
+
+          var reviewers = (pr.reviewRequests || [])
+            .map(function (r) {
+              return esc(r.login || r.name || r.slug || "");
+            })
+            .filter(function (s) { return s; })
+            .join(", ");
+
+          tbody +=
+            "<tr>" +
+            "<td>" +
+            '<a href="' +
+            esc(pr.url) +
+            '" target="_blank" rel="noopener">#' +
+            pr.number +
+            "</a></td>" +
+            "<td>" +
+            '<a class="pr-title" href="' +
+            esc(pr.url) +
+            '" target="_blank" rel="noopener">' +
+            esc(pr.title) +
+            "</a></td>" +
+            "<td>" +
+            esc(pr.author.login) +
+            "</td>" +
+            "<td>" +
+            (reviewers || (stateKey.indexOf("review-ready") === 0
+              ? '<span class="missing-reviewer">MISSING REVIEWER</span>'
+              : '<span class="empty-cell">-</span>')) +
+            "</td>" +
+            '<td class="labels">' +
+            labels +
+            "</td>" +
+            '<td class="time" title="' +
+            new Date(pr.createdAt).toLocaleString() +
+            '">' +
+            timeAgo(pr.createdAt) +
+            "</td>" +
+            '<td class="time" title="' +
+            new Date(pr.updatedAt).toLocaleString() +
+            '">' +
+            timeAgo(pr.updatedAt) +
+            "</td>" +
+            "</tr>";
+        }
+        tbody += "</tbody>";
+
+        container.innerHTML = "<table>" + thead + tbody + "</table>";
+
+        // Bind sort handlers
+        var ths = container.querySelectorAll("th[data-col]");
+        for (var t = 0; t < ths.length; t++) {
+          ths[t].addEventListener(
+            "click",
+            (function (col) {
+              return function () {
+                var s = sortState[stateKey];
+                if (s.col === col) {
+                  s.dir = s.dir === "asc" ? "desc" : "asc";
+                } else {
+                  s.col = col;
+                  s.dir = "asc";
+                }
+                renderTable(stateKey, prs, container);
+              };
+            })(ths[t].getAttribute("data-col")),
+          );
+        }
+
+      }
+
+      function groupByRepo(prs) {
+        var groups = {};
+        for (var i = 0; i < prs.length; i++) {
+          var repo = prs[i].repository.name;
+          if (!groups[repo]) groups[repo] = [];
+          groups[repo].push(prs[i]);
+        }
+        return groups;
+      }
+
+      function sortPrs(prs, col, dir) {
+        var copy = prs.slice();
+        copy.sort(function (a, b) {
+          var va, vb;
+          if (col === "author") {
+            va = a.author.login.toLowerCase();
+            vb = b.author.login.toLowerCase();
+          } else if (col === "number") {
+            va = a.number;
+            vb = b.number;
+          } else if (col === "createdAt" || col === "updatedAt") {
+            va = new Date(a[col]).getTime();
+            vb = new Date(b[col]).getTime();
+          } else if (col === "title") {
+            va = a.title.toLowerCase();
+            vb = b.title.toLowerCase();
+          } else {
+            va = a[col];
+            vb = b[col];
+          }
+          if (va < vb) return dir === "asc" ? -1 : 1;
+          if (va > vb) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+        return copy;
+      }
+
+      function labelStyle(label) {
+        if (!label.color) return "";
+        var r = parseInt(label.color.substr(0, 2), 16);
+        var g = parseInt(label.color.substr(2, 2), 16);
+        var b = parseInt(label.color.substr(4, 2), 16);
+        var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        var fg = lum > 0.5 ? "#000" : "#fff";
+        return "background-color: #" + label.color + "; color: " + fg + ";";
+      }
+
+      function timeAgo(dateStr) {
+        var seconds = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+        var intervals = [
+          [31536000, "y"],
+          [2592000, "mo"],
+          [604800, "w"],
+          [86400, "d"],
+          [3600, "h"],
+          [60, "m"],
+        ];
+        for (var i = 0; i < intervals.length; i++) {
+          var count = Math.floor(seconds / intervals[i][0]);
+          if (count >= 1) return count + intervals[i][1] + " ago";
+        }
+        return "just now";
+      }
+
+      function esc(str) {
+        var d = document.createElement("div");
+        d.textContent = str;
+        return d.innerHTML;
+      }
+    </script>
+  </body>
+</html>

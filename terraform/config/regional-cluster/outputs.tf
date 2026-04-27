@@ -117,6 +117,11 @@ output "bastion_ssm_port_forward_template" {
   value       = var.enable_bastion ? module.bastion[0].ssm_port_forward_template : null
 }
 
+output "log_collector_task_family" {
+  description = "Family name of the log-collector task definition"
+  value       = var.enable_bastion ? module.bastion[0].log_collector_task_family : null
+}
+
 # =============================================================================
 # API Gateway Outputs
 # =============================================================================
@@ -134,6 +139,16 @@ output "api_gateway_id" {
 output "api_target_group_arn" {
   description = "Target group ARN for TargetGroupBinding in Kubernetes"
   value       = module.api_gateway.target_group_arn
+}
+
+output "thanos_target_group_arn" {
+  description = "Target group ARN for Thanos Receive TargetGroupBinding"
+  value       = module.api_gateway.thanos_target_group_arn
+}
+
+output "rhobs_api_url" {
+  description = "RHOBS API URL for MC remote_write (dedicated API Gateway invoke URL)"
+  value       = module.rhobs_api_gateway.invoke_url
 }
 
 output "api_allowed_accounts" {
@@ -355,4 +370,12 @@ output "hyperfleet_configuration_summary" {
   description = "Complete HyperFleet infrastructure configuration for use in Helm values"
   value       = module.hyperfleet_infrastructure.configuration_summary
   sensitive   = true
+}
+
+# =============================================================================
+# Thanos Infrastructure Outputs
+# =============================================================================
+output "thanos_helm_values" {
+  description = "Helm values for Thanos Receiver chart (use with -f flag)"
+  value       = module.thanos_infrastructure.helm_values
 }

@@ -100,10 +100,24 @@ variable "db_skip_final_snapshot" {
 }
 
 # MQTT/IoT configuration
+# Note: mqtt_topic_prefix is no longer used for topic paths.
+# Topics are scoped by regional_id: sources/${regional_id}/consumers/...
+# This variable is kept for the configuration summary output only.
 variable "mqtt_topic_prefix" {
-  description = "Prefix for MQTT topics (e.g., maestro/consumers)"
+  description = "Prefix for MQTT topics (legacy — topics are now scoped by regional_id)"
   type        = string
   default     = "maestro/consumers"
+}
+
+variable "iot_log_level" {
+  description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
+  type        = string
+  default     = "WARN"
+
+  validation {
+    condition     = contains(["DISABLED", "ERROR", "WARN", "INFO", "DEBUG"], var.iot_log_level)
+    error_message = "iot_log_level must be one of: DISABLED, ERROR, WARN, INFO, DEBUG"
+  }
 }
 
 # Tagging

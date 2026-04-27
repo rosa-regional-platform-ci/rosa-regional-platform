@@ -112,6 +112,11 @@ output "bastion_ssm_port_forward_template" {
   value       = var.enable_bastion ? module.bastion[0].ssm_port_forward_template : null
 }
 
+output "log_collector_task_family" {
+  description = "Family name of the log-collector task definition"
+  value       = var.enable_bastion ? module.bastion[0].log_collector_task_family : null
+}
+
 output "maestro_agent_cert_secret_name" {
   description = "Secret name for Maestro Agent MQTT certificate"
   value       = module.maestro_agent.maestro_agent_cert_secret_name
@@ -144,4 +149,18 @@ output "oidc_bucket_name" {
 output "oidc_cloudfront_domain" {
   description = "CloudFront domain for OIDC issuer URL (prefix with https://)"
   value       = module.hypershift_oidc.cloudfront_domain_name
+}
+
+# =============================================================================
+# Prometheus Remote Write Outputs
+# =============================================================================
+
+output "rhobs_api_url" {
+  description = "API Gateway URL for Prometheus remote_write"
+  value       = var.rhobs_api_url
+}
+
+output "prometheus_role_arn" {
+  description = "IAM role ARN for Prometheus sigv4-proxy"
+  value       = module.prometheus_remote_write.prometheus_role_arn
 }

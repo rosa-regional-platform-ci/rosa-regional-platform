@@ -1,5 +1,9 @@
 provider "aws" {
   region = var.region
+  # FedRAMP SC-13 / IA-07: Use FIPS 140-2 validated endpoints when available.
+  # FIPS endpoints exist only in US and GovCloud regions; non-US regions (EU, AP, SA)
+  # do not support FIPS endpoints and will fail if this is set to true.
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
@@ -93,4 +97,16 @@ module "hypershift_oidc" {
 
   cluster_id       = var.management_id
   eks_cluster_name = module.management_cluster.cluster_name
+}
+
+# =============================================================================
+# Prometheus Remote Write (MC -> RC metrics forwarding via API Gateway)
+# =============================================================================
+
+module "prometheus_remote_write" {
+  source = "../../modules/prometheus-remote-write"
+
+  management_id           = var.management_id
+  regional_aws_account_id = var.regional_aws_account_id
+  eks_cluster_name        = module.management_cluster.cluster_name
 }

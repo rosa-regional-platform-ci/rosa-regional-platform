@@ -1,0 +1,462 @@
+{
+  "title": "Platform Services",
+  "uid": "platform-services",
+  "description": "CloudWatch metrics for shared platform services that support Maestro and HyperFleet: IoT Core (MQTT broker), NAT Gateway, Amazon MQ (RabbitMQ), and ACM certificate health.",
+  "tags": ["aws", "cloudwatch", "iot", "nat-gateway", "maestro", "networking", "sre"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "graphTooltip": 1,
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "label": "Datasource",
+        "query": "cloudwatch",
+        "current": { "text": "CloudWatch", "value": "CloudWatch" },
+        "hide": 0,
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+
+    {
+      "id": 1,
+      "type": "row",
+      "title": "IoT Core – Maestro MQTT",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "IoT Core – Connect Success / AuthError",
+      "description": "If no data appears, verify that iot_log_level is not DISABLED and Maestro has connected to the IoT endpoint.",
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "namespace": "AWS/IoT",
+          "metricName": "Connect.Success",
+          "dimensions": { "Protocol": ["MQTT"] },
+          "statistic": "Sum",
+          "period": "60",
+          "matchExact": true,
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "Connect.Success"
+        },
+        {
+          "refId": "B",
+          "region": "default",
+          "namespace": "AWS/IoT",
+          "metricName": "Connect.AuthError",
+          "dimensions": { "Protocol": ["MQTT"] },
+          "statistic": "Sum",
+          "period": "60",
+          "matchExact": true,
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "Connect.AuthError"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "none" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Connect.AuthError" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "IoT Core – PublishIn / PublishOut Success",
+      "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "namespace": "AWS/IoT",
+          "metricName": "PublishIn.Success",
+          "dimensions": { "Protocol": ["MQTT"] },
+          "statistic": "Sum",
+          "period": "60",
+          "matchExact": true,
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "PublishIn.Success"
+        },
+        {
+          "refId": "B",
+          "region": "default",
+          "namespace": "AWS/IoT",
+          "metricName": "PublishOut.Success",
+          "dimensions": { "Protocol": ["MQTT"] },
+          "statistic": "Sum",
+          "period": "60",
+          "matchExact": true,
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "label": "PublishOut.Success"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 4,
+      "type": "row",
+      "title": "NAT Gateway",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
+    },
+
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "NAT Gateway – Packet Drops & Port Allocation Errors",
+      "description": "These metrics only emit when events occur. Empty graphs mean no drops or port exhaustion — that is the healthy state.",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/NatGateway,NatGatewayId} PacketsDropCount', 'Sum', 60)",
+          "id": "q1",
+          "period": "60",
+          "label": "${PROP('Dim.NatGatewayId')} drops"
+        },
+        {
+          "refId": "B",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/NatGateway,NatGatewayId} ErrorPortAllocation', 'Sum', 60)",
+          "id": "q2",
+          "period": "60",
+          "label": "${PROP('Dim.NatGatewayId')} port err"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "NAT Gateway – Active Connection Count",
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/NatGateway,NatGatewayId} ActiveConnectionCount', 'Sum', 60)",
+          "id": "q1",
+          "period": "60",
+          "label": "${PROP('Dim.NatGatewayId')}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 7,
+      "type": "row",
+      "title": "Amazon MQ – HyperFleet RabbitMQ",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 }
+    },
+
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Messages Ready",
+      "description": "Messages queued and waiting for consumers. A sustained climb means consumers are falling behind.",
+      "gridPos": { "x": 0, "y": 19, "w": 6, "h": 4 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SUM(SEARCH('{AWS/AmazonMQ,Broker} MessageCount', 'Average', 60))",
+          "id": "q1",
+          "period": "60"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 1000, "color": "yellow" }, { "value": 10000, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Unacknowledged Messages",
+      "description": "Messages delivered to consumers but not yet acknowledged. High values indicate slow or stalled consumers.",
+      "gridPos": { "x": 6, "y": 19, "w": 6, "h": 4 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SUM(SEARCH('{AWS/AmazonMQ,Broker} MessageUnacknowledgedCount', 'Average', 60))",
+          "id": "q1",
+          "period": "60"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 500, "color": "yellow" }, { "value": 5000, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Consumers",
+      "gridPos": { "x": 12, "y": 19, "w": 6, "h": 4 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SUM(SEARCH('{AWS/AmazonMQ,Broker} ConsumerCount', 'Average', 60))",
+          "id": "q1",
+          "period": "60"
+        }
+      ],
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Queues",
+      "gridPos": { "x": 18, "y": 19, "w": 6, "h": 4 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SUM(SEARCH('{AWS/AmazonMQ,Broker} QueueCount', 'Average', 60))",
+          "id": "q1",
+          "period": "60"
+        }
+      ],
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "none" } }
+    },
+
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "MQ – Message Counts",
+      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 10 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/AmazonMQ,Broker} MessageCount', 'Average', 60)",
+          "id": "q1",
+          "period": "60",
+          "label": "Ready"
+        },
+        {
+          "refId": "B",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/AmazonMQ,Broker} MessageUnacknowledgedCount', 'Average', 60)",
+          "id": "q2",
+          "period": "60",
+          "label": "Unacknowledged"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "none" } },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "MQ – Network Throughput",
+      "gridPos": { "x": 0, "y": 33, "w": 24, "h": 10 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/AmazonMQ,Broker} NetworkIn', 'Average', 60)",
+          "id": "q1",
+          "period": "60",
+          "label": "In"
+        },
+        {
+          "refId": "B",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/AmazonMQ,Broker} NetworkOut', 'Average', 60)",
+          "id": "q2",
+          "period": "60",
+          "label": "Out"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 14,
+      "type": "row",
+      "title": "ACM – Certificate Expiry",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 43, "w": 24, "h": 1 }
+    },
+
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Days to Expiry",
+      "description": "ACM publishes this metric once per day. Widen the time range to 7d or 30d if no data appears. Alert threshold: yellow at 30 days, red at 7 days.",
+      "gridPos": { "x": 0, "y": 44, "w": 6, "h": 6 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/CertificateManager,CertificateArn} DaysToExpiry', 'Minimum', 86400)",
+          "id": "q1",
+          "period": "86400"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "text": { "valueSize": 72 }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 7, "color": "yellow" },
+              { "value": 30, "color": "green" }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Certificate Days to Expiry – Trend",
+      "description": "Should decrease by 1 per day. A flat line means ACM stopped publishing — check certificate status in the console.",
+      "gridPos": { "x": 6, "y": 44, "w": 18, "h": 6 },
+      "datasource": { "type": "cloudwatch", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "region": "default",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 1,
+          "expression": "SEARCH('{AWS/CertificateManager,CertificateArn} DaysToExpiry', 'Minimum', 86400)",
+          "id": "q1",
+          "period": "86400",
+          "label": "${PROP('Dim.CertificateArn')}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "red" },
+              { "value": 7, "color": "yellow" },
+              { "value": 30, "color": "green" }
+            ]
+          }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    }
+
+  ],
+  "annotations": { "list": [] },
+  "links": []
+}

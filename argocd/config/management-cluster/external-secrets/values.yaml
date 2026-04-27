@@ -1,0 +1,51 @@
+# Default values for External Secrets Operator
+
+# Global configuration
+global:
+  cluster_name: ""  # Set by ArgoCD from Terraform outputs
+
+# External Secrets Operator configuration
+external-secrets:
+  # Install CRDs
+  installCRDs: true
+
+  # Service account configuration
+  serviceAccount:
+    create: true
+    name: "external-secrets"
+    annotations: {}
+
+  # Replica count
+  replicaCount: 1
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 65534
+
+  podSecurityContext:
+    fsGroup: 65534
+
+  # Webhook configuration
+  webhook:
+    create: true
+    replicaCount: 1
+
+  # Cert controller for webhook certificates
+  certController:
+    create: true
+    replicaCount: 1

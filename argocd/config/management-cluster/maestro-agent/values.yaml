@@ -25,7 +25,7 @@ maestroAgent:
     serviceAccount: "maestro-agent"
     consumerName: ""  # Populated from Terraform output (cluster ID)
     healthCheckBindPort: 8083
-    glog_v: 10  # Verbose logging level
+    glog_v: 4
 
   # MQTT Broker configuration (AWS IoT Core)
   broker:

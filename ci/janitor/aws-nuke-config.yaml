@@ -4,7 +4,7 @@
 
 regions:
   - us-east-1
-  - global  # IAM, S3, Route53, etc.
+  - global
 
 # Exclude deprecated/unavailable AWS service resource types whose API endpoints
 # hang during scanning. We don't use these services and can't delete them anyway.
@@ -29,17 +29,6 @@ resource-types:
 # Needed but not used.
 blocklist:
   - prod
-
-# CI accounts don't have IAM aliases; skip that safety check.
-bypass-alias-check-accounts:
-  - "018092638725"
-  - "791666871613"
-  - "855246887846"
-  - "599476212575"
-  - "662212752128"
-  - "811685182089"
-  - "696000197236"
-  - "720644165472"
 
 presets:
   globals:
@@ -82,64 +71,49 @@ presets:
         - type: glob
           value: "*"
 
-      # Exclude OrgAdminAccessRole Things
+      # Exclude OrgAdminAccessRole and ResourceExplorer roles
       IAMRole:
         - "OrganizationAccountAccessRole"
+        - property: Name
+          type: contains
+          value: "ResourceExplorerRole"
       IAMRolePolicyAttachment:
         - property: RoleName
           value: "OrganizationAccountAccessRole"
+        - property: RoleName
+          type: contains
+          value: "ResourceExplorerRole"
       IAMRolePolicy:
         - property: RoleName
           value: "OrganizationAccountAccessRole"
+        - property: RoleName
+          type: contains
+          value: "ResourceExplorerRole"
       IAMSAMLProvider: &glob-name-all
         - property: Name
           type: glob
           value: "*"
 
-  resource-explorer:
-    filters:
-      IAMRole:
-        - property: Name
-          type: contains
-          value: "ResourceExplorerRole"
-      IAMRolePolicyAttachment:
-        - property: RoleName
-          type: contains
-          value: "ResourceExplorerRole"
-      IAMRolePolicy:
-        - property: RoleName
-          type: contains
-          value: "ResourceExplorerRole"
-
+      # Exclude Resource Explorer
       ResourceExplorer2View: *glob-name-all
       ResourceExplorer2Index: *glob-name-all
 
-accounts:
-  # Sandbox 05
-  "018092638725":
-    presets:
-      - globals
-      - resource-explorer
-    filters: &e2e-preserve-filters
-      # ---------------------------------------------------------------
-      # Preserve CI identity: IAM User "e2e"
-      # ---------------------------------------------------------------
+  # Preserve CI identity: IAM users "e2e" and "ci"
+  ci:
+    filters:
       IAMUser:
         - "e2e"
         - "ci"
-
-      IAMUserAccessKey: &e2e-user-filters
+      IAMUserAccessKey: &ci-user-filters
         - property: UserName
           value: "e2e"
         - property: UserName
           value: "ci"
-      IAMUserPolicyAttachment: *e2e-user-filters
+      IAMUserPolicyAttachment: *ci-user-filters
       IAMUserPolicy: *glob-all
-      IAMUserGroupAttachment: *e2e-user-filters
-
+      IAMUserGroupAttachment: *ci-user-filters
       IAMLoginProfile:
         - "e2e"
-
       IAMRole:
         - "ci"
         - property: Path
@@ -148,17 +122,12 @@ accounts:
         - property: Name
           type: regex
           value: "rosa-regional-.*"
-
       IAMRolePolicyAttachment:
         - property: RoleName
           type: glob
           value: "AWSServiceRoleFor*"
         - property: RoleName
           value: "ci"
-        - property: RoleName
-          type: regex
-          value: "018092638725-.*"
-
       IAMRolePolicy:
         - property: RoleName
           type: glob
@@ -166,71 +135,78 @@ accounts:
         - property: role:RoleName
           type: regex
           value: "rosa-regional-.*"
-
-      # ---------------------------------------------------------------
-      # Preserve ECR repositories for nightly-e2e IAM user
-      # ---------------------------------------------------------------
       ECRRepository:
         - property: RepositoryName
           type: glob
           value: "e2e-platform-*"
-
-      # Other resources to preserve
       Route53HostedZone: *glob-name-all
+      CodeBuildSourceCredential: *glob-name-all
 
+  # Preserve CodeStar connection for central accounts
+  central:
+    filters:
       CodeStarConnection:
         - "rosa-regional-github-shared"
 
-      CodeBuildSourceCredential: *glob-name-all
+  # Preserve shared-dev identity and roles
+  shared-dev:
+    filters:
+      IAMUser:
+        - "shared-dev"
+      IAMUserAccessKey: &shared-dev-user-filters
+        - property: UserName
+          value: "shared-dev"
+      IAMUserPolicyAttachment: *shared-dev-user-filters
+      IAMUserGroupAttachment: *shared-dev-user-filters
+      IAMLoginProfile:
+        - "shared-dev"
+      IAMRole:
+        - "shared-dev-role"
+      IAMRolePolicyAttachment:
+        - property: RoleName
+          value: "shared-dev-role"
+      IAMRolePolicy:
+        - property: role:RoleName
+          value: "shared-dev-role"
 
-  # Dev Control Account
-  "791666871613":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
+  # Preserve SSM pull-secret for management clusters
+  mc:
+    filters:
+      SSMParameter:
+        - "/infra/pull-secret"
 
-  # e2e-dev-regional-cluster
-  "599476212575":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
+  # Preserve HCP customer identity and roles
+  customer:
+    filters:
+      IAMUser:
+        - "rrp-hcp-customer"
+      IAMUserAccessKey:
+        - property: UserName
+          value: "rrp-hcp-customer"
+      IAMUserPolicyAttachment:
+        - property: UserName
+          value: "rrp-hcp-customer"
 
-  # e2e-dev-management-cluster-0
-  "855246887846":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
-
-  # CI Control
+accounts:
+  # CI accounts
   "662212752128":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
-
-  # CI Mgmt 0
-  "811685182089":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
-
-  # CI Mgmt 1
-  "696000197236":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
-
-  # CI RC
+    presets: [globals, ci, central]
   "720644165472":
-    presets:
-      - globals
-      - resource-explorer
-    filters: *e2e-preserve-filters
+    presets: [globals, ci]
+  "129678139271":
+    presets: [globals, ci, mc]
+  "313828097858":
+    presets: [globals, ci, customer]
+
+  # Shared Dev accounts
+  "791666871613":
+    presets: [globals, ci, shared-dev, central]
+  "599476212575":
+    presets: [globals, ci, shared-dev]
+  "855246887846":
+    presets: [globals, ci, shared-dev, mc]
+  "114594328247":
+    presets: [globals, ci, shared-dev, customer]
 
 settings:
   # Disable deletion protection on resources that may have it enabled

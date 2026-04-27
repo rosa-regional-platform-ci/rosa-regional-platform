@@ -12,12 +12,57 @@ kube-prometheus-stack:
   grafana:
     enabled: false
 
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    prometheusConfigReloader:
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          memory: 64Mi
+
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+
+  prometheus-node-exporter:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
   prometheus:
     prometheusSpec:
       replicas: 2
       retention: "14d"
       retentionSize: "85GB"
       serviceMonitorSelectorNilUsesHelmValues: false
+      # External labels are required for Thanos to differentiate metrics from
+      # multiple clusters. These are injected by the ApplicationSet at sync time.
+      externalLabels:
+        cluster: '{{ required "global.cluster_name is required" .Values.global.cluster_name }}'
+        cluster_type: '{{ .Values.global.cluster_type | default "regional" }}'
+      remoteWrite:
+        - url: http://thanos-receive-router-thanos-receive.thanos:19291/api/v1/receive
+      resources:
+        requests:
+          cpu: 200m
+          memory: 1Gi
+        limits:
+          memory: 2Gi
+
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}
 

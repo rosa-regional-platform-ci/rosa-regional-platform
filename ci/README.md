@@ -4,20 +4,58 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 
 ## Jobs
 
-| Job                                                                                                                                                                                           | Schedule                  | Description                                                                                                                                             |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`check-docs`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-docs)                          | Pre-submit                | Checks markdown formatting with [Prettier](https://prettier.io/)                                                                                        |
-| [`terraform-validate`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-terraform-validate)          | Pre-submit                | Runs `terraform validate` on all root modules                                                                                                           |
-| [`helm-lint`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-helm-lint)                            | Pre-submit                | Lints Helm charts                                                                                                                                       |
-| [`check-rendered-files`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-rendered-files)      | Pre-submit                | Verifies rendered deploy files are up to date                                                                                                           |
-| [`on-demand-e2e`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)                    | Pre-submit (manual)       | End-to-end: provisions ephemeral environment using PR rosa-regional-platform branch, runs tests, tears down. Trigger with `/test on-demand-e2e` on a PR |
-| [`nightly-ephemeral`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)                     | Daily at 04:00 UTC        | End-to-end: provisions ephemeral environment using `main` rosa-regional-platform branch, runs tests, tears down                                         |
-| [`nightly-integration`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)                 | Daily at 04:00 UTC        | Runs e2e tests against a standing integration environment                                                                                               |
-| [`ephemeral-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-ephemeral-resources-janitor) | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                                                                      |
+| Job                                                                                                                                                                                      | Schedule                 | Description                                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`check-docs`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-docs)                     | Pre-submit               | Checks markdown formatting with [Prettier](https://prettier.io/)                                                                                        |
+| [`terraform-validate`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-terraform-validate)     | Pre-submit               | Runs `terraform validate` on all root modules                                                                                                           |
+| [`helm-lint`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-helm-lint)                       | Pre-submit               | Lints Helm charts                                                                                                                                       |
+| [`check-rendered-files`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-rendered-files) | Pre-submit               | Verifies rendered deploy files are up to date                                                                                                           |
+| [`on-demand-e2e`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)               | Pre-submit (manual)      | End-to-end: provisions ephemeral environment using PR rosa-regional-platform branch, runs tests, tears down. Trigger with `/test on-demand-e2e` on a PR |
+| [`nightly-ephemeral`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)                | Daily at 04:00 UTC       | End-to-end: provisions ephemeral environment using `main` rosa-regional-platform branch, runs tests, tears down                                         |
+| [`nightly-integration`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)            | Daily at 04:00 UTC       | Runs e2e tests against a standing integration environment                                                                                               |
+| `nightly-m6i` (planned)                                                                                                                                                                  | Mon/Wed/Fri at 05:00 UTC | Nightly ephemeral with `m6i.large` instance types — validates general-purpose Intel machines                                                            |
+| `nightly-c6i` (planned)                                                                                                                                                                  | Tue/Thu/Sat at 05:00 UTC | Nightly ephemeral with `c6i.xlarge` instance types — validates compute-optimized Intel machines                                                         |
+
+> **Note:** `nightly-m6i` and `nightly-c6i` are pending periodic job definitions in [openshift/release](https://github.com/openshift/release). Scripts and override files are ready in this repo.
+
+## Load Testing (Planned)
+
+Load testing scripts are implemented but not yet wired into the Prow workflow. The `rosa-regional-platform-load-test` step needs to be added to the `rosa-regional-platform-ephemeral-e2e` workflow in [openshift/release](https://github.com/openshift/release).
+
+- **Entrypoint**: `ci/nightly-load-test.sh` (will run as a Prow step after e2e, before teardown)
+- **Scripts**: `ci/load-test/scripts/platform-api-load.js` (API throughput), `ci/load-test/scripts/hcp-lifecycle-load.js` (concurrent HCP creation)
+- **Results**: JSON summaries saved to `${ARTIFACT_DIR}/load-test-results/` (visible in Prow artifacts)
+- **Baseline comparison**: `ci/load-test/compare-baseline.py` checks for regressions against an S3-stored baseline
+
+### Machine-Type Overrides
+
+The `ci/nightly-machine-type.sh` script provisions ephemeral environments with non-default EC2 instance types. Override files in `ci/nightly-overrides/machine-types/` are injected via `--provision-override-file`:
+
+```bash
+# Run locally with a specific machine type
+MACHINE_TYPE_OVERRIDE=m6i-large.yaml ./ci/nightly-machine-type.sh
+```
+
+To add a new machine type, create a YAML file in `ci/nightly-overrides/machine-types/` with `regional_cluster.node_instance_types` and `management_cluster_defaults.node_instance_types` overrides.
+
+## Cross-Component E2E Testing
+
+Component repos (e.g., `rosa-regional-platform-api`) can run the e2e test suite against an ephemeral environment with their PR-built image deployed. See [Enabling Pre-Merge E2E for Component Repos](../docs/adding-component-pre-merge.md) for the full workflow, architecture, and SOP for onboarding new repos.
 
 ## Build Image
 
-The CI image is built from [ci/Containerfile](ci/Containerfile) and includes all required tools (Terraform, Helm, AWS CLI, Python/uv, etc.).
+The CI image is built from [ci/Containerfile](ci/Containerfile) and includes all required tools:
+
+| Tool      | Purpose                                       |
+| --------- | --------------------------------------------- |
+| Terraform | Infrastructure provisioning                   |
+| Helm      | Kubernetes chart templating and linting       |
+| AWS CLI   | AWS account and resource management           |
+| Python/uv | Ephemeral provider and scripting              |
+| Prettier  | Markdown formatting checks (`check-docs` job) |
+| yq        | YAML processing                               |
+
+These tools are available in all CI job containers and can be used in scripts run by CI jobs.
 
 ## Ephemeral Environment
 
@@ -84,25 +122,11 @@ When a Prow job is running (e.g. `on-demand-e2e`), you can watch its logs in rea
 
 The e2e jobs use credentials mounted at `/var/run/rosa-credentials/`. Credentials are managed in [Vault](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/list/selfservice/cluster-secrets-rosa-regional-platform-int/). Two credential secrets are used:
 
-- `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral`, `on-demand-e2e`, and `ephemeral-resources-janitor`.
+- `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral` and `on-demand-e2e`.
 - `rosa-regional-platform-integration-creds` — grants access to AWS credentials for testing against the API gateway in the regional integration account. Used by `nightly-integration`.
 
-## Ephemeral Resources Janitor
+## AWS Account Cleanup (Janitor)
 
-The ephemeral tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **ephemeral-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
+The ephemeral tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. To clean up leaked resources, a CloudFormation-based [aws-nuke-cf](https://github.com/openshift-online/aws-nuke-cf) stack is deployed into each AWS account. It runs aws-nuke on a schedule using an in-account IAM role.
 
-### What is preserved
-
-See `./ci/aws-nuke-config.yaml`.
-
-### Running locally
-
-```bash
-# Dry-run (list only, no deletions)
-./ci/janitor/purge-aws-account.sh
-
-# Live run (actually delete resources)
-./ci/janitor/purge-aws-account.sh --no-dry-run
-```
-
-The script uses whatever AWS credentials are active in your environment. The account must be in the allowlist in `purge-aws-account.sh`.
+See [ci/janitor/README.md](janitor/README.md) for the nuke configuration, preservation rules, and deployment instructions.

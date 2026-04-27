@@ -1,0 +1,53 @@
+# Builds a static review dashboard and deploys it to GitHub Pages.
+#
+# The dashboard shows open PRs labelled "review-ready" or "discussion-needed"
+# across all ROSA Regional Platform repositories.
+#
+# Setup:
+#   1. In repo Settings > Pages, set Source to "GitHub Actions".
+#   2. (Optional) To include rosa-regional-platform-internal, create a
+#      fine-grained PAT with "Pull Requests: read" permission on all 4 repos
+#      and add it as a repository secret named DASHBOARD_TOKEN.
+#      Without it, only the 3 public repos are queried.
+name: Review Dashboard
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch PR data
+        env:
+          GH_TOKEN: ${{ secrets.DASHBOARD_TOKEN || github.token }}
+        run: ./dashboard/fetch-data.sh
+
+      - name: Build site
+        run: |
+          mkdir -p _site/pr-dashboard
+          cp dashboard/index.html _site/pr-dashboard/index.html
+          cp dashboard/data.json _site/pr-dashboard/data.json
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v4
+      - id: deployment
+        uses: actions/deploy-pages@v5

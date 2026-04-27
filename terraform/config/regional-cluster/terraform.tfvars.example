@@ -64,5 +64,5 @@ maestro_db_instance_class = "db.t4g.micro"  # Use db.t4g.small or larger for pro
 maestro_db_multi_az           = false  # Set to true for production
 maestro_db_deletion_protection = false  # Set to true for production
 
-# MQTT topic prefix for Maestro communication
-maestro_mqtt_topic_prefix = "maestro/consumers"
+# MQTT topic prefix for Maestro communication (legacy — topics are now scoped by regional_id)
+# maestro_mqtt_topic_prefix = "maestro/consumers"

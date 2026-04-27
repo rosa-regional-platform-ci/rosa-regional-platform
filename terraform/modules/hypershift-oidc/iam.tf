@@ -82,6 +82,7 @@ resource "aws_iam_role_policy" "hypershift_operator_ec2" {
           "ec2:DescribeVpcEndpointConnections",
           "ec2:AcceptVpcEndpointConnections",
           "ec2:RejectVpcEndpointConnections",
+          "ec2:DescribeVpcEndpointConnections",
           "ec2:DescribeVpcEndpoints",
           "ec2:CreateVpcEndpoint",
           "ec2:DeleteVpcEndpoints",
@@ -178,6 +179,75 @@ resource "aws_eks_pod_identity_association" "hypershift_installer" {
     local.common_tags,
     {
       Name = "${var.cluster_id}-hypershift-installer-pod-identity"
+    }
+  )
+}
+
+# =============================================================================
+# IAM Role and Pod Identity for External Secrets Operator
+#
+# Grants the External Secrets Operator permission to read secrets from SSM
+# Parameter Store. ESO will sync these to cluster namespaces managed by
+# CLM/Maestro.
+#
+# The operator runs in the external-secrets namespace and uses Pod Identity
+# for AWS authentication.
+# =============================================================================
+
+resource "aws_iam_role" "external_secrets_operator" {
+  name        = "${var.cluster_id}-external-secrets-operator"
+  description = "IAM role for External Secrets Operator to read secrets from SSM Parameter Store"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${var.cluster_id}-external-secrets-operator-role"
+    }
+  )
+}
+
+resource "aws_iam_role_policy" "external_secrets_operator" {
+  name = "${var.cluster_id}-external-secrets-operator-ssm"
+  role = aws_iam_role.external_secrets_operator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ]
+      Resource = "arn:aws:ssm:*:*:parameter/infra/*"
+    }]
+  })
+}
+
+resource "aws_eks_pod_identity_association" "external_secrets_operator" {
+  cluster_name    = var.eks_cluster_name
+  namespace       = "external-secrets"
+  service_account = "external-secrets"
+  role_arn        = aws_iam_role.external_secrets_operator.arn
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${var.cluster_id}-external-secrets-operator-pod-identity"
     }
   )
 }

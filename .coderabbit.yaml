@@ -1,0 +1,63 @@
+language: en-US
+reviews:
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "terraform/modules/**"
+      instructions: |
+        Review for AWS security best practices and least-privilege IAM policies.
+        Ensure no public endpoints are exposed except regional API Gateway.
+        Verify KMS encryption for secrets, RDS, and EBS volumes.
+        Check for multi-AZ high availability patterns.
+        Validate security group rules follow least-privilege networking.
+    - path: "terraform/config/**"
+      instructions: |
+        Review for consistency with the corresponding module interfaces.
+        Ensure backend configuration is correct and variables match module expectations.
+        Verify no hardcoded secrets or account IDs.
+    - path: "argocd/config/regional-cluster/**"
+      instructions: |
+        Review Helm values for regional cluster services (platform-api, maestro-server,
+        hyperfleet, thanos, grafana, monitoring). Ensure values follow existing patterns
+        and are properly scoped to the regional cluster context.
+    - path: "argocd/config/management-cluster/**"
+      instructions: |
+        Review Helm values for management cluster services (hypershift, maestro-agent,
+        external-secrets, monitoring, cert-manager). Ensure proper namespace scoping
+        and consistency with MC architecture patterns.
+    - path: "argocd/config/shared/**"
+      instructions: |
+        Review shared ArgoCD and storageclass configurations. Changes here affect
+        both regional and management clusters - verify compatibility with both.
+    - path: "argocd/applicationset/**"
+      instructions: |
+        Review ApplicationSet templates for correctness. Verify generator selectors,
+        template parameters, and sync policies follow GitOps best practices.
+    - path: "scripts/**"
+      instructions: |
+        Review shell scripts for command injection vulnerabilities and proper
+        error handling. Verify AWS CLI usage follows security best practices.
+        Check that IAM role assumptions use least-privilege patterns.
+    - path: "ci/**"
+      instructions: |
+        Review CI scripts and ephemeral provider code for correctness.
+        Ensure ephemeral environment cleanup is properly handled.
+        Check Python code in ephemeral-provider/ for proper error handling.
+    - path: "config/templates/**"
+      instructions: |
+        Review Jinja2 templates for rendering correctness. Ensure template
+        variables match the expected environment configuration schema.
+        Verify rendered output would be valid YAML/JSON.
+    - path: "docs/design/**"
+      instructions: |
+        Review design decisions for ADR format compliance. Ensure decisions
+        are well-justified and align with the regional architecture goals.
+  path_filters:
+    - "!docs/presentations/**"
+chat:
+  auto_reply: true

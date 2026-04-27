@@ -201,6 +201,9 @@ Provisions a Management Cluster (EKS for hosting customer control planes).
 - Stages: Source → Mint-IoT → Deploy → Bootstrap-ArgoCD → Register
 - Triggers on changes to `deploy/<env>/<region>/pipeline-management-cluster-<cluster>-inputs/terraform.json`
 - Deploys to management cluster account (may differ from regional account)
+- The **Register** stage calls the Regional Cluster Platform API to register the Management Cluster as a known consumer, passing:
+  - `cluster_id`, `management_id`, `region`, `alias` — cluster identity
+  - `cloudfront_url` — the OIDC issuer base URL (sourced from the MC's HyperShift CloudFront domain)
 
 See: `terraform/config/pipeline-management-cluster/`, `terraform/config/management-cluster/`
 

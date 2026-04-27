@@ -37,29 +37,29 @@ resource "aws_iot_policy" "maestro_server" {
         Effect = "Allow"
         Action = ["iot:Connect"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/*"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:client/maestro-*"
         ]
       },
       {
         Effect = "Allow"
         Action = ["iot:Publish"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/maestro/consumers/*/sourceevents",
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/maestro/consumers/*/agentevents"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/sourceevents",
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/agentevents"
         ]
       },
       {
         Effect = "Allow"
         Action = ["iot:Subscribe"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/maestro/consumers/*/agentevents"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topicfilter/sources/${var.regional_id}/consumers/*/agentevents"
         ]
       },
       {
         Effect = "Allow"
         Action = ["iot:Receive"]
         Resource = [
-          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/maestro/consumers/*/agentevents"
+          "arn:aws:iot:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:topic/sources/${var.regional_id}/consumers/*/agentevents"
         ]
       }
     ]
@@ -77,5 +77,52 @@ resource "aws_iot_policy" "maestro_server" {
 resource "aws_iot_policy_attachment" "maestro_server" {
   policy = aws_iot_policy.maestro_server.name
   target = aws_iot_certificate.maestro_server.arn
+}
+
+# =============================================================================
+# IoT Core Logging
+#
+# These are account-level singleton resources (one IAM role globally, one
+# logging config per region). We use a null_resource with AWS CLI calls so
+# that teardown of any individual environment does NOT remove the logging
+# configuration or the shared IAM role.
+# =============================================================================
+
+resource "null_resource" "iot_logging" {
+  triggers = {
+    log_level = var.iot_log_level
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -euo pipefail
+
+      ACCOUNT_ID="${data.aws_caller_identity.current.account_id}"
+      ROLE_NAME="iot-logging"
+      ROLE_ARN="arn:aws:iam::$${ACCOUNT_ID}:role/$${ROLE_NAME}"
+      LOG_LEVEL="${var.iot_log_level}"
+
+      # Create IAM role (idempotent — ignore "already exists" error)
+      aws iam create-role \
+        --role-name "$${ROLE_NAME}" \
+        --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"iot.amazonaws.com"},"Action":"sts:AssumeRole"}]}' \
+        --tags 'Key=Component,Value=iot-core' 'Key=Name,Value=iot-logging' \
+        2>&1 || true
+
+      # Attach logging policy (idempotent)
+      aws iam attach-role-policy \
+        --role-name "$${ROLE_NAME}" \
+        --policy-arn "arn:aws:iam::aws:policy/service-role/AWSIoTLogging" \
+        2>&1 || true
+
+      # Brief wait for IAM propagation
+      sleep 5
+
+      # Set IoT logging options (idempotent — overwrites existing config)
+      aws iot set-v2-logging-options \
+        --role-arn "$${ROLE_ARN}" \
+        --default-log-level "$${LOG_LEVEL}"
+    EOT
+  }
 }
 

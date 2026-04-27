@@ -28,6 +28,7 @@ node_modules/
 
 # logs
 codebuild-logs*
+ephemeral-logs*
 
 # Ephemeral environment state
 .ephemeral-envs
@@ -35,3 +36,6 @@ codebuild-logs*
 
 # Local ephemeral environment overrides
 .ephemeral-env/
+
+# Dashboard (generated locally by ./dashboard/fetch-data.sh)
+dashboard/data.json

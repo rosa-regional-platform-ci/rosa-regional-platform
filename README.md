@@ -18,7 +18,7 @@ rosa-regional-platform/
 │       ├── management-cluster/       # Management cluster application templates
 │       ├── regional-cluster/         # Regional cluster application templates
 │       └── shared/                   # Shared configurations (ArgoCD, etc.)
-├── ci/                               # CI automation (e2e tests, janitor)
+├── ci/                               # CI automation (e2e tests)
 ├── deploy/                           # Per-environment deployment configs
 ├── docs/                             # Design documents and presentations
 ├── hack/                             # Developer utility scripts

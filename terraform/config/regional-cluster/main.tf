@@ -1,6 +1,12 @@
 provider "aws" {
   region = var.region
 
+  # FedRAMP IA-07 / SC-13: Use FIPS 140-2 validated endpoints for all AWS API
+  # calls from Terraform when operating in US and GovCloud regions where FIPS
+  # endpoints are available. Non-US regions (EU, AP, SA, etc.) do not have FIPS
+  # endpoints; enabling them there would cause all API calls to fail.
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
+
   # Conditionally assume role for cross-account deployment (local dev only)
   # When target_account_id is set, assume OrganizationAccountAccessRole in target account
   # In pipelines, target_account_id is empty - ambient creds are already the target account
@@ -27,9 +33,10 @@ provider "aws" {
 # so this provider uses a named profile written by the buildspec script.
 # For local dev, central_aws_profile is empty and ambient creds are used.
 provider "aws" {
-  alias   = "central"
-  region  = var.region
-  profile = var.central_aws_profile != "" ? var.central_aws_profile : null
+  alias             = "central"
+  region            = var.region
+  profile           = var.central_aws_profile != "" ? var.central_aws_profile : null
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 }
 
 # =============================================================================
@@ -65,6 +72,8 @@ module "ecs_bootstrap" {
   # ArgoCD bootstrap configuration
   repository_url    = var.repository_url
   repository_branch = var.repository_branch
+
+  thanos_kms_key_arn = module.thanos_infrastructure.kms_key_arn
 }
 
 # =============================================================================
@@ -100,6 +109,30 @@ module "api_gateway" {
   # Custom domain (e.g. api.us-east-1.int0.rosa.devshift.net)
   api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
+
+  # Method-level throttling and observability
+  metrics_enabled        = var.api_metrics_enabled
+  logging_level          = var.api_logging_level
+  data_trace_enabled     = var.api_data_trace_enabled
+  throttling_burst_limit = var.api_throttling_burst_limit
+  throttling_rate_limit  = var.api_throttling_rate_limit
+}
+
+# =============================================================================
+# RHOBS API Gateway (Metrics Ingestion)
+#
+# Dedicated REST API for Prometheus remote_write from Management Clusters.
+# Separate from the Platform API to enforce independent access control:
+# only MC accounts can invoke this API via resource policy.
+# =============================================================================
+
+module "rhobs_api_gateway" {
+  source = "../../modules/rhobs-api-gateway"
+
+  regional_id  = var.regional_id
+  vpc_link_id  = module.api_gateway.vpc_link_id
+  alb_arn      = module.api_gateway.alb_arn
+  alb_dns_name = module.api_gateway.alb_dns_name
 }
 
 # =============================================================================
@@ -157,6 +190,9 @@ module "maestro_infrastructure" {
 
   # MQTT topic prefix
   mqtt_topic_prefix = var.maestro_mqtt_topic_prefix
+
+  # IoT Core logging
+  iot_log_level = var.iot_log_level
 }
 
 # =============================================================================
@@ -211,4 +247,31 @@ module "hyperfleet_infrastructure" {
   # Message queue configuration
   mq_instance_type   = var.hyperfleet_mq_instance_type
   mq_deployment_mode = var.hyperfleet_mq_deployment_mode
+}
+
+# =============================================================================
+# Thanos Infrastructure Module (Observability)
+# =============================================================================
+
+# =============================================================================
+# CloudTrail Module (FedRAMP AU-12)
+# =============================================================================
+
+module "cloudtrail" {
+  source = "../../modules/cloudtrail"
+
+  cluster_id  = var.regional_id
+  environment = var.environment
+}
+
+module "thanos_infrastructure" {
+  source = "../../modules/thanos-infrastructure"
+
+  cluster_id       = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
+
+  # Optional: customize retention and namespace
+  metrics_retention_days = var.thanos_metrics_retention_days
+  thanos_namespace       = var.thanos_namespace
+  thanos_service_account = var.thanos_service_account
 }

@@ -17,6 +17,18 @@ source scripts/pipeline-common/load-deploy-config.sh management
 
 echo "Cluster ID: ${CLUSTER_ID}"
 echo "Regional Account: ${REGIONAL_AWS_ACCOUNT_ID}"
+
+# Resolve REGIONAL_ID from RC deploy config if not already set
+if [ -z "${REGIONAL_ID:-}" ]; then
+    RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json"
+    if [ -f "$RC_CONFIG_FILE" ]; then
+        REGIONAL_ID=$(jq -r '.regional_id' "$RC_CONFIG_FILE")
+    else
+        echo "ERROR: Cannot determine REGIONAL_ID — not set and RC config not found: $RC_CONFIG_FILE" >&2
+        exit 1
+    fi
+fi
+echo "Regional ID: ${REGIONAL_ID}"
 echo ""
 
 # Switch to RC account for IoT operations and state storage
@@ -59,7 +71,7 @@ management_cluster_id = "${CLUSTER_ID}"
 app_code              = "${APP_CODE}"
 service_phase         = "${SERVICE_PHASE}"
 cost_center           = "${COST_CENTER}"
-mqtt_topic_prefix     = "sources/maestro/consumers"
+mqtt_topic_prefix     = "sources/${REGIONAL_ID}/consumers"
 EOF
 
 # Run IoT provisioning with persistent remote state

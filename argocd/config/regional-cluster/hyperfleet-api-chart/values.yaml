@@ -14,9 +14,10 @@ hyperfleet-api-chart:
   # Source configuration for the hyperfleet-api chart
   source:
     # Git repository URL
-    repoURL: https://github.com/cdoan1/hyperfleet-api.git
+    repoURL: https://github.com/openshift-hyperfleet/hyperfleet-api.git
     # Target revision (branch, tag, or commit)
-    targetRevision: cdoan/ROSAENG-130-v0.1.1
+    # targetRevision: cdoan/ROSAENG-130-v0.1.1
+    targetRevision: v0.2.1
     # Path to the chart within the repository
     path: charts
 
@@ -35,14 +36,26 @@ hyperfleet-api-chart:
   helmValues:
 
     image:
-      registry: quay.io/openshift-hyperfleet
+      registry: quay.io/cdoan0
       repository: hyperfleet-api
-      tag: v0.1.1
+      tag: v0.2.1-1-g153ec89-dirty
       pullPolicy: Always
     replicaCount: 2
-    
+
+    # Application configuration (generates ConfigMap)
+    config:
+      database:
+        ssl:
+          mode: require
+      adapters:
+        required:
+          cluster:
+            - adapter1
+          nodepool:
+            - adapter3
+
+    # Database infrastructure configuration
     database:
-      sslMode: require
       postgresql:
         enabled: false
       external:
@@ -66,13 +79,6 @@ hyperfleet-api-chart:
       - name: secrets-store-inline
         mountPath: /mnt/secrets-store
         readOnly: true
-
-    adapters:
-      cluster:
-        - adapter1
-        - adapter2
-      nodepool:
-        - adapter3
 
 # SecretProviderClass configuration for AWS Pod Identity
 secretProviderClass:

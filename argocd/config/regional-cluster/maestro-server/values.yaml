@@ -28,7 +28,7 @@ maestroServer:
     httpReadTimeout: 300
     httpWriteTimeout: 600
     labelMetricsInclusionDuration: "168h" # 7 days
-    glog_v: 10 # Verbose logging level
+    glog_v: 4
   # Database configuration (RDS)
   database:
     # RDS connection (credentials from ExternalSecret)

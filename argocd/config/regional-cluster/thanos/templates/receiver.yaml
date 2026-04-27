@@ -1,0 +1,44 @@
+{{- if .Values.receive.enabled }}
+apiVersion: monitoring.thanos.io/v1alpha1
+kind: ThanosReceive
+metadata:
+  name: thanos-receive
+  namespace: {{ include "thanos-operator.namespace" . }}
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+spec:
+  ingesterSpec:
+    defaultObjectStorageConfig:
+      name: {{ .Values.objectStore.secretName }}
+      key: objstore.yml
+    hashrings:
+      - name: default
+        replicas: {{ .Values.receive.replicas }}
+        tsdbConfig:
+          retention: {{ .Values.receive.retention }}
+        resourceRequirements:
+          requests:
+            cpu: {{ .Values.receive.resources.requests.cpu }}
+            memory: {{ .Values.receive.resources.requests.memory }}
+          limits:
+            memory: {{ .Values.receive.resources.limits.memory }}
+        storage:
+          size: {{ .Values.receive.storage.size }}
+          {{- if .Values.receive.storage.storageClass }}
+          storageClass: {{ .Values.receive.storage.storageClass }}
+          {{- end }}
+  routerSpec:
+    replicas: {{ .Values.receive.router.replicas | default 1 }}
+    replicationFactor: {{ .Values.receive.replicationFactor }}
+    resourceRequirements:
+      requests:
+        cpu: {{ .Values.receive.router.resources.requests.cpu }}
+        memory: {{ .Values.receive.router.resources.requests.memory }}
+      limits:
+        memory: {{ .Values.receive.router.resources.limits.memory }}
+    externalLabels:
+      receive: "true"
+      region: {{ .Values.global.aws_region | quote }}
+{{- end }}

@@ -1,5 +1,9 @@
 provider "aws" {
   region = var.region
+  # FedRAMP SC-13 / IA-07: Use FIPS 140-2 validated endpoints when available.
+  # FIPS endpoints exist only in US and GovCloud regions; non-US regions (EU, AP, SA)
+  # do not support FIPS endpoints and will fail if this is set to true.
+  use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 }
 
 data "aws_caller_identity" "current" {}
@@ -151,6 +155,10 @@ resource "aws_s3_bucket" "pipeline_artifact" {
   timeouts {
     create = "30s" # Fail fast if bucket creation hangs (explicit names should be instant)
     delete = "2m"
+  }
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
   }
 }
 

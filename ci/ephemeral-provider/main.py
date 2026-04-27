@@ -86,6 +86,12 @@ def main():
         help="Source branch to test (default: from REPOSITORY_BRANCH env var)",
     )
     parser.add_argument(
+        "--ci-branch",
+        default=None,
+        help="Explicit CI branch name (overrides derivation from --branch). "
+             "Used after swap-branch to preserve the CI branch identity.",
+    )
+    parser.add_argument(
         "--creds-dir",
         default=os.environ.get("CREDS_DIR", "/var/run/rosa-credentials/"),
         help="Directory containing CI credentials (optional if credentials are passed as env vars)",
@@ -95,6 +101,16 @@ def main():
         default=os.environ.get("EPHEMERAL_OVERRIDE_DIR", ""),
         help="Path to local config overrides directory that replaces config/ephemeral/ "
              "(default: from EPHEMERAL_OVERRIDE_DIR env var)",
+    )
+    parser.add_argument(
+        "--provision-override-file",
+        action="append",
+        default=[],
+        metavar="TARGET:OVERRIDE",
+        help="Deep-merge a YAML override file into a repo file before committing. "
+             "Format: <target-path>:<override-file>. Can be specified multiple times. "
+             "List items are matched by 'name' key. "
+             "Example: argocd/config/regional-cluster/platform-api/values.yaml:override.yaml",
     )
     parser.add_argument(
         "--save-regional-state",
@@ -139,6 +155,18 @@ def main():
         region = discover_region(env_config_dir)
         log.info("Region: %s (from %s)", region, env_config_dir)
 
+    # Parse --provision-override-file args into (target_path, override_file) tuples
+    provision_overrides = []
+    for entry in args.provision_override_file:
+        if ":" not in entry:
+            log.error("Invalid --provision-override-file format (expected target:override): %s", entry)
+            sys.exit(1)
+        target, override = entry.split(":", 1)
+        if not target.strip() or not override.strip():
+            log.error("Invalid --provision-override-file: target and override must both be non-empty: %s", entry)
+            sys.exit(1)
+        provision_overrides.append((target, override))
+
     env = EphemeralEnvOrchestrator(
         repo=repo,
         branch=args.branch,
@@ -146,6 +174,8 @@ def main():
         region=region,
         ci_prefix=ci_prefix,
         override_dir=override_dir,
+        provision_overrides=provision_overrides,
+        ci_branch_name=args.ci_branch,
     )
 
     try:

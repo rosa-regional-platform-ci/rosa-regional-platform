@@ -24,6 +24,7 @@ Usage: $0 [service] [cluster_type]
 Services:
   maestro   - Maestro HTTP (8080) + gRPC (8090)  [regional only]
   argocd    - ArgoCD server HTTPS (8443)          [regional or management]
+  grafana   - Grafana Dashboard (3000)            [regional only]
   custom    - Custom service (will prompt for details)
 
 Cluster type:
@@ -68,6 +69,7 @@ else
     SERVICE=$(fzf_pick "Select service (${CLUSTER_TYPE}):" \
       "maestro   - Maestro HTTP + gRPC" \
       "argocd    - ArgoCD server HTTPS" \
+      "grafana   - Grafana Dashboard" \
       "custom    - Custom service / ports")
   else
     SERVICE=$(fzf_pick "Select service (${CLUSTER_TYPE}):" \
@@ -80,7 +82,7 @@ fi
 # ── Validate ─────────────────────────────────────────────────────────────────
 
 case "$SERVICE" in
-  maestro|argocd|custom) ;;
+  maestro|argocd|grafana|custom) ;;
   *) echo "Error: unknown service '$SERVICE'"; echo ""; usage ;;
 esac
 
@@ -91,6 +93,11 @@ esac
 
 if [ "$SERVICE" = "maestro" ] && [ "$CLUSTER_TYPE" != "regional" ]; then
   echo "Error: maestro is only available on regional clusters."
+  exit 1
+fi
+
+if [ "$SERVICE" = "grafana" ] && [ "$CLUSTER_TYPE" != "regional" ]; then
+  echo "Error: grafana is only available on regional clusters."
   exit 1
 fi
 
@@ -107,6 +114,11 @@ case "$SERVICE" in
   argocd)
     FORWARDS=(
       "ArgoCD-Server 8443 8443 argocd-server argocd 443"
+    )
+    ;;
+  grafana)
+    FORWARDS=(
+      "Grafana 3000 3000 grafana grafana 80"
     )
     ;;
   custom)
@@ -291,6 +303,12 @@ if [ "$SERVICE" = "argocd" ]; then
     echo "    Password:        (could not retrieve - run on bastion manually):"
     echo "                     kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath={.data.password} | base64 -d"
   fi
+fi
+
+if [ "$SERVICE" = "grafana" ]; then
+  echo ""
+  echo "    Grafana UI: http://localhost:3000"
+  echo "    No login required (anonymous access enabled)"
 fi
 
 echo ""

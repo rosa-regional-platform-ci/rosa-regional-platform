@@ -68,25 +68,22 @@ aws ssm put-parameter --name "/infra/${ENV}/${REGION}/mc01/account_id" \
 
 ### 2.2 Add the environment configuration
 
-Create a new file `config/environments/<environment>.config.yaml`. This inherits defaults from `config/defaults.config.yaml` — override only what differs.
+Create a new region config file at `config/<environment>/<region>.yaml`. This inherits defaults from `config/defaults.yaml` — override only what differs. Environment-level defaults can be set in `config/<environment>/defaults.yaml`.
 
 ```yaml
-# config/environments/my-env.config.yaml
-region_deployments:
-  us-east-1:
-    management_clusters:
-      mc01: {}
+# config/my-env/us-east-1.yaml
+management_clusters:
+  mc01: {}
 ```
 
 To enable the bastion:
 
 ```yaml
-region_deployments:
-  us-east-1:
-    terraform_vars:
-      enable_bastion: true
-    management_clusters:
-      mc01: {}
+# config/my-env/us-east-1.yaml
+terraform_vars:
+  enable_bastion: true
+management_clusters:
+  mc01: {}
 ```
 
 ### 2.3 Render and commit
@@ -156,12 +153,16 @@ kubectl get applications -A
 Expected output:
 
 ```
-NAMESPACE   NAME                SYNC STATUS   HEALTH STATUS
-argocd      argocd              Synced        Healthy
-argocd      hyperfleet-system   Synced        Healthy
-argocd      maestro-server      Synced        Healthy
+NAMESPACE   NAME                  SYNC STATUS   HEALTH STATUS
+argocd      argocd                Synced        Healthy
+argocd      hyperfleet-adapter1   Synced        Healthy
+argocd      hyperfleet-api        Synced        Healthy
+argocd      hyperfleet-sentinel   Synced        Healthy
+argocd      maestro-server        Synced        Healthy
+argocd      monitoring          Synced        Healthy
 argocd      platform-api        Synced        Healthy
 argocd      root                Synced        Healthy
+argocd      storageclass        Synced        Healthy
 ```
 
 From the Management Cluster bastion:
@@ -178,7 +179,9 @@ argocd      argocd          Synced        Healthy
 argocd      cert-manager    Synced        Healthy
 argocd      hypershift      Synced        Healthy
 argocd      maestro-agent   Synced        Healthy
+argocd      monitoring      Synced        Healthy
 argocd      root            Synced        Healthy
+argocd      storageclass    Synced        Healthy
 ```
 
 ### 4.3 Verify the Platform API
@@ -199,7 +202,7 @@ terraform output -raw api_test_command
 # awscurl --service execute-api --region us-east-2 https://<id>.execute-api.<region>.amazonaws.com/prod/v0/live
 ```
 
-> **Note:** `awscurl` must be run from the Regional account, which is the only account authorized by default.
+> **Note:** The API Gateway accepts requests from any authenticated AWS principal. Authorization is enforced by the Platform API backend — only accounts registered with the Platform API (starting with the bootstrap account) receive a successful response.
 
 ### 4.4 Verify Maestro Connectivity
 

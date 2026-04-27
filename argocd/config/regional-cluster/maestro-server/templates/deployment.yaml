@@ -101,6 +101,8 @@ spec:
             - --db-max-open-connections={{ .Values.maestroServer.database.maxOpenConnections }}
             - --message-broker-config-file=/mnt/secrets-store/config.yaml
             - --message-broker-type={{ .Values.maestroServer.broker.type }}
+            - --client-id=$(POD_NAME)
+            - --source-id={{ .Values.global.cluster_name }}
             - --enable-https=false
             - --enable-grpc-server=true
             - --disable-grpc-tls=true

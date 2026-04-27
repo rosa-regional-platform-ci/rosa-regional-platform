@@ -1,0 +1,311 @@
+{
+  "title": "EKS Control Plane",
+  "uid": "eks-control-plane",
+  "description": "EKS API server health — request rates, latency, error rates, and etcd object counts. Uses metrics available from the managed control plane.",
+  "tags": ["kubernetes", "eks", "apiserver", "sre"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "schemaVersion": 38,
+  "graphTooltip": 1,
+  "time": { "from": "now-3h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "label": "Datasource",
+        "query": "prometheus",
+        "current": { "text": "Thanos", "value": "Thanos" },
+        "hide": 0,
+        "refresh": 1
+      },
+      {
+        "name": "cluster",
+        "type": "query",
+        "label": "Cluster",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": "label_values(apiserver_request_total, cluster)",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "API Server Request Rate",
+      "description": "Total requests/sec across all API server instances.",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "req/s"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "blue" }] }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "API Server Error Rate (5xx)",
+      "description": "Server-side errors. SRE standard: alert >1%.",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(rate(apiserver_request_total{cluster=~\"$cluster\",code=~\"5..\"}[5m])) / sum(rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "yellow" }, { "value": 5, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "API Request Latency p99",
+      "description": "p99 latency across all verbs. SRE standard: <1s for mutating, <10s for LIST.",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "yellow" }, { "value": 5, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "In-Flight Requests",
+      "description": "Currently active requests. Sustained high values indicate API server saturation.",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(apiserver_current_inflight_requests{cluster=~\"$cluster\"})",
+          "legendFormat": "In-Flight"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 200, "color": "yellow" }, { "value": 400, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "etcd Object Count",
+      "description": "Total objects stored in etcd. Growth indicates accumulation of resources.",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(apiserver_storage_objects{cluster=~\"$cluster\"})",
+          "legendFormat": "Objects"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "blue" }] }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Dropped Requests (Rate Limit)",
+      "description": "Requests dropped due to API priority & fairness rate limiting.",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(apiserver_flowcontrol_rejected_requests_total{cluster=~\"$cluster\"}[5m])) or vector(0)",
+          "legendFormat": "Dropped/s"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Request Rate by Verb",
+      "description": "Breakdown by HTTP verb. LIST spikes can cause API server pressure.",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (verb) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ verb }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Request Rate by Response Code",
+      "description": "4xx = client errors, 5xx = server errors. Any sustained 5xx warrants investigation.",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (code) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ code }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Request Latency by Verb (p50 / p99)",
+      "description": "WATCH excluded — long-lived connections skew results. SRE standard: p99 GET/LIST <1s, mutating <500ms.",
+      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (verb, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
+          "legendFormat": "p99 – {{ verb }}"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.50, sum by (verb, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
+          "legendFormat": "p50 – {{ verb }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "color": { "mode": "palette-classic" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "red" }] },
+          "custom": { "thresholdsStyle": { "mode": "dashed" } }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "etcd Object Count by Resource",
+      "description": "Top resources stored in etcd. Useful for identifying accumulation of stale objects (pods, events, secrets).",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (resource) (apiserver_storage_objects{cluster=~\"$cluster\"}))",
+          "legendFormat": "{{ resource }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "API Priority & Fairness — Queue Depth",
+      "description": "Requests queued per priority level. Sustained queuing = API server overloaded.",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (priority_level) (apiserver_flowcontrol_current_inqueue_requests{cluster=~\"$cluster\"})",
+          "legendFormat": "{{ priority_level }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Admission Webhook Latency (p99)",
+      "description": "Time spent in admission webhooks. Slow webhooks delay all mutating requests.",
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (name, le) (rate(apiserver_admission_webhook_admission_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "legendFormat": "{{ name }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s", "color": { "mode": "palette-classic" },
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 0.5, "color": "yellow" }, { "value": 1, "color": "red" }] },
+          "custom": { "thresholdsStyle": { "mode": "dashed" } }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Watch Event Rate",
+      "description": "Events dispatched to watchers. High rates with slow consumers cause API server memory pressure.",
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (rate(apiserver_watch_events_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ kind }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "eps", "color": { "mode": "palette-classic" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+    }
+  ]
+}

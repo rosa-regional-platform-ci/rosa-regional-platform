@@ -37,6 +37,15 @@ VAULT_CRED_KEYS=(
 
 die() { echo "Error: $*" >&2; exit 1; }
 
+# Portable SHA-256: works on both Linux (sha256sum) and macOS (shasum)
+portable_sha256() {
+    if command -v sha256sum &>/dev/null; then
+        sha256sum
+    else
+        shasum -a 256
+    fi
+}
+
 usage() {
     echo "Usage: $0 <command>"
     echo ""
@@ -44,11 +53,13 @@ usage() {
     echo "  provision       Provision an ephemeral environment"
     echo "  teardown        Tear down an ephemeral environment"
     echo "  resync          Resync an ephemeral environment to your branch"
+    echo "  swap-branch     Swap an ephemeral environment to a different branch"
     echo "  list            List ephemeral environments"
     echo "  shell           Interactive shell for Platform API access"
     echo "  bastion         Connect to RC/MC bastion in an ephemeral env"
     echo "  port-forward    Forward ports through RC/MC bastion in an ephemeral env"
     echo "  e2e             Run e2e tests against an ephemeral env"
+    echo "  collect-logs    Collect kubernetes logs from RC/MC in an ephemeral env"
 }
 
 usage_bastion_interactive() {
@@ -71,14 +82,15 @@ usage_port_forward() {
 }
 
 # Extract a KEY=VALUE field from an .ephemeral-envs line.
+# Uses a space prefix to match exact keys (e.g. BRANCH vs CI_BRANCH).
 get_field() {
-    echo "$1" | sed -n "s/.*${2}=\([^ ]*\).*/\1/p"
+    echo "$1" | sed -n "s/.* ${2}=\([^ ]*\).*/\1/p"
 }
 
 # Update the STATE field for a BUILD_ID in .ephemeral-envs.
 update_state() {
     local id="$1" new_state="$2"
-    grep -v "^${id} " "$ENVS_FILE" > "${ENVS_FILE}.tmp"
+    grep -v "^${id} " "$ENVS_FILE" > "${ENVS_FILE}.tmp" || true
     grep "^${id} " "$ENVS_FILE" \
         | sed "s/STATE=[^ ]*/STATE=${new_state}/" >> "${ENVS_FILE}.tmp"
     mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
@@ -89,6 +101,52 @@ append_field() {
     local id="$1" key="$2" value="$3"
     sed "s|^${id} .*|& ${key}=${value}|" "$ENVS_FILE" > "${ENVS_FILE}.tmp" \
         && mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
+}
+
+# Update one or more KEY=VALUE fields (update existing or append).
+# Usage: update_fields <id> KEY1=VAL1 [KEY2=VAL2 ...]
+update_fields() {
+    local id="$1"; shift
+    cp "$ENVS_FILE" "${ENVS_FILE}.tmp"
+    for pair in "$@"; do
+        local key="${pair%%=*}" value="${pair#*=}"
+        if grep "^${id} " "${ENVS_FILE}.tmp" | grep -q " ${key}="; then
+            sed -i.bak "/^${id} /s| ${key}=[^ ]*| ${key}=${value}|" "${ENVS_FILE}.tmp"
+        else
+            sed -i.bak "s|^${id} .*|& ${key}=${value}|" "${ENVS_FILE}.tmp"
+        fi
+    done
+    rm -f "${ENVS_FILE}.tmp.bak"
+    mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
+}
+
+# Derive the CI branch name from a BUILD_ID and branch name.
+# Must match the Python logic in ci/ephemeral-provider/git.py and main.py.
+derive_ci_branch() {
+    local build_id="$1" branch="$2"
+    local ci_prefix="ci-$(echo -n "$build_id" | portable_sha256 | cut -c1-6)"
+    echo "${ci_prefix}-$(echo "$branch" | tr '/' '-')-ci"
+}
+
+# Interactive fzf picker for remote + branch.
+# Sets globals: PICKED_REPO, PICKED_BRANCH
+pick_remote_branch() {
+    local prompt="${1:-Select branch:}"
+
+    local remote
+    remote=$(git remote -v | grep '(fetch)' \
+        | awk '{printf "%-15s %s\n", $1, $2}' \
+        | fzf --height=10 --header="Select remote:" \
+        | awk '{print $1}') \
+        || { echo "Aborted."; exit 1; }
+
+    PICKED_REPO=$(git remote get-url "$remote" | sed 's|.*github\.com[:/]||; s|\.git$||')
+    echo "Fetching branches from $remote ($PICKED_REPO)..."
+
+    PICKED_BRANCH=$(git ls-remote --heads "$remote" 2>/dev/null \
+        | sed 's|.*refs/heads/||' \
+        | fzf --height=20 --header="$prompt") \
+        || { echo "Aborted."; exit 1; }
 }
 
 # Select an environment by explicit ID or interactive fzf picker.
@@ -147,22 +205,54 @@ setup_override_mount() {
     fi
 }
 
-# Fetch credentials from Vault via OIDC login.
+# Fetch credentials from Vault via OIDC login, or use pre-set env vars.
 # Sets global: CRED_FLAGS (container -e flags), REGIONAL_AK, REGIONAL_SK,
 #              MANAGEMENT_AK, MANAGEMENT_SK
 # Credentials never touch disk — they live only in this shell process.
 fetch_creds() {
-    echo "Fetching credentials from Vault (OIDC login)..."
-
-    local vault_token
-    vault_token=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
-        || die "Vault OIDC login failed."
-
     CRED_FLAGS=""
     REGIONAL_AK=""
     REGIONAL_SK=""
     MANAGEMENT_AK=""
     MANAGEMENT_SK=""
+
+    # If all credential env vars are already set, skip Vault entirely.
+    local all_set=true
+    local missing_keys=""
+    for key in "${VAULT_CRED_KEYS[@]}"; do
+        local upper_key
+        upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
+        if [[ -z "${!upper_key:-}" ]]; then
+            all_set=false
+            missing_keys="$missing_keys $upper_key"
+        fi
+    done
+
+    if [[ "$all_set" == "true" ]]; then
+        echo "Using pre-set credentials from environment."
+        for key in "${VAULT_CRED_KEYS[@]}"; do
+            local upper_key
+            upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
+            local val="${!upper_key}"
+            CRED_FLAGS="$CRED_FLAGS -e ${upper_key}=${val}"
+
+            case "$key" in
+                regional_access_key)    REGIONAL_AK="$val" ;;
+                regional_secret_key)    REGIONAL_SK="$val" ;;
+                management_access_key)  MANAGEMENT_AK="$val" ;;
+                management_secret_key)  MANAGEMENT_SK="$val" ;;
+            esac
+        done
+        echo "Credentials loaded from environment."
+        return
+    fi
+
+    echo "Missing credential env vars:$missing_keys"
+    echo "Fetching credentials from Vault (OIDC login)..."
+
+    local vault_token
+    vault_token=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
+        || die "Vault OIDC login failed."
 
     for key in "${VAULT_CRED_KEYS[@]}"; do
         local val
@@ -171,7 +261,7 @@ fetch_creds() {
             || die "Failed to fetch credential '$key' from Vault."
 
         local upper_key
-        upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+        upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
         CRED_FLAGS="$CRED_FLAGS -e ${upper_key}=${val}"
 
         case "$key" in
@@ -202,7 +292,7 @@ bastion_setup() {
 
     # Compute ci_prefix from BUILD_ID (must match ci/ephemeral-provider/main.py)
     local ci_prefix
-    ci_prefix="ci-$(echo -n "$BUILD_ID" | shasum -a 256 | cut -c1-6)"
+    ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)"
 
     # Derive cluster ID and ECS resource names from ci_prefix
     if [[ "$cluster_type" == "regional" ]]; then
@@ -310,6 +400,7 @@ bastion_setup() {
         || die "Execute command agent did not become ready (status: ${agent_status:-unknown})"
 }
 
+
 # Build the CI container image if not already present.
 ensure_image() {
     [[ -n "$CONTAINER_ENGINE" ]] \
@@ -328,7 +419,7 @@ ensure_image() {
 # Check that required CLI tools are available.
 preflight() {
     local missing=""
-    for tool in vault git python3; do
+    for tool in vault git python3 fzf; do
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     [[ -n "$CONTAINER_ENGINE" ]] || missing="$missing podman/docker"
@@ -352,23 +443,10 @@ cmd_provision() {
     if [[ -z "${BRANCH:-}" ]] && command -v fzf >/dev/null 2>&1; then
         echo "Current branch: $branch"
         echo "Select a remote to pick a branch from (or Esc to abort):"
-
-        local remote
-        remote=$(git remote -v | grep '(fetch)' \
-            | awk '{printf "%-15s %s\n", $1, $2}' \
-            | fzf --height=10 --header="Select remote:" \
-            | awk '{print $1}') \
-            || { echo "Aborted."; exit 1; }
-
-        repo=$(git remote get-url "$remote" | sed 's|.*github\.com[:/]||; s|\.git$||')
-        echo "Fetching branches from $remote ($repo)..."
-
-        branch=$(git ls-remote --heads "$remote" 2>/dev/null \
-            | sed 's|.*refs/heads/||' \
-            | fzf --height=20 --header="Select branch:") \
-            || { echo "Aborted."; exit 1; }
-
-        echo "Selected branch: $branch (from $remote)"
+        pick_remote_branch "Select branch:"
+        repo="$PICKED_REPO"
+        branch="$PICKED_BRANCH"
+        echo "Selected branch: $branch (from $repo)"
     fi
 
     # Check for local config overrides
@@ -425,6 +503,9 @@ cmd_provision() {
         [[ -z "$region" ]]  || append_field "$ID" "REGION" "$region"
         [[ -z "$api_url" ]] || append_field "$ID" "API_URL" "$api_url"
 
+        # Store CI branch name so it survives branch swaps
+        append_field "$ID" "CI_BRANCH" "$(derive_ci_branch "$ID" "$branch")"
+
         echo ""
         echo "Environment recorded in $ENVS_FILE."
         [[ -z "$api_url" ]] || echo -e "\n  API Gateway:  $api_url"
@@ -450,13 +531,18 @@ cmd_teardown() {
         "Select environment to tear down:" \
         "No active environments found."
 
-    local repo branch region
+    local repo branch region ci_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
     region=$(get_field "$ENV_LINE" REGION)
+    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
 
     # Fetch credentials
     fetch_creds
+
+    # Build --ci-branch flag if available (needed after swap-branch)
+    local ci_branch_flag=""
+    [[ -z "$ci_branch" ]] || ci_branch_flag="--ci-branch $ci_branch"
 
     # Print summary
     echo "Tearing down ephemeral environment..."
@@ -481,6 +567,7 @@ cmd_teardown() {
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
             --teardown --repo "$repo" --branch "$branch" \
+            $ci_branch_flag \
     || rc=$?
 
     # Update state
@@ -500,15 +587,20 @@ cmd_resync() {
         "Select environment to resync:" \
         "No active environments found."
 
-    local repo branch
+    local repo branch ci_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
+    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
 
     # Check for local config overrides
     setup_override_mount
 
     # Fetch credentials
     fetch_creds
+
+    # Build --ci-branch flag if available (needed after swap-branch)
+    local ci_branch_flag=""
+    [[ -z "$ci_branch" ]] || ci_branch_flag="--ci-branch $ci_branch"
 
     # Print summary
     echo "Resyncing ephemeral environment..."
@@ -530,7 +622,59 @@ cmd_resync() {
         -e WORKSPACE_DIR=/workspace \
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
-            --resync --repo "$repo" --branch "$branch"
+            --resync --repo "$repo" --branch "$branch" \
+            $ci_branch_flag
+}
+
+cmd_swap_branch() {
+    local new_branch="${NEW_BRANCH:-}"
+    local new_repo="${NEW_REPO:-}"
+
+    # Select environment
+    select_env "STATE=ready" \
+        "Select environment to swap branch:" \
+        "No ready environments found."
+
+    local repo branch ci_branch
+    repo=$(get_field "$ENV_LINE" REPO)
+    branch=$(get_field "$ENV_LINE" BRANCH)
+    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
+
+    # Compute CI_BRANCH for pre-existing envs that don't have it yet
+    [[ -n "$ci_branch" ]] || ci_branch=$(derive_ci_branch "$BUILD_ID" "$branch")
+
+    # Interactive branch picker if NEW_BRANCH not set
+    if [[ -z "$new_branch" ]] && command -v fzf >/dev/null 2>&1; then
+        echo "Current: $branch (repo: $repo)"
+        echo "Select a remote to pick a new branch from (or Esc to abort):"
+        pick_remote_branch "Select branch to swap to:"
+        new_repo="$PICKED_REPO"
+        new_branch="$PICKED_BRANCH"
+        echo "Selected: $new_branch (from $new_repo)"
+    elif [[ -z "$new_branch" ]]; then
+        die "NEW_BRANCH is required. Usage: make ephemeral-swap-branch NEW_BRANCH=<branch> [NEW_REPO=<owner/repo>]"
+    fi
+
+    # Default new_repo to the current repo if not specified
+    [[ -n "$new_repo" ]] || new_repo="$repo"
+
+    # Skip if already on the target branch
+    if [[ "$new_repo" == "$repo" && "$new_branch" == "$branch" ]]; then
+        echo "Already on $repo @ $branch. Nothing to do."
+        return
+    fi
+
+    echo ""
+    echo "Swapping ephemeral environment branch..."
+    echo "  ID:      $BUILD_ID"
+    echo "  FROM:    $repo @ $branch"
+    echo "  TO:      $new_repo @ $new_branch"
+
+    # Update .ephemeral-envs with new branch/repo and persist CI_BRANCH (single write)
+    update_fields "$BUILD_ID" "REPO=$new_repo" "BRANCH=$new_branch" "CI_BRANCH=$ci_branch"
+
+    # Resync to the new branch
+    ID="$BUILD_ID" cmd_resync
 }
 
 cmd_list() {
@@ -670,10 +814,11 @@ cmd_bastion_port_forward() {
     local maestro="maestro   - Maestro HTTP + gRPC"
     local argocd="argocd    - ArgoCD server HTTPS"
     local prometheus="prometheus  - Prometheus Monitoring Dashboard"
+    local grafana="grafana   - Grafana Dashboard"
     local custom="custom    - Custom service / ports"
 
     # custom services are added only for interactive
-    local regional_svc_list=("$maestro" "$argocd" "$prometheus")
+    local regional_svc_list=("$maestro" "$argocd" "$prometheus" "$grafana")
     local management_svc_list=("$argocd" "$prometheus")
 
     local services
@@ -720,6 +865,11 @@ cmd_bastion_port_forward() {
         prometheus)
             forwards+=(
             "Prometheus 9090 9090 monitoring-prometheus monitoring 9090"
+            )
+            ;;
+        grafana)
+            forwards+=(
+            "Grafana 3000 3000 grafana grafana 80"
             )
             ;;
         custom)
@@ -882,7 +1032,8 @@ cmd_bastion_port_forward() {
 }
 
 cmd_e2e() {
-    local api_ref="${API_REF:-main}"
+    local e2e_ref="${E2E_REF:-main}"
+    local e2e_repo="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
 
     # Select environment (ready only)
     select_env "STATE=ready" \
@@ -903,7 +1054,8 @@ cmd_e2e() {
     echo "  ID:         $BUILD_ID"
     echo "  API_URL:    $api_url"
     echo "  REGION:     $region"
-    echo "  API_REF:    $api_ref"
+    echo "  E2E_REF:    $e2e_ref"
+    echo "  E2E_REPO:   $e2e_repo"
 
     $CONTAINER_ENGINE run --rm \
         -v "${REPO_ROOT}:/workspace:ro,z" \
@@ -913,9 +1065,41 @@ cmd_e2e() {
         -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
-        -e "API_REF=$api_ref" \
+        -e "E2E_REF=$e2e_ref" \
+        -e "E2E_REPO=$e2e_repo" \
         "$CI_IMAGE" \
         bash ci/e2e-tests.sh
+}
+
+cmd_collect_logs() {
+    local cluster_type="${1:-all}"
+    # Accept short aliases
+    case "$cluster_type" in
+        rc) cluster_type="regional" ;;
+        mc) cluster_type="management" ;;
+    esac
+    # Select environment (ready only)
+    select_env "STATE=ready" \
+        "Select environment for log collection:" \
+        "No ready environments found." \
+        true
+
+    fetch_creds
+
+    local region
+    region=$(get_field "$ENV_LINE" REGION)
+
+    local ci_prefix
+    ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)-"
+
+    export REGIONAL_AK REGIONAL_SK MANAGEMENT_AK MANAGEMENT_SK
+    export AWS_REGION="$region"
+    export CLUSTER_PREFIX="$ci_prefix"
+    if [[ -n "${ARTIFACT_DIR:-}" ]]; then
+        export LOG_OUTPUT_DIR="$ARTIFACT_DIR"
+    fi
+
+    "${REPO_ROOT}/scripts/dev/collect-cluster-logs.sh" "$cluster_type"
 }
 
 # =============================================================================
@@ -931,7 +1115,7 @@ esac
 
 # Bastion needs vault + aws but not container engine
 case "${1:-help}" in
-    bastion)
+    bastion|collect-logs)
         for tool in vault aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
@@ -952,10 +1136,12 @@ case "${1:-help}" in
     provision)      cmd_provision ;;
     teardown)       cmd_teardown ;;
     resync)         cmd_resync ;;
+    swap-branch)    cmd_swap_branch ;;
     shell)          cmd_shell ;;
     bastion)        shift; cmd_bastion_interactive "$@" ;;
     port-forward)   shift; cmd_bastion_port_forward "$@" ;;
     e2e)            cmd_e2e ;;
+    collect-logs)   shift; cmd_collect_logs "$@" ;;
     help|*)
         usage
         ;;

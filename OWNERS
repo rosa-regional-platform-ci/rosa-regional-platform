@@ -1,6 +1,5 @@
-# See the OWNERS docs at https://go.k8s.io/owners
-reviewers:
-  - rosa-regional-hcp
+# See the OWNERS docs at https://www.kubernetes.dev/docs/guide/owners/
+reviewers: []
 approvers:
   - cdoan1
   - iamkirkbater
@@ -9,3 +8,4 @@ approvers:
   - jmelis
   - syncrou
   - psav
+  - slopezz
