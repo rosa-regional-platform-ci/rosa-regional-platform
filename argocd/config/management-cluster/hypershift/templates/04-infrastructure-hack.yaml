@@ -1,9 +1,0 @@
-# HACK: Dummy Infrastructure CR for EKS. The HyperShift AWS endpoint service
-# controller reads status.infrastructureName to tag VPCE Services. Remove once
-# the operator uses hostedCluster.Spec.InfraID instead (upstream fix pending).
-apiVersion: config.openshift.io/v1
-kind: Infrastructure
-metadata:
-  name: cluster
-status:
-  infrastructureName: eks-mc
