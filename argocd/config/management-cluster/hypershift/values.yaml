@@ -15,4 +15,4 @@ hypershift:
 
   # Hypershift configuration
   hypershift:
-    image: quay.io/acm-d/rhtap-hypershift-operator:latest
+    image: quay.io/cbusse_openshift/hypershift:dev-ocpbugs-84236
