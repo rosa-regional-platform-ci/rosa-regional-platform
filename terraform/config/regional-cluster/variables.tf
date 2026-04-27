@@ -303,3 +303,9 @@ variable "pagerduty_escalation_policy_id" {
   type        = string
   default     = ""
 }
+
+variable "ci_prefix" {
+  description = "CI prefix for ephemeral environments (e.g., xg4y). Passed to PagerDuty service naming to avoid collisions."
+  type        = string
+  default     = ""
+}
