@@ -110,3 +110,12 @@ module "prometheus_remote_write" {
   regional_aws_account_id = var.regional_aws_account_id
   eks_cluster_name        = module.management_cluster.cluster_name
 }
+
+# =============================================================================
+# CloudWatch Exporter (Pod Identity for YACE)
+# =============================================================================
+
+module "cloudwatch_exporter" {
+  source       = "../../modules/cloudwatch-exporter"
+  cluster_name = module.management_cluster.cluster_name
+}
