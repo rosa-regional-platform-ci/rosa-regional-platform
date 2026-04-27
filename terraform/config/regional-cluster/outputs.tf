@@ -373,6 +373,15 @@ output "hyperfleet_configuration_summary" {
 }
 
 # =============================================================================
+# CloudWatch Exporter Outputs
+# =============================================================================
+
+output "cloudwatch_exporter_role_arn" {
+  description = "IAM role ARN for CloudWatch Exporter (Pod Identity)"
+  value       = module.cloudwatch_exporter.role_arn
+}
+
+# =============================================================================
 # Thanos Infrastructure Outputs
 # =============================================================================
 output "thanos_helm_values" {
