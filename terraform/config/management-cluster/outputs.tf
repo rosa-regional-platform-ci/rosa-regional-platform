@@ -164,3 +164,12 @@ output "prometheus_role_arn" {
   description = "IAM role ARN for Prometheus sigv4-proxy"
   value       = module.prometheus_remote_write.prometheus_role_arn
 }
+
+# =============================================================================
+# CloudWatch Exporter Outputs
+# =============================================================================
+
+output "cloudwatch_exporter_role_arn" {
+  description = "IAM role ARN for CloudWatch Exporter (Pod Identity)"
+  value       = module.cloudwatch_exporter.role_arn
+}
