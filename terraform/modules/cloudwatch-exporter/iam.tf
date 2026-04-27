@@ -63,6 +63,26 @@ resource "aws_iam_role_policy" "cloudwatch_exporter_metrics" {
         Resource = "*"
       },
       {
+        Sid    = "RDSDiscovery"
+        Effect = "Allow"
+        Action = [
+          "rds:DescribeDBInstances",
+          "rds:ListTagsForResource",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ELBDiscovery"
+        Effect = "Allow"
+        Action = [
+          "elasticloadbalancing:DescribeLoadBalancers",
+          "elasticloadbalancing:DescribeTargetGroups",
+          "elasticloadbalancing:DescribeTargetHealth",
+          "elasticloadbalancing:DescribeTags",
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "AccountAliases"
         Effect = "Allow"
         Action = [

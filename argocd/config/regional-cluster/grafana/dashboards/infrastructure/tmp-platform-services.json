@@ -1,8 +1,8 @@
 {
   "title": "tmp-Platform Services (Prometheus)",
   "uid": "tmp-platform-svc-prom",
-  "description": "Platform service metrics from YACE CloudWatch Exporter via Prometheus: IoT Core, NAT Gateway, Amazon MQ, and ACM certificate health. Mirror of the CloudWatch-native dashboard for comparison.",
-  "tags": ["aws", "prometheus", "iot", "nat-gateway", "maestro", "networking", "sre", "yace"],
+  "description": "Platform service metrics from YACE CloudWatch Exporter via Prometheus: IoT Core, Amazon MQ, ACM certificate health, and CloudFront OIDC.",
+  "tags": ["aws", "prometheus", "iot", "maestro", "cloudfront", "sre", "yace"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 38,
@@ -85,59 +85,11 @@
     },
 
     {
-      "id": 4,
-      "type": "row",
-      "title": "NAT Gateway",
-      "collapsed": false,
-      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
-    },
-
-    {
-      "id": 5,
-      "type": "timeseries",
-      "title": "NAT Gateway – Packet Drops & Port Allocation Errors",
-      "description": "Zero values from nilToZero mean no drops or port exhaustion — that is the healthy state.",
-      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max by (dimension_NatGatewayId) (aws_natgateway_packets_drop_count_sum)",
-          "legendFormat": "{{ dimension_NatGatewayId }} drops"
-        },
-        {
-          "refId": "B",
-          "expr": "max by (dimension_NatGatewayId) (aws_natgateway_error_port_allocation_sum)",
-          "legendFormat": "{{ dimension_NatGatewayId }} port err"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
-    },
-
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "NAT Gateway – Active Connection Count",
-      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max by (dimension_NatGatewayId) (aws_natgateway_active_connection_count_maximum)",
-          "legendFormat": "{{ dimension_NatGatewayId }}"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
-    },
-
-    {
       "id": 7,
       "type": "row",
       "title": "Amazon MQ – HyperFleet RabbitMQ",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 }
     },
 
     {
@@ -145,7 +97,7 @@
       "type": "stat",
       "title": "Messages Ready",
       "description": "Messages queued and waiting for consumers. A sustained climb means consumers are falling behind.",
-      "gridPos": { "x": 0, "y": 19, "w": 6, "h": 4 },
+      "gridPos": { "x": 0, "y": 10, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -172,7 +124,7 @@
       "type": "stat",
       "title": "Unacknowledged Messages",
       "description": "Messages delivered to consumers but not yet acknowledged. High values indicate slow or stalled consumers.",
-      "gridPos": { "x": 6, "y": 19, "w": 6, "h": 4 },
+      "gridPos": { "x": 6, "y": 10, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -198,7 +150,7 @@
       "id": 10,
       "type": "stat",
       "title": "Consumers",
-      "gridPos": { "x": 12, "y": 19, "w": 6, "h": 4 },
+      "gridPos": { "x": 12, "y": 10, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -215,7 +167,7 @@
       "id": 11,
       "type": "stat",
       "title": "Queues",
-      "gridPos": { "x": 18, "y": 19, "w": 6, "h": 4 },
+      "gridPos": { "x": 18, "y": 10, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -232,7 +184,7 @@
       "id": 12,
       "type": "timeseries",
       "title": "MQ – Message Counts",
-      "gridPos": { "x": 0, "y": 23, "w": 24, "h": 10 },
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 10 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -254,7 +206,7 @@
       "id": 13,
       "type": "timeseries",
       "title": "MQ – Network Throughput",
-      "gridPos": { "x": 0, "y": 33, "w": 24, "h": 10 },
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 10 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -277,7 +229,7 @@
       "type": "row",
       "title": "ACM – Certificate Expiry",
       "collapsed": false,
-      "gridPos": { "x": 0, "y": 43, "w": 24, "h": 1 }
+      "gridPos": { "x": 0, "y": 34, "w": 24, "h": 1 }
     },
 
     {
@@ -285,7 +237,7 @@
       "type": "stat",
       "title": "Days to Expiry",
       "description": "ACM publishes this metric once per day. Widen the time range to 7d or 30d if no data appears. Alert threshold: yellow at 30 days, red at 7 days.",
-      "gridPos": { "x": 0, "y": 44, "w": 6, "h": 6 },
+      "gridPos": { "x": 0, "y": 35, "w": 6, "h": 6 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -321,7 +273,7 @@
       "type": "timeseries",
       "title": "Certificate Days to Expiry – Trend",
       "description": "Should decrease by 1 per day. A flat line means ACM stopped publishing — check certificate status in the console.",
-      "gridPos": { "x": 6, "y": 44, "w": 18, "h": 6 },
+      "gridPos": { "x": 6, "y": 35, "w": 18, "h": 6 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -344,6 +296,167 @@
           }
         }
       },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 17,
+      "type": "row",
+      "title": "CloudFront – OIDC",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 41, "w": 24, "h": 1 }
+    },
+
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Total Error Rate",
+      "description": "Percentage of all requests that resulted in an HTTP 4xx or 5xx status code. CloudFront OIDC is in the auth login critical path — any sustained error rate needs investigation.",
+      "gridPos": { "x": 0, "y": 42, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_total_error_rate_average)",
+          "legendFormat": "Total Error %"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "yellow" }, { "value": 5, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "4xx Error Rate",
+      "gridPos": { "x": 6, "y": 42, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_4xx_error_rate_average)",
+          "legendFormat": "4xx %"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 2, "color": "yellow" }, { "value": 10, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "5xx Error Rate",
+      "gridPos": { "x": 12, "y": 42, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_5xx_error_rate_average)",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "orange" }, { "value": 5, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "Requests",
+      "gridPos": { "x": 18, "y": 42, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_requests_sum)",
+          "legendFormat": "Requests"
+        }
+      ],
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "reqps" } }
+    },
+
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "CloudFront – Error Rates Over Time",
+      "description": "CloudFront OIDC distribution error rates. Spikes in 5xx indicate origin (S3) issues or CloudFront edge errors. 4xx spikes may indicate misconfigured OIDC clients.",
+      "gridPos": { "x": 0, "y": 47, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_total_error_rate_average)",
+          "legendFormat": "Total Error %"
+        },
+        {
+          "refId": "B",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_4xx_error_rate_average)",
+          "legendFormat": "4xx %"
+        },
+        {
+          "refId": "C",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_5xx_error_rate_average)",
+          "legendFormat": "5xx %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0 },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "5xx %" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "CloudFront – Request Count Over Time",
+      "gridPos": { "x": 12, "y": 47, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (dimension_DistributionId) (aws_cloudfront_requests_sum)",
+          "legendFormat": "{{ dimension_DistributionId }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
       "options": { "tooltip": { "mode": "multi" } }
     }
 

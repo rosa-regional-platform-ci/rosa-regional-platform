@@ -16,88 +16,6 @@ prometheus-yet-another-cloudwatch-exporter:
     apiVersion: v1alpha1
     sts-region: {{ .Values.global.aws_region }}
     static:
-      - namespace: AWS/RDS
-        name: {{ .Values.global.cluster_name }}-maestro
-        regions:
-          - {{ .Values.global.aws_region }}
-        dimensions:
-          - name: DBInstanceIdentifier
-            value: {{ .Values.global.cluster_name }}-maestro
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
-        metrics:
-          - name: CPUUtilization
-            statistics: [Average]
-          - name: FreeableMemory
-            statistics: [Average]
-          - name: SwapUsage
-            statistics: [Average]
-          - name: FreeStorageSpace
-            statistics: [Average]
-          - name: DatabaseConnections
-            statistics: [Sum]
-          - name: DiskQueueDepth
-            statistics: [Average]
-          - name: ReadIOPS
-            statistics: [Average]
-          - name: WriteIOPS
-            statistics: [Average]
-          - name: ReadLatency
-            statistics: [Average]
-          - name: WriteLatency
-            statistics: [Average]
-          - name: Deadlocks
-            statistics: [Sum]
-          - name: MaximumUsedTransactionIDs
-            statistics: [Average]
-          - name: NetworkReceiveThroughput
-            statistics: [Average]
-          - name: NetworkTransmitThroughput
-            statistics: [Average]
-
-      - namespace: AWS/RDS
-        name: {{ .Values.global.cluster_name }}-hyperfleet
-        regions:
-          - {{ .Values.global.aws_region }}
-        dimensions:
-          - name: DBInstanceIdentifier
-            value: {{ .Values.global.cluster_name }}-hyperfleet
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
-        metrics:
-          - name: CPUUtilization
-            statistics: [Average]
-          - name: FreeableMemory
-            statistics: [Average]
-          - name: SwapUsage
-            statistics: [Average]
-          - name: FreeStorageSpace
-            statistics: [Average]
-          - name: DatabaseConnections
-            statistics: [Sum]
-          - name: DiskQueueDepth
-            statistics: [Average]
-          - name: ReadIOPS
-            statistics: [Average]
-          - name: WriteIOPS
-            statistics: [Average]
-          - name: ReadLatency
-            statistics: [Average]
-          - name: WriteLatency
-            statistics: [Average]
-          - name: Deadlocks
-            statistics: [Sum]
-          - name: MaximumUsedTransactionIDs
-            statistics: [Average]
-          - name: NetworkReceiveThroughput
-            statistics: [Average]
-          - name: NetworkTransmitThroughput
-            statistics: [Average]
-
       - namespace: AWS/EKS
         name: {{ .Values.global.cluster_name }}
         regions:
@@ -190,24 +108,124 @@ prometheus-yet-another-cloudwatch-exporter:
 
     discovery:
       jobs:
-        - type: AWS/NATGateway
+        - type: AWS/RDS
           regions:
             - {{ .Values.global.aws_region }}
           searchTags:
             - key: Name
-              value: ^{{ .Values.global.cluster_name }}-nat-gw-
+              value: ^{{ .Values.global.cluster_name }}-
           period: 120
           length: 120
           delay: 120
           metrics:
-            - name: PacketsDropCount
+            - name: CPUUtilization
+              statistics: [Average]
+              nilToZero: true
+            - name: FreeableMemory
+              statistics: [Average]
+              nilToZero: true
+            - name: SwapUsage
+              statistics: [Average]
+              nilToZero: true
+            - name: FreeStorageSpace
+              statistics: [Average]
+              nilToZero: true
+            - name: DatabaseConnections
               statistics: [Sum]
               nilToZero: true
-            - name: ErrorPortAllocation
+            - name: DiskQueueDepth
+              statistics: [Average]
+              nilToZero: true
+            - name: ReadIOPS
+              statistics: [Average]
+              nilToZero: true
+            - name: WriteIOPS
+              statistics: [Average]
+              nilToZero: true
+            - name: ReadLatency
+              statistics: [Average]
+              nilToZero: true
+            - name: WriteLatency
+              statistics: [Average]
+              nilToZero: true
+            - name: Deadlocks
+              statistics: [Sum]
+              nilToZero: true
+            - name: MaximumUsedTransactionIDs
+              statistics: [Average]
+              nilToZero: true
+            - name: NetworkReceiveThroughput
+              statistics: [Average]
+              nilToZero: true
+            - name: NetworkTransmitThroughput
+              statistics: [Average]
+              nilToZero: true
+
+        - type: AWS/ApplicationELB
+          regions:
+            - {{ .Values.global.aws_region }}
+          searchTags:
+            - key: Name
+              value: ^{{ .Values.global.cluster_name }}-api$
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: HealthyHostCount
+              statistics: [Minimum]
+              nilToZero: true
+            - name: UnHealthyHostCount
+              statistics: [Maximum]
+              nilToZero: true
+            - name: TargetResponseTime
+              statistics: [Average, p99]
+              nilToZero: true
+            - name: RequestCount
+              statistics: [Sum]
+              nilToZero: true
+            - name: HTTPCode_Target_2XX_Count
+              statistics: [Sum]
+              nilToZero: true
+            - name: HTTPCode_Target_4XX_Count
+              statistics: [Sum]
+              nilToZero: true
+            - name: HTTPCode_Target_5XX_Count
+              statistics: [Sum]
+              nilToZero: true
+            - name: HTTPCode_ELB_5XX_Count
               statistics: [Sum]
               nilToZero: true
             - name: ActiveConnectionCount
-              statistics: [Maximum]
+              statistics: [Sum]
+              nilToZero: true
+
+        - type: AWS/DynamoDB
+          regions:
+            - {{ .Values.global.aws_region }}
+          searchTags:
+            - key: Component
+              value: authz
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: ConsumedReadCapacityUnits
+              statistics: [Sum]
+              nilToZero: true
+            - name: ConsumedWriteCapacityUnits
+              statistics: [Sum]
+              nilToZero: true
+            - name: ThrottledRequests
+              statistics: [Sum]
+              nilToZero: true
+            - name: SystemErrors
+              statistics: [Sum]
+              nilToZero: true
+            - name: UserErrors
+              statistics: [Sum]
+              nilToZero: true
+            - name: SuccessfulRequestLatency
+              statistics: [Average, p99]
               nilToZero: true
 
         - type: AWS/AmazonMQ
