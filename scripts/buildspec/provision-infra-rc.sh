@@ -79,6 +79,14 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
+# CloudTrail (disabled for ephemeral/CI to avoid per-account trail limits)
+_RAW_CT=$(jq -r '.enable_cloudtrail // true' "$DEPLOY_CONFIG_FILE")
+if [ "$_RAW_CT" == "true" ] || [ "$_RAW_CT" == "1" ]; then
+    export TF_VAR_enable_cloudtrail="true"
+else
+    export TF_VAR_enable_cloudtrail="false"
+fi
+
 # Load node_instance_types from deploy config (should be set in config.yaml)
 export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
 
@@ -104,6 +112,7 @@ echo "  Repository URL: $TF_VAR_repository_url"
 echo "  Repository Branch: $TF_VAR_repository_branch"
 echo "  API Additional Allowed Accounts: $TF_VAR_api_additional_allowed_accounts"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
+echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
 echo "  Node Instance Types: $TF_VAR_node_instance_types"
 echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
