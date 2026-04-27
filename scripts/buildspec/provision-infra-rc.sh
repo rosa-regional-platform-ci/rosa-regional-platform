@@ -79,13 +79,7 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
-# CloudTrail (disabled for ephemeral/CI to avoid per-account trail limits)
-_RAW_CT=$(jq -r '.enable_cloudtrail // true' "$DEPLOY_CONFIG_FILE")
-if [ "$_RAW_CT" == "true" ] || [ "$_RAW_CT" == "1" ]; then
-    export TF_VAR_enable_cloudtrail="true"
-else
-    export TF_VAR_enable_cloudtrail="false"
-fi
+export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' true "$DEPLOY_CONFIG_FILE")
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
 export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
