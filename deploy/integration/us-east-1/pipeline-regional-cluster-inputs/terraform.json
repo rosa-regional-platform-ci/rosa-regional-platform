@@ -11,8 +11,8 @@
   "enable_pagerduty": false,
   "pagerduty_escalation_policy_id": "P5KE444",
   "enable_cloudtrail": false,
-  "regional_id": "regional",
-  "ci_prefix": "",
+  "regional_id": "ci-70f808-regional",
+  "ci_prefix": "ci-70f808",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "iot_log_level": "WARN",
   "management_cluster_account_ids": ["ssm:///infra/integration/us-east-1/mc01/account_id"]
