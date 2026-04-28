@@ -62,8 +62,8 @@ kube-prometheus-stack:
       # Gateway we need "execute-api". Workaround: point remote_write at
       # the sigv4-proxy service which handles signing correctly.
       #
-      # No THANOS-TENANT header needed — API GW injects it server-side
-      # from context.identity.accountId.
+      # Cluster identity is carried by externalLabels below, not by
+      # Thanos tenant headers. All metrics share the default tenant.
       # -------------------------------------------------------------------
       externalLabels:
         cluster: '{{ required "global.cluster_name is required" .Values.global.cluster_name }}'

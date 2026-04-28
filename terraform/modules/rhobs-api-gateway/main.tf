@@ -75,11 +75,12 @@ resource "aws_api_gateway_method" "thanos_receive" {
 }
 
 # -----------------------------------------------------------------------------
-# Integration: HTTP (non-proxy) with THANOS-TENANT header injection
+# Integration: HTTP (non-proxy) forwarding to Thanos Receive
 #
-# CRITICAL: Uses "HTTP" not "HTTP_PROXY". With HTTP integration, API Gateway
-# overwrites any client-supplied THANOS-TENANT header with the verified
-# account ID from SigV4 validation. This prevents tenant spoofing.
+# Uses "HTTP" (not "HTTP_PROXY") so API Gateway controls which headers
+# reach the backend. No tenant header is injected — Thanos Receive stores
+# all metrics under its default tenant, and cluster identity is carried
+# by metric labels (e.g. "cluster").
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_integration" "thanos_receive" {
@@ -94,7 +95,6 @@ resource "aws_api_gateway_integration" "thanos_receive" {
   uri                     = "http://${var.alb_dns_name}/api/v1/receive"
 
   request_parameters = {
-    "integration.request.header.THANOS-TENANT"    = "context.identity.accountId"
     "integration.request.header.Content-Type"     = "method.request.header.Content-Type"
     "integration.request.header.Content-Encoding" = "method.request.header.Content-Encoding"
   }
