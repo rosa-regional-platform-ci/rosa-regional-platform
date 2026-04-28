@@ -51,30 +51,6 @@ prometheus-yet-another-cloudwatch-exporter:
             nilToZero: true
             statistics: [Sum]
 
-    discovery:
-      jobs:
-        - type: AWS/CloudFront
-          regions:
-            - us-east-1
-          searchTags:
-            - key: ManagementCluster
-              value: {{ .Values.global.cluster_name }}
-          period: 120
-          length: 120
-          delay: 120
-          metrics:
-            - name: Requests
-              statistics: [Sum]
-              nilToZero: true
-            - name: TotalErrorRate
-              statistics: [Average]
-              nilToZero: true
-            - name: 4xxErrorRate
-              statistics: [Average]
-              nilToZero: true
-            - name: 5xxErrorRate
-              statistics: [Average]
-              nilToZero: true
 
   extraArgs:
     fips: true
