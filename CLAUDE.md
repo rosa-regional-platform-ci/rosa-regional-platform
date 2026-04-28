@@ -61,6 +61,8 @@ The **ROSA Regional Platform** is a strategic redesign of Red Hat OpenShift Serv
 - **Event-Driven**: Maestro handles CLM ↔ MC communication for configuration distribution
 - **Regional Isolation**: Each region operates independently with minimal cross-region dependencies
 - **Explicit Feature Flags**: New infrastructure and services should be gated behind explicit `enable_*` configuration flags, especially if there are quota limits at play or the functionality may not behave properly when colocated. Avoid patterns like checking against the environment's name to change behavior or functionality.
+  - Feature flags should default to what we expect the best developer experience to be. For example, the average developer will not want to set up PagerDuty or enable CloudTrail logs, so these are disabled by default.
+  - Essentially, make the default value something that will keep the developer experience great - focus on keeping the lowest barrier of entry to getting a new region started. We'd rather have an extremely verbose production configuration than have a new developer have to fully understand each individual configuration flag just to get started when they may not need it.
 
 ### Key Design Decisions
 
