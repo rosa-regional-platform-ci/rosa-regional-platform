@@ -3,6 +3,7 @@ dns:
 
 regional_cluster:
   enable_bastion: true
+  enable_cloudtrail: true
 
 management_cluster_defaults:
   enable_bastion: true
