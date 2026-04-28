@@ -23,20 +23,36 @@ prometheus-yet-another-cloudwatch-exporter:
         dimensions:
           - name: ClusterName
             value: {{ .Values.global.cluster_name }}
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
         metrics:
           - name: apiserver_storage_size_bytes
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Maximum]
           - name: scheduler_schedule_attempts_total
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: scheduler_pending_pods
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: scheduler_pending_pods_UNSCHEDULABLE
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: scheduler_pending_pods_GATED
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
 
       - namespace: AWS/ApiGateway
@@ -46,20 +62,36 @@ prometheus-yet-another-cloudwatch-exporter:
         dimensions:
           - name: ApiName
             value: {{ .Values.global.cluster_name }}-api
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
         metrics:
           - name: Count
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [SampleCount]
           - name: Latency
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Average, p50, p99]
           - name: IntegrationLatency
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Average, p50, p99]
           - name: 4XXError
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: 5XXError
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
 
       - namespace: AWS/ApiGateway
@@ -69,20 +101,36 @@ prometheus-yet-another-cloudwatch-exporter:
         dimensions:
           - name: ApiName
             value: {{ .Values.global.cluster_name }}-rhobs-api
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
         metrics:
           - name: Count
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [SampleCount]
           - name: Latency
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Average, p50, p99]
           - name: IntegrationLatency
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Average, p50, p99]
           - name: 4XXError
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: 5XXError
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
 
       - namespace: AWS/IoT
@@ -92,18 +140,30 @@ prometheus-yet-another-cloudwatch-exporter:
         dimensions:
           - name: Protocol
             value: MQTT
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
         metrics:
           - name: Connect.Success
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: Connect.AuthError
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: PublishIn.Success
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: PublishOut.Success
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
 
     discovery:
@@ -203,8 +263,8 @@ prometheus-yet-another-cloudwatch-exporter:
           regions:
             - {{ .Values.global.aws_region }}
           searchTags:
-            - key: Component
-              value: authz
+            - key: Name
+              value: ^{{ .Values.global.cluster_name }}-authz-
           period: 120
           length: 120
           delay: 120

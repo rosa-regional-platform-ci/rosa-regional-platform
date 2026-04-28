@@ -454,7 +454,7 @@
     {
       "id": 205,
       "type": "stat",
-      "title": "Total Pending (CW)",
+      "title": "Total Pending Pods (CW)",
       "gridPos": { "x": 12, "y": 44, "w": 6, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
@@ -471,7 +471,7 @@
     {
       "id": 206,
       "type": "stat",
-      "title": "Schedule Attempts (CW)",
+      "title": "Scheduler Attempts Total (CW)",
       "description": "Total scheduler attempts per scrape interval. Correlates with pod churn.",
       "gridPos": { "x": 18, "y": 44, "w": 6, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },

@@ -232,11 +232,73 @@
     },
 
     {
+      "id": 13,
+      "type": "stat",
+      "title": "Avg Latency (worst table)",
+      "description": "Highest average latency across all selected tables. Healthy DynamoDB is single-digit ms. Double-digit warrants investigation.",
+      "gridPos": { "x": 0, "y": 24, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(aws_dynamodb_successful_request_latency_average{dimension_TableName=~\"$table\"})",
+          "legendFormat": "Avg"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 10, "color": "yellow" }, { "value": 50, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "p99 Latency (worst table)",
+      "description": "Highest p99 latency across all selected tables. Sustained values above 25ms indicate hot partitions or large items.",
+      "gridPos": { "x": 6, "y": 24, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(aws_dynamodb_successful_request_latency_p99{dimension_TableName=~\"$table\"})",
+          "legendFormat": "p99"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "value": null, "color": "green" }, { "value": 25, "color": "yellow" }, { "value": 100, "color": "red" }]
+          }
+        }
+      }
+    },
+
+    {
       "id": 11,
       "type": "timeseries",
       "title": "Successful Request Latency (Average) by Table",
       "description": "Average latency of successful DynamoDB requests. Single-digit millisecond is healthy. Sustained double-digit ms warrants investigation.",
-      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 29, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {
@@ -254,7 +316,7 @@
       "type": "timeseries",
       "title": "Successful Request Latency (p99) by Table",
       "description": "Tail latency. Spikes here mean a subset of requests is hitting DynamoDB hot partitions or large items.",
-      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "gridPos": { "x": 12, "y": 29, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
         {

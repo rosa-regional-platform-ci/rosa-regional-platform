@@ -19,20 +19,36 @@ prometheus-yet-another-cloudwatch-exporter:
         dimensions:
           - name: ClusterName
             value: {{ .Values.global.cluster_name }}
-        period: 120
-        length: 120
-        delay: 120
-        nilToZero: true
         metrics:
           - name: apiserver_storage_size_bytes
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Maximum]
           - name: scheduler_schedule_attempts_total
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: scheduler_pending_pods
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: scheduler_pending_pods_UNSCHEDULABLE
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
           - name: scheduler_pending_pods_GATED
+            period: 120
+            length: 120
+            delay: 120
+            nilToZero: true
             statistics: [Sum]
 
     discovery:
