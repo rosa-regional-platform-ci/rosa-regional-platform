@@ -37,11 +37,11 @@ set -euo pipefail
 parseBool() {
     local _filter="$1" _default="${2:-false}" _file="$3"
     local _raw=""
-    _raw=$(jq -r "$_filter // null" "$_file") || return $?
+    _raw=$(jq -r "if $_filter == null then \"__null__\" else $_filter end" "$_file") || return $?
     case "$_raw" in
         true|1)  echo "true" ;;
         false|0) echo "false" ;;
-        null)    echo "$_default" ;;
+        __null__) echo "$_default" ;;
         *)
             echo "ERROR: parseBool: expected boolean for '$_filter' in $_file, got '$_raw'" >&2
             exit 9
