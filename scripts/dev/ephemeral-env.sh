@@ -801,11 +801,12 @@ cmd_bastion_port_forward() {
     local maestro="maestro   - Maestro HTTP + gRPC"
     local argocd="argocd    - ArgoCD server HTTPS"
     local prometheus="prometheus  - Prometheus Monitoring Dashboard"
+    local thanos="thanos    - Thanos Query Frontend (aggregated RC+MC metrics)"
     local grafana="grafana   - Grafana Dashboard"
     local custom="custom    - Custom service / ports"
 
     # custom services are added only for interactive
-    local regional_svc_list=("$maestro" "$argocd" "$prometheus" "$grafana")
+    local regional_svc_list=("$maestro" "$argocd" "$prometheus" "$thanos" "$grafana")
     local management_svc_list=("$argocd" "$prometheus")
 
     local services
@@ -852,6 +853,11 @@ cmd_bastion_port_forward() {
         prometheus)
             forwards+=(
             "Prometheus 9090 9090 monitoring-prometheus monitoring 9090"
+            )
+            ;;
+        thanos)
+            forwards+=(
+            "Thanos-Query 10902 10902 thanos-query-frontend-thanos-query thanos 9090"
             )
             ;;
         grafana)
