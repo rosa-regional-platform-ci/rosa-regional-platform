@@ -38,6 +38,8 @@ spec:
         memory: {{ .Values.receive.router.resources.requests.memory }}
       limits:
         memory: {{ .Values.receive.router.resources.limits.memory }}
+    additionalArgs:
+      - "--receive.default-tenant-id=default-tenant"
     externalLabels:
       receive: "true"
       region: {{ .Values.global.aws_region | quote }}
