@@ -387,7 +387,7 @@
         }
       },
       "options": { "tooltip": { "mode": "multi" } }
-    },
+    }
 
   ],
   "annotations": { "list": [] },
