@@ -55,84 +55,6 @@ prometheus-yet-another-cloudwatch-exporter:
             nilToZero: true
             statistics: [Sum]
 
-      - namespace: AWS/ApiGateway
-        name: {{ .Values.global.cluster_name }}-api
-        regions:
-          - {{ .Values.global.aws_region }}
-        dimensions:
-          - name: ApiName
-            value: {{ .Values.global.cluster_name }}-api
-        metrics:
-          - name: Count
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [SampleCount]
-          - name: Latency
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Average, p50, p99]
-          - name: IntegrationLatency
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Average, p50, p99]
-          - name: 4XXError
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Sum]
-          - name: 5XXError
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Sum]
-
-      - namespace: AWS/ApiGateway
-        name: {{ .Values.global.cluster_name }}-rhobs-api
-        regions:
-          - {{ .Values.global.aws_region }}
-        dimensions:
-          - name: ApiName
-            value: {{ .Values.global.cluster_name }}-rhobs-api
-        metrics:
-          - name: Count
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [SampleCount]
-          - name: Latency
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Average, p50, p99]
-          - name: IntegrationLatency
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Average, p50, p99]
-          - name: 4XXError
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Sum]
-          - name: 5XXError
-            period: 120
-            length: 120
-            delay: 120
-            nilToZero: true
-            statistics: [Sum]
-
       - namespace: AWS/IoT
         name: iot-mqtt
         regions:
@@ -168,6 +90,32 @@ prometheus-yet-another-cloudwatch-exporter:
 
     discovery:
       jobs:
+        - type: AWS/ApiGateway
+          regions:
+            - {{ .Values.global.aws_region }}
+          searchTags:
+            - key: Name
+              value: ^{{ .Values.global.cluster_name }}-
+          period: 120
+          length: 120
+          delay: 120
+          metrics:
+            - name: Count
+              statistics: [SampleCount]
+              nilToZero: true
+            - name: Latency
+              statistics: [Average, p50, p99]
+              nilToZero: true
+            - name: IntegrationLatency
+              statistics: [Average, p50, p99]
+              nilToZero: true
+            - name: 4XXError
+              statistics: [Sum]
+              nilToZero: true
+            - name: 5XXError
+              statistics: [Sum]
+              nilToZero: true
+
         - type: AWS/RDS
           regions:
             - {{ .Values.global.aws_region }}

@@ -160,4 +160,4 @@ grafana:
       skipReload: true
       provider:
         foldersFromFilesStructure: true
-        allowUiUpdates: true
+        allowUiUpdates: false
