@@ -58,4 +58,5 @@ module "pipeline_notifications" {
   slack_webhook_ssm_param = var.slack_webhook_ssm_param
   name_prefix             = var.name_prefix
   region                  = var.region
+  pipeline_names          = [module.pipeline_provisioner.provisioner_pipeline_name]
 }

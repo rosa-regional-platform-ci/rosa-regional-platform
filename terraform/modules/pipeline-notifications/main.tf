@@ -276,7 +276,8 @@ resource "aws_cloudwatch_event_rule" "pipeline_failure" {
     source      = ["aws.codepipeline"]
     detail-type = ["CodePipeline Pipeline Execution State Change"]
     detail = {
-      state = ["FAILED"]
+      pipeline = var.pipeline_names
+      state    = ["FAILED"]
     }
   })
 }

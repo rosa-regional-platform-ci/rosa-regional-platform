@@ -445,4 +445,5 @@ module "pipeline_notifications" {
   slack_webhook_ssm_param = var.slack_webhook_ssm_param
   name_prefix             = local.name_prefix
   region                  = var.region
+  pipeline_names          = [aws_codepipeline.central_pipeline.name]
 }
