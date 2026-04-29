@@ -79,7 +79,7 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
-export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' true "$DEPLOY_CONFIG_FILE")
+export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' false "$DEPLOY_CONFIG_FILE")
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
 export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
