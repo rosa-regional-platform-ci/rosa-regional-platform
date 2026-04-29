@@ -30,6 +30,25 @@
 
 set -euo pipefail
 
+# parseBool JQ_FILTER [DEFAULT] FILE
+# Reads a boolean field from a JSON file via jq. Returns "true" or "false".
+# Exits 9 if the value is not a recognised boolean (true/false/1/0/null).
+# When the field is null/missing, DEFAULT is used ("false" if omitted).
+parseBool() {
+    local _filter="$1" _default="${2:-false}" _file="$3"
+    local _raw=""
+    _raw=$(jq -r "if $_filter == null then \"__null__\" else $_filter end" "$_file") || return $?
+    case "$_raw" in
+        true|1)  echo "true" ;;
+        false|0) echo "false" ;;
+        __null__) echo "$_default" ;;
+        *)
+            echo "ERROR: parseBool: expected boolean for '$_filter' in $_file, got '$_raw'" >&2
+            exit 9
+            ;;
+    esac
+}
+
 _DEPLOY_MODE="${1:-}"
 if [[ -z "$_DEPLOY_MODE" ]]; then
     echo "ERROR: load-deploy-config.sh requires an argument: 'regional' or 'management'" >&2
@@ -59,13 +78,7 @@ APP_CODE=$(jq -r '.app_code // "infra"' "$DEPLOY_CONFIG_FILE")
 SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$DEPLOY_CONFIG_FILE")
 COST_CENTER=$(jq -r '.cost_center // "000"' "$DEPLOY_CONFIG_FILE")
 
-# Normalize enable_bastion to "true"/"false"
-_RAW_BASTION=$(jq -r '.enable_bastion // false' "$DEPLOY_CONFIG_FILE")
-if [ "$_RAW_BASTION" == "true" ] || [ "$_RAW_BASTION" == "1" ]; then
-    ENABLE_BASTION="true"
-else
-    ENABLE_BASTION="false"
-fi
+ENABLE_BASTION=$(parseBool '.enable_bastion' false "$DEPLOY_CONFIG_FILE")
 
 # Read environment domain from pipeline-provisioner-inputs/terraform.json
 _ENV_JSON="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-provisioner-inputs/terraform.json"

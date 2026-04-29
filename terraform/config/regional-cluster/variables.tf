@@ -83,6 +83,12 @@ variable "enable_bastion" {
   default     = false
 }
 
+variable "enable_cloudtrail" {
+  description = "Enable CloudTrail audit logging (FedRAMP AU-12). Disable for ephemeral/CI to avoid per-account trail limits."
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Platform API Variables
 # =============================================================================
