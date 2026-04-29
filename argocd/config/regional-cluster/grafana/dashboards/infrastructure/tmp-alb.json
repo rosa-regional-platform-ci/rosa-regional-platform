@@ -63,7 +63,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (dimension_TargetGroup) (aws_applicationelb_healthy_host_count_minimum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
+          "expr": "max by (dimension_TargetGroup) (aws_applicationelb_healthy_host_count_minimum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
           "legendFormat": "{{ dimension_TargetGroup }}"
         }
       ],
@@ -94,7 +94,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (dimension_TargetGroup) (aws_applicationelb_un_healthy_host_count_maximum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
+          "expr": "max by (dimension_TargetGroup) (aws_applicationelb_un_healthy_host_count_maximum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
           "legendFormat": "{{ dimension_TargetGroup }}"
         }
       ],
@@ -172,12 +172,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (dimension_TargetGroup) (aws_applicationelb_healthy_host_count_minimum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
+          "expr": "max by (dimension_TargetGroup) (aws_applicationelb_healthy_host_count_minimum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
           "legendFormat": "Healthy – {{ dimension_TargetGroup }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (dimension_TargetGroup) (aws_applicationelb_un_healthy_host_count_maximum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
+          "expr": "max by (dimension_TargetGroup) (aws_applicationelb_un_healthy_host_count_maximum{dimension_LoadBalancer=~\"$loadbalancer\", dimension_TargetGroup=~\"$targetgroup\"})",
           "legendFormat": "Unhealthy – {{ dimension_TargetGroup }}"
         }
       ],
