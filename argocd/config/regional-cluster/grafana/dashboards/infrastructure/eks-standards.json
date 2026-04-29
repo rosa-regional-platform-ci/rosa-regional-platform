@@ -26,9 +26,10 @@
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
         "query": "label_values(kube_node_info, cluster)",
         "refresh": 2,
-        "multi": false,
+        "multi": true,
         "includeAll": true,
         "allValue": ".*",
+        "current": { "text": "All", "value": "$__all" },
         "sort": 1
       }
     ]
@@ -44,8 +45,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(kube_node_status_condition{condition=\"Ready\",status=\"true\",cluster=~\"$cluster\"})",
-          "legendFormat": "Ready"
+          "expr": "count by (cluster) (kube_node_status_condition{condition=\"Ready\",status=\"true\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -65,8 +66,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1)",
-          "legendFormat": "Running"
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1)",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -82,8 +83,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(kube_pod_status_phase{phase=\"Pending\",cluster=~\"$cluster\"} == 1) or vector(0)",
-          "legendFormat": "Pending"
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Pending\",cluster=~\"$cluster\"} == 1) or vector(0)",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -104,8 +105,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h]))",
-          "legendFormat": "Restarts"
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h]))",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -126,8 +127,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",cluster=~\"$cluster\"}[1h])) or vector(0)",
-          "legendFormat": "OOMKills"
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",cluster=~\"$cluster\"}[1h])) or vector(0)",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -148,8 +149,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1) - count(kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
-          "legendFormat": "No Requests"
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1) - count by (cluster) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -170,8 +171,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\",cluster=~\"$cluster\"}[5m])))",
-          "legendFormat": "CPU %"
+          "expr": "100 * (1 - avg by (cluster) (rate(node_cpu_seconds_total{mode=\"idle\",cluster=~\"$cluster\"}[5m])))",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "minVizWidth": 75, "minVizHeight": 75 },
@@ -193,8 +194,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - sum(node_memory_MemAvailable_bytes{cluster=~\"$cluster\"}) / sum(node_memory_MemTotal_bytes{cluster=~\"$cluster\"}))",
-          "legendFormat": "Memory %"
+          "expr": "100 * (1 - sum by (cluster) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\"}) / sum by (cluster) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"}))",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "minVizWidth": 75, "minVizHeight": 75 },
@@ -216,8 +217,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"}) / sum(kube_node_status_allocatable{resource=\"cpu\",cluster=~\"$cluster\"})",
-          "legendFormat": "CPU Commitment %"
+          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"}) / sum by (cluster) (kube_node_status_allocatable{resource=\"cpu\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "minVizWidth": 75, "minVizHeight": 75 },
@@ -239,8 +240,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"}) / sum(kube_node_status_allocatable{resource=\"memory\",cluster=~\"$cluster\"})",
-          "legendFormat": "Memory Commitment %"
+          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"}) / sum by (cluster) (kube_node_status_allocatable{resource=\"memory\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "minVizWidth": 75, "minVizHeight": 75 },
@@ -262,17 +263,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (node) (rate(node_cpu_seconds_total{mode!=\"idle\",cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "usage – {{ node }}"
+          "expr": "sum by (cluster, node) (rate(node_cpu_seconds_total{mode!=\"idle\",cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }} – usage – {{ node }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (node) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"})",
-          "legendFormat": "requested – {{ node }}"
+          "expr": "sum by (cluster, node) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }} – requested – {{ node }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Max", "sortDesc": true } }
     },
     {
       "id": 12,
@@ -283,22 +284,22 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (node) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} - node_memory_MemAvailable_bytes{cluster=~\"$cluster\"})",
-          "legendFormat": "usage – {{ node }}"
+          "expr": "sum by (cluster, node) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} - node_memory_MemAvailable_bytes{cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }} – usage – {{ node }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (node) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
-          "legendFormat": "requested – {{ node }}"
+          "expr": "sum by (cluster, node) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }} – requested – {{ node }}"
         },
         {
           "refId": "C",
-          "expr": "sum by (node) (kube_pod_container_resource_limits{resource=\"memory\",cluster=~\"$cluster\"})",
-          "legendFormat": "limit – {{ node }}"
+          "expr": "sum by (cluster, node) (kube_pod_container_resource_limits{resource=\"memory\",cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }} – limit – {{ node }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Max", "sortDesc": true } }
     },
     {
       "id": 13,
@@ -310,12 +311,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h])))",
-          "legendFormat": "{{ namespace }}/{{ pod }}/{{ container }}"
+          "expr": "topk(10, sum by (cluster, namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h])))",
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}/{{ container }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "sum"] } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Max", "sortDesc": true } }
     },
     {
       "id": 14,
@@ -327,8 +328,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (namespace, pod, container) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) / sum by (namespace, pod, container) (rate(container_cpu_cfs_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) * 100)",
-          "legendFormat": "{{ namespace }}/{{ pod }}/{{ container }}"
+          "expr": "topk(10, sum by (cluster, namespace, pod, container) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) / sum by (cluster, namespace, pod, container) (rate(container_cpu_cfs_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) * 100)",
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}/{{ container }}"
         }
       ],
       "fieldConfig": {
@@ -339,7 +340,7 @@
           "custom": { "thresholdsStyle": { "mode": "dashed" } }
         }
       },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Max", "sortDesc": true } }
     },
     {
       "id": 15,
@@ -351,17 +352,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "rx – {{ instance }}"
+          "expr": "sum by (cluster, instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }} – rx – {{ instance }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "tx – {{ instance }}"
+          "expr": "sum by (cluster, instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }} – tx – {{ instance }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Max", "sortDesc": true } }
     },
     {
       "id": 16,
@@ -374,7 +375,7 @@
         {
           "refId": "A",
           "expr": "100 * kubelet_volume_stats_used_bytes{cluster=~\"$cluster\"} / kubelet_volume_stats_capacity_bytes{cluster=~\"$cluster\"}",
-          "legendFormat": "{{ namespace }}/{{ persistentvolumeclaim }}"
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ persistentvolumeclaim }}"
         }
       ],
       "fieldConfig": {
@@ -385,7 +386,7 @@
           "custom": { "thresholdsStyle": { "mode": "dashed" } }
         }
       },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Max", "sortDesc": true } }
     },
     {
       "id": 17,
@@ -397,8 +398,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(15, sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\",cluster=~\"$cluster\"}))",
-          "legendFormat": "{{ namespace }}/{{ pod }}",
+          "expr": "topk(15, sum by (cluster, namespace, pod) (container_memory_working_set_bytes{container!=\"\",cluster=~\"$cluster\"}))",
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}",
           "instant": true
         }
       ],
@@ -416,7 +417,7 @@
         {
           "refId": "A",
           "expr": "kube_pod_status_phase{phase!=\"Running\",phase!=\"Succeeded\",cluster=~\"$cluster\"} == 1",
-          "legendFormat": "{{ namespace }}/{{ pod }} – {{ phase }}",
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }} – {{ phase }}",
           "instant": true
         }
       ],
