@@ -70,6 +70,10 @@ management_cluster_defaults:
 
 applications:
   management-cluster:
+    eksNodePool:
+      # @doc applications.management-cluster.eksNodePool.enableFips Enable FIPS mode on EKS Auto Mode nodes. Only supported in US and GovCloud regions.
+      # @used-by applications.management-cluster.eksNodePool.enableFips _context
+      enableFips: false
     hypershift:
       oidcStorageS3Bucket:
         # @doc applications.management-cluster.hypershift.oidcStorageS3Bucket.name OIDC S3 bucket name for HyperShift.
@@ -83,6 +87,10 @@ applications:
         # @used-by applications.management-cluster.hypershift.externalDns.domain _context
         domain: "dev.{{ aws_region }}.rosa.example.com"
   regional-cluster:
+    eksNodePool:
+      # @doc applications.regional-cluster.eksNodePool.enableFips Enable FIPS mode on EKS Auto Mode nodes. Only supported in US and GovCloud regions.
+      # @used-by applications.regional-cluster.eksNodePool.enableFips _context
+      enableFips: false
     maestro:
       # @doc applications.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
       # @used-by applications.regional-cluster.maestro.mqttEndpoint _context
