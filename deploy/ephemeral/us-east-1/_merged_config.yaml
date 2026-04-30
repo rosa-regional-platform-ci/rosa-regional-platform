@@ -61,6 +61,7 @@ regional_cluster:
   # @doc regional_cluster.node_instance_types EC2 instance types for regional cluster nodes.
   # @used-by regional_cluster.node_instance_types pipeline-regional-cluster-inputs/terraform.json.j2
   node_instance_types: ["t3.medium", "t3a.medium"]
+  enable_fips: true
 
 management_cluster_defaults:
   # @doc management_cluster_defaults.enable_bastion Default enable bastion for management clusters.
@@ -70,6 +71,7 @@ management_cluster_defaults:
   # @doc management_cluster_defaults.node_instance_types Default EC2 instance types for MC nodes.
   # @used-by management_cluster_defaults.node_instance_types _context
   node_instance_types: ["t3.medium", "t3a.medium"]
+  enable_fips: true
 
 applications:
   management-cluster:

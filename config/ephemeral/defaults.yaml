@@ -1,8 +1,10 @@
 regional_cluster:
   enable_bastion: true
+  enable_fips: true
 
 management_cluster_defaults:
   enable_bastion: true
+  enable_fips: true
 
 applications:
   regional-cluster:

@@ -83,6 +83,12 @@ variable "enable_bastion" {
   default     = false
 }
 
+variable "enable_fips" {
+  description = "Enable FIPS mode on EKS Auto Mode nodes. Disables the built-in general-purpose node pool; FIPS NodeClass/NodePool are deployed via ArgoCD."
+  type        = bool
+  default     = false
+}
+
 variable "enable_cloudtrail" {
   description = "Enable CloudTrail audit logging (FedRAMP AU-12). Disable for ephemeral/CI to avoid per-account trail limits."
   type        = bool
