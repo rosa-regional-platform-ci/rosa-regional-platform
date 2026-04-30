@@ -3,3 +3,11 @@ regional_cluster:
 
 management_cluster_defaults:
   enable_bastion: true
+
+applications:
+  regional-cluster:
+    eksNodePool:
+      enableFips: true
+  management-cluster:
+    eksNodePool:
+      enableFips: true
