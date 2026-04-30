@@ -104,14 +104,20 @@ spec:
           annotations:
             hyperfleet.io/generation: "{{ .generation }}"
             hypershift.openshift.io/pod-security-admission-label-override: privileged
-            hypershift.openshift.io/control-plane-operator-image: quay.io/psav/hypershift:test20
+            # Self-built image using 4.22 branch and cherrypicking the following PRs on top off main (5.0.0 target):
+            # - https://github.com/openshift/hypershift/pull/8343 / OCPBUGS-84508 
+            # - https://github.com/openshift/hypershift/pull/8344 / OCPBUGS-84509
+            # - https://github.com/openshift/hypershift/pull/8357 / OCPBUGS-84572
+            # We cannot use 5.0.0 because it just branched and is in a broken state.
+            # Once we backport the above fixes to 4.22, we can use a somewhat stable 4.22 build.
+            hypershift.openshift.io/control-plane-operator-image: quay.io/cbusse_openshift/control-plane-operator:eks-compat-4.22-a1fa3e6cfa
         spec:
           infraID: "{{ .clusterId }}"
           dns:
             baseDomain: example.com
           fips: true
           release:
-            image: quay.io/openshift-release-dev/ocp-release:4.21.1-multi
+            image: quay.io/openshift-release-dev/ocp-release:4.22.0-rc.1-multi
           pullSecret:
             name: pull-secret
           sshKey:
