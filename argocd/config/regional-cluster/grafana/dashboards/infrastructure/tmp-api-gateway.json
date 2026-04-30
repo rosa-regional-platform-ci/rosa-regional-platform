@@ -1,8 +1,8 @@
 {
   "title": "tmp-API Gateway",
   "uid": "tmp-apigw-prom",
-  "description": "API Gateway metrics from YACE CloudWatch Exporter via Prometheus. Mirror of the CloudWatch-native API Gateway dashboard for comparison.",
-  "tags": ["aws", "prometheus", "api-gateway", "sre", "yace"],
+  "description": "Regional Platform API metrics: request rate, error rates, and latency (p50/p99) for both the API Gateway stage and its backend integration.",
+  "tags": ["aws", "cloudwatch", "api-gateway", "sre"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 38,

@@ -1,8 +1,8 @@
 {
   "title": "tmp-DynamoDB Authz",
   "uid": "tmp-dynamodb-prom",
-  "description": "DynamoDB authorization table metrics from YACE CloudWatch Exporter via Prometheus. Covers throttling, errors, capacity consumption, and latency for the 6 authz tables.",
-  "tags": ["aws", "prometheus", "dynamodb", "authz", "sre", "yace"],
+  "description": "DynamoDB authorization table metrics. Covers throttling, errors, capacity consumption, and latency for the authz tables.",
+  "tags": ["aws", "cloudwatch", "dynamodb", "authz", "sre"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 38,

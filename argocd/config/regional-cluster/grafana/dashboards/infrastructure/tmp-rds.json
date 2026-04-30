@@ -1,8 +1,8 @@
 {
   "title": "tmp-RDS",
   "uid": "tmp-rds-prom",
-  "description": "Per-instance RDS metrics from YACE CloudWatch Exporter via Prometheus. Mirror of the CloudWatch-native RDS dashboard for comparison.",
-  "tags": ["aws", "prometheus", "rds", "postgresql", "sre", "yace"],
+  "description": "Per-instance RDS metrics for Maestro and CLM PostgreSQL databases: CPU, connections, IOPS, latency, and storage.",
+  "tags": ["aws", "cloudwatch", "rds", "postgresql", "sre"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 38,

@@ -1,8 +1,8 @@
 {
   "title": "tmp-EKS Control Plane",
   "uid": "tmp-eks-cp-prom",
-  "description": "Unified EKS control plane dashboard: Prometheus/KSM apiserver metrics combined with CloudWatch-sourced metrics (etcd storage, scheduler) via YACE. Replaces direct CloudWatch queries with Prometheus datasource.",
-  "tags": ["kubernetes", "eks", "apiserver", "cloudwatch", "sre", "yace"],
+  "description": "EKS API server health: request rates, latency, error rates, etcd object counts, etcd storage, and scheduler metrics.",
+  "tags": ["kubernetes", "eks", "apiserver", "cloudwatch", "sre"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 38,
@@ -39,7 +39,7 @@
     {
       "id": 100,
       "type": "row",
-      "title": "API Server Health (source: Prometheus / KSM)",
+      "title": "API Server Health",
       "collapsed": false,
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
     },
@@ -139,7 +139,7 @@
       "id": 5,
       "type": "stat",
       "title": "etcd Object Count",
-      "description": "Total objects stored in etcd (from KSM). Growth indicates accumulation of resources.",
+      "description": "Total objects stored in etcd. Growth indicates accumulation of resources.",
       "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
@@ -322,7 +322,7 @@
     {
       "id": 200,
       "type": "row",
-      "title": "etcd Storage & Scheduler (source: AWS CloudWatch via YACE)",
+      "title": "etcd Storage & Scheduler (CW)",
       "collapsed": false,
       "gridPos": { "x": 0, "y": 37, "w": 24, "h": 1 }
     },
@@ -331,7 +331,7 @@
       "id": 201,
       "type": "stat",
       "title": "etcd Storage Size (CW)",
-      "description": "Total etcd database size from CloudWatch. EKS etcd limit is 8 GiB. Alert if approaching 6 GiB. This metric is NOT available from KSM — only CloudWatch exposes the raw etcd storage bytes.",
+      "description": "Total etcd database size. EKS etcd limit is 8 GiB. Alert if approaching 6 GiB.",
       "gridPos": { "x": 0, "y": 38, "w": 8, "h": 6 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
@@ -398,7 +398,7 @@
       "id": 203,
       "type": "stat",
       "title": "Pending Pods – Unschedulable (CW)",
-      "description": "Pods waiting because no node has sufficient resources. Only visible via CloudWatch — the KSM kube_pod_status_phase counts all pending pods but does NOT provide this breakdown.",
+      "description": "Pods waiting because no node has sufficient resources.",
       "gridPos": { "x": 0, "y": 44, "w": 6, "h": 5 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [
@@ -490,7 +490,7 @@
     {
       "id": 207,
       "type": "timeseries",
-      "title": "Scheduler – Pending Pods Over Time (CW)",
+      "title": "Scheduler – Pending Pods Over Time",
       "gridPos": { "x": 0, "y": 49, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "targets": [

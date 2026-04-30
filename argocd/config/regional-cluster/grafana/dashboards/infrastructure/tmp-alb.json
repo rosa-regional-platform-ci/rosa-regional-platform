@@ -1,8 +1,8 @@
 {
   "title": "tmp-ALB",
   "uid": "tmp-alb-prom",
-  "description": "Internal Application Load Balancer metrics from YACE CloudWatch Exporter via Prometheus. Covers target health, response times, and error rates for the API Gateway → ALB → Pod path.",
-  "tags": ["aws", "prometheus", "alb", "sre", "yace"],
+  "description": "Internal Application Load Balancer metrics. Covers target health, response times, and error rates for the API Gateway → ALB → Pod path.",
+  "tags": ["aws", "cloudwatch", "alb", "sre"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 38,
