@@ -6,6 +6,5 @@
   "cost_center": "000",
   "owner": "placeholder",
   "organization": "placeholder",
-  "managed_by_integration": "terraform",
   "app": "rosa-regionality"
 }

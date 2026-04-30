@@ -63,11 +63,6 @@ terraform_tags:
   # @used-by terraform_tags.organization pipeline-regional-cluster-inputs/terraform.json.j2
   # @used-by terraform_tags.organization pipeline-provisioner-inputs/terraform.json.j2
   organization: "Hybrid Cloud Management"
-  # @doc terraform_tags.managed_by_integration Integration that manages these resources.
-  # @used-by terraform_tags.managed_by_integration pipeline-management-cluster-inputs/terraform.json.j2
-  # @used-by terraform_tags.managed_by_integration pipeline-regional-cluster-inputs/terraform.json.j2
-  # @used-by terraform_tags.managed_by_integration pipeline-provisioner-inputs/terraform.json.j2
-  managed_by_integration: "terraform"
   # @doc terraform_tags.app Application identifier for resource tagging.
   # @used-by terraform_tags.app pipeline-management-cluster-inputs/terraform.json.j2
   # @used-by terraform_tags.app pipeline-regional-cluster-inputs/terraform.json.j2

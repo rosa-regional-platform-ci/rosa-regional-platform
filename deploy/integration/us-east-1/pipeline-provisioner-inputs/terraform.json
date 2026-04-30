@@ -6,6 +6,5 @@
   "cost_center": "732",
   "owner": "rrp-admin-team",
   "organization": "Hybrid Cloud Management",
-  "managed_by_integration": "terraform",
   "app": "rosa-regionality"
 }
