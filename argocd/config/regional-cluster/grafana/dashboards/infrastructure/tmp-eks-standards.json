@@ -263,17 +263,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (node) (rate(node_cpu_seconds_total{mode!=\"idle\",cluster=~\"$cluster\"}[5m]))",
+          "expr": "sum by (cluster, node) (rate(node_cpu_seconds_total{mode!=\"idle\",cluster=~\"$cluster\"}[5m]))",
           "legendFormat": "{{ cluster }} – usage – {{ node }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (node) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"})",
+          "expr": "sum by (cluster, node) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }} – requested – {{ node }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true } }
     },
     {
       "id": 12,
@@ -284,22 +284,22 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (node) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} - node_memory_MemAvailable_bytes{cluster=~\"$cluster\"})",
+          "expr": "sum by (cluster, node) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} - node_memory_MemAvailable_bytes{cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }} – usage – {{ node }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (node) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
+          "expr": "sum by (cluster, node) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }} – requested – {{ node }}"
         },
         {
           "refId": "C",
-          "expr": "sum by (node) (kube_pod_container_resource_limits{resource=\"memory\",cluster=~\"$cluster\"})",
+          "expr": "sum by (cluster, node) (kube_pod_container_resource_limits{resource=\"memory\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }} – limit – {{ node }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true } }
     },
     {
       "id": 13,
@@ -311,12 +311,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h])))",
+          "expr": "topk(10, sum by (cluster, namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h])))",
           "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}/{{ container }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "sum"] } }
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "sum"], "sortBy": "Last *", "sortDesc": true } }
     },
     {
       "id": 14,
@@ -328,7 +328,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (namespace, pod, container) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) / sum by (namespace, pod, container) (rate(container_cpu_cfs_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) * 100)",
+          "expr": "topk(10, sum by (cluster, namespace, pod, container) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) / sum by (cluster, namespace, pod, container) (rate(container_cpu_cfs_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) * 100)",
           "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}/{{ container }}"
         }
       ],
@@ -340,7 +340,7 @@
           "custom": { "thresholdsStyle": { "mode": "dashed" } }
         }
       },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true } }
     },
     {
       "id": 15,
@@ -352,17 +352,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
+          "expr": "sum by (cluster, instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
           "legendFormat": "{{ cluster }} – rx – {{ instance }}"
         },
         {
           "refId": "B",
-          "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
+          "expr": "sum by (cluster, instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
           "legendFormat": "{{ cluster }} – tx – {{ instance }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } } },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true } }
     },
     {
       "id": 16,
@@ -386,7 +386,7 @@
           "custom": { "thresholdsStyle": { "mode": "dashed" } }
         }
       },
-      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"] } }
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull", "max"], "sortBy": "Last *", "sortDesc": true } }
     },
     {
       "id": 17,
@@ -398,7 +398,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(15, sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\",cluster=~\"$cluster\"}))",
+          "expr": "topk(15, sum by (cluster, namespace, pod) (container_memory_working_set_bytes{container!=\"\",cluster=~\"$cluster\"}))",
           "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}",
           "instant": true
         }
