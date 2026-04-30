@@ -9,6 +9,7 @@
   "alias": "regional-{{ aws_region }}",
   "enable_bastion": {{ regional_cluster.enable_bastion | default(false) | tojson }},
   "enable_cloudtrail": {{ regional_cluster.enable_cloudtrail | default(true) | tojson }},
+  "enable_sns_alerting": {{ regional_cluster.enable_sns_alerting | default(false) | tojson }},
   "regional_id": "{% if ci_prefix %}{{ ci_prefix }}-regional{% else %}regional{% endif %}",
   "node_instance_types": {{ regional_cluster.node_instance_types | tojson }},
   "iot_log_level": {{ applications['regional-cluster'].maestro.iotLogLevel | default('WARN') | tojson }}

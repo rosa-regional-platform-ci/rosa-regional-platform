@@ -89,6 +89,12 @@ variable "enable_cloudtrail" {
   default     = false
 }
 
+variable "enable_sns_alerting" {
+  description = "Enable SNS topic for Phase 2 alert fan-out"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Platform API Variables
 # =============================================================================
