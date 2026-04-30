@@ -264,12 +264,12 @@
         {
           "refId": "A",
           "expr": "sum by (node) (rate(node_cpu_seconds_total{mode!=\"idle\",cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "usage – {{ node }}"
+          "legendFormat": "{{ cluster }} – usage – {{ node }}"
         },
         {
           "refId": "B",
           "expr": "sum by (node) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"})",
-          "legendFormat": "requested – {{ node }}"
+          "legendFormat": "{{ cluster }} – requested – {{ node }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
@@ -285,17 +285,17 @@
         {
           "refId": "A",
           "expr": "sum by (node) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"} - node_memory_MemAvailable_bytes{cluster=~\"$cluster\"})",
-          "legendFormat": "usage – {{ node }}"
+          "legendFormat": "{{ cluster }} – usage – {{ node }}"
         },
         {
           "refId": "B",
           "expr": "sum by (node) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
-          "legendFormat": "requested – {{ node }}"
+          "legendFormat": "{{ cluster }} – requested – {{ node }}"
         },
         {
           "refId": "C",
           "expr": "sum by (node) (kube_pod_container_resource_limits{resource=\"memory\",cluster=~\"$cluster\"})",
-          "legendFormat": "limit – {{ node }}"
+          "legendFormat": "{{ cluster }} – limit – {{ node }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "bytes", "color": { "mode": "palette-classic" } } },
@@ -312,7 +312,7 @@
         {
           "refId": "A",
           "expr": "topk(10, sum by (namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h])))",
-          "legendFormat": "{{ namespace }}/{{ pod }}/{{ container }}"
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}/{{ container }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
@@ -329,7 +329,7 @@
         {
           "refId": "A",
           "expr": "topk(10, sum by (namespace, pod, container) (rate(container_cpu_cfs_throttled_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) / sum by (namespace, pod, container) (rate(container_cpu_cfs_periods_total{container!=\"\",cluster=~\"$cluster\"}[5m])) * 100)",
-          "legendFormat": "{{ namespace }}/{{ pod }}/{{ container }}"
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}/{{ container }}"
         }
       ],
       "fieldConfig": {
@@ -353,12 +353,12 @@
         {
           "refId": "A",
           "expr": "sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "rx – {{ instance }}"
+          "legendFormat": "{{ cluster }} – rx – {{ instance }}"
         },
         {
           "refId": "B",
           "expr": "sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\",cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "tx – {{ instance }}"
+          "legendFormat": "{{ cluster }} – tx – {{ instance }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "Bps", "color": { "mode": "palette-classic" } } },
@@ -375,7 +375,7 @@
         {
           "refId": "A",
           "expr": "100 * kubelet_volume_stats_used_bytes{cluster=~\"$cluster\"} / kubelet_volume_stats_capacity_bytes{cluster=~\"$cluster\"}",
-          "legendFormat": "{{ namespace }}/{{ persistentvolumeclaim }}"
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ persistentvolumeclaim }}"
         }
       ],
       "fieldConfig": {
@@ -399,7 +399,7 @@
         {
           "refId": "A",
           "expr": "topk(15, sum by (namespace, pod) (container_memory_working_set_bytes{container!=\"\",cluster=~\"$cluster\"}))",
-          "legendFormat": "{{ namespace }}/{{ pod }}",
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }}",
           "instant": true
         }
       ],
@@ -417,7 +417,7 @@
         {
           "refId": "A",
           "expr": "kube_pod_status_phase{phase!=\"Running\",phase!=\"Succeeded\",cluster=~\"$cluster\"} == 1",
-          "legendFormat": "{{ namespace }}/{{ pod }} – {{ phase }}",
+          "legendFormat": "{{ cluster }} – {{ namespace }}/{{ pod }} – {{ phase }}",
           "instant": true
         }
       ],
