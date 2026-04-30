@@ -6,7 +6,7 @@
   "owner": "placeholder",
   "organization": "placeholder",
   "managed_by_integration": "terraform",
-  "app": "rosa",
+  "app": "rosa-regionality",
   "environment": "ephemeral",
   "account_id": "ssm:///infra/ephemeral/us-east-1/mc01/account_id",
   "region": "us-east-1",

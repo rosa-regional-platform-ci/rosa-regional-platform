@@ -69,7 +69,7 @@ terraform_tags:
   # @used-by terraform_tags.app pipeline-management-cluster-inputs/terraform.json.j2
   # @used-by terraform_tags.app pipeline-regional-cluster-inputs/terraform.json.j2
   # @used-by terraform_tags.app pipeline-provisioner-inputs/terraform.json.j2
-  app: "rosa"
+  app: "rosa-regionality"
 
 regional_cluster:
   # @doc regional_cluster.enable_bastion Enable bastion host for regional cluster access.

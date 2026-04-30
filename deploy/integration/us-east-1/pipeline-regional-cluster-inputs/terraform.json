@@ -6,7 +6,7 @@
   "owner": "rrp-admin-team",
   "organization": "Hybrid Cloud Management",
   "managed_by_integration": "terraform",
-  "app": "rosa",
+  "app": "rosa-regionality",
   "environment": "integration",
   "account_id": "ssm:///infra/integration/us-east-1/account_id",
   "region": "us-east-1",

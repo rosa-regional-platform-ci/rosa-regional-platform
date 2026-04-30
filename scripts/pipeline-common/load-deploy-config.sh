@@ -63,7 +63,7 @@ COST_CENTER=$(jq -r '.cost_center // "000"' "$DEPLOY_CONFIG_FILE")
 OWNER=$(jq -r '.owner // "placeholder"' "$DEPLOY_CONFIG_FILE")
 ORGANIZATION=$(jq -r '.organization // "placeholder"' "$DEPLOY_CONFIG_FILE")
 MANAGED_BY_INTEGRATION=$(jq -r '.managed_by_integration // "terraform"' "$DEPLOY_CONFIG_FILE")
-APP=$(jq -r '.app // "rosa"' "$DEPLOY_CONFIG_FILE")
+APP=$(jq -r '.app // "rosa-regionality"' "$DEPLOY_CONFIG_FILE")
 
 # Normalize enable_bastion to "true"/"false"
 _RAW_BASTION=$(jq -r '.enable_bastion // false' "$DEPLOY_CONFIG_FILE")

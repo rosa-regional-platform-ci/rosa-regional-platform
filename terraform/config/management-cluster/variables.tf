@@ -52,7 +52,7 @@ variable "managed_by_integration" {
 variable "app" {
   description = "Application identifier for resource tagging"
   type        = string
-  default     = "rosa"
+  default     = "rosa-regionality"
 }
 
 # =============================================================================
