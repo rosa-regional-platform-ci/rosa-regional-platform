@@ -89,6 +89,12 @@ variable "enable_cloudtrail" {
   default     = false
 }
 
+variable "enable_sns_alert_bridge" {
+  description = "Enable SNS alert bridge for alert fan-out"
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Platform API Variables
 # =============================================================================

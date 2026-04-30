@@ -11,6 +11,7 @@
   "enable_cloudtrail": true,
   "enable_pagerduty": true,
   "pagerduty_escalation_policy_id": "P5KE444",
+  "enable_sns_alert_bridge": true,
   "regional_id": "regional",
   "eph_prefix": "",
   "node_instance_types": ["t3.medium", "t3a.medium"],
