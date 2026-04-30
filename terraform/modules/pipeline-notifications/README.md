@@ -17,16 +17,18 @@ module "pipeline_notifications" {
   slack_webhook_ssm_param = "/rosa-regional/slack/webhook-url"
   name_prefix             = "my-project"
   region                  = "us-east-1"
+  pipeline_names          = ["my-project-rc-pipeline"]
 }
 ```
 
 ## Inputs
 
-| Name                      | Description                               | Type   | Required | Default |
-| ------------------------- | ----------------------------------------- | ------ | -------- | ------- |
-| `slack_webhook_ssm_param` | SSM Parameter path containing webhook URL | string | Yes      | -       |
-| `name_prefix`             | Prefix for resource names                 | string | No       | ""      |
-| `region`                  | AWS Region                                | string | Yes      | -       |
+| Name                      | Description                                                                                                        | Type         | Required | Default |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------ | -------- | ------- |
+| `slack_webhook_ssm_param` | SSM Parameter path containing webhook URL                                                                          | string       | Yes      | -       |
+| `name_prefix`             | Prefix for resource names                                                                                          | string       | No       | `""`    |
+| `region`                  | AWS Region                                                                                                         | string       | Yes      | -       |
+| `pipeline_names`          | List of CodePipeline names to monitor for failures. Only failures from these pipelines will trigger notifications. | list(string) | Yes      | -       |
 
 ## Setup
 
