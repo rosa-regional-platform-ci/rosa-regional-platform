@@ -55,6 +55,9 @@ regional_cluster:
   # @doc regional_cluster.enable_cloudtrail Enable CloudTrail audit logging (FedRAMP AU-12). Off by default; enable for environments requiring compliance.
   # @used-by regional_cluster.enable_cloudtrail pipeline-regional-cluster-inputs/terraform.json.j2
   enable_cloudtrail: false
+  # @doc regional_cluster.enable_fips Enable FIPS mode on EKS Auto Mode nodes. Disables the built-in general-purpose node pool; FIPS NodeClass/NodePool are deployed via ArgoCD.
+  # @used-by regional_cluster.enable_fips pipeline-regional-cluster-inputs/terraform.json.j2
+  enable_fips: false
   # @doc regional_cluster.node_instance_types EC2 instance types for regional cluster nodes.
   # @used-by regional_cluster.node_instance_types pipeline-regional-cluster-inputs/terraform.json.j2
   node_instance_types: ["t3.medium", "t3a.medium"]
@@ -64,6 +67,9 @@ management_cluster_defaults:
   # @used-by management_cluster_defaults.enable_bastion _context
   # @used-by management_cluster_defaults.enable_bastion pipeline-management-cluster-inputs/terraform.json.j2
   enable_bastion: false
+  # @doc management_cluster_defaults.enable_fips Default FIPS mode for management clusters. Disables the built-in general-purpose node pool; FIPS NodeClass/NodePool are deployed via ArgoCD.
+  # @used-by management_cluster_defaults.enable_fips pipeline-management-cluster-inputs/terraform.json.j2
+  enable_fips: false
   # @doc management_cluster_defaults.node_instance_types Default EC2 instance types for MC nodes.
   # @used-by management_cluster_defaults.node_instance_types _context
   node_instance_types: ["t3.medium", "t3a.medium"]
@@ -112,6 +118,9 @@ applications:
 #     # @doc mc.enable_bastion Per-MC bastion override. Defaults to management_cluster_defaults.enable_bastion.
 #     # @used-by mc.enable_bastion pipeline-management-cluster-inputs/terraform.json.j2
 #     enable_bastion: true
+#     # @doc mc.enable_fips Per-MC FIPS override. Defaults to management_cluster_defaults.enable_fips.
+#     # @used-by mc.enable_fips pipeline-management-cluster-inputs/terraform.json.j2
+#     enable_fips: true
 #     # @doc mc.node_instance_types Per-MC instance types. Defaults to management_cluster_defaults.node_instance_types.
 #     # @used-by mc.node_instance_types pipeline-management-cluster-inputs/terraform.json.j2
 #     node_instance_types: ["m5.large"]
