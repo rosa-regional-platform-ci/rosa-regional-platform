@@ -289,6 +289,9 @@ prometheus-yet-another-cloudwatch-exporter:
 
   serviceMonitor:
     enabled: true
+    metricRelabelings:
+      - action: labeldrop
+        regex: "instance|pod"
 
   # FedRAMP: non-root with read-only root filesystem
   podSecurityContext:

@@ -58,6 +58,9 @@ prometheus-yet-another-cloudwatch-exporter:
 
   serviceMonitor:
     enabled: true
+    metricRelabelings:
+      - action: labeldrop
+        regex: "instance|pod"
 
   podSecurityContext:
     runAsNonRoot: true
