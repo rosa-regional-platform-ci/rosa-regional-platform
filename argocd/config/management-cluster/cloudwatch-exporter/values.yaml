@@ -54,10 +54,14 @@ prometheus-yet-another-cloudwatch-exporter:
 
   extraArgs:
     fips: true
+    # How often YACE polls the CloudWatch API. Must match serviceMonitor.interval
+    # to avoid storing duplicate samples between refreshes.
     scraping-interval: 120
 
   serviceMonitor:
     enabled: true
+    # Must match extraArgs.scraping-interval to avoid redundant scrapes.
+    interval: 120s
     metricRelabelings:
       - action: labeldrop
         regex: "instance|pod"
