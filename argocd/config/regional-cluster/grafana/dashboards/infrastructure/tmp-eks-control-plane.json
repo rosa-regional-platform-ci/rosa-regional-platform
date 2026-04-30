@@ -1,5 +1,5 @@
 {
-  "title": "tmp-EKS Control Plane (Prometheus)",
+  "title": "tmp-EKS Control Plane",
   "uid": "tmp-eks-cp-prom",
   "description": "Unified EKS control plane dashboard: Prometheus/KSM apiserver metrics combined with CloudWatch-sourced metrics (etcd storage, scheduler) via YACE. Replaces direct CloudWatch queries with Prometheus datasource.",
   "tags": ["kubernetes", "eks", "apiserver", "cloudwatch", "sre", "yace"],
@@ -54,8 +54,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "req/s"
+          "expr": "sum by (cluster) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -77,8 +77,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate(apiserver_request_total{cluster=~\"$cluster\",code=~\"5..\"}[5m])) / sum(rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "5xx %"
+          "expr": "100 * sum by (cluster) (rate(apiserver_request_total{cluster=~\"$cluster\",code=~\"5..\"}[5m])) / sum by (cluster) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -100,8 +100,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
-          "legendFormat": "p99"
+          "expr": "histogram_quantile(0.99, sum by (cluster, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -123,8 +123,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(apiserver_current_inflight_requests{cluster=~\"$cluster\"})",
-          "legendFormat": "In-Flight"
+          "expr": "sum by (cluster) (apiserver_current_inflight_requests{cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -145,8 +145,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(apiserver_storage_objects{cluster=~\"$cluster\"})",
-          "legendFormat": "Objects"
+          "expr": "sum by (cluster) (apiserver_storage_objects{cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
@@ -168,8 +168,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(apiserver_flowcontrol_rejected_requests_total{cluster=~\"$cluster\"}[5m])) or vector(0)",
-          "legendFormat": "Dropped/s"
+          "expr": "sum by (cluster) (rate(apiserver_flowcontrol_rejected_requests_total{cluster=~\"$cluster\"}[5m])) or vector(0)",
+          "legendFormat": "{{ cluster }}"
         }
       ],
       "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },

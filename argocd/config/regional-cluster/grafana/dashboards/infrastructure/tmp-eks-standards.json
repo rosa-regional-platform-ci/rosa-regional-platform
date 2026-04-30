@@ -1,5 +1,5 @@
 {
-  "title": "tmp-EKS Standards (Prometheus)",
+  "title": "tmp-EKS Standards",
   "uid": "tmp-eks-standards",
   "description": "Industry-standard EKS health: availability, resource saturation, reliability, and capacity",
   "tags": ["kubernetes", "eks", "sre"],

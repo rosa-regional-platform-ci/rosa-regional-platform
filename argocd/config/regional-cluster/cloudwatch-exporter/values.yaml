@@ -64,26 +64,26 @@ prometheus-yet-another-cloudwatch-exporter:
             value: MQTT
         metrics:
           - name: Connect.Success
-            period: 120
-            length: 120
+            period: 300
+            length: 3600
             delay: 120
             nilToZero: true
             statistics: [Sum]
           - name: Connect.AuthError
-            period: 120
-            length: 120
+            period: 300
+            length: 3600
             delay: 120
             nilToZero: true
             statistics: [Sum]
           - name: PublishIn.Success
-            period: 120
-            length: 120
+            period: 300
+            length: 3600
             delay: 120
             nilToZero: true
             statistics: [Sum]
           - name: PublishOut.Success
-            period: 120
-            length: 120
+            period: 300
+            length: 3600
             delay: 120
             nilToZero: true
             statistics: [Sum]

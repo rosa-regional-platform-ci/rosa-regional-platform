@@ -1,5 +1,5 @@
 {
-  "title": "tmp-DynamoDB Authz (Prometheus)",
+  "title": "tmp-DynamoDB Authz",
   "uid": "tmp-dynamodb-prom",
   "description": "DynamoDB authorization table metrics from YACE CloudWatch Exporter via Prometheus. Covers throttling, errors, capacity consumption, and latency for the 6 authz tables.",
   "tags": ["aws", "prometheus", "dynamodb", "authz", "sre", "yace"],
@@ -53,7 +53,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_throttled_requests_sum{dimension_TableName=~\"$table\"}))",
+          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_throttled_requests_sum{dimension_TableName=~\"$table\"})) or vector(0)",
           "legendFormat": "Throttled"
         }
       ],
@@ -84,7 +84,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_system_errors_sum{dimension_TableName=~\"$table\"}))",
+          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_system_errors_sum{dimension_TableName=~\"$table\"})) or vector(0)",
           "legendFormat": "System Errors"
         }
       ],
@@ -115,7 +115,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_user_errors_sum{dimension_TableName=~\"$table\"}))",
+          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_user_errors_sum{dimension_TableName=~\"$table\"})) or vector(0)",
           "legendFormat": "User Errors"
         }
       ],

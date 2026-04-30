@@ -1,5 +1,5 @@
 {
-  "title": "tmp-API Gateway (Prometheus)",
+  "title": "tmp-API Gateway",
   "uid": "tmp-apigw-prom",
   "description": "API Gateway metrics from YACE CloudWatch Exporter via Prometheus. Mirror of the CloudWatch-native API Gateway dashboard for comparison.",
   "tags": ["aws", "prometheus", "api-gateway", "sre", "yace"],

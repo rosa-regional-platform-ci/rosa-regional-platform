@@ -1,5 +1,5 @@
 {
-  "title": "tmp-ALB (Prometheus)",
+  "title": "tmp-ALB",
   "uid": "tmp-alb-prom",
   "description": "Internal Application Load Balancer metrics from YACE CloudWatch Exporter via Prometheus. Covers target health, response times, and error rates for the API Gateway → ALB → Pod path.",
   "tags": ["aws", "prometheus", "alb", "sre", "yace"],

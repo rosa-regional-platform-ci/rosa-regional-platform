@@ -1,5 +1,5 @@
 {
-  "title": "tmp-Platform Services (Prometheus)",
+  "title": "tmp-Platform Services",
   "uid": "tmp-platform-svc-prom",
   "description": "Platform service metrics from YACE CloudWatch Exporter via Prometheus: IoT Core, Amazon MQ, and ACM certificate health.",
   "tags": ["aws", "prometheus", "iot", "maestro", "sre", "yace"],
