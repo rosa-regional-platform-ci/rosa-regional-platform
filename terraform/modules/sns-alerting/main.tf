@@ -18,7 +18,7 @@ resource "aws_kms_key" "sns_alerts" {
   description             = "KMS key for SNS alert topic encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
-  rotation_period_in_days = 28
+  rotation_period_in_days = 90
 
   policy = jsonencode({
     Version = "2012-10-17"
