@@ -168,6 +168,9 @@ prometheus-yet-another-cloudwatch-exporter:
             - name: NetworkTransmitThroughput
               statistics: [Average]
               nilToZero: true
+            - name: BurstBalance
+              statistics: [Average]
+              nilToZero: true
 
         - type: AWS/ApplicationELB
           regions:

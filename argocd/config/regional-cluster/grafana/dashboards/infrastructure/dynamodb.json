@@ -1,6 +1,6 @@
 {
-  "title": "tmp-DynamoDB Authz",
-  "uid": "tmp-dynamodb-prom",
+  "title": "DynamoDB Authz",
+  "uid": "dynamodb-authz",
   "description": "DynamoDB authorization table metrics. Covers throttling, errors, capacity consumption, and latency for the authz tables.",
   "tags": ["aws", "cloudwatch", "dynamodb", "authz", "sre"],
   "timezone": "browser",

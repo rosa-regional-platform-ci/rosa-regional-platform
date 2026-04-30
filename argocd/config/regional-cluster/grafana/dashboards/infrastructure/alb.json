@@ -1,6 +1,6 @@
 {
-  "title": "tmp-ALB",
-  "uid": "tmp-alb-prom",
+  "title": "ALB",
+  "uid": "alb-overview",
   "description": "Internal Application Load Balancer metrics. Covers target health, response times, and error rates for the API Gateway → ALB → Pod path.",
   "tags": ["aws", "cloudwatch", "alb", "sre"],
   "timezone": "browser",
