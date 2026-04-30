@@ -191,7 +191,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_DBInstanceIdentifier) (aws_rds_deadlocks_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"}))",
+          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_deadlocks_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"}) or vector(0)",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -218,7 +218,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(aws_rds_disk_queue_depth_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_disk_queue_depth_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -245,7 +245,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -272,7 +272,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],

@@ -10,6 +10,10 @@ metadata:
     {{- include "thanos-operator.annotations" . | nindent 4 }}
 spec:
   replicas: {{ .Values.query.replicas | default 2 }}
+  replicaLabels:
+    - prometheus_replica
+    - replica
+    - rule_replica
   resourceRequirements:
     requests:
       cpu: {{ .Values.query.resources.requests.cpu }}

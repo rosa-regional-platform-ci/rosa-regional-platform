@@ -192,8 +192,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (verb) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{ verb }}"
+          "expr": "sum by (cluster, verb) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }} – {{ verb }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } },
@@ -209,8 +209,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (code) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{ code }}"
+          "expr": "sum by (cluster, code) (rate(apiserver_request_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }} – {{ code }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "palette-classic" } } },
@@ -226,13 +226,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (verb, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
-          "legendFormat": "p99 – {{ verb }}"
+          "expr": "histogram_quantile(0.99, sum by (cluster, verb, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
+          "legendFormat": "{{ cluster }} – p99 – {{ verb }}"
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.50, sum by (verb, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
-          "legendFormat": "p50 – {{ verb }}"
+          "expr": "histogram_quantile(0.50, sum by (cluster, verb, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\",verb!=\"WATCH\"}[5m])))",
+          "legendFormat": "{{ cluster }} – p50 – {{ verb }}"
         }
       ],
       "fieldConfig": {
@@ -254,8 +254,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (resource) (apiserver_storage_objects{cluster=~\"$cluster\"}))",
-          "legendFormat": "{{ resource }}"
+          "expr": "topk(10, sum by (cluster, resource) (apiserver_storage_objects{cluster=~\"$cluster\"}))",
+          "legendFormat": "{{ cluster }} – {{ resource }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
@@ -271,8 +271,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (priority_level) (apiserver_flowcontrol_current_inqueue_requests{cluster=~\"$cluster\"})",
-          "legendFormat": "{{ priority_level }}"
+          "expr": "sum by (cluster, priority_level) (apiserver_flowcontrol_current_inqueue_requests{cluster=~\"$cluster\"})",
+          "legendFormat": "{{ cluster }} – {{ priority_level }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "palette-classic" } } },
@@ -288,8 +288,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (name, le) (rate(apiserver_admission_webhook_admission_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
-          "legendFormat": "{{ name }}"
+          "expr": "histogram_quantile(0.99, sum by (cluster, name, le) (rate(apiserver_admission_webhook_admission_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "legendFormat": "{{ cluster }} – {{ name }}"
         }
       ],
       "fieldConfig": {
@@ -311,8 +311,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (kind) (rate(apiserver_watch_events_total{cluster=~\"$cluster\"}[5m]))",
-          "legendFormat": "{{ kind }}"
+          "expr": "sum by (cluster, kind) (rate(apiserver_watch_events_total{cluster=~\"$cluster\"}[5m]))",
+          "legendFormat": "{{ cluster }} – {{ kind }}"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "eps", "color": { "mode": "palette-classic" } } },
@@ -497,17 +497,17 @@
         {
           "refId": "A",
           "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_sum{dimension_ClusterName=~\"$cluster\"})",
-          "legendFormat": "Total"
+          "legendFormat": "{{ dimension_ClusterName }} – Total"
         },
         {
           "refId": "B",
           "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_unschedulable_sum{dimension_ClusterName=~\"$cluster\"})",
-          "legendFormat": "Unschedulable"
+          "legendFormat": "{{ dimension_ClusterName }} – Unschedulable"
         },
         {
           "refId": "C",
           "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_gated_sum{dimension_ClusterName=~\"$cluster\"})",
-          "legendFormat": "Gated"
+          "legendFormat": "{{ dimension_ClusterName }} – Gated"
         }
       ],
       "fieldConfig": {
@@ -532,7 +532,7 @@
         {
           "refId": "A",
           "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_schedule_attempts_total_sum{dimension_ClusterName=~\"$cluster\"})",
-          "legendFormat": "Attempts"
+          "legendFormat": "{{ dimension_ClusterName }} – Attempts"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
