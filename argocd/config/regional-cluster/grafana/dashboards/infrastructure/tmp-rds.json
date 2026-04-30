@@ -319,7 +319,7 @@
           "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 70, "color": "yellow" }, { "value": 90, "color": "red" }] }
         }
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -358,7 +358,7 @@
           }
         ]
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -375,7 +375,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "bytes" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -400,7 +400,7 @@
           "custom": { "lineWidth": 2 }
         }
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -430,7 +430,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "iops" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -452,7 +452,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -477,7 +477,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -501,7 +501,7 @@
           "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "red" }] }
         }
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -532,7 +532,7 @@
           }
         }
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -562,7 +562,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "Bps" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     }
 
   ],

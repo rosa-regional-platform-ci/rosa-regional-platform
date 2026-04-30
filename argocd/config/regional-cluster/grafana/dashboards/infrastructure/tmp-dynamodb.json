@@ -156,7 +156,7 @@
           "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "green" }, { "value": 1, "color": "red" }] }
         }
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -178,7 +178,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -204,7 +204,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -221,7 +221,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -337,7 +337,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "ms" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -355,7 +355,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "ms" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     }
 
   ],

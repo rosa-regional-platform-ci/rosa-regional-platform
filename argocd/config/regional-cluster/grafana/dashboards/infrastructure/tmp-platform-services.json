@@ -149,7 +149,7 @@
           }
         ]
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -171,7 +171,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -289,7 +289,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -311,7 +311,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "Bps" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
 
     {
@@ -386,7 +386,7 @@
           }
         }
       },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     }
 
   ],

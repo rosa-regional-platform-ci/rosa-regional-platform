@@ -211,7 +211,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     },
     {
       "id": 9,
@@ -242,7 +242,7 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "ms" } },
-      "options": { "tooltip": { "mode": "multi" } }
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } }
     }
   ],
   "annotations": { "list": [] },
