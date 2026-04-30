@@ -26,9 +26,10 @@
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
         "query": "label_values(apiserver_request_total, cluster)",
         "refresh": 2,
-        "multi": false,
+        "multi": true,
         "includeAll": true,
         "allValue": ".*",
+        "current": { "text": "All", "value": "$__all" },
         "sort": 1
       }
     ]

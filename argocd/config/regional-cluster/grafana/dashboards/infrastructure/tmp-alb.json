@@ -26,8 +26,10 @@
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
         "query": "label_values(aws_applicationelb_request_count_sum, dimension_LoadBalancer)",
         "refresh": 2,
-        "multi": false,
+        "multi": true,
         "includeAll": true,
+        "allValue": ".*",
+        "current": { "text": "All", "value": "$__all" },
         "sort": 1
       },
       {
@@ -39,6 +41,7 @@
         "refresh": 2,
         "multi": true,
         "includeAll": true,
+        "current": { "text": "All", "value": "$__all" },
         "sort": 1
       }
     ]
