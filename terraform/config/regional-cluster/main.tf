@@ -298,6 +298,18 @@ module "pagerduty_service" {
 }
 
 # =============================================================================
+# SNS Alerting Module (Phase 2 Alert Fan-Out)
+# =============================================================================
+
+module "sns_alerting" {
+  count  = var.enable_sns_alert_bridge ? 1 : 0
+  source = "../../modules/sns-alerting"
+
+  regional_id      = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
+}
+
+# =============================================================================
 # Thanos Infrastructure Module (Observability)
 # =============================================================================
 module "thanos_infrastructure" {
