@@ -53,7 +53,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_throttled_requests_sum{dimension_TableName=~\"$table\"})) or vector(0)",
+          "expr": "sum(aws_dynamodb_throttled_requests_sum{dimension_TableName=~\"$table\"}) or vector(0)",
           "legendFormat": "Throttled"
         }
       ],
@@ -84,7 +84,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_system_errors_sum{dimension_TableName=~\"$table\"})) or vector(0)",
+          "expr": "sum(aws_dynamodb_system_errors_sum{dimension_TableName=~\"$table\"}) or vector(0)",
           "legendFormat": "System Errors"
         }
       ],
@@ -115,7 +115,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(max by (dimension_TableName) (aws_dynamodb_user_errors_sum{dimension_TableName=~\"$table\"})) or vector(0)",
+          "expr": "sum(aws_dynamodb_user_errors_sum{dimension_TableName=~\"$table\"}) or vector(0)",
           "legendFormat": "User Errors"
         }
       ],
@@ -145,7 +145,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_throttled_requests_sum{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_throttled_requests_sum{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }}"
         }
       ],
@@ -168,12 +168,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_system_errors_sum{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_system_errors_sum{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }} system"
         },
         {
           "refId": "B",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_user_errors_sum{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_user_errors_sum{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }} user"
         }
       ],
@@ -199,7 +199,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_consumed_read_capacity_units_sum{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_consumed_read_capacity_units_sum{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }}"
         }
       ],
@@ -216,7 +216,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_consumed_write_capacity_units_sum{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_consumed_write_capacity_units_sum{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }}"
         }
       ],
@@ -304,7 +304,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(max by (dimension_TableName) (aws_dynamodb_successful_request_latency_average{dimension_TableName=~\"$table\"}))",
+          "expr": "count(aws_dynamodb_successful_request_latency_average{dimension_TableName=~\"$table\"})",
           "legendFormat": "Tables"
         }
       ],
@@ -332,7 +332,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_successful_request_latency_average{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_successful_request_latency_average{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }}"
         }
       ],
@@ -350,7 +350,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_TableName) (aws_dynamodb_successful_request_latency_p99{dimension_TableName=~\"$table\"})",
+          "expr": "aws_dynamodb_successful_request_latency_p99{dimension_TableName=~\"$table\"}",
           "legendFormat": "{{ dimension_TableName }}"
         }
       ],

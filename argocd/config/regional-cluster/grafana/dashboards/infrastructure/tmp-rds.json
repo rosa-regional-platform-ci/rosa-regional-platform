@@ -44,7 +44,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_cpuutilization_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_cpuutilization_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -72,7 +72,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_freeable_memory_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_freeable_memory_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -90,7 +90,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_swap_usage_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_swap_usage_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -116,7 +116,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_free_storage_space_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_free_storage_space_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -142,7 +142,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_database_connections_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_database_connections_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -160,7 +160,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_maximum_used_transaction_ids_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_maximum_used_transaction_ids_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -191,7 +191,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_deadlocks_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"}) or vector(0)",
+          "expr": "aws_rds_deadlocks_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"} or vector(0)",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -218,7 +218,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_disk_queue_depth_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_disk_queue_depth_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -245,7 +245,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -272,7 +272,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -306,7 +306,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_cpuutilization_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_cpuutilization_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -340,12 +340,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_freeable_memory_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_freeable_memory_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         },
         {
           "refId": "B",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_swap_usage_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_swap_usage_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -370,7 +370,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_free_storage_space_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_free_storage_space_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -388,7 +388,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_disk_queue_depth_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_disk_queue_depth_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -420,12 +420,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_read_iops_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_read_iops_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         },
         {
           "refId": "B",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_write_iops_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_write_iops_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -442,12 +442,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         },
         {
           "refId": "B",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -472,7 +472,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_database_connections_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_database_connections_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -490,7 +490,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_deadlocks_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_deadlocks_sum{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -514,7 +514,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_maximum_used_transaction_ids_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_maximum_used_transaction_ids_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],
@@ -552,12 +552,12 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_network_receive_throughput_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_network_receive_throughput_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         },
         {
           "refId": "B",
-          "expr": "max by (dimension_DBInstanceIdentifier) (aws_rds_network_transmit_throughput_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"})",
+          "expr": "aws_rds_network_transmit_throughput_average{dimension_DBInstanceIdentifier=~\"$rds_instance\"}",
           "legendFormat": "{{ dimension_DBInstanceIdentifier }}"
         }
       ],

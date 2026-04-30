@@ -337,7 +337,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_apiserver_storage_size_bytes_maximum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_apiserver_storage_size_bytes_maximum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "etcd size"
         }
       ],
@@ -373,7 +373,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_apiserver_storage_size_bytes_maximum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_apiserver_storage_size_bytes_maximum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "{{ dimension_ClusterName }}"
         }
       ],
@@ -404,7 +404,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_unschedulable_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_pending_pods_unschedulable_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "Unschedulable"
         }
       ],
@@ -435,7 +435,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_gated_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_pending_pods_gated_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "Gated"
         }
       ],
@@ -461,7 +461,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_pending_pods_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "Total Pending"
         }
       ],
@@ -479,7 +479,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_schedule_attempts_total_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_schedule_attempts_total_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "Attempts"
         }
       ],
@@ -496,17 +496,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_pending_pods_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "{{ dimension_ClusterName }} – Total"
         },
         {
           "refId": "B",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_unschedulable_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_pending_pods_unschedulable_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "{{ dimension_ClusterName }} – Unschedulable"
         },
         {
           "refId": "C",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_pending_pods_gated_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_pending_pods_gated_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "{{ dimension_ClusterName }} – Gated"
         }
       ],
@@ -531,7 +531,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (dimension_ClusterName) (aws_eks_scheduler_schedule_attempts_total_sum{dimension_ClusterName=~\"$cluster\"})",
+          "expr": "aws_eks_scheduler_schedule_attempts_total_sum{dimension_ClusterName=~\"$cluster\"}",
           "legendFormat": "{{ dimension_ClusterName }} – Attempts"
         }
       ],

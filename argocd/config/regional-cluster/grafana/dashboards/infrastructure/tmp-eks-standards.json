@@ -45,7 +45,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count by (cluster) (max by (cluster, node) (kube_node_status_condition{condition=\"Ready\",status=\"true\",cluster=~\"$cluster\"}))",
+          "expr": "count by (cluster) (kube_node_status_condition{condition=\"Ready\",status=\"true\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -66,7 +66,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count by (cluster) (max by (cluster, namespace, pod) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"}) == 1)",
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1)",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -83,7 +83,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count by (cluster) (max by (cluster, namespace, pod) (kube_pod_status_phase{phase=\"Pending\",cluster=~\"$cluster\"}) == 1) or vector(0)",
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Pending\",cluster=~\"$cluster\"} == 1) or vector(0)",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -105,7 +105,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster) (max by (cluster, namespace, pod, container) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h])))",
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{cluster=~\"$cluster\"}[1h]))",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -127,7 +127,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster) (max by (cluster, namespace, pod, container) (increase(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",cluster=~\"$cluster\"}[1h]))) or vector(0)",
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",cluster=~\"$cluster\"}[1h])) or vector(0)",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -149,7 +149,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count by (cluster) (max by (cluster, namespace, pod) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"}) == 1) - count by (cluster) (max by (cluster, namespace, pod, container) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"}))",
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1) - count by (cluster) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -171,7 +171,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - avg by (cluster) (max by (cluster, instance, cpu) (rate(node_cpu_seconds_total{mode=\"idle\",cluster=~\"$cluster\"}[5m]))))",
+          "expr": "100 * (1 - avg by (cluster) (rate(node_cpu_seconds_total{mode=\"idle\",cluster=~\"$cluster\"}[5m])))",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -194,7 +194,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (1 - sum by (cluster) (max by (cluster, instance) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\"})) / sum by (cluster) (max by (cluster, instance) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"})))",
+          "expr": "100 * (1 - sum by (cluster) (node_memory_MemAvailable_bytes{cluster=~\"$cluster\"}) / sum by (cluster) (node_memory_MemTotal_bytes{cluster=~\"$cluster\"}))",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -217,7 +217,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum by (cluster) (max by (cluster, namespace, pod, container) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"})) / sum by (cluster) (max by (cluster, node) (kube_node_status_allocatable{resource=\"cpu\",cluster=~\"$cluster\"}))",
+          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{resource=\"cpu\",cluster=~\"$cluster\"}) / sum by (cluster) (kube_node_status_allocatable{resource=\"cpu\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -240,7 +240,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum by (cluster) (max by (cluster, namespace, pod, container) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})) / sum by (cluster) (max by (cluster, node) (kube_node_status_allocatable{resource=\"memory\",cluster=~\"$cluster\"}))",
+          "expr": "100 * sum by (cluster) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"}) / sum by (cluster) (kube_node_status_allocatable{resource=\"memory\",cluster=~\"$cluster\"})",
           "legendFormat": "{{ cluster }}"
         }
       ],
