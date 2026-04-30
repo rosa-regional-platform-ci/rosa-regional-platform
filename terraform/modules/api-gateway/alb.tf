@@ -78,7 +78,7 @@ resource "aws_lb_target_group" "thanos" {
   health_check {
     enabled             = true
     path                = "/-/ready"
-    port                = "traffic-port"
+    port                = var.thanos_health_check_port
     protocol            = "HTTP"
     healthy_threshold   = 2
     unhealthy_threshold = 3
