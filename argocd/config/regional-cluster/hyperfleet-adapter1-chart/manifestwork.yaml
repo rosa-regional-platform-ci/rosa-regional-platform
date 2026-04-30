@@ -130,6 +130,11 @@ spec:
               region: "{{ .region }}"
               cloudProviderConfig:
                 vpc: "{{ .vpcId }}"
+                # Workaround(typeid): CCM uses zone, e.g. `us-east-1a` and cuts off the last char to get the region when no IDMS is available (= on EKS).
+                # This has no impact on ability to use multi-az, but we will want this fixed to clean up our manifestwork. 
+                # TODO: Remove once fix lands in our OCP payloads. 
+                # Tracker: OCPBUGS-84562 
+                zone: "{{ .zone }}" 
                 subnet:
                   id: "{{ .subnetId }}"
               endpointAccess: Private

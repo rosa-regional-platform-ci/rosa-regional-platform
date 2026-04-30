@@ -15,4 +15,4 @@ hypershift:
 
   # Hypershift configuration
   hypershift:
-    image: quay.io/psav/hypershift:test20
+    image: quay.io/acm-d/rhtap-hypershift-operator:latest
