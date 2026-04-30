@@ -52,20 +52,20 @@ module "platform_image" {
 module "pipeline_provisioner" {
   source = "../../modules/pipeline-provisioner"
 
-  github_repository      = var.github_repository
-  github_branch          = var.github_branch
-  region                 = var.region
-  environment            = var.environment
-  github_connection_arn  = aws_codestarconnections_connection.github.arn
-  codebuild_image        = module.platform_image.container_image
-  platform_ecr_repo      = module.platform_image.ecr_repository_url
-  name_prefix            = var.name_prefix
-  app_code               = var.app_code
-  cost_center            = var.cost_center
-  owner                  = var.owner
-  service_phase          = var.service_phase
-  organization           = var.organization
-  app                    = var.app
+  github_repository     = var.github_repository
+  github_branch         = var.github_branch
+  region                = var.region
+  environment           = var.environment
+  github_connection_arn = aws_codestarconnections_connection.github.arn
+  codebuild_image       = module.platform_image.container_image
+  platform_ecr_repo     = module.platform_image.ecr_repository_url
+  name_prefix           = var.name_prefix
+  app_code              = var.app_code
+  cost_center           = var.cost_center
+  owner                 = var.owner
+  service_phase         = var.service_phase
+  organization          = var.organization
+  app                   = var.app
 }
 
 # Pipeline Failure Notifications
