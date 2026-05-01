@@ -10,7 +10,7 @@ There is no expectation for the IC to be available outside of Business Hours. Th
 
 This role should not prevent the IC from working on their project tasks. The general tasks of the IC should not take more than one hour of your work day. If the workload becomes overwhelming, reach out to the team for help. When the IC asks for help, the entire team should stop what they're doing and help. This is our [Andon Cord](https://www.6sigma.us/six-sigma-in-focus/andon-cord-lean-manufacturing-tps/) ([shorter summary here](https://devlead.io/DevTips/AndonCord)).
 
-The IC is expected to use AI and write automation to reduce the burden on themselves and future ICs. Aspirationally, this role should not exist.
+The IC is expected to use AI and write automation to reduce the burden on themselves and future ICs. Run `/ic` in Claude Code at the start of each day for an automated briefing covering CI health, the PR queue, and ROSAENG-140 items. Aspirationally, this role should not exist.
 
 **Make the next IC's shift easier than yours!**
 
