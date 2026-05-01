@@ -12,6 +12,7 @@
   "node_instance_types": {{ mc.node_instance_types | default(management_cluster_defaults.node_instance_types) | tojson }}
 {%- if mc.enable_bastion is defined %},
   "enable_bastion": {{ mc.enable_bastion | tojson }}{% elif management_cluster_defaults.enable_bastion %},
-  "enable_bastion": {{ management_cluster_defaults.enable_bastion | tojson }}{% endif %}{% if mc.delete %},
+  "enable_bastion": {{ management_cluster_defaults.enable_bastion | tojson }}{% endif %},
+  "enable_fips": {% if mc.enable_fips is defined %}{{ mc.enable_fips | tojson }}{% elif management_cluster_defaults.enable_fips is defined %}{{ management_cluster_defaults.enable_fips | tojson }}{% else %}false{% endif %}{% if mc.delete %},
   "delete": true{% endif %}
 }

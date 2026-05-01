@@ -117,9 +117,12 @@ resource "aws_eks_cluster" "main" {
   }
 
   compute_config {
-    enabled       = true
-    node_pools    = ["general-purpose"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
+    enabled = true
+    # When FIPS is enabled, no built-in node pools are used — scheduling is handled
+    # by a custom FIPS NodePool/NodeClass. EKS rejects node_role_arn without node_pools,
+    # so both must be null when using only custom pools.
+    node_pools    = var.enable_fips ? [] : ["general-purpose"]
+    node_role_arn = var.enable_fips ? null : aws_iam_role.eks_auto_mode_node.arn
 
     # TODO: Enable IMDSv2 enforcement for security compliance
     # node_pool_defaults configuration for launch template metadata_options

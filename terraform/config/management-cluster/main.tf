@@ -41,6 +41,8 @@ module "management_cluster" {
 
   # Instance types (configurable via config.yaml)
   node_instance_types = var.node_instance_types
+
+  enable_fips = var.enable_fips
 }
 
 # Call the ECS bootstrap module for external bootstrap execution

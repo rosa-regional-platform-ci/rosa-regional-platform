@@ -5,6 +5,8 @@
 # Environment: ephemeral
 # Region: us-east-1
 
+eksNodePool:
+  enableFips: true
 maestro:
   mqttEndpoint: xxx.iot.us-east-1.amazonaws.com
   iotLogLevel: WARN

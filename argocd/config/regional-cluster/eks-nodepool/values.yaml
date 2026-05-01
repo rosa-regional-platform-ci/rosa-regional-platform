@@ -1,4 +1,5 @@
 eksNodePool:
+  enableFips: false
   instanceFamilies:
     - m5
     - m5a

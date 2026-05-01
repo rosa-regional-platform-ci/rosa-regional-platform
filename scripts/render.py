@@ -23,6 +23,7 @@ from typing import Any
 
 import yaml
 from jinja2 import Environment
+from jinja2.nativetypes import NativeEnvironment
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
@@ -76,7 +77,7 @@ def deep_merge_ruamel(base: CommentedMap, overlay: CommentedMap) -> CommentedMap
 def resolve_templates(value: Any, context: dict[str, Any]) -> Any:
     """Recursively resolve Jinja2 expressions in config values."""
     if isinstance(value, str):
-        return Environment().from_string(value).render(context)
+        return NativeEnvironment().from_string(value).render(context)
     elif isinstance(value, dict):
         return {k: resolve_templates(v, context) for k, v in value.items()}
     elif isinstance(value, list):

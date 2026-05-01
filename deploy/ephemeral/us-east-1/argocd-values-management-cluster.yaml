@@ -5,6 +5,8 @@
 # Environment: ephemeral
 # Region: us-east-1
 
+eksNodePool:
+  enableFips: true
 hypershift:
   oidcStorageS3Bucket:
     name: hypershift-mc-us-east-1

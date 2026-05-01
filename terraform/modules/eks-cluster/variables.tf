@@ -169,6 +169,12 @@ variable "enable_pod_security_standards" {
   default     = true
 }
 
+variable "enable_fips" {
+  description = "Enable FIPS mode on EKS Auto Mode nodes via custom FIPS NodeClass. Disables the built-in general-purpose node pool; all scheduling is handled by a custom FIPS NodePool referencing the node role by name."
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Validation Rules
 # =============================================================================

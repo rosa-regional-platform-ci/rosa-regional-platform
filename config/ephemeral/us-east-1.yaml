@@ -1,2 +1,8 @@
+regional_cluster:
+  enable_fips: true
+
+management_cluster_defaults:
+  enable_fips: true
+
 provision_mcs:
   mc01: {}
