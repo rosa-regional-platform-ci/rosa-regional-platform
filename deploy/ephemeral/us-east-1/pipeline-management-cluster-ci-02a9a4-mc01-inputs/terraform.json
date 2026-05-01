@@ -11,5 +11,6 @@
   "regional_aws_account_id": "720644165472",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "enable_bastion": true,
-  "enable_fips": true
+  "enable_fips": true,
+  "delete": true
 }
