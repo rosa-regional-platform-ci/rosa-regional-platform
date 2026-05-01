@@ -26,8 +26,7 @@ RUN microdnf install -y \
       shadow-utils \
       postgresql \
       python3 \
-      python3-pip \
-      gnupg2 && \
+      python3-pip && \
     pip3 install --no-cache-dir boto3==1.35.86 pyyaml==6.0.2 && \
     microdnf clean all && \
     rm -rf /var/cache/yum
@@ -68,26 +67,11 @@ RUN curl -sL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VER
     chmod +x /usr/local/bin/oc && \
     rm -f /tmp/kubectl /tmp/README.md
 
-# Install Terraform (GPG-verified)
-RUN set -euo pipefail && \
-    TF_PACKAGE="terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
-    TF_BASE_URL="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}" && \
-    curl -sSfO "${TF_BASE_URL}/${TF_PACKAGE}" && \
-    curl -sSfO "${TF_BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
-    curl -sSfO "${TF_BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" && \
-    gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \
-      C874011F0AB405110D02105534365D9472D7468F || \
-    gpg --batch --keyserver keys.openpgp.org --recv-keys \
-      C874011F0AB405110D02105534365D9472D7468F || \
-    gpg --batch --keyserver pgp.mit.edu --recv-keys \
-      C874011F0AB405110D02105534365D9472D7468F && \
-    gpg --batch --verify "terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" \
-      "terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
-    grep "${TF_PACKAGE}" "terraform_${TERRAFORM_VERSION}_SHA256SUMS" | sha256sum -c - && \
-    unzip -o "${TF_PACKAGE}" -d /tmp/tf-bin && \
-    mv /tmp/tf-bin/terraform /usr/local/bin/ && \
-    rm -rf "${TF_PACKAGE}" "terraform_${TERRAFORM_VERSION}_SHA256SUMS" \
-      "terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" /tmp/tf-bin
+# Install Terraform via HashiCorp RHEL repo (version-pinned, GPG-verified by microdnf)
+RUN curl --retry 3 --retry-delay 2 --retry-all-errors -fsSL https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo \
+      -o /etc/yum.repos.d/hashicorp.repo && \
+    microdnf install -y terraform-${TERRAFORM_VERSION} && \
+    microdnf clean all
 
 # Run as non-root
 RUN mkdir -p /opt/platform && chown 65534:65534 /opt/platform
