@@ -449,12 +449,10 @@ class TestBuildContext:
         ctx = build_context({}, "staging", "us-east-1", "")
         assert ctx["environment"] == "staging"
         assert ctx["aws_region"] == "us-east-1"
-        assert ctx["region"] == "us-east-1"
-        assert ctx["regional_id"] == "regional"
 
-    def test_ci_prefix_in_regional_id(self):
+    def test_ci_prefix_injected(self):
         ctx = build_context({}, "staging", "us-east-1", "xg4y")
-        assert ctx["regional_id"] == "xg4y-regional"
+        assert ctx["ci_prefix"] == "xg4y"
 
     def test_resolves_account_id_template(self):
         merged = {"aws": {"account_id": "account-{{ environment }}-{{ aws_region }}"}}
@@ -476,16 +474,15 @@ class TestBuildMcList:
     def test_builds_mc_entries(self):
         merged = {"provision_mcs": {"mc01": {"account_id": "111"}}}
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, mc_account_ids = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert len(mc_list) == 1
         assert mc_list[0]["management_id"] == "mc01"
         assert mc_list[0]["account_id"] == "111"
-        assert mc_account_ids == ["111"]
 
     def test_ci_prefix_applied(self):
         merged = {"provision_mcs": {"mc01": {"account_id": "111"}}}
         ctx = build_context(merged, "staging", "us-east-1", "xg4y")
-        mc_list, _ = build_mc_list(ctx, merged, "xg4y")
+        mc_list = build_mc_list(ctx, merged, "xg4y")
         assert mc_list[0]["management_id"] == "xg4y-mc01"
 
     def test_default_account_id(self):
@@ -494,7 +491,7 @@ class TestBuildMcList:
             "provision_mcs": {"mc01": {}},
         }
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, _ = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "default-account"
 
     def test_explicit_account_overrides_default(self):
@@ -503,7 +500,7 @@ class TestBuildMcList:
             "provision_mcs": {"mc01": {"account_id": "explicit-account"}},
         }
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, _ = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "explicit-account"
 
     def test_cluster_prefix_template_resolution(self):
@@ -512,7 +509,7 @@ class TestBuildMcList:
             "provision_mcs": {"mc01": {}},
         }
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, _ = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "mc-mc01-us-east-1"
 
 
@@ -773,7 +770,7 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, _ = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "default-mc-account"
 
     def test_management_cluster_explicit_account_overrides_default(self, tmp_path):
@@ -802,7 +799,7 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, _ = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "explicit-account"
 
     def test_ci_prefix_applied_to_management_id(self, tmp_path):
@@ -828,13 +825,13 @@ class TestConfigMergeAndRendering:
             mc_id = f"{ci_prefix}-{mc_key}" if ci_prefix else mc_key
             assert mc_id == "xg4y-mc01"
 
-    def test_ci_prefix_applied_to_regional_id(self):
+    def test_ci_prefix_stored_in_context(self):
         ctx = build_context({}, "staging", "us-east-1", "xg4y")
-        assert ctx["regional_id"] == "xg4y-regional"
+        assert ctx["ci_prefix"] == "xg4y"
 
-    def test_no_ci_prefix(self):
+    def test_empty_ci_prefix(self):
         ctx = build_context({}, "staging", "us-east-1", "")
-        assert ctx["regional_id"] == "regional"
+        assert ctx["ci_prefix"] == ""
 
     def test_revision_inheritance(self, tmp_path):
         config_dir = _create_config_structure(
@@ -984,7 +981,7 @@ class TestConfigMergeAndRendering:
         merged = deep_merge(gd, ed)
         merged = deep_merge(merged, rc)
         ctx = build_context(merged, "staging", "us-east-1", "")
-        mc_list, _ = build_mc_list(ctx, merged, "")
+        mc_list = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "mc-mc01-us-east-1"
 
 

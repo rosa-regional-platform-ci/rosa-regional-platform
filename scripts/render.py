@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from jinja2 import Environment
+from jinja2 import ChainableUndefined, Environment
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
@@ -76,7 +76,7 @@ def deep_merge_ruamel(base: CommentedMap, overlay: CommentedMap) -> CommentedMap
 def resolve_templates(value: Any, context: dict[str, Any]) -> Any:
     """Recursively resolve Jinja2 expressions in config values."""
     if isinstance(value, str):
-        rendered = Environment().from_string(value).render(context)
+        rendered = Environment(undefined=ChainableUndefined).from_string(value).render(context)
         if rendered.lower() == "true":
             return True
         if rendered.lower() == "false":
@@ -114,7 +114,7 @@ def discover_regions(env_dir: Path) -> list[str]:
 
 def render_template(template_path: Path, context: dict[str, Any]) -> str:
     """Render a Jinja2 template file with context."""
-    env = Environment()
+    env = Environment(undefined=ChainableUndefined)
     env.filters["toyaml"] = _toyaml
     return env.from_string(template_path.read_text()).render(context)
 
