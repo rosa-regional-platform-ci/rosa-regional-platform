@@ -383,30 +383,44 @@ class TestResolveTemplates:
         result = resolve_templates(data, {"x": "val"})
         assert result == ["val", 42, {"k": "val"}]
 
-    def test_boolean_coercion_true(self):
-        result = resolve_templates("{{ val }}", {"val": True})
+    def test_asbool_filter_true(self):
+        result = resolve_templates("{{ val | asbool }}", {"val": True})
         assert result is True
 
-    def test_boolean_coercion_false(self):
-        result = resolve_templates("{{ val }}", {"val": False})
+    def test_asbool_filter_false(self):
+        result = resolve_templates("{{ val | asbool }}", {"val": False})
         assert result is False
 
-    def test_boolean_coercion_case_insensitive(self):
-        assert resolve_templates("{{ val | upper }}", {"val": "true"}) is True
-        assert resolve_templates("{{ val | upper }}", {"val": "false"}) is False
+    def test_asbool_filter_string_true(self):
+        assert resolve_templates("{{ val | asbool }}", {"val": "true"}) is True
+        assert resolve_templates("{{ val | asbool }}", {"val": "True"}) is True
+        assert resolve_templates("{{ val | asbool }}", {"val": "TRUE"}) is True
 
-    def test_boolean_coercion_with_lower_filter(self):
-        result = resolve_templates("{{ val | lower }}", {"val": True})
-        assert result is True
+    def test_asbool_filter_string_false(self):
+        assert resolve_templates("{{ val | asbool }}", {"val": "false"}) is False
+        assert resolve_templates("{{ val | asbool }}", {"val": "False"}) is False
+        assert resolve_templates("{{ val | asbool }}", {"val": "0"}) is False
 
-    def test_boolean_coercion_in_nested_dict(self):
-        data = {"outer": {"enabled": "{{ flag | lower }}"}}
+    def test_asbool_filter_numeric(self):
+        assert resolve_templates("{{ val | asbool }}", {"val": 1}) is True
+        assert resolve_templates("{{ val | asbool }}", {"val": 0}) is False
+
+    def test_asbool_rejects_invalid_value(self):
+        with pytest.raises(ValueError, match="asbool filter"):
+            resolve_templates("{{ val | asbool }}", {"val": "anything"})
+
+    def test_asbool_in_nested_dict(self):
+        data = {"outer": {"enabled": "{{ flag | asbool }}"}}
         result = resolve_templates(data, {"flag": False})
         assert result == {"outer": {"enabled": False}}
 
-    def test_boolean_string_not_coerced_in_context(self):
-        result = resolve_templates("enabled: {{ val }}", {"val": True})
-        assert result == "enabled: True"
+    def test_no_coercion_without_asbool(self):
+        result = resolve_templates("{{ val }}", {"val": True})
+        assert result == "True"
+
+    def test_plain_string_false_not_coerced(self):
+        result = resolve_templates("false", {})
+        assert result == "false"
 
 
 # =============================================================================

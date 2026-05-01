@@ -73,13 +73,45 @@ def deep_merge_ruamel(base: CommentedMap, overlay: CommentedMap) -> CommentedMap
     return result
 
 
+_BOOL_SENTINEL_TRUE = "__BOOL:true__"
+_BOOL_SENTINEL_FALSE = "__BOOL:false__"
+
+
+_TRUTHY = {"true", "1"}
+_FALSY = {"false", "0"}
+
+
+def _asbool(value: Any) -> str:
+    """Jinja2 filter that marks a value for boolean coercion after rendering."""
+    if isinstance(value, bool):
+        return _BOOL_SENTINEL_TRUE if value else _BOOL_SENTINEL_FALSE
+    if isinstance(value, (int, float)):
+        if value == 1:
+            return _BOOL_SENTINEL_TRUE
+        if value == 0:
+            return _BOOL_SENTINEL_FALSE
+    if isinstance(value, str):
+        lower = value.lower()
+        if lower in _TRUTHY:
+            return _BOOL_SENTINEL_TRUE
+        if lower in _FALSY:
+            return _BOOL_SENTINEL_FALSE
+    raise ValueError(f"asbool filter: cannot convert {value!r} to bool")
+
+
+def _make_jinja_env() -> "Environment":
+    env = Environment(undefined=ChainableUndefined)
+    env.filters["asbool"] = _asbool
+    return env
+
+
 def resolve_templates(value: Any, context: dict[str, Any]) -> Any:
     """Recursively resolve Jinja2 expressions in config values."""
     if isinstance(value, str):
-        rendered = Environment(undefined=ChainableUndefined).from_string(value).render(context)
-        if rendered.lower() == "true":
+        rendered = _make_jinja_env().from_string(value).render(context)
+        if rendered == _BOOL_SENTINEL_TRUE:
             return True
-        if rendered.lower() == "false":
+        if rendered == _BOOL_SENTINEL_FALSE:
             return False
         return rendered
     elif isinstance(value, dict):
@@ -114,7 +146,7 @@ def discover_regions(env_dir: Path) -> list[str]:
 
 def render_template(template_path: Path, context: dict[str, Any]) -> str:
     """Render a Jinja2 template file with context."""
-    env = Environment(undefined=ChainableUndefined)
+    env = _make_jinja_env()
     env.filters["toyaml"] = _toyaml
     return env.from_string(template_path.read_text()).render(context)
 
