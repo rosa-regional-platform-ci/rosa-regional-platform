@@ -5,6 +5,7 @@
 #     "PyYAML>=6.0",
 #     "Jinja2>=3.1",
 #     "pytest>=8.0",
+#     "ruamel.yaml>=0.18",
 # ]
 # ///
 """Unit tests for render.py"""
@@ -381,6 +382,31 @@ class TestResolveTemplates:
         data = ["{{ x }}", 42, {"k": "{{ x }}"}]
         result = resolve_templates(data, {"x": "val"})
         assert result == ["val", 42, {"k": "val"}]
+
+    def test_boolean_coercion_true(self):
+        result = resolve_templates("{{ val }}", {"val": True})
+        assert result is True
+
+    def test_boolean_coercion_false(self):
+        result = resolve_templates("{{ val }}", {"val": False})
+        assert result is False
+
+    def test_boolean_coercion_case_insensitive(self):
+        assert resolve_templates("{{ val | upper }}", {"val": "true"}) is True
+        assert resolve_templates("{{ val | upper }}", {"val": "false"}) is False
+
+    def test_boolean_coercion_with_lower_filter(self):
+        result = resolve_templates("{{ val | lower }}", {"val": True})
+        assert result is True
+
+    def test_boolean_coercion_in_nested_dict(self):
+        data = {"outer": {"enabled": "{{ flag | lower }}"}}
+        result = resolve_templates(data, {"flag": False})
+        assert result == {"outer": {"enabled": False}}
+
+    def test_boolean_string_not_coerced_in_context(self):
+        result = resolve_templates("enabled: {{ val }}", {"val": True})
+        assert result == "enabled: True"
 
 
 # =============================================================================

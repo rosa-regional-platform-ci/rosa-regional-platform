@@ -76,7 +76,12 @@ def deep_merge_ruamel(base: CommentedMap, overlay: CommentedMap) -> CommentedMap
 def resolve_templates(value: Any, context: dict[str, Any]) -> Any:
     """Recursively resolve Jinja2 expressions in config values."""
     if isinstance(value, str):
-        return Environment().from_string(value).render(context)
+        rendered = Environment().from_string(value).render(context)
+        if rendered.lower() == "true":
+            return True
+        if rendered.lower() == "false":
+            return False
+        return rendered
     elif isinstance(value, dict):
         return {k: resolve_templates(v, context) for k, v in value.items()}
     elif isinstance(value, list):
