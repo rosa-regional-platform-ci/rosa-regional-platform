@@ -41,12 +41,12 @@ resource "aws_ecs_task_definition" "log_collector" {
           for ns_pattern in $INSPECT_NAMESPACES; do
             if [[ "$ns_pattern" == *"*"* ]]; then
               # Pattern contains wildcard - discover matching namespaces
-              pattern_prefix="${ns_pattern#ns/}"  # Remove ns/ prefix
+              pattern_prefix="$${ns_pattern#ns/}"  # Remove ns/ prefix
               echo "Discovering namespaces matching: $pattern_prefix"
-              matched_ns=$(kubectl get namespaces -o name | grep "^namespace/${pattern_prefix//\*/.*}$" | sed 's|^namespace/|ns/|' || true)
+              matched_ns=$$(kubectl get namespaces -o name | grep "^namespace/$${pattern_prefix//\*/.*}$$" | sed 's|^namespace/|ns/|' || true)
               if [[ -n "$matched_ns" ]]; then
                 expanded_namespaces="$expanded_namespaces $matched_ns"
-                echo "  Found: $(echo $matched_ns | wc -w) namespace(s)"
+                echo "  Found: $$(echo $matched_ns | wc -w) namespace(s)"
               else
                 echo "  No namespaces found matching pattern"
               fi
