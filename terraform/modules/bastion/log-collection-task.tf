@@ -36,10 +36,31 @@ resource "aws_ecs_task_definition" "log_collector" {
           # Configure kubectl
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
 
+          # Expand glob patterns in INSPECT_NAMESPACES
+          expanded_namespaces=""
+          for ns_pattern in $INSPECT_NAMESPACES; do
+            if [[ "$ns_pattern" == *"*"* ]]; then
+              # Pattern contains wildcard - discover matching namespaces
+              pattern_prefix="${ns_pattern#ns/}"  # Remove ns/ prefix
+              echo "Discovering namespaces matching: $pattern_prefix"
+              matched_ns=$(kubectl get namespaces -o name | grep "^namespace/${pattern_prefix//\*/.*}$" | sed 's|^namespace/|ns/|' || true)
+              if [[ -n "$matched_ns" ]]; then
+                expanded_namespaces="$expanded_namespaces $matched_ns"
+                echo "  Found: $(echo $matched_ns | wc -w) namespace(s)"
+              else
+                echo "  No namespaces found matching pattern"
+              fi
+            else
+              # No wildcard - add as-is
+              expanded_namespaces="$expanded_namespaces $ns_pattern"
+            fi
+          done
+
           # Run oc adm inspect
           echo "Running oc adm inspect..."
+          echo "Inspecting namespaces: $expanded_namespaces"
           # shellcheck disable=SC2086
-          oc adm inspect $INSPECT_NAMESPACES --dest-dir=/tmp/inspect-logs || true
+          oc adm inspect $expanded_namespaces --dest-dir=/tmp/inspect-logs || true
 
           # Tar and upload to S3
           echo "Uploading to S3..."

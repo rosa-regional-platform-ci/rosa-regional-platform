@@ -40,6 +40,8 @@ CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
 
 RC_NAMESPACES="ns/argocd ns/maestro-server ns/platform-api ns/hyperfleet-system ns/monitoring"
 MC_NAMESPACES="ns/argocd ns/hypershift ns/maestro-agent ns/monitoring ns/cert-manager"
+# Hosted cluster control plane namespaces (discovered dynamically)
+MC_HC_NAMESPACE_PATTERN="ns/clusters-*"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -145,6 +147,7 @@ collect_logs_for_cluster() {
     local cluster_id="$1"
     local namespaces="$2"
     local out_dir="$3"
+    local include_hc_namespaces="${4:-false}"  # New parameter for MC clusters
 
     echo "==> Collecting logs from ${cluster_id}..."
 
@@ -158,6 +161,12 @@ collect_logs_for_cluster() {
 
     ensure_logs_bucket "$account_id" "$region"
     local s3_key="collect-logs-$(date +%s%N)-$$-${RANDOM}.tar.gz"
+
+    # For management clusters, append hosted cluster namespace pattern
+    if [[ "$include_hc_namespaces" == "true" ]]; then
+        namespaces="${namespaces} ${MC_HC_NAMESPACE_PATTERN}"
+        echo "  Including hosted cluster namespaces: ${MC_HC_NAMESPACE_PATTERN}"
+    fi
 
     # Discover network config from the bastion security group
     local sg_id subnets vpc_id
@@ -336,7 +345,7 @@ if [[ "$CLUSTER_SCOPE" == "all" || "$CLUSTER_SCOPE" == "management" ]]; then
         else
             while IFS= read -r mc_id; do
                 mc_name="${mc_id#"$PREFIX"}"
-                collect_logs_for_cluster "$mc_id" "$MC_NAMESPACES" "${OUTPUT_DIR}/${mc_name}" || failed=1
+                collect_logs_for_cluster "$mc_id" "$MC_NAMESPACES" "${OUTPUT_DIR}/${mc_name}" "true" || failed=1
             done <<< "$mc_clusters"
         fi
     else
