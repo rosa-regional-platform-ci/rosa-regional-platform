@@ -319,7 +319,45 @@ terraform plan -var-file=terraform.tfvars -out=tfplan
 
 echo ""
 echo "✅ Applying Terraform configuration..."
-terraform apply tfplan
+if ! terraform apply tfplan; then
+    # Detect the specific pattern where resources were created but state failed
+    # to persist to S3 (transient NoSuchBucket during state upload). Terraform
+    # writes a local errored.tfstate in this case and suggests state push recovery.
+    if [[ -f errored.tfstate ]]; then
+        echo ""
+        echo "⚠️  Resources were created but Terraform failed to persist state to S3."
+        echo "    Re-bootstrapping state bucket and retrying state push..."
+
+        # Re-verify (and recreate if needed) the state bucket before pushing
+        "${REPO_ROOT}/scripts/bootstrap-state.sh" --central "$REGION"
+
+        # Retry the state push with backoff; -lock=false because the apply-time
+        # lock is already gone (the bucket was transiently unavailable)
+        PUSHED=false
+        for attempt in 1 2 3; do
+            if terraform state push -lock=false errored.tfstate; then
+                echo "✅ State recovered successfully (attempt ${attempt})"
+                rm -f errored.tfstate
+                PUSHED=true
+                break
+            fi
+            echo "    State push failed (attempt ${attempt}/3), waiting 15s..."
+            sleep 15
+        done
+
+        if [[ "$PUSHED" != "true" ]]; then
+            echo "❌ Failed to recover Terraform state after 3 attempts"
+            exit 1
+        fi
+
+        # Apply any resources that were not yet started when the state error occurred
+        echo "Applying remaining resources..."
+        terraform apply -var-file=terraform.tfvars
+    else
+        echo "❌ Terraform apply failed with resource errors"
+        exit 1
+    fi
+fi
 
 echo ""
 echo "==================================================="
