@@ -139,6 +139,8 @@ All templates are platform-specific resources not provided by either upstream re
 
 ## Related
 
+- [Metrics Platform Overview](monitoring-platform.md) — end-to-end metrics architecture
+- [MC Metrics Pipeline via Remote Write](mc-metrics-remote-write.md) — cross-account ingestion path
 - [thanos-community/thanos-operator](https://github.com/thanos-community/thanos-operator)
 - [rhobs/rhobs-konflux-thanos-operator](https://github.com/rhobs/rhobs-konflux-thanos-operator)
 - [Thanos Documentation](https://thanos.io/tip/thanos/getting-started.md/)
