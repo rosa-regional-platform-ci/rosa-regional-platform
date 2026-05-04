@@ -106,8 +106,7 @@ else
     THANOS_TARGET_GROUP_ARN=""
 fi
 
-# Extract API URL and host (available from both RC and MC terraform outputs)
-RHOBS_API_URL=$(echo "$OUTPUTS" | jq -r '.rhobs_api_url.value // ""')
+RHOBS_API_URL="${RHOBS_API_URL:-}"
 
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
