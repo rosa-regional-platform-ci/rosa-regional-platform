@@ -3,6 +3,7 @@
 
 locals {
   bootstrap_container_name = "bootstrap"
+  log_retention_days       = 365
 }
 
 # Current AWS region information
@@ -18,10 +19,54 @@ resource "aws_ecs_cluster" "bootstrap" {
   }
 }
 
+# KMS key for CloudWatch log group encryption (FedRAMP AU-09)
+resource "aws_kms_key" "bootstrap_logs" {
+  description             = "KMS key for ECS bootstrap CloudWatch log group encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_id}-bootstrap-logs"
+  }
+}
+
 # CloudWatch Log Group for bootstrap tasks
 resource "aws_cloudwatch_log_group" "bootstrap" {
   name              = "/ecs/${var.cluster_id}/bootstrap"
-  retention_in_days = 30
+  retention_in_days = local.log_retention_days
+  kms_key_id        = aws_kms_key.bootstrap_logs.arn
+
+  depends_on = [aws_kms_key.bootstrap_logs]
 }
 
 # ECS Task Definition for bootstrap execution
@@ -111,6 +156,10 @@ resource "aws_ecs_task_definition" "bootstrap" {
               api_target_group_arn: "$API_TARGET_GROUP_ARN"
               dynamodb_prefix: "$CLUSTER_NAME"
               dynamodb_region: "$AWS_REGION"
+              thanos_kms_key_arn: "$THANOS_KMS_KEY_ARN"
+              thanos_target_group_arn: "$THANOS_TARGET_GROUP_ARN"
+              aws_account_id: "$AWS_ACCOUNT_ID"
+              rhobs_api_url: "$RHOBS_API_URL"
           type: Opaque
           stringData:
             name: in-cluster
@@ -149,6 +198,33 @@ resource "aws_ecs_task_definition" "bootstrap" {
                 - CreateNamespace=true
           APP_EOF
 
+          echo "Waiting for all ArgoCD applications to be Synced and Healthy..."
+          _argocd_timeout=1200
+          _argocd_interval=15
+          _argocd_elapsed=0
+          _argocd_last_count=-1
+          while true; do
+            _apps=$(kubectl get applications -n argocd -o json 2>/dev/null || echo '{"items":[]}')
+            _total=$(echo "$_apps" | jq '.items | length')
+            _not_synced=$(echo "$_apps" | jq -r '[.items[] | select((.status.sync.status // "Unknown") != "Synced") | .metadata.name] | join(", ")')
+            _not_healthy=$(echo "$_apps" | jq -r '[.items[] | select((.status.health.status // "Unknown") != "Healthy") | .metadata.name] | join(", ")')
+            if [[ "$_total" -ge 2 && -z "$_not_synced" && -z "$_not_healthy" ]]; then
+              echo "All $_total ArgoCD applications are Synced and Healthy"
+              break
+            fi
+            if [[ $_argocd_elapsed -ge $_argocd_timeout ]]; then
+              echo "ERROR: Timed out after $_argocd_timeout seconds waiting for ArgoCD applications"
+              kubectl get applications -n argocd
+              exit 1
+            fi
+            if [[ "$_total" != "$_argocd_last_count" ]]; then
+              echo "  Progress: $_total apps total, not synced: [$_not_synced], not healthy: [$_not_healthy] (elapsed: $_argocd_elapsed s)"
+              _argocd_last_count=$_total
+            fi
+            sleep $_argocd_interval
+            _argocd_elapsed=$((_argocd_elapsed + _argocd_interval))
+          done
+
           echo "=== Bootstrap completed successfully ==="
         EOF
       ]
@@ -159,6 +235,14 @@ resource "aws_ecs_task_definition" "bootstrap" {
         {
           name  = "AWS_DEFAULT_REGION"
           value = data.aws_region.current.id
+        },
+        {
+          name  = "THANOS_KMS_KEY_ARN"
+          value = var.thanos_kms_key_arn
+        },
+        {
+          name  = "AWS_ACCOUNT_ID"
+          value = data.aws_caller_identity.current.account_id
         }
       ]
 
