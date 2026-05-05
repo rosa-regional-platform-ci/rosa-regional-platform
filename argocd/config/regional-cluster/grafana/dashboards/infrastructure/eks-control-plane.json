@@ -514,7 +514,7 @@
         "defaults": { "unit": "none", "min": 0 },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Unschedulable" },
+            "matcher": { "id": "byRegexp", "options": ".*Unschedulable$" },
             "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }]
           }
         ]
