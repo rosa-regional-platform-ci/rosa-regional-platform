@@ -127,7 +127,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster) (increase(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",cluster=~\"$cluster\"}[1h])) or vector(0)",
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\",cluster=~\"$cluster\"}[1h])) or (count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1) * 0)",
           "legendFormat": "{{ cluster }}"
         }
       ],
@@ -149,7 +149,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1) - count by (cluster) (kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"})",
+          "expr": "count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1 unless on (namespace, pod) kube_pod_container_resource_requests{resource=\"memory\",cluster=~\"$cluster\"}) or (count by (cluster) (kube_pod_status_phase{phase=\"Running\",cluster=~\"$cluster\"} == 1) * 0)",
           "legendFormat": "{{ cluster }}"
         }
       ],
