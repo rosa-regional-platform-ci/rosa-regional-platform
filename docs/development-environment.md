@@ -261,7 +261,7 @@ make ephemeral-collect-logs CLUSTER=mc
 make ephemeral-collect-logs ID=6bd2d3d7
 ```
 
-Output is written to `/tmp/<eph-prefix>-logs-<timestamp>/`. In CI, logs are automatically collected on e2e test failure and written to `ARTIFACT_DIR` for the Prow artifacts UI.
+Output is written to `/tmp/<eph-prefix>-logs-<timestamp>/`. In CI, logs are automatically collected on e2e test failure with `S3_ONLY=true` — logs are left in S3 (to avoid publishing sensitive data) and the S3 URIs are printed for manual retrieval.
 
 > ⚠️ _Bastion must be enabled in your environment config (`enable_bastion: true` in `defaults.yaml`). The default ephemeral preset already has it enabled._
 

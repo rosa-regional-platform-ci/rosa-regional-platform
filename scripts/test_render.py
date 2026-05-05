@@ -795,12 +795,15 @@ class TestConfigMergeAndRendering:
             },
         )
 
+        gd = load_yaml(config_dir / "defaults.yaml")
+        ed = load_yaml(config_dir / "staging" / "defaults.yaml")
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
-        mc_dict = rc.get("provision_mcs", {})
-        eph_prefix = "xg4y"
-        for mc_key in mc_dict:
-            mc_id = f"{eph_prefix}-{mc_key}" if eph_prefix else mc_key
-            assert mc_id == "xg4y-mc01"
+        merged = deep_merge(gd, ed)
+        merged = deep_merge(merged, rc)
+        ctx = build_context(merged, "staging", "us-east-1", "xg4y")
+        mc_list, _ = build_mc_list(ctx, merged, "xg4y")
+        assert len(mc_list) == 1
+        assert mc_list[0]["management_id"] == "xg4y-mc01"
 
     def test_eph_prefix_applied_to_regional_id(self):
         ctx = build_context({}, "staging", "us-east-1", "xg4y")

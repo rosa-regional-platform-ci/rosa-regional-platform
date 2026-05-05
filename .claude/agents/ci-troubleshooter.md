@@ -124,7 +124,7 @@ When e2e tests fail, the CI job collects pod logs from the RC and MC clusters an
 Search the e2e build log for lines like:
 
 ```
-mkdir -p /tmp/ci-ca269e-regional-logs && aws s3 cp s3://bastion-log-collection-<account>-<region>-an/<key>.tar.gz ...
+mkdir -p /tmp/eph-ca269e-regional-logs && aws s3 cp s3://bastion-log-collection-<account>-<region>-an/<key>.tar.gz ...
 ```
 
 There will be one URI per cluster (RC + each MC). The bucket names follow the pattern:
@@ -140,14 +140,14 @@ Example commands (from build log):
 
 ```bash
 # RC logs (requires regional account credentials)
-mkdir -p /tmp/ci-ca269e-regional-logs && \
-  aws s3 cp s3://bastion-log-collection-720644165472-us-east-1-an/collect-logs-<id>.tar.gz /tmp/ci-ca269e-regional-logs/ && \
-  tar xzf /tmp/ci-ca269e-regional-logs/collect-logs-<id>.tar.gz -C /tmp/ci-ca269e-regional-logs
+mkdir -p /tmp/eph-ca269e-regional-logs && \
+  aws s3 cp s3://bastion-log-collection-720644165472-us-east-1-an/collect-logs-<id>.tar.gz /tmp/eph-ca269e-regional-logs/ && \
+  tar xzf /tmp/eph-ca269e-regional-logs/collect-logs-<id>.tar.gz -C /tmp/eph-ca269e-regional-logs
 
 # MC logs (requires management account credentials)
-mkdir -p /tmp/ci-ca269e-mc01-logs && \
-  aws s3 cp s3://bastion-log-collection-129678139271-us-east-1-an/collect-logs-<id>.tar.gz /tmp/ci-ca269e-mc01-logs/ && \
-  tar xzf /tmp/ci-ca269e-mc01-logs/collect-logs-<id>.tar.gz -C /tmp/ci-ca269e-mc01-logs
+mkdir -p /tmp/eph-ca269e-mc01-logs && \
+  aws s3 cp s3://bastion-log-collection-129678139271-us-east-1-an/collect-logs-<id>.tar.gz /tmp/eph-ca269e-mc01-logs/ && \
+  tar xzf /tmp/eph-ca269e-mc01-logs/collect-logs-<id>.tar.gz -C /tmp/eph-ca269e-mc01-logs
 ```
 
 Note: RC and MC use different AWS accounts, so the user may need to switch credentials (e.g. `awsprofile`) between downloads.
