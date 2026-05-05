@@ -10,7 +10,6 @@ hypershift:
 
   # External DNS configuration
   externalDns:
-    image: registry.redhat.io/edo/external-dns-rhel9@sha256:591de53fdaae236c8d384deb6c927f4f397bf44ce4580bbc70b57c112cf22315
     domain: ".example.com"
 
   # Hypershift configuration

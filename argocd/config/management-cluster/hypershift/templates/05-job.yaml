@@ -60,6 +60,5 @@ spec:
             --external-dns-provider aws \
             --external-dns-domain-filter {{ .Values.hypershift.externalDns.domain }} \
             --external-dns-secret external-dns \
-            --external-dns-image {{ .Values.hypershift.externalDns.image }} \
       restartPolicy: Never
       serviceAccountName: hypershift-installer
