@@ -66,11 +66,6 @@ grafana:
       mode: console
       level: info
 
-  # Load AWS_DEFAULT_REGION from the region ConfigMap (rendered from
-  # global.aws_region by ApplicationSet) for CloudWatch datasource provisioning.
-  envFromConfigMaps:
-    - name: grafana-region-env
-
   service:
     type: ClusterIP
     port: 80
@@ -92,18 +87,6 @@ grafana:
           jsonData:
             timeInterval: "30s"
             httpMethod: POST
-
-        # CloudWatch datasource — credentials supplied via EKS Pod Identity
-        # (see terraform/config/regional-cluster/grafana.tf).
-        # AWS_DEFAULT_REGION is injected via grafana-region-env ConfigMap
-        # (see templates/grafana-region-env.yaml) using global.aws_region.
-        - name: CloudWatch
-          type: cloudwatch
-          access: proxy
-          editable: false
-          jsonData:
-            authType: default
-            defaultRegion: ${AWS_DEFAULT_REGION}
 
   resources:
     requests:
