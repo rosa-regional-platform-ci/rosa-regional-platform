@@ -36,6 +36,12 @@ resource "aws_ecs_task_definition" "log_collector" {
           # Configure kubectl
           aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
 
+          # Resolve namespaces — "all" discovers every namespace on the cluster
+          if [[ "$INSPECT_NAMESPACES" == "all" ]]; then
+            INSPECT_NAMESPACES=$(kubectl get namespaces -o jsonpath='{range .items[*]}ns/{.metadata.name} {end}')
+          fi
+          echo "Resolved namespaces: $INSPECT_NAMESPACES"
+
           # Run oc adm inspect
           echo "Running oc adm inspect..."
           # shellcheck disable=SC2086

@@ -38,8 +38,8 @@ set -uo pipefail
 
 CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
 
-RC_NAMESPACES="ns/argocd ns/maestro-server ns/platform-api ns/hyperfleet-system ns/monitoring"
-MC_NAMESPACES="ns/argocd ns/hypershift ns/maestro-agent ns/monitoring ns/cert-manager"
+RC_NAMESPACES="all"
+MC_NAMESPACES="all"
 
 # ---------------------------------------------------------------------------
 # Helpers
