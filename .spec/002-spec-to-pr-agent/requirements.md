@@ -11,6 +11,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 ## Functional Requirements
 
 ### FR1: Python Orchestrator
+
 - The orchestrator MUST be a deterministic Python application — all phase transitions, circuit breaker logic, and persona dispatch are in code (not delegated to a Claude agent)
 - The orchestrator MUST use the Claude Agent SDK to spawn specialist agent sessions for implementation work
 - The orchestrator MUST support a "dry run" mode that plans the implementation and stops before deploying/testing, allowing human review
@@ -19,6 +20,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The orchestrator MUST support resuming an interrupted or escalated session by work_id, restoring state from persisted storage and continuing from the last completed phase
 
 ### FR2: Persona System
+
 - Personas MUST be defined in structured YAML with explicit mapping to Claude SDK `ClaudeAgentOptions` parameters (model, tools, allowed_tools, max_turns, permission_mode, thinking)
 - The orchestrator MUST support loading and instantiating personas for specialized tasks
 - Personas MUST define: name, description, responsibilities, approach guidance, output format, constraints, memory directives, and sdk_config
@@ -26,6 +28,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The implementation phase MUST spawn a team of agent sessions using the appropriate personas, coordinated by the deterministic Python orchestrator
 
 ### FR3: Implementation Phase
+
 - The agent MUST be able to implement E2E tests for the feature being developed
 - The agent MUST be able to implement the feature itself, including:
   - Injecting new versions of components into ArgoCD configurations
@@ -34,6 +37,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The agent MUST refine E2E tests and implementation based on test feedback
 
 ### FR4: Multi-Repository Support
+
 - The agent MUST operate across multiple repositories within a shared workspace
 - The agent MUST be able to checkout, modify, and commit changes in component repos
 - The agent MUST use the ephemeral environment `resync` feature to inject changes from component repos
@@ -41,6 +45,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The agent SHOULD support building and pushing container images to ECR (stretch goal — design for extensibility)
 
 ### FR5: Ephemeral Environment Management (Standalone Skill)
+
 - The ephemeral skill MUST be independently invokable outside the spec-to-pr workflow
 - The skill MUST support the following operations:
   - **provision**: Create a new ephemeral environment from a branch
@@ -57,17 +62,20 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The skill MUST wrap the existing `scripts/dev/ephemeral-env.sh` operations
 
 ### FR6: E2E Test Execution
+
 - The agent MUST deploy changes to an ephemeral environment using `make ephemeral-dev` and `make resync`
 - The agent MUST run e2e tests against the deployed environment
 - The agent MUST capture and parse test results to determine pass/fail
 
 ### FR7: Debug Loop
+
 - On e2e failure, the agent MUST enter a debug phase
 - The debug phase MUST access: metrics, logs, Kubernetes APIs, and ArgoCD state
 - The agent MUST append debug context (findings, hypotheses, attempted fixes) to persistent memory keyed by work_id
 - On retry, the agent MUST inject previous attempt context to avoid repeating failed approaches
 
 ### FR8: Circuit Breaker
+
 - The circuit breaker MUST enforce a hard retry limit (configurable, default: 3 attempts)
 - The circuit breaker MUST implement heuristics for early bail-out:
   - Same error repeated across consecutive attempts
@@ -78,6 +86,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
   - Suggested next steps
 
 ### FR9: PR Submission
+
 - On successful e2e tests, the agent MUST create a pull request for human review
 - The PR MUST include:
   - Summary of changes and the spec that drove them
@@ -86,6 +95,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - For multi-repo changes, the agent MUST create coordinated PRs across affected repositories
 
 ### FR10: Memory and State Persistence
+
 - Debug session memory MUST initially be stored as files in the workspace, keyed by work_id
 - File storage layout: `.spec-to-pr/sessions/{work_id}/` containing session state, per-attempt records, circuit breaker state, and phase context
 - The storage mechanism MUST be designed for future migration to a database (adapter pattern)
@@ -94,6 +104,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 ## Technical Requirements
 
 ### TR1: Execution Environment
+
 - The agent MUST run inside a Podman container
 - The container MUST have access to a workspace directory for checking out multiple repos
 - The container MUST have a limited-access GitHub account for PR creation and repo operations
@@ -101,6 +112,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The container MUST have access to ECR for pushing container images into ephemeral environments
 
 ### TR2: Claude Agent SDK Integration
+
 - The orchestrator MUST use the Claude Agent SDK (Python) for agent sessions via Vertex AI (not Anthropic API directly)
 - GCP service account credentials MUST be injected as a JSON file with `GOOGLE_APPLICATION_CREDENTIALS` pointing to it
 - Each workflow phase SHOULD run as a separate agent session with appropriate persona
@@ -108,6 +120,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - The orchestrator MUST handle SDK session failures gracefully
 
 ### TR3: Security
+
 - Credentials MUST be injected at container startup and NOT persisted beyond the container lifecycle
 - The GitHub account MUST have limited access — scoped to the minimum permissions needed for PR creation and repo operations
 - The agent MUST NOT have permissions to merge PRs — only create them for human review
@@ -115,6 +128,7 @@ Build a **Spec-to-PR Agent** — a Python-based orchestrator using the Claude Ag
 - Force push and other destructive git operations MUST be disabled
 
 ### TR4: Observability
+
 - The orchestrator MUST log all phase transitions, decisions, and outcomes
 - Debug session context MUST be queryable by work_id
 - Circuit breaker events MUST be visible (logged and reported)

@@ -11,7 +11,9 @@ Personas are defined as extended `.claude/agents/` files (standard frontmatter f
 ### Milestone 1: Project Scaffolding & Core Data Models
 
 #### Phase 1: Package Setup
+
 - [ ] Step 1: Create `spec-to-pr/` directory with `pyproject.toml`
+
 ```toml
 [project]
 name = "spec-to-pr"
@@ -25,7 +27,9 @@ dependencies = [
 [project.scripts]
 spec-to-pr = "spec_to_pr.cli:main"
 ```
+
 - [ ] Step 2: Create package structure
+
 ```
 spec-to-pr/
   pyproject.toml
@@ -50,10 +54,13 @@ spec-to-pr/
     test_personas.py
     test_storage.py
 ```
+
 - [ ] Step 3: Verify package installs with `uv pip install -e spec-to-pr/`
 
 #### Phase 2: Data Models (TDD)
+
 - [ ] Step 4: Write tests for `WorkItem` model — construction from JIRA ID, file path (with frontmatter work_id), and inline text
+
 ```python
 def test_work_item_from_jira():
     item = WorkItem.from_jira("ROSAENG-1234")
@@ -68,6 +75,7 @@ def test_work_item_from_file_without_frontmatter():
     item = WorkItem.from_file("spec.md")  # no frontmatter work_id
     assert item.work_id.startswith("SPEC-")
 ```
+
 - [ ] Step 5: Implement `WorkItem` dataclass in `models/work_item.py`
 - [ ] Step 6: Run tests — expect all passing
 - [ ] Step 7: Write tests for `OrchestratorSession`, `RepoState`, `DebugMemoryEntry`, `CircuitBreakerState`, `PhaseContext` models based on the data model spec
@@ -78,7 +86,9 @@ def test_work_item_from_file_without_frontmatter():
 ### Milestone 2: State Machine & Circuit Breaker
 
 #### Phase 3: State Machine (TDD)
+
 - [ ] Step 11: Write tests for state transitions — all valid transitions from the state machine spec
+
 ```python
 def test_spec_ingestion_to_implementation():
     sm = StateMachine(session)
@@ -105,11 +115,14 @@ def test_invalid_transition_raises():
     with pytest.raises(InvalidTransitionError):
         sm.transition(Phase.COMPLETE, ...)
 ```
+
 - [ ] Step 12: Implement `StateMachine` class in `state_machine.py` using match/case
 - [ ] Step 13: Run tests — expect all passing
 
 #### Phase 4: Circuit Breaker (TDD)
+
 - [ ] Step 14: Write tests for circuit breaker logic
+
 ```python
 def test_breaker_trips_on_max_attempts():
     cb = CircuitBreaker(max_attempts=3)
@@ -138,6 +151,7 @@ def test_breaker_allows_retry():
     cb.record_attempt(error_fingerprint="abc", progress_score=0.5)
     assert cb.tripped is False
 ```
+
 - [ ] Step 15: Implement `CircuitBreaker` class in `models/circuit_breaker.py`
 - [ ] Step 16: Run tests — expect all passing
 - [ ] Step 17: Commit changes
@@ -145,7 +159,9 @@ def test_breaker_allows_retry():
 ### Milestone 3: Storage & Persona Loading
 
 #### Phase 5: File Storage
+
 - [ ] Step 18: Write tests for storage adapter — save/load session, debug entries, circuit breaker state
+
 ```python
 def test_save_and_load_session(tmp_path):
     storage = FileStorage(base_path=tmp_path)
@@ -159,11 +175,14 @@ def test_save_and_load_debug_entry(tmp_path):
     entries = storage.load_debug_entries("ROSAENG-1234")
     assert len(entries) == 1
 ```
+
 - [ ] Step 19: Implement `FileStorage` class in `storage.py` with adapter interface (for future DB migration)
 - [ ] Step 20: Run tests — expect all passing
 
 #### Phase 6: Persona Loading
+
 - [ ] Step 21: Write tests for persona parser — reads `.claude/agents/` files, extracts standard + extended frontmatter, parses markdown body
+
 ```python
 def test_load_persona_from_agent_file():
     persona = PersonaLoader.load("developer")
@@ -178,6 +197,7 @@ def test_persona_to_sdk_options():
     assert options.model == "claude-sonnet-4-6"
     assert "You are developer" in options.system_prompt
 ```
+
 - [ ] Step 22: Implement `PersonaLoader` and `Persona` classes in `personas.py`
 - [ ] Step 23: Run tests — expect all passing
 - [ ] Step 24: Commit changes
@@ -185,7 +205,9 @@ def test_persona_to_sdk_options():
 ### Milestone 4: Orchestrator Core Loop
 
 #### Phase 7: Orchestrator Implementation
+
 - [ ] Step 25: Implement `Orchestrator` class in `orchestrator.py` — the main run loop
+
 ```python
 class Orchestrator:
     def __init__(self, config: Config):
@@ -215,6 +237,7 @@ class Orchestrator:
                     self._submit_prs(session)
                 ...
 ```
+
 - [ ] Step 26: Implement `_ingest_spec()` — parse work item, load spec content
 - [ ] Step 27: Implement `_run_implementation_team()` — spawn Claude SDK subagents with developer/qa personas
 - [ ] Step 28: Implement `_deploy()` — call `make ephemeral-dev` and `make resync` via subprocess
@@ -226,7 +249,9 @@ class Orchestrator:
 - [ ] Step 34: Commit changes
 
 #### Phase 8: CLI Entry Point
+
 - [ ] Step 35: Implement `cli.py` with argparse
+
 ```
 spec-to-pr run --work-id ROSAENG-1234 --source jira
 spec-to-pr run --file spec.md
@@ -235,12 +260,14 @@ spec-to-pr run --file spec.md --dry-run
 spec-to-pr status --work-id ROSAENG-1234
 spec-to-pr resume --work-id ROSAENG-1234
 ```
+
 - [ ] Step 36: Run full unit test suite — expect all passing
 - [ ] Step 37: Commit changes
 
 ### Milestone 5: Persona Agent Files
 
 #### Phase 9: Create Initial Personas
+
 - [ ] Step 38: Create `.claude/agents/developer.md` with standard + extended frontmatter
 - [ ] Step 39: Create `.claude/agents/qa-engineer.md` with standard + extended frontmatter
 - [ ] Step 40: Verify the existing `.claude/agents/` files are not affected by the new persona files
@@ -249,14 +276,18 @@ spec-to-pr resume --work-id ROSAENG-1234
 ### Milestone 6: Ephemeral Environment Skill
 
 #### Phase 10: Claude Code Command
+
 - [ ] Step 41: Create `.claude/commands/ephemeral.md` wrapping Make targets
+
 ```markdown
 ---
 description: Manage ephemeral environments (provision, teardown, resync, list, e2e, logs)
 ---
+
 Parse the user's request from: $ARGUMENTS
 
 ## Available Operations
+
 - provision: `make ephemeral-provision ID=<id> BRANCH=<branch>`
 - teardown: `make ephemeral-teardown ID=<id>`
 - resync: `make ephemeral-resync ID=<id>`
@@ -265,15 +296,18 @@ Parse the user's request from: $ARGUMENTS
 - collect-logs: `make ephemeral-collect-logs ID=<id>`
 - shell: `make ephemeral-shell ID=<id>`
 - swap-branch: `make ephemeral-swap-branch ID=<id> BRANCH=<branch>`
-...
+  ...
 ```
+
 - [ ] Step 43: Test the skill manually with `claude /ephemeral list`
 - [ ] Step 44: Commit changes
 
 ### Milestone 7: Container & Documentation
 
 #### Phase 11: Containerfile
+
 - [ ] Step 42: Create `spec-to-pr/Containerfile` based on UBI9
+
 ```dockerfile
 FROM registry.access.redhat.com/ubi9/python-313:latest
 USER 0
@@ -288,16 +322,19 @@ RUN uv pip install --system /opt/spec-to-pr/
 USER 1001
 ENTRYPOINT ["spec-to-pr"]
 ```
+
 - [ ] Step 43: Build and verify container runs: `podman build -t spec-to-pr -f spec-to-pr/Containerfile .`
 - [ ] Step 44: Commit changes
 
 #### Phase 12: Project Documentation
+
 - [ ] Step 45: Create `spec-to-pr/README.md` covering usage, architecture, persona configuration, and environment variables
 - [ ] Step 46: Commit changes
 
 ### Milestone 8: Integration Testing & Validation
 
 #### Phase 13: Integration Tests (Mocked)
+
 - [ ] Step 47: Write integration tests mocking Claude SDK calls — verify full orchestrator loop from spec ingestion to PR submission
 - [ ] Step 48: Write integration tests mocking ephemeral env calls — verify deploy and e2e phases
 - [ ] Step 49: Write integration test for circuit breaker integration — verify escalation flow
@@ -306,6 +343,7 @@ ENTRYPOINT ["spec-to-pr"]
 - [ ] Step 52: Commit changes
 
 #### Phase 14: Real Environment Validation
+
 - [ ] Step 53: Manual test with a simple spec file — run `spec-to-pr run --file test-spec.md --dry-run` and verify plan output
 - [ ] Step 54: Manual test with a real ephemeral environment — run full loop against a trivial change
 - [ ] Step 55: Verify circuit breaker trips correctly with a deliberately failing spec
@@ -315,42 +353,49 @@ ENTRYPOINT ["spec-to-pr"]
 ## Summary of Changes in Key Technical Areas
 
 ### Components to Create
-| Component | Path | Purpose |
-|-----------|------|---------|
-| Orchestrator package | `spec-to-pr/` | Python package with CLI, state machine, storage, persona loading |
-| Developer persona | `.claude/agents/developer.md` | Implementation agent with extended SDK config |
-| QA Engineer persona | `.claude/agents/qa-engineer.md` | Testing agent with extended SDK config |
-| Ephemeral skill | `.claude/commands/ephemeral.md` | Standalone env management command |
+
+| Component            | Path                            | Purpose                                                          |
+| -------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| Orchestrator package | `spec-to-pr/`                   | Python package with CLI, state machine, storage, persona loading |
+| Developer persona    | `.claude/agents/developer.md`   | Implementation agent with extended SDK config                    |
+| QA Engineer persona  | `.claude/agents/qa-engineer.md` | Testing agent with extended SDK config                           |
+| Ephemeral skill      | `.claude/commands/ephemeral.md` | Standalone env management command                                |
 
 ### Components to Create (continued)
-| Component | Path | Purpose |
-|-----------|------|---------|
-| Containerfile | `spec-to-pr/Containerfile` | Container image definition for the orchestrator |
-| Project documentation | `spec-to-pr/README.md` | Usage, architecture, and configuration docs |
+
+| Component             | Path                       | Purpose                                         |
+| --------------------- | -------------------------- | ----------------------------------------------- |
+| Containerfile         | `spec-to-pr/Containerfile` | Container image definition for the orchestrator |
+| Project documentation | `spec-to-pr/README.md`     | Usage, architecture, and configuration docs     |
 
 ### Database Changes
+
 None — file-based storage initially. Adapter pattern for future DB migration.
 
 ### API Changes
+
 CLI interface only:
+
 - `spec-to-pr run` — execute the workflow
 - `spec-to-pr status` — check session state
 - `spec-to-pr resume` — resume interrupted session
 
 ### User Interface Changes
+
 - New `/ephemeral` Claude Code command for interactive env management
 - New persona agent files visible in Claude Code agent selection
 
 ## Testing Strategy
 
-| Layer | Approach | When | Runner |
-|-------|----------|------|--------|
-| Unit tests | TDD for state machine, circuit breaker, models | Before implementation | `pytest` |
-| Unit tests | Test-after for persona loading, storage | After implementation | `pytest` |
-| Integration tests (mocked) | Mock SDK + subprocess calls | After orchestrator implementation | `pytest` with mocks |
-| Validation (real) | Manual tests against ephemeral env | After all code complete | Manual |
+| Layer                      | Approach                                       | When                              | Runner              |
+| -------------------------- | ---------------------------------------------- | --------------------------------- | ------------------- |
+| Unit tests                 | TDD for state machine, circuit breaker, models | Before implementation             | `pytest`            |
+| Unit tests                 | Test-after for persona loading, storage        | After implementation              | `pytest`            |
+| Integration tests (mocked) | Mock SDK + subprocess calls                    | After orchestrator implementation | `pytest` with mocks |
+| Validation (real)          | Manual tests against ephemeral env             | After all code complete           | Manual              |
 
 **Expected test output:**
+
 ```
 tests/test_state_machine.py ............ PASSED
 tests/test_circuit_breaker.py ......... PASSED
@@ -360,6 +405,7 @@ tests/test_orchestrator.py .............. PASSED
 ```
 
 **How to run:**
+
 ```bash
 cd spec-to-pr && uv run pytest tests/ -v
 ```
