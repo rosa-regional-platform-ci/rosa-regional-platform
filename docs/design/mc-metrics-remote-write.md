@@ -120,7 +120,7 @@ The `/prod` stage prefix is required because the sigv4-proxy forwards the path a
 - **Authorization**: API Gateway resource policy restricts access to any authenticated principal within the same AWS Organization (`aws:PrincipalOrgID` condition)
 - **Cluster identity**: Prometheus `externalLabels` (`cluster`, `cluster_type`) injected at scrape time; not enforced at storage level
 - **Payload integrity**: Signed payloads prevent tampering in transit
-- **Network isolation**: No direct MC-to-RC network path; all traffic through API Gateway
+- **Network isolation**: No direct MC-to-RC network path; API Gateway is a private endpoint accessible only via VPC Link (no public internet exposure)
 
 ### Performance
 
