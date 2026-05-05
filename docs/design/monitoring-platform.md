@@ -70,25 +70,25 @@ graph LR
 
 ### Regional Cluster
 
-| Component | Replicas | Purpose |
-| --- | --- | --- |
-| Prometheus | 2 (HA) | Scrapes local metrics + YACE; remote-writes to Thanos Receive |
-| Thanos Receive (router) | 1 | Accepts remote_write from RC Prometheus and MC via API Gateway |
-| Thanos Receive (ingester) | 1 | Stores metrics in TSDB, uploads 2h blocks to S3 |
-| Thanos Query | 2 | Federates live (Receive) and historical (Store) data |
-| Thanos Query Frontend | 1 | Caches and splits queries for Grafana |
-| Thanos Store Gateway | 2 | Serves historical blocks from S3 |
-| Thanos Compactor | 1 | Compacts and downsamples S3 blocks |
-| CloudWatch Exporter (YACE) | 1 | Scrapes AWS CloudWatch for platform services |
-| Grafana | 1 | Dashboards and visualization |
+| Component                  | Replicas | Purpose                                                        |
+| -------------------------- | -------- | -------------------------------------------------------------- |
+| Prometheus                 | 2 (HA)   | Scrapes local metrics + YACE; remote-writes to Thanos Receive  |
+| Thanos Receive (router)    | 1        | Accepts remote_write from RC Prometheus and MC via API Gateway |
+| Thanos Receive (ingester)  | 1        | Stores metrics in TSDB, uploads 2h blocks to S3                |
+| Thanos Query               | 2        | Federates live (Receive) and historical (Store) data           |
+| Thanos Query Frontend      | 1        | Caches and splits queries for Grafana                          |
+| Thanos Store Gateway       | 2        | Serves historical blocks from S3                               |
+| Thanos Compactor           | 1        | Compacts and downsamples S3 blocks                             |
+| CloudWatch Exporter (YACE) | 1        | Scrapes AWS CloudWatch for platform services                   |
+| Grafana                    | 1        | Dashboards and visualization                                   |
 
 ### Management Cluster
 
-| Component | Replicas | Purpose |
-| --- | --- | --- |
-| Prometheus | 2 (HA) | Scrapes local metrics + YACE; remote-writes to sigv4-proxy |
-| sigv4-proxy | 1 | Signs requests with SigV4 for API Gateway authentication |
-| CloudWatch Exporter (YACE) | 1 | Scrapes AWS CloudWatch for EKS control plane metrics |
+| Component                  | Replicas | Purpose                                                    |
+| -------------------------- | -------- | ---------------------------------------------------------- |
+| Prometheus                 | 2 (HA)   | Scrapes local metrics + YACE; remote-writes to sigv4-proxy |
+| sigv4-proxy                | 1        | Signs requests with SigV4 for API Gateway authentication   |
+| CloudWatch Exporter (YACE) | 1        | Scrapes AWS CloudWatch for EKS control plane metrics       |
 
 ## Metrics Sources
 
@@ -108,22 +108,22 @@ YACE polls AWS CloudWatch APIs and exposes metrics in Prometheus format. Both cl
 
 **Regional Cluster** scrapes:
 
-| AWS Namespace | Metrics | Purpose |
-| --- | --- | --- |
-| `AWS/EKS` | apiserver_storage_size_bytes, scheduler_pending_pods, scheduler_schedule_attempts_total | EKS control plane health |
-| `AWS/IoT` | Connect.Success, Connect.AuthError, PublishIn.Success, PublishOut.Success | Maestro MQTT broker |
-| `AWS/ApiGateway` | Count, Latency, 4XX/5XXError, IntegrationLatency | Platform + RHOBS API Gateways |
-| `AWS/RDS` | CPUUtilization, FreeableMemory, ReadLatency, WriteLatency, BurstBalance, DatabaseConnections, IOPS | CLM + Maestro databases |
-| `AWS/ApplicationELB` | RequestCount, TargetResponseTime, HealthyHostCount, HTTPCode counts | API load balancer |
-| `AWS/DynamoDB` | ConsumedRead/WriteCapacityUnits, UserErrors, ThrottledRequests, SuccessfulRequestLatency | Authorization tables |
-| `AWS/AmazonMQ` | MessageCount, MessageUnacknowledgedCount, ConsumerCount, QueueCount, NetworkIn/Out | HyperFleet message broker |
-| `AWS/CertificateManager` | DaysToExpiry | API certificate lifecycle |
+| AWS Namespace            | Metrics                                                                                            | Purpose                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `AWS/EKS`                | apiserver_storage_size_bytes, scheduler_pending_pods, scheduler_schedule_attempts_total            | EKS control plane health      |
+| `AWS/IoT`                | Connect.Success, Connect.AuthError, PublishIn.Success, PublishOut.Success                          | Maestro MQTT broker           |
+| `AWS/ApiGateway`         | Count, Latency, 4XX/5XXError, IntegrationLatency                                                   | Platform + RHOBS API Gateways |
+| `AWS/RDS`                | CPUUtilization, FreeableMemory, ReadLatency, WriteLatency, BurstBalance, DatabaseConnections, IOPS | CLM + Maestro databases       |
+| `AWS/ApplicationELB`     | RequestCount, TargetResponseTime, HealthyHostCount, HTTPCode counts                                | API load balancer             |
+| `AWS/DynamoDB`           | ConsumedRead/WriteCapacityUnits, UserErrors, ThrottledRequests, SuccessfulRequestLatency           | Authorization tables          |
+| `AWS/AmazonMQ`           | MessageCount, MessageUnacknowledgedCount, ConsumerCount, QueueCount, NetworkIn/Out                 | HyperFleet message broker     |
+| `AWS/CertificateManager` | DaysToExpiry                                                                                       | API certificate lifecycle     |
 
 **Management Cluster** scrapes:
 
-| AWS Namespace | Metrics | Purpose |
-| --- | --- | --- |
-| `AWS/EKS` | apiserver_storage_size_bytes, scheduler_pending_pods, scheduler_schedule_attempts_total | EKS control plane health |
+| AWS Namespace | Metrics                                                                                 | Purpose                  |
+| ------------- | --------------------------------------------------------------------------------------- | ------------------------ |
+| `AWS/EKS`     | apiserver_storage_size_bytes, scheduler_pending_pods, scheduler_schedule_attempts_total | EKS control plane health |
 
 ### Thanos HA Deduplication
 
@@ -149,19 +149,19 @@ Management cluster metrics reach the regional cluster through a secure cross-acc
 
 Grafana on the RC queries Thanos Query Frontend for a unified view of all clusters.
 
-| Dashboard | Scope | Key Metrics |
-| --- | --- | --- |
-| EKS Control Plane | RC + MC | etcd DB size (CW), scheduler queue/attempts (CW), API server request rates (KSM) |
-| EKS Standards | RC + MC | Node resource usage, pod health (KSM + node-exporter) |
-| API Gateway | RC | Request count, latency, error rates per gateway (CW) |
-| RDS | RC | CPU, burst balance, connections, IOPS, storage (CW) |
-| ALB | RC | Request count, response time, healthy hosts (CW) |
-| DynamoDB | RC | Read/write capacity, latency, throttled requests (CW) |
-| Platform Services | RC | IoT/MQTT, AmazonMQ, ACM certificate expiry (CW) |
-| HCP Health | RC + MC | Hosted control plane status |
-| ArgoCD Application Overview | RC | Application sync status, health |
-| ArgoCD Notifications Overview | RC | Notification delivery status |
-| ArgoCD Operational Overview | RC | Controller performance, reconciliation |
+| Dashboard                     | Scope   | Key Metrics                                                                      |
+| ----------------------------- | ------- | -------------------------------------------------------------------------------- |
+| EKS Control Plane             | RC + MC | etcd DB size (CW), scheduler queue/attempts (CW), API server request rates (KSM) |
+| EKS Standards                 | RC + MC | Node resource usage, pod health (KSM + node-exporter)                            |
+| API Gateway                   | RC      | Request count, latency, error rates per gateway (CW)                             |
+| RDS                           | RC      | CPU, burst balance, connections, IOPS, storage (CW)                              |
+| ALB                           | RC      | Request count, response time, healthy hosts (CW)                                 |
+| DynamoDB                      | RC      | Read/write capacity, latency, throttled requests (CW)                            |
+| Platform Services             | RC      | IoT/MQTT, AmazonMQ, ACM certificate expiry (CW)                                  |
+| HCP Health                    | RC + MC | Hosted control plane status                                                      |
+| ArgoCD Application Overview   | RC      | Application sync status, health                                                  |
+| ArgoCD Notifications Overview | RC      | Notification delivery status                                                     |
+| ArgoCD Operational Overview   | RC      | Controller performance, reconciliation                                           |
 
 Additionally, three community dashboards are imported from grafana.com: Node Exporter Full (1860), Kubernetes Cluster Monitoring (7249), and Kubernetes Pods (6417).
 
@@ -169,13 +169,13 @@ Dashboards are provisioned as ConfigMaps via Helm templates and loaded by the Gr
 
 ## Data Retention
 
-| Tier | Retention | Resolution |
-| --- | --- | --- |
-| Prometheus local | 14 days | Raw (scrape interval) |
-| Thanos Receive | 2 hours | Raw (before upload to S3) |
-| Thanos S3 (raw) | 90 days | Raw |
-| Thanos S3 (5m downsample) | 180 days | 5-minute |
-| Thanos S3 (1h downsample) | 365 days | 1-hour |
+| Tier                      | Retention | Resolution                |
+| ------------------------- | --------- | ------------------------- |
+| Prometheus local          | 14 days   | Raw (scrape interval)     |
+| Thanos Receive            | 2 hours   | Raw (before upload to S3) |
+| Thanos S3 (raw)           | 90 days   | Raw                       |
+| Thanos S3 (5m downsample) | 180 days  | 5-minute                  |
+| Thanos S3 (1h downsample) | 365 days  | 1-hour                    |
 
 ## Security
 
