@@ -5,7 +5,7 @@
 # the local dev CLI (ephemeral-env.sh) and CI (ci/e2e-tests.sh).
 #
 # Callers set CLUSTER_PREFIX to control cluster name resolution:
-#   - Ephemeral: CLUSTER_PREFIX="ci-a1b2c3-" → ci-a1b2c3-regional, ci-a1b2c3-mc01
+#   - Ephemeral: CLUSTER_PREFIX="eph-a1b2c3-" → eph-a1b2c3-regional, eph-a1b2c3-mc01
 #   - Integration: CLUSTER_PREFIX="" → regional, mc01
 #
 # MC clusters are discovered dynamically by listing ECS clusters matching
@@ -15,7 +15,7 @@
 #   collect-cluster-logs.sh [regional|management|all]
 #
 # Required environment variables:
-#   CLUSTER_PREFIX  — Cluster name prefix (e.g. "ci-a1b2c3-" or "" for bare names)
+#   CLUSTER_PREFIX  — Cluster name prefix (e.g. "eph-a1b2c3-" or "" for bare names)
 #
 # Credentials (one of the following):
 #   REGIONAL_AK / REGIONAL_SK   — Direct credential env vars (dev workflow)
@@ -126,7 +126,7 @@ ensure_logs_bucket() {
 }
 
 # Discover MC cluster IDs by listing ECS clusters matching ${prefix}mc*-bastion.
-# Outputs one cluster_id per line (e.g. "ci-a1b2c3-mc01", "mc01").
+# Outputs one cluster_id per line (e.g. "eph-a1b2c3-mc01", "mc01").
 discover_mc_clusters() {
     local prefix="$1"
     aws ecs list-clusters --query 'clusterArns[*]' --output text 2>/dev/null \

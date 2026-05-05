@@ -37,15 +37,6 @@ VAULT_CRED_KEYS=(
 
 die() { echo "Error: $*" >&2; exit 1; }
 
-# Portable SHA-256: works on both Linux (sha256sum) and macOS (shasum)
-portable_sha256() {
-    if command -v sha256sum &>/dev/null; then
-        sha256sum
-    else
-        shasum -a 256
-    fi
-}
-
 usage() {
     echo "Usage: $0 <command>"
     echo ""
@@ -82,7 +73,7 @@ usage_port_forward() {
 }
 
 # Extract a KEY=VALUE field from an .ephemeral-envs line.
-# Uses a space prefix to match exact keys (e.g. BRANCH vs CI_BRANCH).
+# Uses a space prefix to match exact keys (e.g. BRANCH vs EPH_BRANCH).
 get_field() {
     echo "$1" | sed -n "s/.* ${2}=\([^ ]*\).*/\1/p"
 }
@@ -120,12 +111,11 @@ update_fields() {
     mv "${ENVS_FILE}.tmp" "$ENVS_FILE"
 }
 
-# Derive the CI branch name from a BUILD_ID and branch name.
+# Derive the ephemeral branch name from an env ID and branch name.
 # Must match the Python logic in ci/ephemeral-provider/git.py and main.py.
-derive_ci_branch() {
-    local build_id="$1" branch="$2"
-    local ci_prefix="ci-$(echo -n "$build_id" | portable_sha256 | cut -c1-6)"
-    echo "${ci_prefix}-$(echo "$branch" | tr '/' '-')-ci"
+derive_eph_branch() {
+    local env_id="$1" branch="$2"
+    echo "eph-${env_id}-$(echo "$branch" | tr '/' '-')-ci"
 }
 
 # Interactive fzf picker for remote + branch.
@@ -290,15 +280,14 @@ bastion_setup() {
     [[ -n "$region" ]] \
         || die "No REGION found for ID $BUILD_ID. Was it captured during provision?"
 
-    # Compute ci_prefix from BUILD_ID (must match ci/ephemeral-provider/main.py)
-    local ci_prefix
-    ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)"
+    # Compute eph_prefix from BUILD_ID (must match ci/ephemeral-provider/main.py)
+    local eph_prefix="eph-${BUILD_ID}"
 
-    # Derive cluster ID and ECS resource names from ci_prefix
+    # Derive cluster ID and ECS resource names from eph_prefix
     if [[ "$cluster_type" == "regional" ]]; then
-        cluster_id="${ci_prefix}-regional"
+        cluster_id="${eph_prefix}-regional"
     else
-        cluster_id="${ci_prefix}-mc01"
+        cluster_id="${eph_prefix}-mc01"
     fi
     export ecs_cluster="${cluster_id}-bastion"
 
@@ -317,7 +306,7 @@ bastion_setup() {
 
     echo "Connecting to ephemeral bastion..."
     echo "  ID:           $BUILD_ID"
-    echo "  CI prefix:    $ci_prefix"
+    echo "  Eph prefix:   $eph_prefix"
     echo "  Cluster type: $cluster_type"
     echo "  Cluster ID:   $cluster_id"
     echo "  ECS cluster:  $ecs_cluster"
@@ -481,10 +470,10 @@ cmd_provision() {
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -v "${tmpdir}:/output:z" \
         -w /workspace \
-        -e "BUILD_ID=$ID" \
         -e WORKSPACE_DIR=/workspace \
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
+            --id "$ID" \
             --repo "$repo" --branch "$branch" \
             --save-regional-state /output/tf-outputs.json \
     || rc=$?
@@ -503,8 +492,8 @@ cmd_provision() {
         [[ -z "$region" ]]  || append_field "$ID" "REGION" "$region"
         [[ -z "$api_url" ]] || append_field "$ID" "API_URL" "$api_url"
 
-        # Store CI branch name so it survives branch swaps
-        append_field "$ID" "CI_BRANCH" "$(derive_ci_branch "$ID" "$branch")"
+        # Store ephemeral branch name so it survives branch swaps
+        append_field "$ID" "EPH_BRANCH" "$(derive_eph_branch "$ID" "$branch")"
 
         echo ""
         echo "Environment recorded in $ENVS_FILE."
@@ -531,18 +520,18 @@ cmd_teardown() {
         "Select environment to tear down:" \
         "No active environments found."
 
-    local repo branch region ci_branch
+    local repo branch region eph_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
     region=$(get_field "$ENV_LINE" REGION)
-    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
+    eph_branch=$(get_field "$ENV_LINE" EPH_BRANCH)
 
     # Fetch credentials
     fetch_creds
 
-    # Build --ci-branch flag if available (needed after swap-branch)
-    local ci_branch_flag=""
-    [[ -z "$ci_branch" ]] || ci_branch_flag="--ci-branch $ci_branch"
+    # Build --eph-branch flag if available (needed after swap-branch)
+    local eph_branch_flag=""
+    [[ -z "$eph_branch" ]] || eph_branch_flag="--eph-branch $eph_branch"
 
     # Print summary
     echo "Tearing down ephemeral environment..."
@@ -562,12 +551,11 @@ cmd_teardown() {
         $CRED_FLAGS \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
-        -e "BUILD_ID=$BUILD_ID" \
         -e WORKSPACE_DIR=/workspace \
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
-            --teardown --repo "$repo" --branch "$branch" \
-            $ci_branch_flag \
+            --teardown --id "$BUILD_ID" --repo "$repo" --branch "$branch" \
+            $eph_branch_flag \
     || rc=$?
 
     # Update state
@@ -587,10 +575,10 @@ cmd_resync() {
         "Select environment to resync:" \
         "No active environments found."
 
-    local repo branch ci_branch
+    local repo branch eph_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
-    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
+    eph_branch=$(get_field "$ENV_LINE" EPH_BRANCH)
 
     # Check for local config overrides
     setup_override_mount
@@ -598,9 +586,9 @@ cmd_resync() {
     # Fetch credentials
     fetch_creds
 
-    # Build --ci-branch flag if available (needed after swap-branch)
-    local ci_branch_flag=""
-    [[ -z "$ci_branch" ]] || ci_branch_flag="--ci-branch $ci_branch"
+    # Build --eph-branch flag if available (needed after swap-branch)
+    local eph_branch_flag=""
+    [[ -z "$eph_branch" ]] || eph_branch_flag="--eph-branch $eph_branch"
 
     # Print summary
     echo "Resyncing ephemeral environment..."
@@ -618,12 +606,11 @@ cmd_resync() {
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
-        -e "BUILD_ID=$BUILD_ID" \
         -e WORKSPACE_DIR=/workspace \
         "$CI_IMAGE" \
         uv run --no-cache ci/ephemeral-provider/main.py \
-            --resync --repo "$repo" --branch "$branch" \
-            $ci_branch_flag
+            --resync --id "$BUILD_ID" --repo "$repo" --branch "$branch" \
+            $eph_branch_flag
 }
 
 cmd_swap_branch() {
@@ -635,13 +622,13 @@ cmd_swap_branch() {
         "Select environment to swap branch:" \
         "No ready environments found."
 
-    local repo branch ci_branch
+    local repo branch eph_branch
     repo=$(get_field "$ENV_LINE" REPO)
     branch=$(get_field "$ENV_LINE" BRANCH)
-    ci_branch=$(get_field "$ENV_LINE" CI_BRANCH)
+    eph_branch=$(get_field "$ENV_LINE" EPH_BRANCH)
 
-    # Compute CI_BRANCH for pre-existing envs that don't have it yet
-    [[ -n "$ci_branch" ]] || ci_branch=$(derive_ci_branch "$BUILD_ID" "$branch")
+    # Compute EPH_BRANCH for pre-existing envs that don't have it yet
+    [[ -n "$eph_branch" ]] || eph_branch=$(derive_eph_branch "$BUILD_ID" "$branch")
 
     # Interactive branch picker if NEW_BRANCH not set
     if [[ -z "$new_branch" ]] && command -v fzf >/dev/null 2>&1; then
@@ -670,8 +657,8 @@ cmd_swap_branch() {
     echo "  FROM:    $repo @ $branch"
     echo "  TO:      $new_repo @ $new_branch"
 
-    # Update .ephemeral-envs with new branch/repo and persist CI_BRANCH (single write)
-    update_fields "$BUILD_ID" "REPO=$new_repo" "BRANCH=$new_branch" "CI_BRANCH=$ci_branch"
+    # Update .ephemeral-envs with new branch/repo and persist EPH_BRANCH (single write)
+    update_fields "$BUILD_ID" "REPO=$new_repo" "BRANCH=$new_branch" "EPH_BRANCH=$eph_branch"
 
     # Resync to the new branch
     ID="$BUILD_ID" cmd_resync
@@ -1089,12 +1076,12 @@ cmd_collect_logs() {
     local region
     region=$(get_field "$ENV_LINE" REGION)
 
-    local ci_prefix
-    ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)-"
+    local eph_prefix
+    eph_prefix="eph-${BUILD_ID}-"
 
     export REGIONAL_AK REGIONAL_SK MANAGEMENT_AK MANAGEMENT_SK
     export AWS_REGION="$region"
-    export CLUSTER_PREFIX="$ci_prefix"
+    export CLUSTER_PREFIX="$eph_prefix"
     if [[ -n "${ARTIFACT_DIR:-}" ]]; then
         export LOG_OUTPUT_DIR="$ARTIFACT_DIR"
     fi

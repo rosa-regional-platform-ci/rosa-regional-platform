@@ -13,7 +13,7 @@ export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
 # Teardown does not require a machine type override — the environment is
-# identified by BUILD_ID/ci-prefix, not by instance types.
+# identified by BUILD_ID/eph-prefix, not by instance types.
 if [[ "${1:-}" == "--teardown" ]] || [[ "${1:-}" == "--teardown-fire-and-forget" ]]; then
     echo "Running: uv run --no-cache ci/ephemeral-provider/main.py ${1}"
     uv run --no-cache ci/ephemeral-provider/main.py "${1}"

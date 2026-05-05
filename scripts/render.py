@@ -188,11 +188,11 @@ def cleanup_stale_files(
 
 
 def build_context(
-    merged: dict[str, Any], env_name: str, region: str, ci_prefix: str
+    merged: dict[str, Any], env_name: str, region: str, eph_prefix: str
 ) -> dict[str, Any]:
     """Build the template context from merged config values."""
     ctx = dict(merged)
-    ctx.update(environment=env_name, aws_region=region, ci_prefix=ci_prefix)
+    ctx.update(environment=env_name, aws_region=region, eph_prefix=eph_prefix)
 
     # Resolve templated config values that other templates depend on
     aws = ctx.get("aws", {})
@@ -206,7 +206,7 @@ def build_context(
 
 
 def build_mc_list(
-    ctx: dict[str, Any], merged: dict[str, Any], ci_prefix: str
+    ctx: dict[str, Any], merged: dict[str, Any], eph_prefix: str
 ) -> list[dict]:
     """Build management cluster entries with resolved template values."""
     mc_dict = merged.get("provision_mcs", {})
@@ -215,7 +215,7 @@ def build_mc_list(
 
     for mc_key, mc_val in mc_dict.items():
         mc = dict(mc_val) if mc_val else {}
-        mc["management_id"] = f"{ci_prefix}-{mc_key}" if ci_prefix else mc_key
+        mc["management_id"] = f"{eph_prefix}-{mc_key}" if eph_prefix else mc_key
         if "account_id" not in mc and default_mc_account:
             mc["account_id"] = default_mc_account
         mc = resolve_templates(mc, {**ctx, "cluster_prefix": mc_key})
@@ -231,7 +231,7 @@ CONTEXT_VARS = {
     "environment", "aws_region",
     "account_id", "management_clusters",
     "cluster_type",
-    "application_values", "region_configs", "ci_prefix",
+    "application_values", "region_configs", "eph_prefix",
     "delete", "delete_pipeline", "mc_key", "region",
     "pinned", "mc_account_ids",
 }
@@ -458,7 +458,7 @@ def main() -> int:
         description="Render deploy/ directory from config/ values and templates"
     )
     parser.add_argument(
-        "--ci-prefix", default=os.environ.get("CI_PREFIX", ""),
+        "--eph-prefix", default=os.environ.get("EPH_PREFIX", ""),
         help="Optional prefix for resource names in CI/test environments",
     )
     parser.add_argument("--config-dir", default=None, help="Path to config directory")
@@ -471,7 +471,7 @@ def main() -> int:
         help="Regenerate @used-by lines from template scanning",
     )
     args = parser.parse_args()
-    ci_prefix = args.ci_prefix
+    eph_prefix = args.eph_prefix
 
     project_root = Path(__file__).parent.parent
     config_dir = Path(args.config_dir) if args.config_dir else project_root / "config"
@@ -502,8 +502,8 @@ def main() -> int:
     global_defaults = load_yaml(config_dir / "defaults.yaml")
     global_defaults_ruamel = load_yaml_ruamel(config_dir / "defaults.yaml")
 
-    if ci_prefix:
-        print(f"CI prefix: {ci_prefix}")
+    if eph_prefix:
+        print(f"Ephemeral prefix: {eph_prefix}")
     print(f"Environments: {', '.join(environments)}")
     print(f"Cluster types: {', '.join(cluster_types)}")
     print()
@@ -548,14 +548,14 @@ def main() -> int:
 
         # Region definitions (env-level) — constructed by template
         render_file(templates_dir, "region-definitions.json",
-                    {"region_configs": region_configs, "environment": env_name, "ci_prefix": ci_prefix},
+                    {"region_configs": region_configs, "environment": env_name, "eph_prefix": eph_prefix},
                     deploy_dir / env_name / "region-definitions.json")
 
         # -- Stage 2: Feed merged config to templates → output files ----
         for region in regions:
             merged = region_configs[region]
-            ctx = build_context(merged, env_name, region, ci_prefix)
-            mc_list = build_mc_list(ctx, merged, ci_prefix)
+            ctx = build_context(merged, env_name, region, eph_prefix)
+            mc_list = build_mc_list(ctx, merged, eph_prefix)
             ctx["management_clusters"] = mc_list
             env_region_mcs[env_name][region] = {mc["management_id"] for mc in mc_list}
 

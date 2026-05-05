@@ -5,7 +5,7 @@
     "environment": "{{ environment }}",
     "management_clusters": [
 {%- for mc_key in region_configs[region].get("provision_mcs", {}) %}
-      "{% if ci_prefix %}{{ ci_prefix }}-{% endif %}{{ mc_key }}"{{ "," if not loop.last }}
+      "{% if eph_prefix %}{{ eph_prefix }}-{% endif %}{{ mc_key }}"{{ "," if not loop.last }}
 {%- endfor %}
     ],
     "name": "{{ environment }}"

@@ -20,7 +20,7 @@ def download_codebuild_logs(session, prefix: str, output_dir: str | Path) -> lis
 
     Args:
         session: A boto3 Session with appropriate credentials.
-        prefix: CI prefix (e.g. "ci-202982"). Log groups matching
+        prefix: Ephemeral prefix (e.g. "eph-202982"). Log groups matching
                 /aws/codebuild/{prefix}-* will be downloaded.
         output_dir: Directory to write log files into (created if needed).
 

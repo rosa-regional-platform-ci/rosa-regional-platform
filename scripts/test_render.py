@@ -426,7 +426,7 @@ class TestBuildContext:
         assert ctx["region"] == "us-east-1"
         assert ctx["regional_id"] == "regional"
 
-    def test_ci_prefix_in_regional_id(self):
+    def test_eph_prefix_in_regional_id(self):
         ctx = build_context({}, "staging", "us-east-1", "xg4y")
         assert ctx["regional_id"] == "xg4y-regional"
 
@@ -456,7 +456,7 @@ class TestBuildMcList:
         assert mc_list[0]["account_id"] == "111"
         assert mc_account_ids == ["111"]
 
-    def test_ci_prefix_applied(self):
+    def test_eph_prefix_applied(self):
         merged = {"provision_mcs": {"mc01": {"account_id": "111"}}}
         ctx = build_context(merged, "staging", "us-east-1", "xg4y")
         mc_list, _ = build_mc_list(ctx, merged, "xg4y")
@@ -779,7 +779,7 @@ class TestConfigMergeAndRendering:
         mc_list, _ = build_mc_list(ctx, merged, "")
         assert mc_list[0]["account_id"] == "explicit-account"
 
-    def test_ci_prefix_applied_to_management_id(self, tmp_path):
+    def test_eph_prefix_applied_to_management_id(self, tmp_path):
         config_dir = _create_config_structure(
             tmp_path,
             global_defaults={},
@@ -797,16 +797,16 @@ class TestConfigMergeAndRendering:
 
         rc = load_yaml(config_dir / "staging" / "us-east-1.yaml")
         mc_dict = rc.get("provision_mcs", {})
-        ci_prefix = "xg4y"
+        eph_prefix = "xg4y"
         for mc_key in mc_dict:
-            mc_id = f"{ci_prefix}-{mc_key}" if ci_prefix else mc_key
+            mc_id = f"{eph_prefix}-{mc_key}" if eph_prefix else mc_key
             assert mc_id == "xg4y-mc01"
 
-    def test_ci_prefix_applied_to_regional_id(self):
+    def test_eph_prefix_applied_to_regional_id(self):
         ctx = build_context({}, "staging", "us-east-1", "xg4y")
         assert ctx["regional_id"] == "xg4y-regional"
 
-    def test_no_ci_prefix(self):
+    def test_no_eph_prefix(self):
         ctx = build_context({}, "staging", "us-east-1", "")
         assert ctx["regional_id"] == "regional"
 
@@ -970,7 +970,7 @@ class TestConfigMergeAndRendering:
 class TestMainIntegration:
     """Tests that run main() end-to-end and verify deploy/ output files."""
 
-    def _run_main(self, tmp_path, global_defaults, environments, ci_prefix=""):
+    def _run_main(self, tmp_path, global_defaults, environments, eph_prefix=""):
         """Helper to run main() with a tmp_path-based project root."""
         import sys
         import render
@@ -987,8 +987,8 @@ class TestMainIntegration:
         # Patch sys.argv
         old_argv = sys.argv
         args = ["render.py", "--config-dir", str(config_dir)]
-        if ci_prefix:
-            args.extend(["--ci-prefix", ci_prefix])
+        if eph_prefix:
+            args.extend(["--eph-prefix", eph_prefix])
         sys.argv = args
 
         # Patch the project_root derivation in main()
@@ -1418,7 +1418,7 @@ class TestMainIntegration:
         content = appset_file.read_text()
         assert "metadata.annotations.git_revision" in content
 
-    def test_ci_prefix_in_regional_id(self, tmp_path):
+    def test_eph_prefix_in_regional_id(self, tmp_path):
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
@@ -1432,7 +1432,7 @@ class TestMainIntegration:
                     },
                 }
             },
-            ci_prefix="xg4y",
+            eph_prefix="xg4y",
         )
 
         rc_file = (
@@ -1445,7 +1445,7 @@ class TestMainIntegration:
         data = json.loads(rc_file.read_text())
         assert data["regional_id"] == "xg4y-regional"
 
-    def test_ci_prefix_in_management_id(self, tmp_path):
+    def test_eph_prefix_in_management_id(self, tmp_path):
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
@@ -1464,7 +1464,7 @@ class TestMainIntegration:
                     },
                 }
             },
-            ci_prefix="xg4y",
+            eph_prefix="xg4y",
         )
 
         mc_file = (

@@ -104,8 +104,8 @@ These jobs have three steps: `provision-ephemeral`, `e2e-tests`, `teardown-ephem
 
 ### CodeBuild Log Naming Convention
 
-- Success: `{ci_prefix}-{pipeline-name}.{YYYYMMDD-HHMMSS}.log`
-- Failure: `{ci_prefix}-{pipeline-name}.{YYYYMMDD-HHMMSS}.FAILED.log`
+- Success: `{eph_prefix}-{pipeline-name}.{YYYYMMDD-HHMMSS}.log`
+- Failure: `{eph_prefix}-{pipeline-name}.{YYYYMMDD-HHMMSS}.FAILED.log`
 
 ### Integration Tests (nightly-integration)
 

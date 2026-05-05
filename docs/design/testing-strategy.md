@@ -113,7 +113,7 @@ flowchart LR
 
 ## Ephemeral Environment Internals
 
-Both pre-merge and nightly ephemeral flows use the same provision/teardown machinery. A unique CI prefix (e.g. `ci-a1b2c3`) namespaces all resources to enable parallel runs in dedicated CI AWS accounts.
+Both pre-merge and nightly ephemeral flows use the same provision/teardown machinery. A unique ephemeral prefix (e.g. `eph-a1b2c3`) namespaces all resources to enable parallel runs in dedicated CI AWS accounts.
 
 Implementation: `ci/ephemeral-provider/`, entry point: `ci/ephemeral-provider/main.py`.
 

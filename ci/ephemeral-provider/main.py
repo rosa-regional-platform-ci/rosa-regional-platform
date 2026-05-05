@@ -4,21 +4,24 @@
 # dependencies = ["boto3", "PyYAML"]
 # ///
 """
-Ephemeral environment manager for ROSA Regional Platform CI.
+Ephemeral environment manager for ROSA Regional Platform.
 
 Provisions an ephemeral environment or tears one down. Designed for multi-step
 CI pipelines where provision, tests, and teardown are separate steps:
 
-    # Step 1: Provision
+    # Step 1: Provision (CI — BUILD_ID from Prow, hashed for collision safety)
     BUILD_ID=abc123 ./ci/ephemeral-provider/main.py
+
+    # Step 1: Provision (local — explicit ID, used directly in prefix)
+    ./ci/ephemeral-provider/main.py --id a1b2c3d4
 
     # Step 2: Run tests (separate CI step, same BUILD_ID)
 
     # Step 3: Teardown
     BUILD_ID=abc123 ./ci/ephemeral-provider/main.py --teardown
 
-If BUILD_ID is not set, a random ID is generated and printed so it can be
-passed to subsequent steps.
+If neither --id nor BUILD_ID is set, a random ID is generated and used
+directly (same as --id with a random value).
 """
 
 import argparse
@@ -41,20 +44,19 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
-def make_ci_prefix() -> str:
-    """Generate a CI prefix from BUILD_ID (hashed) or a random UUID.
+def make_eph_prefix(env_id: str, externally_set: bool) -> str:
+    """Generate an ephemeral environment prefix from an ID.
 
-    BUILD_ID is hashed to avoid collisions between consecutive IDs, then
-    truncated to 6 characters for AWS resource name compatibility.
+    When the ID is externally set (e.g. BUILD_ID from Prow), it is hashed
+    to avoid collisions between sequential IDs. For locally generated or
+    explicitly passed IDs (already random), the ID is used directly for
+    traceability.
     """
-    build_id = os.environ.get("BUILD_ID", "")
-    if build_id:
-        # Hash the BUILD_ID to avoid collisions with consecutive IDs
-        hash_digest = hashlib.sha256(build_id.encode()).hexdigest()
-        short_id = hash_digest[:6]
+    if externally_set:
+        short_id = hashlib.sha256(env_id.encode()).hexdigest()[:6]
     else:
-        short_id = uuid.uuid4().hex[:6]
-    return f"ci-{short_id}"
+        short_id = env_id
+    return f"eph-{short_id}"
 
 
 def main():
@@ -73,7 +75,14 @@ def main():
     teardown_group.add_argument(
         "--resync",
         action="store_true",
-        help="Resync the CI branch by rebasing onto the latest source branch",
+        help="Resync the ephemeral branch by rebasing onto the latest source branch",
+    )
+    parser.add_argument(
+        "--id",
+        default=None,
+        dest="env_id",
+        help="Explicit environment ID (used directly in prefix, no hashing). "
+             "If omitted, falls back to BUILD_ID env var (hashed) or generates a random ID.",
     )
     parser.add_argument(
         "--repo",
@@ -86,10 +95,10 @@ def main():
         help="Source branch to test (default: from REPOSITORY_BRANCH env var)",
     )
     parser.add_argument(
-        "--ci-branch",
+        "--eph-branch",
         default=None,
-        help="Explicit CI branch name (overrides derivation from --branch). "
-             "Used after swap-branch to preserve the CI branch identity.",
+        help="Explicit ephemeral branch name (overrides derivation from --branch). "
+             "Used after swap-branch to preserve the ephemeral branch identity.",
     )
     parser.add_argument(
         "--creds-dir",
@@ -125,27 +134,30 @@ def main():
 
     is_teardown = args.teardown or args.teardown_fire_and_forget
 
-    if (is_teardown or args.resync) and not os.environ.get("BUILD_ID"):
-        log.error("BUILD_ID must be set for %s (needed to identify the ephemeral environment)",
-                   "resync" if args.resync else "teardown")
-        sys.exit(1)
+    # Resolve environment ID: --id flag > BUILD_ID env var > random generation
+    if args.env_id:
+        env_id = args.env_id
+        externally_set = False
+    elif os.environ.get("BUILD_ID"):
+        env_id = os.environ["BUILD_ID"]
+        externally_set = True
+    else:
+        if is_teardown or args.resync:
+            log.error("--id or BUILD_ID must be set for %s (needed to identify the ephemeral environment)",
+                       "resync" if args.resync else "teardown")
+            sys.exit(1)
+        env_id = uuid.uuid4().hex[:8]
+        externally_set = False
 
-    # When BUILD_ID is not set, generate one and export it so make_ci_prefix()
-    # hashes it consistently. This lets the logged teardown hint work correctly.
-    build_id = os.environ.get("BUILD_ID", "")
-    if not build_id:
-        build_id = uuid.uuid4().hex[:8]
-        os.environ["BUILD_ID"] = build_id
-
-    ci_prefix = make_ci_prefix()
-    log.info("CI prefix: %s (BUILD_ID: %s)", ci_prefix, build_id)
+    eph_prefix = make_eph_prefix(env_id, externally_set)
+    log.info("Ephemeral prefix: %s (ID: %s)", eph_prefix, env_id)
 
     # Discover region from config files (override dir takes precedence).
-    # For teardown, region is discovered from the CI branch after checkout
+    # For teardown, region is discovered from the ephemeral branch after checkout
     # (inside the orchestrator), so we pass a placeholder here.
     override_dir = args.override_dir or None
     if is_teardown:
-        region = ""  # discovered from CI branch in orchestrator.teardown()
+        region = ""  # discovered from ephemeral branch in orchestrator.teardown()
     else:
         if override_dir and Path(override_dir).exists():
             env_config_dir = Path(override_dir)
@@ -172,10 +184,10 @@ def main():
         branch=args.branch,
         creds_dir=args.creds_dir,
         region=region,
-        ci_prefix=ci_prefix,
+        eph_prefix=eph_prefix,
         override_dir=override_dir,
         provision_overrides=provision_overrides,
-        ci_branch_name=args.ci_branch,
+        eph_branch_name=args.eph_branch,
     )
 
     try:
@@ -204,7 +216,7 @@ def main():
             log.info("")
             log.info("To tear down this environment, run:")
             log.info("")
-            log.info("    BUILD_ID=%s ./ci/ephemeral-provider/main.py --teardown", build_id)
+            log.info("    ./ci/ephemeral-provider/main.py --teardown --id %s", env_id)
             log.info("")
     except Exception:
         log.exception("Ephemeral environment %s failed",

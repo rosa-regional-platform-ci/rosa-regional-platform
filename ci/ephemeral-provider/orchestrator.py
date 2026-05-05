@@ -43,37 +43,37 @@ class EphemeralEnvOrchestrator:
     """Orchestrates an ephemeral environment lifecycle.
 
     Provision and teardown are independent operations that can run in separate
-    processes. They share state via the ci_prefix (which determines branch names,
+    processes. They share state via the eph_prefix (which determines branch names,
     pipeline names, and terraform state keys).
 
     Usage from CI steps:
         # Step 1: provision
-        env = EphemeralEnvOrchestrator(repo, branch, creds_dir, region, ci_prefix)
+        env = EphemeralEnvOrchestrator(repo, branch, creds_dir, region, eph_prefix)
         env.provision()
 
-        # Step 2: run tests (separate process, same ci_prefix)
+        # Step 2: run tests (separate process, same eph_prefix)
 
         # Step 3: teardown
-        env = EphemeralEnvOrchestrator(repo, branch, creds_dir, region, ci_prefix)
+        env = EphemeralEnvOrchestrator(repo, branch, creds_dir, region, eph_prefix)
         env.teardown()
     """
 
-    def __init__(self, repo: str, branch: str, creds_dir: str, region: str, ci_prefix: str,
+    def __init__(self, repo: str, branch: str, creds_dir: str, region: str, eph_prefix: str,
                  override_dir: str | None = None,
                  provision_overrides: list[tuple[str, str]] | None = None,
-                 ci_branch_name: str | None = None):
+                 eph_branch_name: str | None = None):
         self.repo = repo
         self.branch = branch
         self.creds_dir = creds_dir
         self.region = region
-        self.ci_prefix = ci_prefix
+        self.eph_prefix = eph_prefix
         self.override_dir = Path(override_dir) if override_dir else None
         self.provision_overrides = provision_overrides or []
-        self.ci_branch_name = ci_branch_name
-        self.provisioner_name = f"{ci_prefix}-pipeline-provisioner"
+        self.eph_branch_name = eph_branch_name
+        self.provisioner_name = f"{eph_prefix}-pipeline-provisioner"
         # TODO: compute deterministic RC/MC pipeline names from rendered config
-        # instead of using prefix-based discovery (e.g. {ci_prefix}-regional-pipe, {ci_prefix}-mc01-pipe)
-        self.pipeline_prefix = f"{ci_prefix}-"
+        # instead of using prefix-based discovery (e.g. {eph_prefix}-regional-pipe, {eph_prefix}-mc01-pipe)
+        self.pipeline_prefix = f"{eph_prefix}-"
         self.aws: AWSCredentials | None = None
         self.central_monitor: PipelineMonitor | None = None
         self.target_monitor: PipelineMonitor | None = None
@@ -89,7 +89,7 @@ class EphemeralEnvOrchestrator:
 
         git = GitManager(self.creds_dir, self.repo, self.branch)
         self.git = git
-        git.create_ci_branch(self.ci_prefix)
+        git.create_eph_branch(self.eph_prefix)
 
         # Inject ephemeral environment into config.yaml (not checked into the repo)
         self._inject_ephemeral_config(git)
@@ -114,8 +114,8 @@ class EphemeralEnvOrchestrator:
         """Tear down a previously provisioned ephemeral environment.
 
         Can run independently of provision() — reconnects to the existing
-        CI branch and pipeline resources using the ci_prefix. The region is
-        discovered from the CI branch's config (not the local workspace),
+        ephemeral branch and pipeline resources using the eph_prefix. The region is
+        discovered from the ephemeral branch's config (not the local workspace),
         so teardown always matches the provisioned environment.
 
         Args:
@@ -126,16 +126,16 @@ class EphemeralEnvOrchestrator:
                 skipped — teardown is expected to be driven to completion by
                 the in-account aws-nuke-cf janitor.
         """
-        # Check out the CI branch first to discover region from its config
+        # Check out the ephemeral branch first to discover region from its config
         git = GitManager(self.creds_dir, self.repo, self.branch,
-                         ci_branch_name=self.ci_branch_name)
+                         eph_branch_name=self.eph_branch_name)
         self.git = git
-        git.checkout_ci_branch(self.ci_prefix)
+        git.checkout_eph_branch(self.eph_prefix)
 
-        # Discover region from the CI branch's config
+        # Discover region from the ephemeral branch's config
         env_config_dir = git.work_dir / "config" / TARGET_ENVIRONMENT
         self.region = discover_region(env_config_dir)
-        log.info("Region (from CI branch): %s", self.region)
+        log.info("Region (from ephemeral branch): %s", self.region)
 
         self._setup_aws()
 
@@ -149,7 +149,7 @@ class EphemeralEnvOrchestrator:
         self._run_teardown(git, fire_and_forget=fire_and_forget)
 
     def resync(self):
-        """Resync the CI branch: rebase onto latest source, re-inject config, re-render.
+        """Resync the ephemeral branch: rebase onto latest source, re-inject config, re-render.
 
         Re-reads the environment config (including .ephemeral-env/ overrides if
         mounted) so that config changes are picked up alongside code changes.
@@ -157,15 +157,15 @@ class EphemeralEnvOrchestrator:
         self._setup_aws()
 
         git = GitManager(self.creds_dir, self.repo, self.branch,
-                         ci_branch_name=self.ci_branch_name)
+                         eph_branch_name=self.eph_branch_name)
         self.git = git
-        git.resync_ci_branch(self.ci_prefix)
+        git.resync_eph_branch(self.eph_prefix)
 
         self._inject_ephemeral_config(git)
         git.render_and_push("ci: resync ephemeral environment config", force=True)
 
     def collect_codebuild_logs(self):
-        """Download CloudWatch logs for all CodeBuild projects matching our CI prefix.
+        """Download CloudWatch logs for all CodeBuild projects matching our ephemeral prefix.
 
         Writes each log group to a separate file in ARTIFACT_DIR (set by Prow)
         so they appear in the Prow artifacts UI. Sensitive values (AWS keys,
@@ -182,9 +182,9 @@ class EphemeralEnvOrchestrator:
 
         artifact_path = Path(artifact_dir) / "codebuild-logs"
         # Central region logs (pipeline-provisioner CodeBuild)
-        files = download_codebuild_logs(self.aws.session, self.ci_prefix, artifact_path)
+        files = download_codebuild_logs(self.aws.session, self.eph_prefix, artifact_path)
         # RC/MC builds live in the target account even when both sessions use the same region.
-        files.extend(download_codebuild_logs(self.aws.target_session, self.ci_prefix, artifact_path))
+        files.extend(download_codebuild_logs(self.aws.target_session, self.eph_prefix, artifact_path))
 
         # Redact sensitive values (AWS keys, session tokens) from Prow artifacts
         for f in files:
@@ -311,7 +311,7 @@ class EphemeralEnvOrchestrator:
             load_and_merge(target, override_file)
 
     def _bootstrap_pipeline_provisioner(self, git: GitManager):
-        """Bootstrap the pipeline-provisioner pointing at the CI branch."""
+        """Bootstrap the pipeline-provisioner pointing at the ephemeral branch."""
         log.info("")
         log.info("==========================================")
         log.info("Bootstrapping Pipeline Provisioner")
@@ -325,12 +325,12 @@ class EphemeralEnvOrchestrator:
         env = os.environ.copy()
         env.update(self.aws.subprocess_env)
         env["GITHUB_REPOSITORY"] = git.fork_repo
-        env["GITHUB_BRANCH"] = git.ci_branch
+        env["GITHUB_BRANCH"] = git.eph_branch
         env["TARGET_ENVIRONMENT"] = TARGET_ENVIRONMENT
-        env["NAME_PREFIX"] = git.ci_prefix
+        env["NAME_PREFIX"] = git.eph_prefix
 
         log.info("Executing: %s", bootstrap_script)
-        log.info("Env: REPO=%s, BRANCH=%s", git.fork_repo, git.ci_branch)
+        log.info("Env: REPO=%s, BRANCH=%s", git.fork_repo, git.eph_branch)
 
         sys.stdout.flush()
         sys.stderr.flush()
@@ -355,7 +355,7 @@ class EphemeralEnvOrchestrator:
                 f"bootstrap-central-account.sh failed with exit code {e.returncode}. "
                 "Check the logs above for the specific shell error."
             )
-        log.info("Pipeline provisioner bootstrapped with branch: %s", git.ci_branch)
+        log.info("Pipeline provisioner bootstrapped with ephemeral branch: %s", git.eph_branch)
 
     def _wait_for_provision(self):
         """Wait for provisioning pipelines to complete."""
@@ -368,7 +368,7 @@ class EphemeralEnvOrchestrator:
         provisioner_exec_id = self.central_monitor.wait_for_any_execution(self.provisioner_name)
         self.central_monitor.wait_for_completion(self.provisioner_name, provisioner_exec_id)
 
-        # Discover RC/MC pipelines (in target region) by CI prefix, excluding the provisioner
+        # Discover RC/MC pipelines (in target region) by ephemeral prefix, excluding the provisioner
         all_pipelines = [
             (name, exec_id)
             for name, exec_id in self.target_monitor.discover_pipelines(self.pipeline_prefix)
@@ -416,7 +416,7 @@ class EphemeralEnvOrchestrator:
 
         regional_account_id = self.aws.get_target_account_id("regional")
         state_bucket = f"terraform-state-{regional_account_id}-{self.region}"
-        state_key = f"regional-cluster/{self.ci_prefix}-regional.tfstate"
+        state_key = f"regional-cluster/{self.eph_prefix}-regional.tfstate"
         tf_dir = git.work_dir / "terraform" / "config" / "regional-cluster"
 
         env = os.environ.copy()
@@ -556,7 +556,7 @@ class EphemeralEnvOrchestrator:
 
         account_id = self.aws.session.client("sts").get_caller_identity()["Account"]
         state_bucket = f"terraform-state-{account_id}"
-        state_key = f"{git.ci_prefix}-central-account-bootstrap/terraform.tfstate"
+        state_key = f"{git.eph_prefix}-central-account-bootstrap/terraform.tfstate"
 
         env = os.environ.copy()
         env.update(self.aws.subprocess_env)

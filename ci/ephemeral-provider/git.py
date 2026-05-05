@@ -18,23 +18,23 @@ RENDER_TIMEOUT = 300  # seconds; render.py may run terraform/heavy scripts
 
 
 class GitManager:
-    """Manages git operations for CI branch lifecycle.
+    """Manages git operations for ephemeral branch lifecycle.
 
-    Creates a CI-owned branch from a source repo/branch, handles commits and
-    pushes. CI branches are intentionally kept for post-run troubleshooting.
+    Creates an ephemeral branch from a source repo/branch, handles commits and
+    pushes. Ephemeral branches are intentionally kept for post-run troubleshooting.
     """
 
     def __init__(self, creds_dir: str, repo: str, branch: str,
-                 ci_branch_name: str | None = None):
+                 eph_branch_name: str | None = None):
         self.creds_dir = Path(creds_dir)
         self.source_repo = repo
         self.source_branch = branch
         self.work_dir = None
-        self.ci_branch = None
-        self.ci_prefix = None
+        self.eph_branch = None
+        self.eph_prefix = None
         self.fork_repo = None
         self._auth_header = None
-        self._ci_branch_override = ci_branch_name
+        self._eph_branch_override = eph_branch_name
 
     def _github_token(self) -> str:
         """Read the git token from credentials directory or environment."""
@@ -91,19 +91,19 @@ class GitManager:
             data = json.loads(resp.read())
         return data["login"]
 
-    def create_ci_branch(self, ci_prefix: str):
-        """Clone source repo/branch and create a CI branch.
+    def create_eph_branch(self, eph_prefix: str):
+        """Clone source repo/branch and create an ephemeral branch.
 
         Clones from the source (upstream) repo, then adds the token owner's
-        fork as a 'ci' remote and pushes the CI branch there.
+        fork as a 'ci' remote and pushes the ephemeral branch there.
 
         Args:
-            ci_prefix: Unique prefix for this run (e.g. 'ci-a1b2c3').
-                       Used in branch name, resource names, and state keys.
+            eph_prefix: Unique prefix for this run (e.g. 'eph-a1b2c3d4').
+                        Used in branch name, resource names, and state keys.
         """
-        self.ci_prefix = ci_prefix
+        self.eph_prefix = eph_prefix
         sanitized = re.sub(r"[/]", "-", self.source_branch)
-        self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
+        self.eph_branch = f"{self.eph_prefix}-{sanitized}-ci"
 
         token = self._github_token()
         self._setup_auth(token)
@@ -132,41 +132,41 @@ class GitManager:
         self._run_git("remote", "add", "ci", fork_url)
         log.info("Push remote: %s (fork of %s)", self.fork_repo, self.source_repo)
 
-        # Create and push CI branch to the fork
-        self._run_git("checkout", "-b", self.ci_branch)
+        # Create and push ephemeral branch to the fork
+        self._run_git("checkout", "-b", self.eph_branch)
 
         # Strip .github/workflows/ before pushing: the bot PAT lacks the
         # `workflow` scope that GitHub requires to push branches containing
-        # workflow files, and CI branches don't run Actions in the fork.
+        # workflow files, and ephemeral branches don't run Actions in the fork.
         workflows_dir = self.work_dir / ".github" / "workflows"
         if workflows_dir.exists():
             shutil.rmtree(workflows_dir)
             self._run_git("add", "-A")
             self._run_git("commit", "-m", "ci: strip .github/workflows (bot PAT lacks workflow scope)")
 
-        self._run_git("push", "-u", "ci", self.ci_branch, auth=True)
+        self._run_git("push", "-u", "ci", self.eph_branch, auth=True)
 
-        log.info("Created CI branch: %s on %s", self.ci_branch, self.fork_repo)
+        log.info("Created ephemeral branch: %s on %s", self.eph_branch, self.fork_repo)
 
-    def checkout_ci_branch(self, ci_prefix: str):
-        """Clone the fork and check out an existing CI branch.
+    def checkout_eph_branch(self, eph_prefix: str):
+        """Clone the fork and check out an existing ephemeral branch.
 
         Used for reconnecting to a previously provisioned environment (e.g. teardown).
 
         Args:
-            ci_prefix: The CI prefix used during provisioning (e.g. 'ci-a1b2c3').
+            eph_prefix: The ephemeral prefix used during provisioning (e.g. 'eph-a1b2c3d4').
         """
-        self.ci_prefix = ci_prefix
-        if self._ci_branch_override:
-            if not self._ci_branch_override.startswith(f"{ci_prefix}-"):
+        self.eph_prefix = eph_prefix
+        if self._eph_branch_override:
+            if not self._eph_branch_override.startswith(f"{eph_prefix}-"):
                 log.warning(
-                    "CI branch override '%s' does not match expected prefix '%s-'",
-                    self._ci_branch_override, ci_prefix,
+                    "Ephemeral branch override '%s' does not match expected prefix '%s-'",
+                    self._eph_branch_override, eph_prefix,
                 )
-            self.ci_branch = self._ci_branch_override
+            self.eph_branch = self._eph_branch_override
         else:
             sanitized = re.sub(r"[/]", "-", self.source_branch)
-            self.ci_branch = f"{self.ci_prefix}-{sanitized}-ci"
+            self.eph_branch = f"{self.eph_prefix}-{sanitized}-ci"
 
         token = self._github_token()
         self._setup_auth(token)
@@ -180,9 +180,9 @@ class GitManager:
         tmpdir = tempfile.mkdtemp(prefix="ephemeral-")
         self.work_dir = Path(tmpdir) / "repo"
 
-        log.info("Cloning %s (branch: %s)", self.fork_repo, self.ci_branch)
+        log.info("Cloning %s (branch: %s)", self.fork_repo, self.eph_branch)
         self._run_git(
-            "clone", "--branch", self.ci_branch, "--single-branch", fork_url, str(self.work_dir),
+            "clone", "--branch", self.eph_branch, "--single-branch", fork_url, str(self.work_dir),
             cwd=".", auth=True,
         )
 
@@ -190,23 +190,23 @@ class GitManager:
         self._run_git("config", "user.email", "ci-bot@rosa-regional-platform.dev")
         self._run_git("config", "user.name", "ROSA CI Bot")
 
-        # Add fork as push remote (same repo for CI branches)
+        # Add fork as push remote (same repo for ephemeral branches)
         self._run_git("remote", "add", "ci", fork_url)
 
-        log.info("Checked out existing CI branch: %s on %s", self.ci_branch, self.fork_repo)
+        log.info("Checked out existing ephemeral branch: %s on %s", self.eph_branch, self.fork_repo)
 
-    def resync_ci_branch(self, ci_prefix: str):
-        """Reset the CI branch to the latest source branch tip.
+    def resync_eph_branch(self, eph_prefix: str):
+        """Reset the ephemeral branch to the latest source branch tip.
 
-        Checks out the fork's CI branch, fetches the latest source branch,
+        Checks out the fork's ephemeral branch, fetches the latest source branch,
         and hard-resets to it. Does NOT push — the caller is expected to
         re-inject config, render, and push in a single commit via
         render_and_push().
 
         Args:
-            ci_prefix: The CI prefix used during provisioning (e.g. 'ci-a1b2c3').
+            eph_prefix: The ephemeral prefix used during provisioning (e.g. 'eph-a1b2c3d4').
         """
-        self.checkout_ci_branch(ci_prefix)
+        self.checkout_eph_branch(eph_prefix)
 
         source_url = f"https://github.com/{self.source_repo}.git"
         self._run_git("remote", "add", "upstream", source_url)
@@ -215,21 +215,21 @@ class GitManager:
         self._run_git("fetch", "upstream", self.source_branch, auth=True)
 
         head_before = self._run_git("rev-parse", "HEAD").stdout.strip()
-        log.info("Resetting %s to upstream/%s", self.ci_branch, self.source_branch)
+        log.info("Resetting %s to upstream/%s", self.eph_branch, self.source_branch)
         self._run_git("reset", "--hard", f"upstream/{self.source_branch}")
         head_after = self._run_git("rev-parse", "HEAD").stdout.strip()
 
         if head_before == head_after:
-            log.info("Reset: %s is already up to date with upstream/%s", self.ci_branch, self.source_branch)
+            log.info("Reset: %s is already up to date with upstream/%s", self.eph_branch, self.source_branch)
         else:
             count = self._run_git("rev-list", "--count", f"{head_before}..{head_after}").stdout.strip()
             log.info("Reset: %s new commits from upstream/%s", count, self.source_branch)
 
-        branch_url = f"https://github.com/{self.fork_repo}/commits/{self.ci_branch}/"
+        branch_url = f"https://github.com/{self.fork_repo}/commits/{self.eph_branch}/"
         log.info("Resync complete: %s", branch_url)
 
     def push(self, message: str, force: bool = False):
-        """Stage all changes, commit, and push to the CI branch."""
+        """Stage all changes, commit, and push to the ephemeral branch."""
         self._run_git("add", "-A")
 
         result = self._run_git("diff", "--cached", "--quiet", check=False)
@@ -238,7 +238,7 @@ class GitManager:
             return
 
         self._run_git("commit", "-m", message)
-        push_cmd = ["push", "ci", self.ci_branch]
+        push_cmd = ["push", "ci", self.eph_branch]
         if force:
             push_cmd.insert(1, "--force")
         self._run_git(*push_cmd, auth=True)
@@ -247,10 +247,10 @@ class GitManager:
     def render_and_push(self, message: str, force: bool = False):
         """Run render.py in the work directory, then commit and push."""
         render_script = self.work_dir / "scripts" / "render.py"
-        log.info("Running render.py (ci_prefix=%s)", self.ci_prefix)
+        log.info("Running render.py (eph_prefix=%s)", self.eph_prefix)
         env = os.environ.copy()
-        if self.ci_prefix:
-            env["CI_PREFIX"] = self.ci_prefix
+        if self.eph_prefix:
+            env["EPH_PREFIX"] = self.eph_prefix
         result = subprocess.run(
             ["uv", "run", "--no-cache", str(render_script)],
             cwd=self.work_dir,
@@ -291,4 +291,3 @@ class GitManager:
             yaml.dump(region_config, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
         self.render_and_push(f"ci: update {environment}/{region} config")
-

@@ -39,7 +39,7 @@ variable "target_region" {
 
 variable "regional_id" {
   type        = string
-  description = "Regional cluster identifier for resource naming (e.g., 'regional' or 'ci-abc123-regional' in CI)"
+  description = "Regional cluster identifier for resource naming (e.g., 'regional' or 'eph-abc123-regional' in ephemeral envs)"
 }
 
 variable "target_environment" {

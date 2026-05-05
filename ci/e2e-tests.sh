@@ -60,14 +60,14 @@ if [[ $rc -ne 0 ]]; then
     echo "E2E tests failed (exit code: $rc). Collecting cluster logs..."
 
     # Pre-existing environment (integration): bare cluster names (regional, mc01)
-    # Ephemeral environment: ci_prefix-based names derived from BUILD_ID
+    # Ephemeral environment: eph_prefix-based names derived from BUILD_ID
     if [[ -r "${CREDS_DIR}/api_url" ]]; then
         export CLUSTER_PREFIX=""
     elif [[ -n "${BUILD_ID:-}" ]]; then
         hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \
             || { echo "WARNING: sha256sum failed — skipping log collection"; hash=""; }
         if [[ -n "$hash" ]]; then
-            export CLUSTER_PREFIX="ci-${hash}-"
+            export CLUSTER_PREFIX="eph-${hash}-"
         fi
     else
         echo "WARNING: BUILD_ID not set — skipping log collection"
