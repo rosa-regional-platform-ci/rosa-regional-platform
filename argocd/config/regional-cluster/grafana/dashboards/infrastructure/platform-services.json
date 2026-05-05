@@ -280,12 +280,12 @@
         {
           "refId": "A",
           "expr": "sum by (dimension_Broker, dimension_Queue) (aws_amazonmq_message_count_average)",
-          "legendFormat": "{{ dimension_Broker }} Ready"
+          "legendFormat": "{{ dimension_Broker }} / {{ dimension_Queue }} Ready"
         },
         {
           "refId": "B",
           "expr": "sum by (dimension_Broker, dimension_Queue) (aws_amazonmq_message_unacknowledged_count_average)",
-          "legendFormat": "{{ dimension_Broker }} Unacknowledged"
+          "legendFormat": "{{ dimension_Broker }} / {{ dimension_Queue }} Unacknowledged"
         }
       ],
       "fieldConfig": { "defaults": { "unit": "none" } },
