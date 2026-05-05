@@ -63,9 +63,9 @@ args:
   - --name
   - execute-api
   - --region
-  - {{ .Values.global.aws_region | quote }}
+  - { { .Values.global.aws_region | quote } }
   - --host
-  - {{ (urlParse (.Values.global.rhobs_api_url)).host }}
+  - { { (urlParse (.Values.global.rhobs_api_url)).host } }
   - --port
   - ":8005"
   - --strip
