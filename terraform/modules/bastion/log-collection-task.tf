@@ -40,7 +40,12 @@ resource "aws_ecs_task_definition" "log_collector" {
           if [[ "$INSPECT_NAMESPACES" == "all" ]]; then
             INSPECT_NAMESPACES=$(kubectl get namespaces -o jsonpath='{range .items[*]}ns/{.metadata.name} {end}')
           fi
+
+          # Log the namespaces being collected
           echo "Resolved namespaces: $INSPECT_NAMESPACES"
+          namespace_count=$(echo "$INSPECT_NAMESPACES" | wc -w | tr -d ' ')
+          echo "Collecting logs from $namespace_count namespace(s):"
+          echo "$INSPECT_NAMESPACES" | tr ' ' '\n' | sed 's/^ns\//  - /'
 
           # Run oc adm inspect
           echo "Running oc adm inspect..."
