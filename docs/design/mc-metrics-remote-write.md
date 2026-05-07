@@ -17,9 +17,9 @@ Management Cluster (MC) Prometheus instances forward metrics to the Regional Clu
 ```mermaid
 graph LR
     A[MC Prometheus] -->|remote_write| B[sigv4-proxy]
-    B -->|SigV4-signed request| C[API Gateway<br/>REST API v1]
-    C --> D[VPC Link]
-    D --> E[ALB]
+    B -->|SigV4-signed request| C[RHOBS API Gateway<br/>REST API v1]
+    C --> D[RHOBS VPC Link]
+    D --> E[RHOBS ALB]
     E --> F[Thanos Receive<br/>on RC]
 ```
 
@@ -37,7 +37,7 @@ Cluster identity is carried by Prometheus `externalLabels` rather than Thanos te
 - `cluster`: the EKS cluster name (unique per MC)
 - `cluster_type`: `management` (distinguishes MC metrics from RC metrics)
 
-These labels are injected into every scraped series at the Prometheus level and are immutable once written. The API Gateway uses HTTP (non-proxy) integration to control which headers reach the backend, but does not inject a `THANOS-TENANT` header — all metrics are stored under the Thanos default tenant.
+These labels are injected into every scraped series at the Prometheus level and are immutable once written. The API Gateway uses HTTP_PROXY integration, passing backend status codes through transparently. No `THANOS-TENANT` header is injected — all metrics are stored under the Thanos default tenant, and cluster identity is carried by metric labels.
 
 **Note**: This means cluster isolation is enforced at the ingestion layer (IAM resource policy controls which accounts can write) and at the query layer (PromQL filters by `cluster` label). It is not enforced at the Thanos storage layer.
 
