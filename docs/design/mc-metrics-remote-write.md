@@ -17,9 +17,9 @@ Management Cluster (MC) Prometheus instances forward metrics to the Regional Clu
 ```mermaid
 graph LR
     A[MC Prometheus] -->|remote_write| B[sigv4-proxy]
-    B -->|SigV4-signed request| C[API Gateway<br/>REST API v1]
-    C --> D[VPC Link]
-    D --> E[ALB]
+    B -->|SigV4-signed request| C[RHOBS API Gateway<br/>REST API v1]
+    C --> D[RHOBS VPC Link]
+    D --> E[RHOBS ALB]
     E --> F[Thanos Receive<br/>on RC]
 ```
 

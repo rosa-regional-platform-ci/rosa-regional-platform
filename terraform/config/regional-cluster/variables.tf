@@ -145,6 +145,16 @@ variable "api_throttling_rate_limit" {
   default     = 100
 }
 
+# =============================================================================
+# RHOBS API Gateway Method Settings Variables
+# =============================================================================
+
+variable "rhobs_metrics_enabled" {
+  description = "Enable detailed CloudWatch metrics for RHOBS API Gateway methods"
+  type        = bool
+  default     = true
+}
+
 # Maestro Configuration Variables
 # =============================================================================
 
