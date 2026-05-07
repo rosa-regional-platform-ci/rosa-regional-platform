@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs check-default-tags pre-push
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional helm-lint check-rendered-files ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-bastion-rc ephemeral-bastion-mc ephemeral-port-forward-rc ephemeral-port-forward-mc ephemeral-port-forward-rc-all ephemeral-port-forward-mc-all ephemeral-e2e ephemeral-collect-logs int-shell int-bastion-rc int-bastion-mc int-port-forward-rc int-port-forward-mc int-port-forward-rc-all int-port-forward-mc-all int-e2e int-collect-logs check-docs pre-push
 
 # Default target — interactive fzf picker, falls back to formatted list
 help: ## Show this help message
@@ -132,16 +132,13 @@ check-docs: ## Check documentation formatting
 	@npx --no-install prettier --check '**/*.md'
 	@echo "✅ Documentation formatting check complete"
 
-check-default-tags: ## Verify default_tags variables are wired through provisioning scripts
-	@./scripts/check-default-tags-wiring.sh
-
 pre-push: ## Run all CI validation checks (parallel)
 	@echo "🚀 Running all CI validation checks..."
 	@echo ""
 	@echo "Formatting Terraform files..."
 	@$(MAKE) terraform-fmt
 	@echo ""
-	@$(MAKE) -j4 check-docs check-rendered-files helm-lint terraform-validate check-default-tags
+	@$(MAKE) -j4 check-docs check-rendered-files helm-lint terraform-validate
 	@echo ""
 	@echo "✅ All pre-push checks passed!"
 

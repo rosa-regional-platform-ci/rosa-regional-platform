@@ -336,24 +336,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             -backend-config="region=$TF_STATE_REGION" \
             -backend-config="use_lockfile=true"
 
-        # Read tag values from provisioner-inputs terraform.json
-        PROVISIONER_TF="${region_dir}pipeline-provisioner-inputs/terraform.json"
-        if [ -f "$PROVISIONER_TF" ]; then
-            RC_APP_CODE=$(jq -r '.app_code // "infra"' "$PROVISIONER_TF")
-            RC_SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$PROVISIONER_TF")
-            RC_COST_CENTER=$(jq -r '.cost_center // "000"' "$PROVISIONER_TF")
-            RC_OWNER=$(jq -r '.owner // "placeholder"' "$PROVISIONER_TF")
-            RC_ORGANIZATION=$(jq -r '.organization // "placeholder"' "$PROVISIONER_TF")
-            RC_APP=$(jq -r '.app // "rosa-regionality"' "$PROVISIONER_TF")
-        else
-            RC_APP_CODE="infra"
-            RC_SERVICE_PHASE="dev"
-            RC_COST_CENTER="000"
-            RC_OWNER="placeholder"
-            RC_ORGANIZATION="placeholder"
-            RC_APP="rosa-regionality"
-        fi
-
         # Build terraform apply command with variables (array for safe expansion)
         TF_ARGS=(
             -var="github_repository=${GITHUB_REPOSITORY}"
@@ -370,15 +352,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
             -var="repository_branch=${GITHUB_BRANCH}"
             -var="codebuild_image=${PLATFORM_IMAGE}"
-        )
-        # Tagging configuration
-        TF_ARGS+=(
-            -var="app_code=${RC_APP_CODE}"
-            -var="service_phase=${RC_SERVICE_PHASE}"
-            -var="cost_center=${RC_COST_CENTER}"
-            -var="owner=${RC_OWNER}"
-            -var="organization=${RC_ORGANIZATION}"
-            -var="app=${RC_APP}"
         )
         # DNS configuration (optional)
         [ -n "$ENVIRONMENT_HOSTED_ZONE_ID" ] && TF_ARGS+=( -var="environment_hosted_zone_id=${ENVIRONMENT_HOSTED_ZONE_ID}" )
@@ -481,14 +454,6 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
                 -var="repository_url=https://github.com/${GITHUB_REPOSITORY}.git"
                 -var="repository_branch=${GITHUB_BRANCH}"
                 -var="codebuild_image=${PLATFORM_IMAGE}"
-            )
-            # Tagging configuration (reuse values read for this region)
-            TF_ARGS+=(
-                -var="app_code=${RC_APP_CODE}"
-                -var="service_phase=${RC_SERVICE_PHASE}"
-                -var="cost_center=${RC_COST_CENTER}"
-                -var="owner=${RC_OWNER}"
-                -var="organization=${RC_ORGANIZATION}"
             )
 
             if [ "$DELETE_FLAG" == "true" ]; then

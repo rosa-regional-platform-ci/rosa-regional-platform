@@ -5,4 +5,3 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 make terraform-validate
-make check-default-tags
