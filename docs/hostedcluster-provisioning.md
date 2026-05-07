@@ -102,10 +102,11 @@ rosactl cluster-vpc create $CLUSTER_NAME --region $REGION --availability-zones $
 # --placement (required only in ephemeral environment)
 PLACEMENT=$(awscurl --service execute-api $API_URL/api/v0/management_clusters --region $REGION | jq -r '.items[0].name')
 
-rosactl cluster create $CLUSTER_NAME --region $REGION --placement $PLACEMENT | tee /tmp/$CLUSTER_NAME.json
+rosactl cluster create $CLUSTER_NAME --region $REGION --placement $PLACEMENT | tee /tmp/$CLUSTER_NAME.txt
 
-# export CLOUDURL with the value of cloudUrl in the response above
-CLOUDURL=$(jq -r '.spec.cloudUrl' < /tmp/$CLUSTER_NAME.json)
+# extract the Cloud URL and Cluster ID from the CLI output
+CLOUDURL=$(grep 'Cloud URL:' /tmp/$CLUSTER_NAME.txt | awk '{print $NF}')
+CLUSTER_ID=$(grep 'ID:' /tmp/$CLUSTER_NAME.txt | awk '{print $NF}')
 
 # 4. create the oidc for the hcp
 rosactl cluster-oidc create $CLUSTER_NAME --region $REGION --oidc-issuer-url $CLOUDURL
@@ -116,7 +117,7 @@ rosactl cluster-oidc create $CLUSTER_NAME --region $REGION --oidc-issuer-url $CL
 On your local machine, print the cluster ID and name to paste into the bastion:
 
 ```bash
-echo "CLUSTER_ID=$(jq -r '.id' < /tmp/$CLUSTER_NAME.json) CLUSTER_NAME=$CLUSTER_NAME"
+echo "CLUSTER_ID=$CLUSTER_ID CLUSTER_NAME=$CLUSTER_NAME"
 ```
 
 Then bastion into the MC (`make ephemeral-bastion-mc` or `make int-bastion-mc`),
