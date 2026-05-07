@@ -1,5 +1,5 @@
 # =============================================================================
-# RHOBS API Gateway - Variables
+# Required Variables
 # =============================================================================
 
 variable "regional_id" {
@@ -7,23 +7,63 @@ variable "regional_id" {
   type        = string
 }
 
-variable "vpc_link_id" {
-  description = "VPC Link ID (reused from the api-gateway module)"
+variable "vpc_id" {
+  description = "VPC ID where the ALB and VPC Link will be created"
   type        = string
 }
 
-variable "alb_arn" {
-  description = "Internal ALB ARN (for REST API integration_target)"
+variable "private_subnet_ids" {
+  description = "List of private subnet IDs for ALB and VPC Link placement"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.private_subnet_ids) >= 2
+    error_message = "At least 2 private subnets are required for ALB high availability."
+  }
+}
+
+variable "node_security_group_id" {
+  description = "EKS node/pod security group ID - ALB needs to send traffic to pods via this SG"
   type        = string
 }
 
-variable "alb_dns_name" {
-  description = "Internal ALB DNS name (for REST API integration URI)"
+variable "cluster_name" {
+  description = "EKS cluster name - required for tagging target group with eks:eks-cluster-name tag for Auto Mode IAM permissions"
   type        = string
 }
+
+# =============================================================================
+# API Gateway Configuration
+# =============================================================================
 
 variable "stage_name" {
   description = "API Gateway stage name"
   type        = string
   default     = "prod"
+}
+
+# =============================================================================
+# Target Group Configuration
+# =============================================================================
+
+variable "thanos_receive_port" {
+  description = "Thanos Receive remote-write port"
+  type        = number
+  default     = 19291
+
+  validation {
+    condition     = var.thanos_receive_port >= 1 && var.thanos_receive_port <= 65535
+    error_message = "Thanos receive port must be between 1 and 65535."
+  }
+}
+
+variable "thanos_receive_health_port" {
+  description = "Thanos Receive HTTP port serving /-/ready (distinct from the remote-write port)"
+  type        = number
+  default     = 10902
+
+  validation {
+    condition     = var.thanos_receive_health_port >= 1 && var.thanos_receive_health_port <= 65535
+    error_message = "Thanos health check port must be between 1 and 65535."
+  }
 }

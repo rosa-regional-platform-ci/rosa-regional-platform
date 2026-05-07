@@ -1,11 +1,11 @@
 # =============================================================================
 # RHOBS API Gateway
 #
-# Dedicated REST API v1 for metrics ingestion (Prometheus remote_write).
-# Separate from the Platform API Gateway to enforce independent access control:
-# only MC accounts can invoke this API via resource policy.
+# Dedicated REST API for RHOBS (observability) traffic. Includes its own ALB,
+# VPC Link, and security groups — fully isolated from the Platform API Gateway.
+# Only MC accounts can invoke this API via resource policy.
 #
-# Flow: POST /api/v1/receive -> VPC Link -> ALB -> Thanos Receive (:19291)
+# Flow: POST /api/v1/receive -> VPC Link -> RHOBS ALB -> Thanos Receive (:19291)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -56,72 +56,6 @@ resource "aws_api_gateway_resource" "api_v1_receive" {
   rest_api_id = aws_api_gateway_rest_api.rhobs.id
   parent_id   = aws_api_gateway_resource.api_v1.id
   path_part   = "receive"
-}
-
-# -----------------------------------------------------------------------------
-# Method: POST on /api/v1/receive with AWS_IAM auth
-# -----------------------------------------------------------------------------
-
-resource "aws_api_gateway_method" "thanos_receive" {
-  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
-  resource_id   = aws_api_gateway_resource.api_v1_receive.id
-  http_method   = "POST"
-  authorization = "AWS_IAM"
-
-  request_parameters = {
-    "method.request.header.Content-Type"     = false
-    "method.request.header.Content-Encoding" = false
-  }
-}
-
-# -----------------------------------------------------------------------------
-# Integration: HTTP (non-proxy) forwarding to Thanos Receive
-#
-# Uses "HTTP" (not "HTTP_PROXY") so API Gateway controls which headers
-# reach the backend. No tenant header is injected — Thanos Receive stores
-# all metrics under its default tenant, and cluster identity is carried
-# by metric labels (e.g. "cluster").
-# -----------------------------------------------------------------------------
-
-resource "aws_api_gateway_integration" "thanos_receive" {
-  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
-  resource_id             = aws_api_gateway_resource.api_v1_receive.id
-  http_method             = aws_api_gateway_method.thanos_receive.http_method
-  type                    = "HTTP"
-  integration_http_method = "POST"
-  connection_type         = "VPC_LINK"
-  connection_id           = var.vpc_link_id
-  integration_target      = var.alb_arn
-  uri                     = "http://${var.alb_dns_name}/api/v1/receive"
-
-  request_parameters = {
-    "integration.request.header.Content-Type"     = "method.request.header.Content-Type"
-    "integration.request.header.Content-Encoding" = "method.request.header.Content-Encoding"
-  }
-
-  passthrough_behavior = "WHEN_NO_MATCH"
-}
-
-# -----------------------------------------------------------------------------
-# Method and Integration Responses
-#
-# Required for HTTP (non-proxy) integrations to return responses to callers.
-# -----------------------------------------------------------------------------
-
-resource "aws_api_gateway_method_response" "thanos_receive" {
-  rest_api_id = aws_api_gateway_rest_api.rhobs.id
-  resource_id = aws_api_gateway_resource.api_v1_receive.id
-  http_method = aws_api_gateway_method.thanos_receive.http_method
-  status_code = "200"
-}
-
-resource "aws_api_gateway_integration_response" "thanos_receive" {
-  rest_api_id = aws_api_gateway_rest_api.rhobs.id
-  resource_id = aws_api_gateway_resource.api_v1_receive.id
-  http_method = aws_api_gateway_method.thanos_receive.http_method
-  status_code = "200"
-
-  depends_on = [aws_api_gateway_integration.thanos_receive]
 }
 
 # -----------------------------------------------------------------------------
