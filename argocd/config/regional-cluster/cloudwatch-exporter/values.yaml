@@ -177,7 +177,7 @@ prometheus-yet-another-cloudwatch-exporter:
             - {{ .Values.global.aws_region }}
           searchTags:
             - key: Name
-              value: ^{{ .Values.global.cluster_name }}-api$
+              value: ^{{ .Values.global.cluster_name }}-(api|rhobs)$
           period: 120
           length: 120
           delay: 120

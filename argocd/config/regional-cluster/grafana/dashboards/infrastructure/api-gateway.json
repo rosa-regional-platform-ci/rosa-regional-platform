@@ -24,7 +24,7 @@
         "type": "query",
         "label": "API Gateway",
         "datasource": { "type": "prometheus", "uid": "${datasource}" },
-        "query": "label_values(aws_apigateway_info, tag_Name)",
+        "query": "label_values(aws_apigateway_count_sample_count, dimension_ApiName)",
         "refresh": 2,
         "multi": true,
         "includeAll": true,
