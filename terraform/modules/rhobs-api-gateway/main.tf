@@ -32,7 +32,7 @@ resource "aws_api_gateway_rest_api" "rhobs" {
   }
 
   tags = {
-    Name = "${var.regional_id}-rhobs-api"
+    Name = "${var.regional_id}-rhobs"
   }
 }
 
@@ -91,7 +91,7 @@ resource "aws_api_gateway_stage" "rhobs" {
   stage_name    = var.stage_name
 
   tags = {
-    Name = "${var.regional_id}-rhobs-api-${var.stage_name}"
+    Name = "${var.regional_id}-rhobs-${var.stage_name}"
   }
 }
 
