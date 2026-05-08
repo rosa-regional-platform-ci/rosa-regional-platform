@@ -37,3 +37,52 @@ resource "aws_api_gateway_integration" "thanos_receive" {
   integration_target      = aws_lb.rhobs.arn
   uri                     = "http://${aws_lb.rhobs.dns_name}/api/v1/receive"
 }
+
+# -----------------------------------------------------------------------------
+# Thanos Query: GET /api/v1/query
+#
+# Exposes PromQL instant queries for E2E tests and internal tooling.
+# Restricted to the RC account only via resource policy.
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_method" "thanos_query" {
+  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
+  resource_id   = aws_api_gateway_resource.api_v1_query.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "thanos_query" {
+  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
+  resource_id             = aws_api_gateway_resource.api_v1_query.id
+  http_method             = aws_api_gateway_method.thanos_query.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  connection_type         = "VPC_LINK"
+  connection_id           = aws_apigatewayv2_vpc_link.rhobs.id
+  integration_target      = aws_lb.rhobs.arn
+  uri                     = "http://${aws_lb.rhobs.dns_name}/api/v1/query"
+}
+
+# -----------------------------------------------------------------------------
+# Thanos Query Range: GET /api/v1/query_range
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_method" "thanos_query_range" {
+  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
+  resource_id   = aws_api_gateway_resource.api_v1_query_range.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "thanos_query_range" {
+  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
+  resource_id             = aws_api_gateway_resource.api_v1_query_range.id
+  http_method             = aws_api_gateway_method.thanos_query_range.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  connection_type         = "VPC_LINK"
+  connection_id           = aws_apigatewayv2_vpc_link.rhobs.id
+  integration_target      = aws_lb.rhobs.arn
+  uri                     = "http://${aws_lb.rhobs.dns_name}/api/v1/query_range"
+}

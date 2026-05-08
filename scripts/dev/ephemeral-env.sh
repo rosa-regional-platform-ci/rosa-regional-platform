@@ -1050,10 +1050,14 @@ cmd_e2e() {
     echo "  E2E_REF:    $e2e_ref"
     echo "  E2E_REPO:   $e2e_repo"
 
+    local rhobs_api_url
+    rhobs_api_url=$(get_field "$ENV_LINE" RHOBS_API_URL)
+
     $CONTAINER_ENGINE run --rm \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
         -e "BASE_URL=$api_url" \
+        -e "RHOBS_API_URL=${rhobs_api_url:-}" \
         -e "AWS_ACCESS_KEY_ID=$REGIONAL_AK" \
         -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
         -e "AWS_DEFAULT_REGION=$region" \

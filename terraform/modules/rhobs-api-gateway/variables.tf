@@ -73,3 +73,14 @@ variable "thanos_receive_health_port" {
     error_message = "Thanos health check port must be between 1 and 65535."
   }
 }
+
+variable "thanos_query_port" {
+  description = "Thanos Query Frontend HTTP port"
+  type        = number
+  default     = 9090
+
+  validation {
+    condition     = var.thanos_query_port >= 1 && var.thanos_query_port <= 65535
+    error_message = "Thanos query port must be between 1 and 65535."
+  }
+}
