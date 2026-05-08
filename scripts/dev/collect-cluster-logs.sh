@@ -15,7 +15,7 @@
 #   collect-cluster-logs.sh [regional|management|all]
 #
 # Required environment variables:
-#   CLUSTER_PREFIX  — Cluster name prefix (e.g. "eph-a1b2c3-" or "" for bare names)
+#   CLUSTER_PREFIX  — Cluster name prefix (e.g. "eph-a1b2c3-" for ephemeral envs or "" for bare names)
 #
 # Credentials (one of the following):
 #   REGIONAL_AK / REGIONAL_SK   — Direct credential env vars (dev workflow)
