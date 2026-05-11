@@ -75,6 +75,15 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_thanos_health" {
   referenced_security_group_id = var.node_security_group_id
 }
 
+resource "aws_vpc_security_group_egress_rule" "alb_to_thanos_query" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "Allow traffic to Thanos Query Frontend pods"
+  ip_protocol                  = "tcp"
+  from_port                    = var.thanos_query_port
+  to_port                      = var.thanos_query_port
+  referenced_security_group_id = var.node_security_group_id
+}
+
 # -----------------------------------------------------------------------------
 # Node Security Group Ingress Rules
 #
@@ -97,5 +106,14 @@ resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos_health" {
   ip_protocol                  = "tcp"
   from_port                    = var.thanos_receive_health_port
   to_port                      = var.thanos_receive_health_port
+  referenced_security_group_id = aws_security_group.alb.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos_query" {
+  security_group_id            = var.node_security_group_id
+  description                  = "Allow RHOBS ALB traffic to Thanos Query Frontend pods"
+  ip_protocol                  = "tcp"
+  from_port                    = var.thanos_query_port
+  to_port                      = var.thanos_query_port
   referenced_security_group_id = aws_security_group.alb.id
 }
