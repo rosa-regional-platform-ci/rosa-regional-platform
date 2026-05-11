@@ -31,13 +31,29 @@ export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
 # Set up AWS credentials for authenticated API calls (e.g. aws sts get-caller-identity)
-if [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
+# Prefer environment variables (ephemeral), fall back to files (CI)
+if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+  export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+  echo "AWS credentials loaded from environment"
+elif [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
   export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
   export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
   export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
   echo "AWS credentials loaded from ${CREDS_DIR}"
 else
-  echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
+  echo "WARNING: No regional credentials found in environment or ${CREDS_DIR}/regional_access_key"
+fi
+
+# Set up customer AWS credentials for HCP creation tests
+# Prefer environment variables (ephemeral), fall back to files (CI)
+if [[ -n "${CUSTOMER_AWS_ACCESS_KEY_ID:-}" && -n "${CUSTOMER_AWS_SECRET_ACCESS_KEY:-}" ]]; then
+  echo "Customer credentials loaded from environment"
+elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
+  export CUSTOMER_AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")"
+  export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
+  echo "Customer credentials loaded from ${CREDS_DIR}"
+else
+  echo "INFO: No customer credentials found — HCP creation tests will be skipped if e2e-hcp-create-test is merged"
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

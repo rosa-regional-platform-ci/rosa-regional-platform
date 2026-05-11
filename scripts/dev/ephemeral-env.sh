@@ -28,6 +28,7 @@ VAULT_CRED_KEYS=(
     central_access_key central_secret_key central_assume_role_arn
     regional_access_key regional_secret_key
     management_access_key management_secret_key
+    customer_access_key customer_secret_key
     github_token
 )
 
@@ -197,7 +198,7 @@ setup_override_mount() {
 
 # Fetch credentials from Vault via OIDC login, or use pre-set env vars.
 # Sets global: CRED_FLAGS (container -e flags), REGIONAL_AK, REGIONAL_SK,
-#              MANAGEMENT_AK, MANAGEMENT_SK
+#              MANAGEMENT_AK, MANAGEMENT_SK, CUSTOMER_AK, CUSTOMER_SK
 # Credentials never touch disk — they live only in this shell process.
 fetch_creds() {
     CRED_FLAGS=""
@@ -205,6 +206,8 @@ fetch_creds() {
     REGIONAL_SK=""
     MANAGEMENT_AK=""
     MANAGEMENT_SK=""
+    CUSTOMER_AK=""
+    CUSTOMER_SK=""
 
     # If all credential env vars are already set, skip Vault entirely.
     local all_set=true
@@ -231,6 +234,8 @@ fetch_creds() {
                 regional_secret_key)    REGIONAL_SK="$val" ;;
                 management_access_key)  MANAGEMENT_AK="$val" ;;
                 management_secret_key)  MANAGEMENT_SK="$val" ;;
+                customer_access_key)    CUSTOMER_AK="$val" ;;
+                customer_secret_key)    CUSTOMER_SK="$val" ;;
             esac
         done
         echo "Credentials loaded from environment."
@@ -259,6 +264,8 @@ fetch_creds() {
             regional_secret_key)    REGIONAL_SK="$val" ;;
             management_access_key)  MANAGEMENT_AK="$val" ;;
             management_secret_key)  MANAGEMENT_SK="$val" ;;
+            customer_access_key)    CUSTOMER_AK="$val" ;;
+            customer_secret_key)    CUSTOMER_SK="$val" ;;
         esac
     done
 
@@ -1058,6 +1065,8 @@ cmd_e2e() {
         -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
+        -e "CUSTOMER_AWS_ACCESS_KEY_ID=$CUSTOMER_AK" \
+        -e "CUSTOMER_AWS_SECRET_ACCESS_KEY=$CUSTOMER_SK" \
         -e "E2E_REF=$e2e_ref" \
         -e "E2E_REPO=$e2e_repo" \
         "$CI_IMAGE" \
