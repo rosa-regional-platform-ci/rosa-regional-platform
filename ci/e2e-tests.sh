@@ -30,6 +30,21 @@ fi
 export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
+# RHOBS API URL for observability E2E tests (Thanos query)
+if [[ -z "${RHOBS_API_URL:-}" ]]; then
+  if [[ -r "${CREDS_DIR}/rhobs_api_url" ]]; then
+    RHOBS_API_URL="$(cat "${CREDS_DIR}/rhobs_api_url")"
+  elif [[ -n "${TF_OUTPUTS:-}" && -r "${TF_OUTPUTS:-}" ]]; then
+    RHOBS_API_URL="$(jq -r '.rhobs_api_url.value // empty' "${TF_OUTPUTS}")"
+  fi
+fi
+if [[ -n "${RHOBS_API_URL:-}" ]]; then
+  export RHOBS_API_URL
+  echo "RHOBS API URL: ${RHOBS_API_URL}"
+else
+  echo "WARNING: RHOBS_API_URL not available — observability tests will be skipped"
+fi
+
 # Set up AWS credentials for authenticated API calls (e.g. aws sts get-caller-identity)
 if [[ -r "${CREDS_DIR}/regional_access_key" ]]; then
   export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
