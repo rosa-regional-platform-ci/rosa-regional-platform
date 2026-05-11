@@ -80,15 +80,11 @@ if [[ -z "${E2E_ACCOUNT_ID:-}" ]]; then
 fi 
 
 # --- HCP Creation E2E Tests ---
-# Uses customer account credentials from vault-mounted secrets.
-# Only run if the platform API tests passed.
+# Uses customer account credentials (loaded from env vars or files above).
+# Only run if the platform API tests passed and credentials are available.
 if [[ $rc -ne 0 ]]; then
   echo "Skipping HCP creation tests — platform API tests failed (exit code: $rc)"
-elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
-  export CUSTOMER_AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")"
-  export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
-  echo "Customer credentials loaded from ${CREDS_DIR}" 
-
+elif [[ -n "${CUSTOMER_AWS_ACCESS_KEY_ID:-}" && -n "${CUSTOMER_AWS_SECRET_ACCESS_KEY:-}" ]]; then
   # Get customer account ID for CLI tests
   if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
     export E2E_CUSTOMER_ACCOUNT_ID="$(AWS_ACCESS_KEY_ID="${CUSTOMER_AWS_ACCESS_KEY_ID}" \
@@ -137,7 +133,7 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
 
   test_hcp_creation || rc=$?
 else
-  echo "WARNING: No customer credentials at ${CREDS_DIR}/customer_access_key — skipping HCP creation tests"
+  echo "INFO: No customer credentials available — skipping HCP creation tests"
 fi
 
 if [[ $rc -ne 0 ]]; then
