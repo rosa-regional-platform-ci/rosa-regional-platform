@@ -859,6 +859,7 @@ cmd_bastion_port_forward() {
         thanos)
             forwards+=(
             "Thanos-Query 10902 10902 thanos-query-frontend-thanos-query thanos 9090"
+            )
             ;;
         alertmanager)
             forwards+=(
