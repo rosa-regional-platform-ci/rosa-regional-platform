@@ -100,3 +100,51 @@ resource "aws_lb_listener_rule" "thanos_receive" {
     }
   }
 }
+
+# -----------------------------------------------------------------------------
+# Thanos Query Frontend Target Group
+#
+# Serves PromQL queries from E2E tests and internal tooling via RHOBS API GW.
+# Uses IP target type for TargetGroupBinding compatibility with EKS Auto Mode.
+# -----------------------------------------------------------------------------
+
+resource "aws_lb_target_group" "thanos_query" {
+  name        = "${var.regional_id}-th-query"
+  port        = var.thanos_query_port
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    path                = "/-/ready"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    matcher             = "200"
+  }
+
+  tags = {
+    Name                   = "${var.regional_id}-th-query"
+    "eks:eks-cluster-name" = var.cluster_name
+  }
+}
+
+resource "aws_lb_listener_rule" "thanos_query" {
+  listener_arn = aws_lb_listener.rhobs.arn
+  priority     = 200
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.thanos_query.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/v1/query", "/api/v1/query_range"]
+    }
+  }
+}

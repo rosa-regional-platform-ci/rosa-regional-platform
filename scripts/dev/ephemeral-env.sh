@@ -488,9 +488,15 @@ cmd_provision() {
             region=$(cat "$tmpdir/region")
         fi
 
+        local rhobs_api_url=""
+        if [[ -f "$tmpdir/tf-outputs.json" ]]; then
+            rhobs_api_url=$(jq -r '.rhobs_api_url.value // empty' "$tmpdir/tf-outputs.json" 2>/dev/null || true)
+        fi
+
         update_state "$ID" "ready"
         [[ -z "$region" ]]  || append_field "$ID" "REGION" "$region"
         [[ -z "$api_url" ]] || append_field "$ID" "API_URL" "$api_url"
+        [[ -z "$rhobs_api_url" ]] || append_field "$ID" "RHOBS_API_URL" "$rhobs_api_url"
 
         # Store ephemeral branch name so it survives branch swaps
         append_field "$ID" "EPH_BRANCH" "$(derive_eph_branch "$ID" "$branch")"
@@ -672,12 +678,12 @@ cmd_list() {
 
     echo "Ephemeral environments:"
     echo ""
-    printf "%-12s %-45s %-25s %-12s %-22s %-20s %s\n" \
-        "ID" "REPO" "BRANCH" "REGION" "STATE" "CREATED" "API_URL"
-    echo "------------ --------------------------------------------- ------------------------- ------------ ---------------------- -------------------- -------"
+    printf "%-12s %-45s %-25s %-12s %-22s %-20s %-60s %s\n" \
+        "ID" "REPO" "BRANCH" "REGION" "STATE" "CREATED" "API_URL" "RHOBS_API_URL"
+    echo "------------ --------------------------------------------- ------------------------- ------------ ---------------------- -------------------- ------------------------------------------------------------ ------------------------------------------------------------"
 
     while IFS= read -r line; do
-        local build_id repo branch region state created api_url
+        local build_id repo branch region state created api_url rhobs_api_url
         build_id=$(echo "$line" | awk '{print $1}')
         repo=$(get_field "$line" REPO)
         branch=$(get_field "$line" BRANCH)
@@ -685,8 +691,9 @@ cmd_list() {
         state=$(get_field "$line" STATE)
         created=$(get_field "$line" CREATED)
         api_url=$(get_field "$line" API_URL)
-        printf "%-12s %-45s %-25s %-12s %-22s %-20s %s\n" \
-            "$build_id" "$repo" "$branch" "$region" "$state" "$created" "$api_url"
+        rhobs_api_url=$(get_field "$line" RHOBS_API_URL)
+        printf "%-12s %-45s %-25s %-12s %-22s %-20s %-60s %s\n" \
+            "$build_id" "$repo" "$branch" "$region" "$state" "$created" "$api_url" "$rhobs_api_url"
     done < "$ENVS_FILE"
 
     echo ""
@@ -1042,18 +1049,23 @@ cmd_e2e() {
     # Fetch credentials
     fetch_creds
 
+    local rhobs_api_url
+    rhobs_api_url=$(get_field "$ENV_LINE" RHOBS_API_URL)
+
     # Run tests
     echo "Running e2e tests..."
-    echo "  ID:         $BUILD_ID"
-    echo "  API_URL:    $api_url"
-    echo "  REGION:     $region"
-    echo "  E2E_REF:    $e2e_ref"
-    echo "  E2E_REPO:   $e2e_repo"
+    echo "  ID:             $BUILD_ID"
+    echo "  API_URL:        $api_url"
+    echo "  RHOBS_API_URL:  ${rhobs_api_url:-<not set>}"
+    echo "  REGION:         $region"
+    echo "  E2E_REF:        $e2e_ref"
+    echo "  E2E_REPO:       $e2e_repo"
 
     $CONTAINER_ENGINE run --rm \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
         -e "BASE_URL=$api_url" \
+        -e "RHOBS_API_URL=${rhobs_api_url:-}" \
         -e "AWS_ACCESS_KEY_ID=$REGIONAL_AK" \
         -e "AWS_SECRET_ACCESS_KEY=$REGIONAL_SK" \
         -e "AWS_DEFAULT_REGION=$region" \
