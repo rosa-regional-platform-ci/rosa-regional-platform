@@ -384,6 +384,129 @@ class TestResolveTemplates:
 
 
 # =============================================================================
+# resolve_templates — type preservation
+# =============================================================================
+
+
+class TestResolveTemplatesTypePreservation:
+    """Verify that resolve_templates preserves value types when values are
+    referenced via Jinja2 templates.  Two invariants:
+
+    1. String values that *look like* other types (e.g. "42", "true") must
+       remain strings — no silent coercion.
+    2. Native ints, bools, and floats must remain their original type when
+       referenced through a template expression.
+    """
+
+    # -----------------------------------------------------------------
+    # Category 1: Strings that look like other types stay strings
+    # -----------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "string_val",
+        ["42", "001", "true", "on", "yes", "0.15"],
+        ids=["int-like", "leading-zero", "bool-true", "bool-on", "bool-yes", "float-like"],
+    )
+    def test_string_direct_not_coerced(self, string_val):
+        """A string value rendered via {{ val }} must stay a string."""
+        result = resolve_templates("{{ val }}", {"val": string_val})
+        assert result == string_val
+        assert type(result) is str
+
+    @pytest.mark.parametrize(
+        "string_val",
+        ["42", "001", "true", "on", "yes", "0.15"],
+        ids=["int-like", "leading-zero", "bool-true", "bool-on", "bool-yes", "float-like"],
+    )
+    def test_string_cross_reference_not_coerced(self, string_val):
+        """A string defined in one part of the config and referenced elsewhere
+        must remain a string after two rounds of resolve_templates."""
+        config = {"settings": {"port": string_val}}
+        resolved_config = resolve_templates(config, {})
+        result = resolve_templates(
+            "{{ settings.port }}", resolved_config
+        )
+        assert result == string_val
+        assert type(result) is str
+
+    # -----------------------------------------------------------------
+    # Category 2: Native types stay native when referenced
+    # -----------------------------------------------------------------
+
+    def test_native_int_preserved(self):
+        """An int value referenced via {{ val }} must remain an int."""
+        result = resolve_templates("{{ val }}", {"val": 42})
+        assert result == 42
+        assert type(result) is int
+
+    def test_native_bool_true_preserved(self):
+        """A True bool referenced via {{ val }} must remain True (bool)."""
+        result = resolve_templates("{{ val }}", {"val": True})
+        assert result is True
+        assert type(result) is bool
+
+    def test_native_bool_false_preserved(self):
+        """A False bool referenced via {{ val }} must remain False (bool)."""
+        result = resolve_templates("{{ val }}", {"val": False})
+        assert result is False
+        assert type(result) is bool
+
+    def test_native_float_preserved(self):
+        """A float value referenced via {{ val }} must remain a float."""
+        result = resolve_templates("{{ val }}", {"val": 0.15})
+        assert result == 0.15
+        assert type(result) is float
+
+    def test_native_int_cross_reference_preserved(self):
+        """An int defined in config and referenced elsewhere stays int."""
+        config = {"settings": {"port": 8080}}
+        resolved_config = resolve_templates(config, {})
+        result = resolve_templates("{{ settings.port }}", resolved_config)
+        assert result == 8080
+        assert type(result) is int
+
+    def test_native_bool_cross_reference_preserved(self):
+        """A bool defined in config and referenced elsewhere stays bool."""
+        config = {"features": {"enabled": True}}
+        resolved_config = resolve_templates(config, {})
+        result = resolve_templates("{{ features.enabled }}", resolved_config)
+        assert result is True
+        assert type(result) is bool
+
+    def test_native_float_cross_reference_preserved(self):
+        """A float defined in config and referenced elsewhere stays float."""
+        config = {"settings": {"ratio": 0.15}}
+        resolved_config = resolve_templates(config, {})
+        result = resolve_templates("{{ settings.ratio }}", resolved_config)
+        assert result == 0.15
+        assert type(result) is float
+
+    # -----------------------------------------------------------------
+    # Mixed: native types in nested structures
+    # -----------------------------------------------------------------
+
+    def test_mixed_types_in_dict_preserved(self):
+        """A dict with mixed native types preserves all types."""
+        config = {
+            "str_val": "hello",
+            "int_val": 42,
+            "bool_val": True,
+            "float_val": 0.15,
+            "str_that_looks_int": "001",
+            "str_that_looks_bool": "true",
+        }
+        result = resolve_templates(config, {})
+        assert type(result["str_val"]) is str
+        assert type(result["int_val"]) is int
+        assert type(result["bool_val"]) is bool
+        assert type(result["float_val"]) is float
+        assert result["str_that_looks_int"] == "001"
+        assert type(result["str_that_looks_int"]) is str
+        assert result["str_that_looks_bool"] == "true"
+        assert type(result["str_that_looks_bool"]) is str
+
+
+# =============================================================================
 # write_output
 # =============================================================================
 
