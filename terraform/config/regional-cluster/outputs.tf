@@ -156,6 +156,11 @@ output "rhobs_api_url" {
   value       = module.rhobs_api_gateway.invoke_url
 }
 
+output "rhobs_query_api_url" {
+  description = "RHOBS API URL for Thanos Query (only set when enable_thanos_query is true)"
+  value       = var.enable_thanos_query ? module.rhobs_api_gateway.invoke_url : null
+}
+
 output "api_allowed_accounts" {
   description = "Platform API allowed accounts (comma-separated account IDs, including current account)"
   value       = var.api_additional_allowed_accounts != "" ? "${data.aws_caller_identity.current.account_id},${var.api_additional_allowed_accounts}" : data.aws_caller_identity.current.account_id
