@@ -146,8 +146,14 @@ variable "api_throttling_rate_limit" {
 }
 
 # =============================================================================
-# RHOBS API Gateway Method Settings Variables
+# RHOBS API Gateway Variables
 # =============================================================================
+
+variable "enable_thanos_query" {
+  description = "Enable Thanos Query read path on the RHOBS API Gateway. Enable for E2E observability tests."
+  type        = bool
+  default     = false
+}
 
 variable "rhobs_apigw_metrics_enabled" {
   description = "Enable detailed CloudWatch metrics for RHOBS API Gateway methods"

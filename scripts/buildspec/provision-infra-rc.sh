@@ -96,6 +96,7 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
 export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' false "$DEPLOY_CONFIG_FILE")
+export TF_VAR_enable_thanos_query=$(parseBool '.enable_thanos_query' false "$DEPLOY_CONFIG_FILE")
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
 export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
@@ -124,6 +125,7 @@ echo "  Repository Branch: $TF_VAR_repository_branch"
 echo "  API Additional Allowed Accounts: $TF_VAR_api_additional_allowed_accounts"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
 echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
+echo "  Enable Thanos Query: $TF_VAR_enable_thanos_query"
 echo "  Node Instance Types: $TF_VAR_node_instance_types"
 echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"

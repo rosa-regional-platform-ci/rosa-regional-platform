@@ -58,6 +58,9 @@ regional_cluster:
   # @doc regional_cluster.enable_cloudtrail Enable CloudTrail audit logging (FedRAMP AU-12). Off by default; enable for environments requiring compliance.
   # @used-by regional_cluster.enable_cloudtrail pipeline-regional-cluster-inputs/terraform.json.j2
   enable_cloudtrail: true
+  # @doc regional_cluster.enable_thanos_query Enable Thanos Query read path on RHOBS API Gateway. Enable for E2E observability tests.
+  # @used-by regional_cluster.enable_thanos_query pipeline-regional-cluster-inputs/terraform.json.j2
+  enable_thanos_query: false
   # @doc regional_cluster.node_instance_types EC2 instance types for regional cluster nodes.
   # @used-by regional_cluster.node_instance_types pipeline-regional-cluster-inputs/terraform.json.j2
   node_instance_types: ["t3.medium", "t3a.medium"]

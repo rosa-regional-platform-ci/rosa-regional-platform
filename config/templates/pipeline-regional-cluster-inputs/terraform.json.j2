@@ -11,6 +11,7 @@
   "enable_cloudtrail": {{ regional_cluster.enable_cloudtrail | default(true) | tojson }},
   "enable_pagerduty": {{ observability.pagerduty.enabled | default(false) | tojson }},
   "pagerduty_escalation_policy_id": {{ observability.pagerduty.escalation_policy_id | default('') | tojson }},
+  "enable_thanos_query": {{ regional_cluster.enable_thanos_query | default(false) | tojson }},
   "regional_id": "{% if eph_prefix %}{{ eph_prefix }}-regional{% else %}regional{% endif %}",
   "eph_prefix": "{{ eph_prefix | default('') }}",
   "node_instance_types": {{ regional_cluster.node_instance_types | tojson }},

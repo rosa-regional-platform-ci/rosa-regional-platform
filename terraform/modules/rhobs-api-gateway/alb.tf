@@ -109,6 +109,8 @@ resource "aws_lb_listener_rule" "thanos_receive" {
 # -----------------------------------------------------------------------------
 
 resource "aws_lb_target_group" "thanos_query" {
+  count = var.enable_thanos_query ? 1 : 0
+
   name        = "${var.regional_id}-th-query"
   port        = var.thanos_query_port
   protocol    = "HTTP"
@@ -134,12 +136,14 @@ resource "aws_lb_target_group" "thanos_query" {
 }
 
 resource "aws_lb_listener_rule" "thanos_query" {
+  count = var.enable_thanos_query ? 1 : 0
+
   listener_arn = aws_lb_listener.rhobs.arn
   priority     = 200
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.thanos_query.arn
+    target_group_arn = aws_lb_target_group.thanos_query[0].arn
   }
 
   condition {

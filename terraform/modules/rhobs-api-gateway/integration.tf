@@ -46,16 +46,20 @@ resource "aws_api_gateway_integration" "thanos_receive" {
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_method" "thanos_query" {
+  count = var.enable_thanos_query ? 1 : 0
+
   rest_api_id   = aws_api_gateway_rest_api.rhobs.id
-  resource_id   = aws_api_gateway_resource.api_v1_query.id
+  resource_id   = aws_api_gateway_resource.api_v1_query[0].id
   http_method   = "GET"
   authorization = "AWS_IAM"
 }
 
 resource "aws_api_gateway_integration" "thanos_query" {
+  count = var.enable_thanos_query ? 1 : 0
+
   rest_api_id             = aws_api_gateway_rest_api.rhobs.id
-  resource_id             = aws_api_gateway_resource.api_v1_query.id
-  http_method             = aws_api_gateway_method.thanos_query.http_method
+  resource_id             = aws_api_gateway_resource.api_v1_query[0].id
+  http_method             = aws_api_gateway_method.thanos_query[0].http_method
   type                    = "HTTP_PROXY"
   integration_http_method = "GET"
   connection_type         = "VPC_LINK"
@@ -69,16 +73,20 @@ resource "aws_api_gateway_integration" "thanos_query" {
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_method" "thanos_query_range" {
+  count = var.enable_thanos_query ? 1 : 0
+
   rest_api_id   = aws_api_gateway_rest_api.rhobs.id
-  resource_id   = aws_api_gateway_resource.api_v1_query_range.id
+  resource_id   = aws_api_gateway_resource.api_v1_query_range[0].id
   http_method   = "GET"
   authorization = "AWS_IAM"
 }
 
 resource "aws_api_gateway_integration" "thanos_query_range" {
+  count = var.enable_thanos_query ? 1 : 0
+
   rest_api_id             = aws_api_gateway_rest_api.rhobs.id
-  resource_id             = aws_api_gateway_resource.api_v1_query_range.id
-  http_method             = aws_api_gateway_method.thanos_query_range.http_method
+  resource_id             = aws_api_gateway_resource.api_v1_query_range[0].id
+  http_method             = aws_api_gateway_method.thanos_query_range[0].http_method
   type                    = "HTTP_PROXY"
   integration_http_method = "GET"
   connection_type         = "VPC_LINK"

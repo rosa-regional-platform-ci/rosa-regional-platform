@@ -38,8 +38,8 @@ resource "aws_api_gateway_rest_api" "rhobs" {
 
 # -----------------------------------------------------------------------------
 # Resource chain: /api -> /api/v1 -> /api/v1/receive
-#                                  -> /api/v1/query
-#                                  -> /api/v1/query_range
+#                                  -> /api/v1/query         (when enable_thanos_query = true)
+#                                  -> /api/v1/query_range   (when enable_thanos_query = true)
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_resource" "api" {
@@ -61,12 +61,16 @@ resource "aws_api_gateway_resource" "api_v1_receive" {
 }
 
 resource "aws_api_gateway_resource" "api_v1_query" {
+  count = var.enable_thanos_query ? 1 : 0
+
   rest_api_id = aws_api_gateway_rest_api.rhobs.id
   parent_id   = aws_api_gateway_resource.api_v1.id
   path_part   = "query"
 }
 
 resource "aws_api_gateway_resource" "api_v1_query_range" {
+  count = var.enable_thanos_query ? 1 : 0
+
   rest_api_id = aws_api_gateway_rest_api.rhobs.id
   parent_id   = aws_api_gateway_resource.api_v1.id
   path_part   = "query_range"
@@ -87,19 +91,24 @@ resource "aws_api_gateway_deployment" "rhobs" {
   ]
 
   triggers = {
-    redeployment = sha1(jsonencode([
-      aws_api_gateway_resource.api_v1_receive.id,
-      aws_api_gateway_method.thanos_receive.id,
-      aws_api_gateway_integration.thanos_receive.id,
-      aws_api_gateway_resource.api_v1_query.id,
-      aws_api_gateway_method.thanos_query.id,
-      aws_api_gateway_integration.thanos_query.id,
-      aws_api_gateway_resource.api_v1_query_range.id,
-      aws_api_gateway_method.thanos_query_range.id,
-      aws_api_gateway_integration.thanos_query_range.id,
-      aws_api_gateway_rest_api.rhobs.binary_media_types,
-      aws_api_gateway_rest_api_policy.rhobs.policy,
-    ]))
+    redeployment = sha1(jsonencode(concat(
+      [
+        aws_api_gateway_resource.api_v1_receive.id,
+        aws_api_gateway_method.thanos_receive.id,
+        aws_api_gateway_integration.thanos_receive.id,
+        aws_api_gateway_rest_api.rhobs.binary_media_types,
+        aws_api_gateway_rest_api_policy.rhobs.policy,
+        var.enable_thanos_query,
+      ],
+      var.enable_thanos_query ? [
+        aws_api_gateway_resource.api_v1_query[0].id,
+        aws_api_gateway_method.thanos_query[0].id,
+        aws_api_gateway_integration.thanos_query[0].id,
+        aws_api_gateway_resource.api_v1_query_range[0].id,
+        aws_api_gateway_method.thanos_query_range[0].id,
+        aws_api_gateway_integration.thanos_query_range[0].id,
+      ] : [],
+    )))
   }
 
   lifecycle {

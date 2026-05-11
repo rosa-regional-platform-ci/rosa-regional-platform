@@ -36,6 +36,6 @@ output "thanos_receive_target_group_arn" {
 }
 
 output "thanos_query_target_group_arn" {
-  description = "Target group ARN for Thanos Query Frontend TargetGroupBinding"
-  value       = aws_lb_target_group.thanos_query.arn
+  description = "Target group ARN for Thanos Query Frontend TargetGroupBinding (empty when enable_thanos_query = false)"
+  value       = var.enable_thanos_query ? aws_lb_target_group.thanos_query[0].arn : ""
 }

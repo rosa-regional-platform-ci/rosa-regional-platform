@@ -11,6 +11,7 @@
   "enable_cloudtrail": false,
   "enable_pagerduty": false,
   "pagerduty_escalation_policy_id": "P5KE444",
+  "enable_thanos_query": true,
   "regional_id": "regional",
   "eph_prefix": "",
   "node_instance_types": ["t3.medium", "t3a.medium"],
