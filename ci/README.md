@@ -125,6 +125,10 @@ The e2e jobs use credentials mounted at `/var/run/rosa-credentials/`. Credential
 - `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral` and `on-demand-e2e`.
 - `rosa-regional-platform-integration-creds` — grants access to AWS credentials for testing against the API gateway in the regional integration account. Used by `nightly-integration`.
 
+### HCP Creation Tests
+
+HCP (Hosted Control Plane) creation e2e tests require customer AWS account credentials. The `ephemeral-shared-dev-creds` Vault secret must include `customer_access_key` and `customer_secret_key` fields. If these are not present, HCP creation tests are skipped. The e2e test script (`ci/e2e-tests.sh`) accepts credentials from either environment variables (ephemeral workflow) or credential files (CI workflow).
+
 ## AWS Account Cleanup (Janitor)
 
 The ephemeral tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. To clean up leaked resources, a CloudFormation-based [aws-nuke-cf](https://github.com/openshift-online/aws-nuke-cf) stack is deployed into each AWS account. It runs aws-nuke on a schedule using an in-account IAM role.
