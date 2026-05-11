@@ -43,6 +43,8 @@ fi
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 E2E_REF="${E2E_REF:-main}"
 E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
+CLI_REF="${CLI_REF:-main}"
+CLI_REPO="${CLI_REPO:-https://github.com/openshift-online/rosa-regional-platform-cli.git}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 git clone --depth 1 --branch "${E2E_REF}" \
@@ -54,6 +56,73 @@ export PATH="$(go env GOPATH)/bin:${PATH}"
 
 rc=0
 make test-e2e || rc=$?
+
+# Get regional account ID for CLI tests
+if [[ -z "${E2E_ACCOUNT_ID:-}" ]]; then
+  export E2E_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+  echo "Regional account ID: ${E2E_ACCOUNT_ID}"
+fi 
+
+# --- HCP Creation E2E Tests ---
+# Uses customer account credentials from vault-mounted secrets.
+# Only run if the platform API tests passed.
+if [[ $rc -ne 0 ]]; then
+  echo "Skipping HCP creation tests — platform API tests failed (exit code: $rc)"
+elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
+  export CUSTOMER_AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")"
+  export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
+  echo "Customer credentials loaded from ${CREDS_DIR}" 
+
+  # Get customer account ID for CLI tests
+  if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
+    export E2E_CUSTOMER_ACCOUNT_ID="$(AWS_ACCESS_KEY_ID="${CUSTOMER_AWS_ACCESS_KEY_ID}" \
+      AWS_SECRET_ACCESS_KEY="${CUSTOMER_AWS_SECRET_ACCESS_KEY}" \
+      aws sts get-caller-identity --query Account --output text)"
+    echo "Customer account ID: ${E2E_CUSTOMER_ACCOUNT_ID:0:8}..."
+  fi 
+
+  test_hcp_creation() {
+    echo ""
+    echo "=== HCP Creation Tests ==="
+
+    local HCP_CLUSTER_NAME="e2e-$(date +%s)"
+
+    CLI_WORK_DIR="$(mktemp -d)"
+    # Do not replace the outer EXIT trap (WORK_DIR cleanup); append CLI temp cleanup.
+    trap 'rm -rf "${CLI_WORK_DIR}"; rm -rf "${WORK_DIR}"' EXIT
+    cd "${CLI_WORK_DIR}"
+    git clone --depth 1 --branch "${CLI_REF}" \
+      "${CLI_REPO}" "${CLI_WORK_DIR}/cli"
+    cd "${CLI_WORK_DIR}/cli"
+
+    # Allow Go to auto-download the required toolchain version if needed
+    # needed because go version differs between the api and cli repos
+    export GOTOOLCHAIN=auto
+    make build
+    chmod 755 ./bin/rosactl
+
+    # make install
+    export ROSACTL_BIN="${CLI_WORK_DIR}/cli/bin/rosactl"
+
+    # switch back to the api work dir
+    cd "${WORK_DIR}/api"
+
+    "${ROSACTL_BIN}" login --url "${BASE_URL}"
+    echo "Creating HCP cluster: ${HCP_CLUSTER_NAME}"
+
+    # Regional credentials stay as AWS_ACCESS_KEY_ID for platform operations
+    # Customer credentials are already exported as CUSTOMER_AWS_ACCESS_KEY_ID
+
+    export GINKGO_NO_COLOR=TRUE
+    make test-e2e-cli || return $?
+
+    echo "HCP creation test completed for: ${HCP_CLUSTER_NAME}"
+  }
+
+  test_hcp_creation || rc=$?
+else
+  echo "WARNING: No customer credentials at ${CREDS_DIR}/customer_access_key — skipping HCP creation tests"
+fi
 
 if [[ $rc -ne 0 ]]; then
     echo ""
