@@ -50,4 +50,30 @@ cd "${WORK_DIR}/api"
 go install github.com/onsi/ginkgo/v2/ginkgo@v2.28.1
 export PATH="$(go env GOPATH)/bin:${PATH}"
 
+# Poll the platform API liveness endpoint before running tests.  The API
+# Gateway backend may not be ready immediately after provision completes
+# (e.g. platform-api pod still starting or VPC Link not yet healthy).
+# Mirrors the retry loop in ci/e2e-platform-api-test.sh.
+echo "Waiting for platform API to become ready at ${BASE_URL}/v0/live..."
+_ready=false
+for _attempt in $(seq 1 20); do
+    _resp=$(curl -sf \
+        --aws-sigv4 "aws:amz:${AWS_DEFAULT_REGION:-us-east-1}:execute-api" \
+        --user "${AWS_ACCESS_KEY_ID:-}:${AWS_SECRET_ACCESS_KEY:-}" \
+        "${BASE_URL}/v0/live" 2>/dev/null) || _resp=""
+    if [[ "${_resp}" == *"ok"* ]]; then
+        echo "Platform API is ready."
+        _ready=true
+        break
+    fi
+    echo "Attempt ${_attempt}/20: API not ready (response: ${_resp:-<no response>}), retrying in 30s..."
+    [[ "${_attempt}" -lt 20 ]] && sleep 30
+done
+unset _attempt _resp
+if [[ "${_ready}" != "true" ]]; then
+    echo "ERROR: Platform API at ${BASE_URL}/v0/live did not become healthy within 10 minutes." >&2
+    exit 1
+fi
+unset _ready
+
 make test-e2e
