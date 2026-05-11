@@ -110,6 +110,8 @@ resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos_health" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos_query" {
+  count = var.enable_thanos_query ? 1 : 0
+
   security_group_id            = var.node_security_group_id
   description                  = "Allow RHOBS ALB traffic to Thanos Query Frontend pods"
   ip_protocol                  = "tcp"

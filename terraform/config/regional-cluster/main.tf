@@ -135,6 +135,9 @@ module "rhobs_api_gateway" {
   node_security_group_id = module.regional_cluster.node_security_group_id
   cluster_name           = module.regional_cluster.cluster_name
 
+  # Thanos Query read path (E2E testing only)
+  enable_thanos_query = var.enable_thanos_query
+
   # Method-level observability
   metrics_enabled = var.rhobs_apigw_metrics_enabled
 }

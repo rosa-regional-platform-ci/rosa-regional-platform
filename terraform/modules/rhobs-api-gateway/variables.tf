@@ -33,6 +33,16 @@ variable "cluster_name" {
 }
 
 # =============================================================================
+# Feature Toggles
+# =============================================================================
+
+variable "enable_thanos_query" {
+  description = "Enable Thanos Query read path (/api/v1/query, /api/v1/query_range). Enable for E2E observability tests."
+  type        = bool
+  default     = false
+}
+
+# =============================================================================
 # API Gateway Configuration
 # =============================================================================
 
