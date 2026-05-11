@@ -105,3 +105,8 @@ thanos:
     serviceName: thanos-receive-router-thanos-receive
     port: 19291
     targetType: ip
+  queryTargetGroup:
+    arn: ""
+    serviceName: thanos-query-frontend-thanos-query
+    port: 9090
+    targetType: ip
