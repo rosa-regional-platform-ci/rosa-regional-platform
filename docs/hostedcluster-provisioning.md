@@ -410,19 +410,20 @@ aws cloudformation wait stack-delete-complete --stack-name <stack_name>
 
 # Force Clean Up All HCPs in a Region
 
-To delete all clusters and resource bundles in a region, temporarily set
-`MAX_AGE_HOURS` to `0` and trigger the cleanup cronjob.
+To delete all clusters and resource bundles in a region, create a one-off
+Job from the cleanup cronjob with `MAX_AGE_HOURS` set to `0`.
 
 From the RC bastion:
 
 ```bash
 oc -n hyperfleet-system get cronjob cluster-cleanup -o json \
-    | jq '.spec.jobTemplate.spec.template.spec.containers[0].env[0].value = "0"
-         | .spec.jobTemplate.spec
-         | .metadata = {name: "cluster-cleanup-\(now | floor)", namespace: "hyperfleet-system"}
-         | .apiVersion = "batch/v1"
-         | .kind = "Job"' \
-    | oc apply -f -
+  | jq '{
+      apiVersion: "batch/v1",
+      kind: "Job",
+      metadata: {name: "cluster-cleanup-\(now | floor)", namespace: "hyperfleet-system"},
+      spec: (.spec.jobTemplate.spec | .template.spec.containers[0].env[0].value = "0")
+    }' \
+  | oc apply -f -
 ```
 
 # Notes
