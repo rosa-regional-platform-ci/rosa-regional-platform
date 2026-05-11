@@ -27,10 +27,10 @@ git:
 aws:
   # @doc aws.account_id Regional AWS account ID.
   # @used-by aws.account_id _context
-  account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/account_id"
+  account_id: '599476212575'
   # @doc aws.management_cluster_account_id Default account for MCs when entry has no account_id.
   # @used-by aws.management_cluster_account_id _context
-  management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
+  management_cluster_account_id: '855246887846'
 
 dns:
   # @doc dns.domain Base domain for the environment. Must be set per environment.
@@ -61,7 +61,6 @@ regional_cluster:
   # @doc regional_cluster.node_instance_types EC2 instance types for regional cluster nodes.
   # @used-by regional_cluster.node_instance_types pipeline-regional-cluster-inputs/terraform.json.j2
   node_instance_types: ["t3.medium", "t3a.medium"]
-  enable_pagerduty: false
 
 management_cluster_defaults:
   # @doc management_cluster_defaults.enable_bastion Default enable bastion for management clusters.
@@ -77,7 +76,7 @@ observability:
     # @doc observability.pagerduty.enabled Enable PagerDuty service provisioning for the region.
     # @used-by observability.pagerduty.enabled _context
     # @used-by observability.pagerduty.enabled pipeline-regional-cluster-inputs/terraform.json.j2
-    enabled: false
+    enabled: true
     # @doc observability.pagerduty.escalation_policy_id PagerDuty escalation policy ID for regional services.
     # @used-by observability.pagerduty.escalation_policy_id _context
     # @used-by observability.pagerduty.escalation_policy_id pipeline-regional-cluster-inputs/terraform.json.j2
