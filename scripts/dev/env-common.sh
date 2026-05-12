@@ -18,17 +18,53 @@
 
 die() { echo "Error: $*" >&2; exit 1; }
 
-# Resolve temporary credentials from an AWS profile.
+# Resolve the base SAML credentials from a credential_process profile.
+# The credential_process is not cached by the AWS CLI, so this always returns
+# fresh credentials. Results are cached in-process for the given profile.
+# Args: $1 = base profile name (the one with credential_process)
+# Sets: _BASE_AK, _BASE_SK, _BASE_ST
+resolve_base_creds() {
+    local base_profile="$1"
+    if [[ "${_BASE_RESOLVED_PROFILE:-}" == "$base_profile" ]]; then
+        return 0
+    fi
+    echo "Resolving base credentials..."
+    local creds creds_err
+    creds_err=$(mktemp)
+    creds=$(aws configure export-credentials --profile "$base_profile" --format process 2>"$creds_err") \
+        || { local err; err=$(<"$creds_err"); rm -f "$creds_err"; die "Failed to resolve base credentials ($base_profile):\n$err"; }
+    rm -f "$creds_err"
+    _BASE_AK=$(echo "$creds" | jq -r '.AccessKeyId')
+    _BASE_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
+    _BASE_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
+    _BASE_RESOLVED_PROFILE="$base_profile"
+}
+
+# Assume a role using the base SAML credentials, bypassing the CLI's profile cache.
+# Reads source_profile and role_arn from the given profile config.
 # Sets: _CRED_AK, _CRED_SK, _CRED_ST
 resolve_creds() {
     local profile="$1"
     echo "Resolving credentials for profile $profile..."
-    local creds
-    creds=$(aws configure export-credentials --profile "$profile" --format process 2>/dev/null) \
-        || die "Failed to resolve credentials for profile $profile. Have you authenticated?"
-    _CRED_AK=$(echo "$creds" | jq -r '.AccessKeyId')
-    _CRED_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
-    _CRED_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
+
+    local role_arn base_profile
+    role_arn=$(aws configure get role_arn --profile "$profile" 2>/dev/null) \
+        || die "No role_arn found for profile $profile"
+    base_profile=$(aws configure get source_profile --profile "$profile" 2>/dev/null) \
+        || die "No source_profile found for profile $profile"
+
+    resolve_base_creds "$base_profile"
+
+    local creds creds_err
+    creds_err=$(mktemp)
+    creds=$(AWS_ACCESS_KEY_ID="$_BASE_AK" AWS_SECRET_ACCESS_KEY="$_BASE_SK" AWS_SESSION_TOKEN="$_BASE_ST" \
+        aws sts assume-role --role-arn "$role_arn" --role-session-name "rrp-dev-$$" \
+        --duration-seconds 3600 --output json 2>"$creds_err") \
+        || { local err; err=$(<"$creds_err"); rm -f "$creds_err"; die "Failed to assume role $role_arn:\n$err"; }
+    rm -f "$creds_err"
+    _CRED_AK=$(echo "$creds" | jq -r '.Credentials.AccessKeyId')
+    _CRED_SK=$(echo "$creds" | jq -r '.Credentials.SecretAccessKey')
+    _CRED_ST=$(echo "$creds" | jq -r '.Credentials.SessionToken')
 }
 
 # Build the CI container image if not already present.
@@ -94,6 +130,8 @@ parse_account() {
 # Sets: AWS_CONFIG_FILE, AWS_SHARED_CREDENTIALS_FILE, _aws_config_dir, _internal_repo
 # Caller should write profile heredoc to $AWS_CONFIG_FILE after calling this.
 init_aws_config() {
+    unset AWS_PROFILE AWS_DEFAULT_PROFILE
+
     _internal_repo="${INTERNAL_REPO:-$(cd "$REPO_ROOT/../rosa-regional-platform-internal" 2>/dev/null && pwd || true)}"
     [[ -n "$_internal_repo" ]] \
         || die "rosa-regional-platform-internal not found at $REPO_ROOT/../rosa-regional-platform-internal. Set INTERNAL_REPO."
