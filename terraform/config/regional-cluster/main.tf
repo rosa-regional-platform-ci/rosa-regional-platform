@@ -42,7 +42,7 @@ provider "aws" {
 # When PagerDuty is disabled, a dummy token lets the provider initialize
 # without PAGERDUTY_TOKEN. When enabled, null falls through to the env var.
 provider "pagerduty" {
-  token                       = var.enable_pagerduty ? null : "not-configured"
+  token                       = var.enable_pagerduty ? null : "placeholder"
   skip_credentials_validation = true
 }
 
