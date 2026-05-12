@@ -43,7 +43,6 @@ provider "aws" {
 # Only used when enable_pagerduty = true; skip validation so plan/init
 # succeed in environments where the token is not available.
 provider "pagerduty" {
-  token                       = var.enable_pagerduty ? null : "placeholder"
   skip_credentials_validation = true
 }
 
