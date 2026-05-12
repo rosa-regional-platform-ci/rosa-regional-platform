@@ -28,7 +28,7 @@ graph TB
 
     subgraph APIGW["Cross-Account Bridge"]
         GW["RHOBS API Gateway<br/>REST v1 / IAM auth"]
-        VPC["VPC Link → ALB"]
+        VPC["RHOBS VPC Link → RHOBS ALB"]
         MC_SIGV4 -->|SigV4-signed POST| GW
         GW --> VPC
     end

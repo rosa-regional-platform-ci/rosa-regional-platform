@@ -67,23 +67,6 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_targets" {
   referenced_security_group_id = var.node_security_group_id
 }
 
-resource "aws_vpc_security_group_egress_rule" "alb_to_thanos" {
-  security_group_id            = aws_security_group.alb.id
-  description                  = "Allow traffic to Thanos Receive pods"
-  ip_protocol                  = "tcp"
-  from_port                    = var.thanos_target_port
-  to_port                      = var.thanos_target_port
-  referenced_security_group_id = var.node_security_group_id
-}
-
-resource "aws_vpc_security_group_egress_rule" "alb_to_thanos_health" {
-  security_group_id            = aws_security_group.alb.id
-  description                  = "Allow ALB health checks to Thanos Receive HTTP port"
-  ip_protocol                  = "tcp"
-  from_port                    = var.thanos_health_check_port
-  to_port                      = var.thanos_health_check_port
-  referenced_security_group_id = var.node_security_group_id
-}
 
 # -----------------------------------------------------------------------------
 # Node Security Group Ingress Rule
@@ -102,20 +85,3 @@ resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb" {
   referenced_security_group_id = aws_security_group.alb.id
 }
 
-resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos" {
-  security_group_id            = var.node_security_group_id
-  description                  = "Allow ALB traffic to Thanos Receive pods"
-  ip_protocol                  = "tcp"
-  from_port                    = var.thanos_target_port
-  to_port                      = var.thanos_target_port
-  referenced_security_group_id = aws_security_group.alb.id
-}
-
-resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos_health" {
-  security_group_id            = var.node_security_group_id
-  description                  = "Allow ALB health checks to Thanos Receive HTTP port"
-  ip_protocol                  = "tcp"
-  from_port                    = var.thanos_health_check_port
-  to_port                      = var.thanos_health_check_port
-  referenced_security_group_id = aws_security_group.alb.id
-}

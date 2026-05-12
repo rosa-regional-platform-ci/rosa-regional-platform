@@ -142,8 +142,8 @@ output "api_target_group_arn" {
 }
 
 output "thanos_target_group_arn" {
-  description = "Target group ARN for Thanos Receive TargetGroupBinding"
-  value       = module.api_gateway.thanos_target_group_arn
+  description = "Target group ARN for Thanos Receive TargetGroupBinding (dedicated RHOBS ALB)"
+  value       = module.rhobs_api_gateway.thanos_receive_target_group_arn
 }
 
 output "rhobs_api_url" {
