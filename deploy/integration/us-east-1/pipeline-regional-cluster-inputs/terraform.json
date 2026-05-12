@@ -10,7 +10,7 @@
   "enable_bastion": true,
   "enable_cloudtrail": true,
   "enable_thanos_query": false,
-  "regional_id": "regional",
+  "regional_id": "eph-68cc7426-regional",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "iot_log_level": "WARN",
   "management_cluster_account_ids": ["ssm:///infra/integration/us-east-1/mc01/account_id"]
