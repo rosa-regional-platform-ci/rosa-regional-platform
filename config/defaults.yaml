@@ -81,7 +81,6 @@ observability:
 
 applications:
   management-cluster:
-    eksNodePool:
     hypershift:
       oidcStorageS3Bucket:
         # @doc applications.management-cluster.hypershift.oidcStorageS3Bucket.name OIDC S3 bucket name for HyperShift.
@@ -95,7 +94,6 @@ applications:
         # @used-by applications.management-cluster.hypershift.externalDns.domain _context
         domain: "dev.{{ aws_region }}.rosa.example.com"
   regional-cluster:
-    eksNodePool:
     maestro:
       # @doc applications.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
       # @used-by applications.regional-cluster.maestro.mqttEndpoint _context
