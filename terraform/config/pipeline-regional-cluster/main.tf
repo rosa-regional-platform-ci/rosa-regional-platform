@@ -74,7 +74,8 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "cloudwatch:*",
           "route53:*",
           "acm:*",
-          "tag:*"
+          "tag:*",
+          "ssm:*"
         ]
         Resource = "*"
       },
