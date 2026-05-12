@@ -45,6 +45,22 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  ou_path_environment = contains(["dev", "development", "eph", "ephemeral"], var.environment) ? "dev" : var.environment
+  ou_path_region      = contains(["dev", "development", "eph", "ephemeral"], var.environment) ? "e2e" : (var.environment == "ci" ? "us-east-1" : var.region)
+}
+
+data "aws_ssm_parameter" "ou_path" {
+  provider = aws.central
+  name     = "/infra/${local.ou_path_environment}/${local.ou_path_region}/ou-path"
+}
+
+resource "aws_ssm_parameter" "ou_path" {
+  name  = "/infra/${var.environment}/${var.regional_id}/ou-path"
+  type  = "String"
+  value = data.aws_ssm_parameter.ou_path.value
+}
+
 # Call the EKS cluster module for regional cluster infrastructure
 module "regional_cluster" {
   source = "../../modules/eks-cluster"
