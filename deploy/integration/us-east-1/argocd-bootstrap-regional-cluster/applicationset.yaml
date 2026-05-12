@@ -71,6 +71,8 @@ spec:
               kmsKeyArn: '{{ .metadata.annotations.thanos_kms_key_arn }}'
               targetGroup:
                 arn: '{{ .metadata.annotations.thanos_target_group_arn }}'
+              queryTargetGroup:
+                arn: '{{ .metadata.annotations.thanos_query_target_group_arn }}'
             hyperfleetApi:
               aws:
                 region: '{{ .metadata.labels.aws_region }}'
