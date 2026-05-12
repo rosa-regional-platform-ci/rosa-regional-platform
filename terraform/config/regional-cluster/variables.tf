@@ -149,7 +149,7 @@ variable "api_throttling_rate_limit" {
 # RHOBS API Gateway Method Settings Variables
 # =============================================================================
 
-variable "rhobs_metrics_enabled" {
+variable "rhobs_apigw_metrics_enabled" {
   description = "Enable detailed CloudWatch metrics for RHOBS API Gateway methods"
   type        = bool
   default     = true

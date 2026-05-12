@@ -136,7 +136,7 @@ module "rhobs_api_gateway" {
   cluster_name           = module.regional_cluster.cluster_name
 
   # Method-level observability
-  metrics_enabled = var.rhobs_metrics_enabled
+  metrics_enabled = var.rhobs_apigw_metrics_enabled
 }
 
 # =============================================================================
