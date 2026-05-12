@@ -95,6 +95,64 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
+          # Pre-flight: apply FIPS NodeClass and NodePool so Karpenter can provision
+          # nodes for ArgoCD pods to schedule on. ArgoCD adopts these on first sync.
+          echo "Applying FIPS NodeClass and NodePool before ArgoCD install..."
+
+          NODEPOOL_NAME="management-workloads"
+          if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
+            NODEPOOL_NAME="regional-workloads"
+          fi
+
+          cat <<-NODECLASS_EOF | kubectl apply -f -
+          apiVersion: eks.amazonaws.com/v1
+          kind: NodeClass
+          metadata:
+            name: fips
+          spec:
+            role: "$CLUSTER_NAME-auto-node-role"
+            subnetSelectorTerms:
+              - tags:
+                  "kubernetes.io/cluster/$CLUSTER_NAME": owned
+            securityGroupSelectorTerms:
+              - tags:
+                  aws:eks:cluster-name: "$CLUSTER_NAME"
+            advancedSecurity:
+              fips: true
+              kernelLockdown: Integrity
+          NODECLASS_EOF
+
+          cat <<-NODEPOOL_EOF | kubectl apply -f -
+          apiVersion: karpenter.sh/v1
+          kind: NodePool
+          metadata:
+            name: $NODEPOOL_NAME
+          spec:
+            template:
+              spec:
+                nodeClassRef:
+                  group: eks.amazonaws.com
+                  kind: NodeClass
+                  name: fips
+                requirements:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values:
+                      - on-demand
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+            limits:
+              cpu: "64"
+              memory: 256Gi
+            disruption:
+              consolidationPolicy: WhenEmpty
+              consolidateAfter: 60s
+          NODEPOOL_EOF
+
+          echo "✓ FIPS NodeClass and NodePool applied"
+
           # Check if ArgoCD already exists
           if ! kubectl get deployment argocd-server -n argocd 2>/dev/null; then
             echo "Installing ArgoCD via Helm..."

@@ -117,9 +117,11 @@ resource "aws_eks_cluster" "main" {
   }
 
   compute_config {
-    enabled       = true
-    node_pools    = ["general-purpose"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
+    enabled = true
+    # No built-in node pools — all scheduling is handled by the custom FIPS NodePool/NodeClass.
+    # EKS rejects node_role_arn without node_pools, so both must be null.
+    node_pools    = []
+    node_role_arn = null
 
     # TODO: Enable IMDSv2 enforcement for security compliance
     # node_pool_defaults configuration for launch template metadata_options
