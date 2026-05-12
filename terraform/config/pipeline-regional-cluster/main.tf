@@ -74,9 +74,18 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "cloudwatch:*",
           "route53:*",
           "acm:*",
-          "tag:*"
+          "tag:*",
+          "ssm:DescribeParameters"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:PutParameter"
+        ]
+        Resource = "arn:aws:ssm:*:*:parameter/infra/*"
       },
       {
         Effect   = "Allow"
