@@ -3,29 +3,23 @@
 #
 # API URL resolution (first match wins):
 #   1. BASE_URL env var            — set by local wrapper scripts (ephemeral-env.sh, int-env.sh)
-#   2. CI_SECRETS_DIR/api_url file — Prow-mounted secret for the standing int environment
+#   2. CREDS_DIR/api_url file — Prow-mounted secret for the standing int environment
 #   3. SHARED_DIR terraform output — written by ephemeral-provider during CI provisioning
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Generate AWS profiles from Prow-mounted credential files.
-# Each Prow step runs in its own pod, so profiles must be set up here.
 source "${SCRIPT_DIR}/setup-aws-profiles.sh"
-
-# CI_SECRETS_DIR points to Prow-mounted secrets. Only used for the api_url file;
-# credentials come from AWS profiles, not from this directory.
-CI_SECRETS_DIR="${CI_SECRETS_DIR:-/var/run/rosa-credentials}"
 
 if [[ -n "${BASE_URL:-}" ]]; then
   echo "Using BASE_URL from environment: ${BASE_URL}"
 else
-  if [[ -r "${CI_SECRETS_DIR}/api_url" ]]; then
-    echo "Using API URL from ${CI_SECRETS_DIR}/api_url (CI pre-existing environment)"
-    BASE_URL="$(cat "${CI_SECRETS_DIR}/api_url")"
+  if [[ -r "${CREDS_DIR}/api_url" ]]; then
+    echo "Using API URL from ${CREDS_DIR}/api_url (CI pre-existing environment)"
+    BASE_URL="$(cat "${CREDS_DIR}/api_url")"
   else
-    echo "No ${CI_SECRETS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
+    echo "No ${CREDS_DIR}/api_url found, falling back to terraform outputs (ephemeral environment)"
     TF_OUTPUTS="${SHARED_DIR}/regional-terraform-outputs.json"
     if [[ ! -r "${TF_OUTPUTS}" ]]; then
       echo "ERROR: ${TF_OUTPUTS} does not exist or is not readable" >&2
@@ -69,23 +63,44 @@ if [[ -z "${E2E_ACCOUNT_ID:-}" ]]; then
 fi 
 
 # --- HCP Creation E2E Tests ---
-# Uses customer account credentials from vault-mounted secrets.
+# Customer credentials resolution (first match wins):
+#   1. rrp-customer profile (container config from dev scripts, or CI with profile)
+#   2. CREDS_DIR/customer_access_key file (CI vault-mounted secret)
 # Only run if the platform API tests passed.
+_have_customer_creds=false
 if [[ $rc -ne 0 ]]; then
   echo "Skipping HCP creation tests — platform API tests failed (exit code: $rc)"
+elif aws configure export-credentials --profile rrp-customer --format process &>/dev/null; then
+  _cust_creds=$(aws configure export-credentials --profile rrp-customer --format process)
+  export CUSTOMER_AWS_ACCESS_KEY_ID=$(echo "$_cust_creds" | jq -r '.AccessKeyId')
+  export CUSTOMER_AWS_SECRET_ACCESS_KEY=$(echo "$_cust_creds" | jq -r '.SecretAccessKey')
+  _cust_st=$(echo "$_cust_creds" | jq -r '.SessionToken // empty')
+  [[ -n "$_cust_st" ]] && export CUSTOMER_AWS_SESSION_TOKEN="$_cust_st"
+  unset _cust_creds _cust_st
+  echo "Customer credentials loaded from rrp-customer profile"
+
+  if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
+    export E2E_CUSTOMER_ACCOUNT_ID="$(aws sts get-caller-identity --profile rrp-customer --query Account --output text)"
+    echo "Customer account ID: ${E2E_CUSTOMER_ACCOUNT_ID:0:8}..."
+  fi
+  _have_customer_creds=true
 elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
   export CUSTOMER_AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")"
   export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
-  echo "Customer credentials loaded from ${CREDS_DIR}" 
+  echo "Customer credentials loaded from ${CREDS_DIR}"
 
-  # Get customer account ID for CLI tests
   if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
     export E2E_CUSTOMER_ACCOUNT_ID="$(AWS_ACCESS_KEY_ID="${CUSTOMER_AWS_ACCESS_KEY_ID}" \
       AWS_SECRET_ACCESS_KEY="${CUSTOMER_AWS_SECRET_ACCESS_KEY}" \
       aws sts get-caller-identity --query Account --output text)"
     echo "Customer account ID: ${E2E_CUSTOMER_ACCOUNT_ID:0:8}..."
-  fi 
+  fi
+  _have_customer_creds=true
+else
+  echo "WARNING: No customer credentials available — skipping HCP creation tests"
+fi
 
+if [[ "$_have_customer_creds" == "true" ]]; then
   test_hcp_creation() {
     echo ""
     echo "=== HCP Creation Tests ==="
@@ -93,30 +108,22 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
     local HCP_CLUSTER_NAME="e2e-$(date +%s)"
 
     CLI_WORK_DIR="$(mktemp -d)"
-    # Do not replace the outer EXIT trap (WORK_DIR cleanup); append CLI temp cleanup.
     trap 'rm -rf "${CLI_WORK_DIR}"; rm -rf "${WORK_DIR}"' EXIT
     cd "${CLI_WORK_DIR}"
     git clone --depth 1 --branch "${CLI_REF}" \
       "${CLI_REPO}" "${CLI_WORK_DIR}/cli"
     cd "${CLI_WORK_DIR}/cli"
 
-    # Allow Go to auto-download the required toolchain version if needed
-    # needed because go version differs between the api and cli repos
     export GOTOOLCHAIN=auto
     make build
     chmod 755 ./bin/rosactl
 
-    # make install
     export ROSACTL_BIN="${CLI_WORK_DIR}/cli/bin/rosactl"
 
-    # switch back to the api work dir
     cd "${WORK_DIR}/api"
 
     "${ROSACTL_BIN}" login --url "${BASE_URL}"
     echo "Creating HCP cluster: ${HCP_CLUSTER_NAME}"
-
-    # Regional credentials stay as AWS_ACCESS_KEY_ID for platform operations
-    # Customer credentials are already exported as CUSTOMER_AWS_ACCESS_KEY_ID
 
     export GINKGO_NO_COLOR=TRUE
     make test-e2e-cli || return $?
@@ -125,8 +132,6 @@ elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
   }
 
   test_hcp_creation || rc=$?
-else
-  echo "WARNING: No customer credentials at ${CREDS_DIR}/customer_access_key — skipping HCP creation tests"
 fi
 
 if [[ $rc -ne 0 ]]; then
@@ -135,7 +140,7 @@ if [[ $rc -ne 0 ]]; then
 
     # Pre-existing environment (integration): bare cluster names (regional, mc01)
     # Ephemeral environment: ci_prefix-based names derived from BUILD_ID
-    if [[ -r "${CI_SECRETS_DIR}/api_url" ]]; then
+    if [[ -r "${CREDS_DIR}/api_url" ]]; then
         export CLUSTER_PREFIX=""
     elif [[ -n "${BUILD_ID:-}" ]]; then
         hash="$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)" \

@@ -48,6 +48,13 @@ class AWSCredentials:
         self.target_session: boto3.Session | None = None
         self.subprocess_env: dict[str, str] = {}
 
+    @staticmethod
+    def _forward_config_env(env: dict[str, str]) -> None:
+        """Copy AWS config/credentials file paths into a subprocess env dict."""
+        for key in ("AWS_CONFIG_FILE", "AWS_SHARED_CREDENTIALS_FILE"):
+            if os.environ.get(key):
+                env[key] = os.environ[key]
+
     def setup_central_account(self):
         """Set up central account access via the rrp-central profile."""
         log.info("Setting up central account access")
@@ -62,18 +69,12 @@ class AWSCredentials:
             region_name=self.target_region,
         )
 
-        # For subprocess calls (terraform, bootstrap scripts), pass the profile
-        # and config file path so they resolve credentials the same way.
         self.subprocess_env = {
             "AWS_PROFILE": PROFILE_CENTRAL,
             "AWS_DEFAULT_REGION": self.central_region,
             "AWS_REGION": self.central_region,
         }
-        # Forward the config file path if set (always set in our workflows).
-        if os.environ.get("AWS_CONFIG_FILE"):
-            self.subprocess_env["AWS_CONFIG_FILE"] = os.environ["AWS_CONFIG_FILE"]
-        if os.environ.get("AWS_SHARED_CREDENTIALS_FILE"):
-            self.subprocess_env["AWS_SHARED_CREDENTIALS_FILE"] = os.environ["AWS_SHARED_CREDENTIALS_FILE"]
+        self._forward_config_env(self.subprocess_env)
 
         identity = self.session.client("sts").get_caller_identity()
         self.central_account_id = identity["Account"]
@@ -114,10 +115,7 @@ class AWSCredentials:
             "AWS_DEFAULT_REGION": self.target_region,
             "AWS_REGION": self.target_region,
         }
-        if os.environ.get("AWS_CONFIG_FILE"):
-            env["AWS_CONFIG_FILE"] = os.environ["AWS_CONFIG_FILE"]
-        if os.environ.get("AWS_SHARED_CREDENTIALS_FILE"):
-            env["AWS_SHARED_CREDENTIALS_FILE"] = os.environ["AWS_SHARED_CREDENTIALS_FILE"]
+        self._forward_config_env(env)
         return env
 
     def setup_target_account_trust(self, prefix: str):

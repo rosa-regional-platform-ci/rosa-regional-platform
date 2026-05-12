@@ -26,11 +26,12 @@ VAULT_KV_MOUNT="kv"
 VAULT_SECRET_PATH="selfservice/cluster-secrets-rosa-regional-platform-int/ephemeral-shared-dev-creds"
 VAULT_ACCOUNTS_FIELD="ephemeral_shared_dev_accounts"
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/env-common.sh"
+
 # =============================================================================
 # Helpers
 # =============================================================================
-
-die() { echo "Error: $*" >&2; exit 1; }
 
 usage() {
     echo "Usage: $0 <command>"
@@ -191,59 +192,24 @@ setup_override_mount() {
 }
 
 # Fetch config from Vault via OIDC login.
-# Sets: CENTRAL_ACCOUNT, RC_ACCOUNT, MC_ACCOUNT, GITHUB_TOKEN
+# Sets: ADMIN_ACCOUNT, CENTRAL_ACCOUNT, RC_ACCOUNT, MC_ACCOUNT, GITHUB_TOKEN
 fetch_vault_config() {
-    echo "Fetching config from Vault (OIDC login)..."
-
-    local vault_token
-    vault_token=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
-        || die "Vault OIDC login failed."
-
-    local accounts_json
-    accounts_json=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$vault_token" \
-        vault kv get -mount="$VAULT_KV_MOUNT" -field="$VAULT_ACCOUNTS_FIELD" "$VAULT_SECRET_PATH" 2>/dev/null) \
-        || die "Failed to fetch '$VAULT_ACCOUNTS_FIELD' from Vault."
-
-    ADMIN_ACCOUNT=$(echo "$accounts_json" | jq -r '.admin') \
-        || die "Failed to parse 'admin' from account IDs."
-    CENTRAL_ACCOUNT=$(echo "$accounts_json" | jq -r '.central') \
-        || die "Failed to parse 'central' from account IDs."
-    RC_ACCOUNT=$(echo "$accounts_json" | jq -r '.rc') \
-        || die "Failed to parse 'rc' from account IDs."
-    MC_ACCOUNT=$(echo "$accounts_json" | jq -r '.mc') \
-        || die "Failed to parse 'mc' from account IDs."
-
-    [[ "$ADMIN_ACCOUNT" != "null" ]]   || die "Missing 'admin' in account IDs."
-    [[ "$CENTRAL_ACCOUNT" != "null" ]] || die "Missing 'central' in account IDs."
-    [[ "$RC_ACCOUNT" != "null" ]]      || die "Missing 'rc' in account IDs."
-    [[ "$MC_ACCOUNT" != "null" ]]       || die "Missing 'mc' in account IDs."
-
-    GITHUB_TOKEN=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$vault_token" \
-        vault kv get -mount="$VAULT_KV_MOUNT" -field="github_token" "$VAULT_SECRET_PATH" 2>/dev/null) \
-        || die "Failed to fetch 'github_token' from Vault."
-
-    echo "Vault config loaded."
+    vault_fetch_accounts "$VAULT_SECRET_PATH" "$VAULT_ACCOUNTS_FIELD" github_token
+    parse_account admin
+    parse_account central
+    parse_account rc
+    parse_account mc
+    parse_account customer
 }
 
 # Create temporary AWS config with ephemeral profiles.
-# The credential_process calls into rosa-regional-platform-internal for SAML auth.
 setup_aws_config() {
-    local internal_repo="${INTERNAL_REPO:-$(cd "$REPO_ROOT/../rosa-regional-platform-internal" 2>/dev/null && pwd || true)}"
-    [[ -n "$internal_repo" ]] \
-        || die "rosa-regional-platform-internal not found at $REPO_ROOT/../rosa-regional-platform-internal. Set INTERNAL_REPO."
-    [[ -d "$internal_repo/infra/scripts" ]] \
-        || die "Cannot find infra/scripts/ in $internal_repo"
-
     fetch_vault_config
-
-    _aws_config_dir=$(mktemp -d)
-    export AWS_CONFIG_FILE="$_aws_config_dir/config"
-    export AWS_SHARED_CREDENTIALS_FILE="$_aws_config_dir/credentials"
-    touch "$AWS_SHARED_CREDENTIALS_FILE"
+    init_aws_config
 
     cat > "$AWS_CONFIG_FILE" <<AWSCFG
 [profile rrp-ephemeral-admin]
-credential_process = uv run --project ${internal_repo}/infra/scripts python ${internal_repo}/infra/scripts/cached_saml_credentials_process.py ${ADMIN_ACCOUNT} ${ADMIN_ACCOUNT}-rrp-admin
+credential_process = uv run --project ${_internal_repo}/infra/scripts python ${_internal_repo}/infra/scripts/cached_saml_credentials_process.py ${ADMIN_ACCOUNT} ${ADMIN_ACCOUNT}-rrp-admin
 region = us-east-1
 duration_seconds = 3600
 
@@ -264,57 +230,24 @@ role_arn = arn:aws:iam::${MC_ACCOUNT}:role/OrganizationAccountAccessRole
 source_profile = rrp-ephemeral-admin
 region = us-east-1
 duration_seconds = 3600
+
+[profile rrp-ephemeral-customer]
+role_arn = arn:aws:iam::${CUSTOMER_ACCOUNT}:role/OrganizationAccountAccessRole
+source_profile = rrp-ephemeral-admin
+region = us-east-1
+duration_seconds = 3600
 AWSCFG
 
     echo "AWS config written to: $AWS_CONFIG_FILE"
-    trap 'rm -rf "${_aws_config_dir:-}" "${_CONTAINER_CONFIG:-}"' EXIT
 }
 
-# Resolve temporary credentials from an AWS profile.
-# Sets: _CRED_AK, _CRED_SK, _CRED_ST
-resolve_creds() {
-    local profile="$1"
-    echo "Resolving credentials for profile $profile..."
-    local creds
-    creds=$(aws configure export-credentials --profile "$profile" --format process 2>/dev/null) \
-        || die "Failed to resolve credentials for profile $profile. Have you authenticated?"
-    _CRED_AK=$(echo "$creds" | jq -r '.AccessKeyId')
-    _CRED_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
-    _CRED_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
-}
-
-# Build a container-safe AWS config file with resolved static credentials.
-# credential_process won't work inside containers, so we resolve creds on the
-# host and write them as static keys into a temp config file for mounting.
-# Sets: _CONTAINER_CONFIG (path to the temp file)
-write_container_config() {
-    resolve_creds "rrp-ephemeral-central"
-    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-rc"
-    local rc_ak="$_CRED_AK" rc_sk="$_CRED_SK" rc_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-mc"
-    local mc_ak="$_CRED_AK" mc_sk="$_CRED_SK" mc_st="$_CRED_ST"
-
-    _CONTAINER_CONFIG=$(mktemp)
-    cat > "$_CONTAINER_CONFIG" <<EOF
-[profile rrp-central]
-aws_access_key_id = ${central_ak}
-aws_secret_access_key = ${central_sk}
-aws_session_token = ${central_st}
-region = us-east-1
-
-[profile rrp-rc]
-aws_access_key_id = ${rc_ak}
-aws_secret_access_key = ${rc_sk}
-aws_session_token = ${rc_st}
-region = us-east-1
-
-[profile rrp-mc]
-aws_access_key_id = ${mc_ak}
-aws_secret_access_key = ${mc_sk}
-aws_session_token = ${mc_st}
-region = us-east-1
-EOF
+# Resolve ephemeral profiles to static container credentials.
+write_eph_container_config() {
+    write_container_config \
+        "rrp-ephemeral-central rrp-central us-east-1" \
+        "rrp-ephemeral-rc rrp-rc us-east-1" \
+        "rrp-ephemeral-mc rrp-mc us-east-1" \
+        "rrp-ephemeral-customer rrp-customer us-east-1"
 }
 
 profile_for() {
@@ -364,96 +297,12 @@ bastion_setup() {
     echo "  Eph prefix:   $eph_prefix"
     echo "  Cluster type: $cluster_type"
     echo "  Cluster ID:   $cluster_id"
-    echo "  ECS cluster:  $ecs_cluster"
     echo "  Region:       $region"
     echo ""
 
-    # Check for an existing running task
-    echo "==> Checking for running bastion tasks..."
-    local existing_task
-    existing_task=$(aws ecs list-tasks --cluster "$ecs_cluster" \
-        --desired-status RUNNING --query 'taskArns[0]' --output text 2>/dev/null || true)
-
-    if [[ -n "$existing_task" && "$existing_task" != "None" ]]; then
-        export task_id=$(echo "$existing_task" | awk -F'/' '{print $NF}')
-        echo "==> Found existing running task: $task_id"
-    else
-        echo "==> No running task found, starting a new one..."
-
-        # Discover task definition, subnets, and security group from AWS
-        local task_def="${cluster_id}-bastion"
-        local sg_id subnets
-
-        sg_id=$(aws ec2 describe-security-groups \
-            --filters "Name=group-name,Values=${cluster_id}-bastion" \
-            --query 'SecurityGroups[0].GroupId' --output text) \
-            || die "Could not find security group '${cluster_id}-bastion'."
-        [[ "$sg_id" != "None" ]] \
-            || die "Security group '${cluster_id}-bastion' not found."
-
-        # Find private subnets tagged for the cluster's VPC
-        local vpc_id
-        vpc_id=$(aws ec2 describe-security-groups \
-            --group-ids "$sg_id" \
-            --query 'SecurityGroups[0].VpcId' --output text)
-
-        subnets=$(aws ec2 describe-subnets \
-            --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=*private*" \
-            --query 'Subnets[].SubnetId' --output text \
-            | tr '\t' ',') \
-            || die "Could not find private subnets in VPC $vpc_id."
-
-        echo "    Task def:  $task_def"
-        echo "    SG:        $sg_id"
-        echo "    Subnets:   $subnets"
-
-        AWS_PAGER="" aws ecs run-task \
-            --cluster "$ecs_cluster" \
-            --task-definition "$task_def" \
-            --launch-type FARGATE \
-            --enable-execute-command \
-            --network-configuration "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$sg_id],assignPublicIp=DISABLED}" \
-            > /dev/null
-
-        export task_id=$(aws ecs list-tasks --cluster "$ecs_cluster" \
-            --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
-    fi
-
-    # Wait for task to be running
-    echo "==> Waiting for task to be running..."
-    aws ecs wait tasks-running --cluster "$ecs_cluster" --tasks "$task_id"
-
-    # Wait for the ECS exec agent to be ready
-    echo "==> Waiting for execute command agent..."
-    local agent_status=""
-    for i in $(seq 1 30); do
-        agent_status=$(aws ecs describe-tasks \
-            --cluster "$ecs_cluster" --tasks "$task_id" --output json \
-            | jq -r '.tasks[0].containers[] | select(.name=="bastion") | .managedAgents[] | select(.name=="ExecuteCommandAgent") | .lastStatus' 2>/dev/null || true)
-        if [[ "$agent_status" == "RUNNING" ]]; then
-            break
-        fi
-        sleep 2
-    done
-    [[ "$agent_status" == "RUNNING" ]] \
-        || die "Execute command agent did not become ready (status: ${agent_status:-unknown})"
+    bastion_run_task "$cluster_id"
 }
 
-
-# Build the CI container image if not already present.
-ensure_image() {
-    [[ -n "$CONTAINER_ENGINE" ]] \
-        || die "No container engine found. Install podman or docker."
-
-    if ! $CONTAINER_ENGINE image inspect "$CI_IMAGE" >/dev/null 2>&1; then
-        echo "Building CI image..."
-        local build_output
-        if ! build_output=$($CONTAINER_ENGINE build -t "$CI_IMAGE" -f ci/Containerfile ci 2>&1); then
-            echo "$build_output"
-            die "Failed to build CI image."
-        fi
-    fi
-}
 
 # Check that required CLI tools are available.
 preflight() {
@@ -493,7 +342,7 @@ cmd_provision() {
 
     # Fetch credentials and write container config
     setup_aws_config
-    write_container_config
+    write_eph_container_config
 
     # Print summary
     echo "Provisioning ephemeral environment..."
@@ -517,9 +366,7 @@ cmd_provision() {
     local rc=0
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
-        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
-        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        $_CONTAINER_AWS_FLAGS \
         -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
@@ -583,7 +430,7 @@ cmd_teardown() {
 
     # Fetch credentials and write container config
     setup_aws_config
-    write_container_config
+    write_eph_container_config
 
     # Build --eph-branch flag if available (needed after swap-branch)
     local eph_branch_flag=""
@@ -604,9 +451,7 @@ cmd_teardown() {
     local rc=0
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
-        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
-        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        $_CONTAINER_AWS_FLAGS \
         -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
@@ -644,7 +489,7 @@ cmd_resync() {
 
     # Fetch credentials and write container config
     setup_aws_config
-    write_container_config
+    write_eph_container_config
 
     # Build --eph-branch flag if available (needed after swap-branch)
     local eph_branch_flag=""
@@ -662,9 +507,7 @@ cmd_resync() {
     # Run resync
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
-        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
-        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        $_CONTAINER_AWS_FLAGS \
         -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
@@ -769,14 +612,12 @@ cmd_shell() {
 
     # Fetch credentials and write container config
     setup_aws_config
-    write_container_config
+    write_eph_container_config
 
     # Launch interactive shell
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm -it \
-        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
-        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
-        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        $_CONTAINER_AWS_FLAGS \
         -e "AWS_PROFILE=rrp-rc" \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
@@ -926,6 +767,7 @@ cmd_bastion_port_forward() {
         thanos)
             forwards+=(
             "Thanos-Query 10902 10902 thanos-query-frontend-thanos-query thanos 9090"
+            )
             ;;
         alertmanager)
             forwards+=(
@@ -1121,7 +963,7 @@ cmd_e2e() {
 
     # Fetch credentials and write container config
     setup_aws_config
-    write_container_config
+    write_eph_container_config
 
     # Run tests
     echo "Running e2e tests..."
@@ -1132,9 +974,7 @@ cmd_e2e() {
     echo "  E2E_REPO:   $e2e_repo"
 
     $CONTAINER_ENGINE run --rm \
-        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
-        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
-        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        $_CONTAINER_AWS_FLAGS \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
         -e "BUILD_ID=$BUILD_ID" \
@@ -1161,7 +1001,7 @@ cmd_collect_logs() {
         true
 
     setup_aws_config
-    write_container_config
+    write_eph_container_config
 
     local region
     region=$(get_field "$ENV_LINE" REGION)

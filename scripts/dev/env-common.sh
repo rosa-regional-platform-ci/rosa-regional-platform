@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+#
+# Shared utilities for ROSA Regional Platform dev environment scripts.
+#
+# Sourced by ephemeral-env.sh and int-env.sh. Not executable on its own.
+#
+# Functions provided:
+#   die                   — Print error and exit
+#   resolve_creds         — Resolve AWS profile to static credentials
+#   ensure_image          — Build CI container image if not present
+#   vault_fetch_accounts  — Vault OIDC login + fetch accounts JSON
+#   init_aws_config       — Create temp AWS config dir + EXIT trap
+#   write_container_config — Resolve profiles to static creds for container mount
+#   bastion_run_task      — Core ECS bastion task launch and readiness logic
+
+# Sourcing scripts should set these before sourcing:
+#   CONTAINER_ENGINE, CI_IMAGE, VAULT_ADDR, VAULT_KV_MOUNT
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+# Resolve temporary credentials from an AWS profile.
+# Sets: _CRED_AK, _CRED_SK, _CRED_ST
+resolve_creds() {
+    local profile="$1"
+    echo "Resolving credentials for profile $profile..."
+    local creds
+    creds=$(aws configure export-credentials --profile "$profile" --format process 2>/dev/null) \
+        || die "Failed to resolve credentials for profile $profile. Have you authenticated?"
+    _CRED_AK=$(echo "$creds" | jq -r '.AccessKeyId')
+    _CRED_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
+    _CRED_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
+}
+
+# Build the CI container image if not already present.
+ensure_image() {
+    [[ -n "$CONTAINER_ENGINE" ]] \
+        || die "No container engine found. Install podman or docker."
+
+    if ! $CONTAINER_ENGINE image inspect "$CI_IMAGE" >/dev/null 2>&1; then
+        echo "Building CI image..."
+        local build_output
+        if ! build_output=$($CONTAINER_ENGINE build -t "$CI_IMAGE" -f ci/Containerfile ci 2>&1); then
+            echo "$build_output"
+            die "Failed to build CI image."
+        fi
+    fi
+}
+
+# Fetch accounts JSON and extra fields from Vault via OIDC login.
+# Args: $1 = vault secret path, $2 = accounts field name, $3... = extra field names
+# Sets: _VAULT_TOKEN, _VAULT_ACCOUNTS_JSON
+# Extra fields are exported as uppercase env vars (e.g. "github_token" → GITHUB_TOKEN).
+vault_fetch_accounts() {
+    local secret_path="$1" accounts_field="$2"
+    shift 2
+
+    echo "Fetching config from Vault (OIDC login)..."
+
+    _VAULT_TOKEN=$(VAULT_ADDR="$VAULT_ADDR" vault login -method=oidc -token-only 2>/dev/null) \
+        || die "Vault OIDC login failed."
+
+    _VAULT_ACCOUNTS_JSON=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$_VAULT_TOKEN" \
+        vault kv get -mount="$VAULT_KV_MOUNT" -field="$accounts_field" "$secret_path" 2>/dev/null) \
+        || die "Failed to fetch '$accounts_field' from Vault."
+
+    # Fetch any additional fields requested by the caller
+    local field_name upper_name field_val
+    for field_name in "$@"; do
+        upper_name=$(echo "$field_name" | tr 'a-z' 'A-Z')
+        field_val=$(VAULT_ADDR="$VAULT_ADDR" VAULT_TOKEN="$_VAULT_TOKEN" \
+            vault kv get -mount="$VAULT_KV_MOUNT" -field="$field_name" "$secret_path" 2>/dev/null) \
+            || die "Failed to fetch '$field_name' from Vault."
+        export "${upper_name}=${field_val}"
+    done
+
+    echo "Vault config loaded."
+}
+
+# Parse a required account ID from _VAULT_ACCOUNTS_JSON.
+# Usage: parse_account "rc" → sets RC_ACCOUNT
+parse_account() {
+    local key="$1"
+    local upper_key
+    upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+    local val
+    val=$(echo "$_VAULT_ACCOUNTS_JSON" | jq -r ".$key") \
+        || die "Failed to parse '$key' from account IDs."
+    [[ "$val" != "null" ]] || die "Missing '$key' in account IDs."
+    printf -v "${upper_key}_ACCOUNT" '%s' "$val"
+}
+
+# Create temporary AWS config directory and set up EXIT trap.
+# Validates that rosa-regional-platform-internal is available.
+# Sets: AWS_CONFIG_FILE, AWS_SHARED_CREDENTIALS_FILE, _aws_config_dir, _internal_repo
+# Caller should write profile heredoc to $AWS_CONFIG_FILE after calling this.
+init_aws_config() {
+    _internal_repo="${INTERNAL_REPO:-$(cd "$REPO_ROOT/../rosa-regional-platform-internal" 2>/dev/null && pwd || true)}"
+    [[ -n "$_internal_repo" ]] \
+        || die "rosa-regional-platform-internal not found at $REPO_ROOT/../rosa-regional-platform-internal. Set INTERNAL_REPO."
+    [[ -d "$_internal_repo/infra/scripts" ]] \
+        || die "Cannot find infra/scripts/ in $_internal_repo"
+
+    _aws_config_dir=$(mktemp -d)
+    export AWS_CONFIG_FILE="$_aws_config_dir/config"
+    export AWS_SHARED_CREDENTIALS_FILE="$_aws_config_dir/credentials"
+    touch "$AWS_SHARED_CREDENTIALS_FILE"
+
+    trap 'rm -rf "${_aws_config_dir:-}" "${_CONTAINER_CONFIG:-}"' EXIT
+}
+
+# Build a container-safe AWS config file with resolved static credentials.
+# credential_process won't work inside containers, so we resolve creds on the
+# host and write them as static keys into a temp config file for mounting.
+#
+# Args: triplets of "host-profile container-profile region"
+#   e.g.: write_container_config "rrp-ephemeral-rc rrp-rc us-east-1" "rrp-ephemeral-mc rrp-mc us-east-1"
+#
+# Sets: _CONTAINER_CONFIG, _CONTAINER_AWS_FLAGS
+write_container_config() {
+    _CONTAINER_CONFIG=$(mktemp)
+    local first=true
+
+    local spec host_profile container_profile region
+    for spec in "$@"; do
+        read -r host_profile container_profile region <<< "$spec"
+        resolve_creds "$host_profile"
+
+        [[ "$first" == "true" ]] || echo "" >> "$_CONTAINER_CONFIG"
+        first=false
+
+        cat >> "$_CONTAINER_CONFIG" <<EOF
+[profile ${container_profile}]
+aws_access_key_id = ${_CRED_AK}
+aws_secret_access_key = ${_CRED_SK}
+aws_session_token = ${_CRED_ST}
+region = ${region}
+EOF
+    done
+
+    _CONTAINER_AWS_FLAGS="-v ${_CONTAINER_CONFIG}:/tmp/aws-config:ro -e AWS_CONFIG_FILE=/tmp/aws-config -e AWS_SHARED_CREDENTIALS_FILE=/dev/null"
+}
+
+# Core ECS bastion task launch and readiness logic.
+# Finds or launches a bastion ECS task, then waits for the exec agent.
+#
+# Args: $1 = cluster_id (e.g. "eph-abc-regional" or "regional")
+# Sets: ecs_cluster, task_id (exported)
+bastion_run_task() {
+    local cluster_id="$1"
+    export ecs_cluster="${cluster_id}-bastion"
+
+    echo "==> Checking for running bastion tasks..."
+    local existing_task
+    existing_task=$(aws ecs list-tasks --cluster "$ecs_cluster" \
+        --desired-status RUNNING --query 'taskArns[0]' --output text 2>/dev/null || true)
+
+    if [[ -n "$existing_task" && "$existing_task" != "None" ]]; then
+        export task_id=$(echo "$existing_task" | awk -F'/' '{print $NF}')
+        echo "==> Found existing running task: $task_id"
+    else
+        echo "==> No running task found, starting a new one..."
+
+        local task_def="${cluster_id}-bastion"
+        local sg_id subnets vpc_id
+
+        sg_id=$(aws ec2 describe-security-groups \
+            --filters "Name=group-name,Values=${cluster_id}-bastion" \
+            --query 'SecurityGroups[0].GroupId' --output text) \
+            || die "Could not find security group '${cluster_id}-bastion'."
+        [[ "$sg_id" != "None" ]] \
+            || die "Security group '${cluster_id}-bastion' not found."
+
+        vpc_id=$(aws ec2 describe-security-groups \
+            --group-ids "$sg_id" \
+            --query 'SecurityGroups[0].VpcId' --output text)
+
+        subnets=$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=*private*" \
+            --query 'Subnets[].SubnetId' --output text \
+            | tr '\t' ',') \
+            || die "Could not find private subnets in VPC $vpc_id."
+
+        echo "    Task def:  $task_def"
+        echo "    SG:        $sg_id"
+        echo "    Subnets:   $subnets"
+
+        local run_output
+        run_output=$(AWS_PAGER="" aws ecs run-task \
+            --cluster "$ecs_cluster" \
+            --task-definition "$task_def" \
+            --launch-type FARGATE \
+            --enable-execute-command \
+            --network-configuration "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$sg_id],assignPublicIp=DISABLED}") \
+            || die "aws ecs run-task failed."
+
+        local failures
+        failures=$(echo "$run_output" | jq -r '.failures | length')
+        [[ "$failures" == "0" ]] \
+            || die "run-task returned failures: $(echo "$run_output" | jq -c '.failures')"
+
+        export task_id=$(echo "$run_output" | jq -r '.tasks[0].taskArn' | awk -F'/' '{print $NF}')
+    fi
+
+    echo "==> Waiting for task to be running..."
+    aws ecs wait tasks-running --cluster "$ecs_cluster" --tasks "$task_id"
+
+    echo "==> Waiting for execute command agent..."
+    local agent_status=""
+    for i in $(seq 1 30); do
+        agent_status=$(aws ecs describe-tasks \
+            --cluster "$ecs_cluster" --tasks "$task_id" --output json \
+            | jq -r '.tasks[0].containers[] | select(.name=="bastion") | .managedAgents[] | select(.name=="ExecuteCommandAgent") | .lastStatus' 2>/dev/null || true)
+        if [[ "$agent_status" == "RUNNING" ]]; then
+            break
+        fi
+        sleep 2
+    done
+    [[ "$agent_status" == "RUNNING" ]] \
+        || die "Execute command agent did not become ready (status: ${agent_status:-unknown})"
+}
