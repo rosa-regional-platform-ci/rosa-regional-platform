@@ -33,9 +33,6 @@ resource "aws_kms_key" "oidc" {
             "aws:PrincipalOrgPaths"            = var.mc_ou_path
             "kms:EncryptionContext:aws:s3:arn" = "arn:${data.aws_partition.current.partition}:s3:::${local.bucket_name}/*"
           }
-          "ForAnyValue:StringEquals" = {
-            "aws:PrincipalAccount" = var.management_cluster_account_ids
-          }
           StringEquals = {
             "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
           }
