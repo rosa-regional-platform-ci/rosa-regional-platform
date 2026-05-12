@@ -360,7 +360,25 @@ resource "aws_codepipeline" "central_pipeline" {
           includes = [var.github_branch]
         }
         file_paths {
-          includes = ["deploy/${var.target_environment}/${var.target_region}/pipeline-regional-cluster-inputs/terraform.json", "terraform/config/pipeline-regional-cluster/**"]
+          includes = [
+            "deploy/${var.target_environment}/${var.target_region}/**",
+            "scripts/buildspec/**",
+            "scripts/pipeline-common/**",
+            "scripts/bootstrap-argocd.sh",
+            "terraform/config/pipeline-regional-cluster/**",
+            "terraform/config/regional-cluster/**",
+            "terraform/modules/pipeline-notifications/**",
+            "terraform/modules/eks-cluster/**",
+            "terraform/modules/ecs-bootstrap/**",
+            "terraform/modules/bastion/**",
+            "terraform/modules/api-gateway/**",
+            "terraform/modules/rhobs-api-gateway/**",
+            "terraform/modules/maestro-infrastructure/**",
+            "terraform/modules/authz/**",
+            "terraform/modules/hyperfleet-infrastructure/**",
+            "terraform/modules/cloudtrail/**",
+            "terraform/modules/thanos-infrastructure/**",
+          ]
         }
       }
     }

@@ -566,7 +566,24 @@ resource "aws_codepipeline" "regional_pipeline" {
           includes = [var.github_branch]
         }
         file_paths {
-          includes = ["deploy/${var.target_environment}/${var.target_region}/pipeline-management-cluster-${local.name_prefix}-inputs/terraform.json", "terraform/config/pipeline-management-cluster/**"]
+          includes = [
+            "deploy/${var.target_environment}/${var.target_region}/**",
+            "scripts/buildspec/**",
+            "scripts/pipeline-common/**",
+            "scripts/bootstrap-argocd.sh",
+            "scripts/read-iot-state.sh",
+            "terraform/config/pipeline-management-cluster/**",
+            "terraform/config/management-cluster/**",
+            "terraform/config/maestro-agent-iot-provisioning/**",
+            "terraform/modules/pipeline-notifications/**",
+            "terraform/modules/eks-cluster/**",
+            "terraform/modules/ecs-bootstrap/**",
+            "terraform/modules/bastion/**",
+            "terraform/modules/maestro-agent/**",
+            "terraform/modules/maestro-agent-iot-provisioning/**",
+            "terraform/modules/hypershift-oidc/**",
+            "terraform/modules/prometheus-remote-write/**",
+          ]
         }
       }
     }
