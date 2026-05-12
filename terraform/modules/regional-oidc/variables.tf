@@ -12,11 +12,6 @@ variable "regional_id" {
   }
 }
 
-variable "management_cluster_account_ids" {
-  description = "List of AWS account IDs for Management Clusters allowed to write to the OIDC bucket"
-  type        = list(string)
-}
-
 variable "mc_ou_path" {
   description = "AWS Organizations OU path for Management Cluster accounts (StringLike condition, supports wildcards)"
   type        = string

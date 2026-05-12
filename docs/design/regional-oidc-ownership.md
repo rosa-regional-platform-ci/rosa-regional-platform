@@ -1,14 +1,14 @@
-# Regional OIDC Ownership for HyperShift Hosted Clusters
+# Regional OIDC Ownership for HyperShift-Hosted Clusters
 
-**Last Updated Date**: 2026-04-10
+**Last Updated Date**: 2026-05-12
 
 ## Summary
 
-The HyperShift OIDC S3 bucket and CloudFront distribution are owned by the Regional Cluster account — one shared resource per region — rather than provisioned per management cluster. Management clusters write OIDC documents to the regional bucket cross-account via S3 bucket policy. This gives every hosted cluster a stable OIDC issuer URL that does not change when its control plane migrates between management clusters.
+The HyperShift OIDC S3 bucket and CloudFront distribution are owned by the Regional Cluster account — one shared resource per region. Management clusters write OIDC documents to the regional bucket cross-account via S3 bucket policy. Every hosted cluster has a stable OIDC issuer URL that does not change when its control plane moves between management clusters.
 
 ## Context
 
-- **Problem Statement**: The OIDC issuer URL for a HyperShift hosted cluster is embedded in AWS IAM trust policies and in ServiceAccount tokens issued to workloads. It must remain stable for the lifetime of the cluster. With the previous per-management-cluster (per-MC) OIDC model, the issuer URL was the CloudFront domain of the MC that initially hosted the cluster. Migrating a cluster's control plane to a different MC — for maintenance, capacity rebalancing, or MC decommission — changes the CloudFront domain, and therefore the issuer URL. Any IAM role whose trust policy references the old issuer URL stops working immediately, breaking IRSA for every workload on the migrated cluster.
+- **Problem Statement**: The OIDC issuer URL for a HyperShift-hosted cluster is embedded in AWS IAM trust policies and in ServiceAccount tokens issued to workloads. It must remain stable for the lifetime of the cluster. If OIDC ownership were per-management-cluster, migrating a control plane to a different MC would change the CloudFront domain and therefore the issuer URL, breaking IRSA for every workload on the migrated cluster.
 
 - **Constraints**: The OIDC issuer URL is written into ServiceAccount tokens at cluster creation time and into IAM trust policies by customers. Neither can be updated automatically during a migration. The solution must not require HyperShift operator modifications. MC accounts are in a dedicated OU within the organization.
 
@@ -37,50 +37,22 @@ graph LR
     STS -->|GET /{cluster-name}/keys.json| CF
 ```
 
-### Control Plane Migration — Before and After
-
-```mermaid
-sequenceDiagram
-    participant CLM
-    participant MC1 as Management Cluster 1
-    participant MC2 as Management Cluster 2
-    participant S3 as RC S3 Bucket
-    participant CF as RC CloudFront
-
-    Note over CLM,CF: Cluster running on MC1
-    MC1->>S3: PutObject /my-cluster/.well-known/openid-configuration
-    MC1->>S3: PutObject /my-cluster/keys.json
-    Note over CF: https://<domain>/my-cluster/ — stable
-
-    Note over CLM,CF: Migration: CLM moves control plane to MC2
-    CLM->>MC1: Delete HostedCluster
-    CLM->>MC2: Create HostedCluster (same cluster name, same keys)
-    MC2->>S3: PutObject /my-cluster/.well-known/openid-configuration
-    MC2->>S3: PutObject /my-cluster/keys.json
-    Note over CF: https://<domain>/my-cluster/ — unchanged
-    Note over CLM,CF: IAM trust policies and IRSA continue working without change
-```
-
 ### Cross-Account Write Authorization
 
-The RC S3 bucket policy grants write access to MC HyperShift operator roles using a dual condition: both `aws:PrincipalOrgPaths` (restricting to the MC OU) and an explicit allowlist of MC account IDs must match. No STS hop is required — the MC HyperShift operator's Pod Identity role is granted direct cross-account access via the bucket policy.
+The RC S3 bucket policy grants write access to MC HyperShift operator roles using the `aws:PrincipalOrgPaths` condition, restricting access to principals within the MC OU. No STS hop is required — the MC HyperShift operator's Pod Identity role is granted direct cross-account access via the bucket policy. Any account added to the MC OU automatically gains access without a bucket policy update.
 
 ```yaml
 Condition:
   StringLike:
     aws:PrincipalOrgPaths: "<org-id>/r-xxxx/<mc-ou-id>/*"
     aws:PrincipalArn: "arn:*:iam::*:role/*-hypershift-operator"
-  ForAnyValue:StringEquals:
-    aws:PrincipalAccount:
-      - "<mc-account-1>"
-      - "<mc-account-2>"
 ```
 
 Actions granted: `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:ListBucket`.
 
 ### Path Structure
 
-OIDC documents are stored under `/{hosted-cluster-name}/`. The path is keyed to the cluster identity, not to the MC hosting it. This is the property that makes migration transparent: the path — and therefore the issuer URL — is stable regardless of which MC currently holds the control plane.
+OIDC documents are stored under `/{hosted-cluster-name}/`. The path is keyed to the cluster identity, not to the MC hosting it. The issuer URL is stable regardless of which MC currently holds the control plane.
 
 ### Data Flow for New Region Provisioning
 
@@ -98,11 +70,11 @@ The RC Terraform module provisions the regional OIDC resources and exports four 
 
 - **No-cache TTL (`default_ttl = 0`, `max_ttl = 0`)**: OIDC discovery documents and JWKS keys change only on key rotation. Setting TTL to zero eliminates the need for cross-account CloudFront cache invalidation after a key rotation: the origin (S3) is always authoritative. OIDC endpoints are low-traffic — AWS STS fetches them only when validating tokens — so no-cache has negligible performance cost.
 
-- **`force_destroy = false`**: The regional OIDC bucket is a permanent regional resource. Accidentally destroying it would break OIDC validation for every hosted cluster in the region simultaneously. This is explicitly different from the per-MC module, which used `force_destroy = true` because per-MC buckets were disposable.
+- **`force_destroy = false`**: The regional OIDC bucket is a permanent regional resource. Accidentally destroying it would break OIDC validation for every hosted cluster in the region simultaneously.
 
 - **`s3:DeleteObject` granted to MC accounts**: Removing this permission would not improve security, because `s3:PutObject` (which allows overwrite) is already granted. Restricting to `PutObject`-only would prevent HyperShift from cleaning up documents for deleted hosted clusters, creating orphaned objects in the bucket.
 
-- **Comparison**: The per-MC model was simple and self-contained but coupled OIDC identity to physical infrastructure. The regional model introduces a cross-account dependency but eliminates the migration breakage problem. The Platform API proxy alternative provides stronger isolation but requires upstream changes; it remains the preferred long-term direction.
+- **Comparison**: A per-MC model would be simpler and self-contained but couples OIDC identity to physical infrastructure. The regional model introduces a cross-account dependency but eliminates migration breakage. The Platform API proxy alternative provides stronger isolation but requires upstream changes; it remains the preferred long-term direction.
 
 ## Consequences
 
@@ -111,15 +83,13 @@ The RC Terraform module provisions the regional OIDC resources and exports four 
 - OIDC issuer URLs are stable across control plane migrations between management clusters. IRSA roles for customer workloads continue to function without any trust policy updates.
 - Adding or decommissioning a management cluster does not affect OIDC serving for any other cluster in the region.
 - A single CloudFront distribution per region is operationally simpler than one per MC: one domain to monitor, one certificate, one cache behavior to reason about.
-- Cross-account write authorization is declarative (bucket policy) and audited via CloudTrail. Adding or removing an MC account requires a single policy update.
+- Cross-account write authorization is declarative (bucket policy) and audited via CloudTrail.
 - No CloudFront cache invalidation is needed on OIDC key rotation, because TTL is set to zero.
 
 ### Negative
 
-- The RC account is now in the OIDC document-serving path for all hosted clusters in the region. Previously, each MC served its own OIDC independently, with no RC dependency at read time. An RC account outage now affects OIDC validation for all clusters in the region. CloudFront's global HA and S3's durability are considered sufficient mitigation; this trade-off is accepted in exchange for issuer URL stability.
-- Path isolation between MC accounts is enforced by bucket policy conditions (OU membership and account allowlist) and CloudTrail audit, not by IAM path prefix conditions. A compromised MC account could in principle overwrite OIDC documents for a hosted cluster assigned to a different MC. This is accepted because MCs are platform-managed accounts under SCP governance, not customer-operated environments.
-- Adding a new MC account requires updating the RC bucket policy with the new account ID — the same operational pattern as the metrics API Gateway resource policy.
-- This change applies to new and empty management clusters only on initial rollout. Hosted clusters already running on existing MCs continue to use their per-MC CloudFront OIDC URLs. A separate migration procedure and a CLM pre-flight check (verifying that an OIDC path is empty before cluster name assignment) are required follow-ons.
+- The RC account is in the OIDC document-serving path for all hosted clusters in the region. An RC account outage affects OIDC validation for all clusters in the region. CloudFront's global HA and S3's durability are considered sufficient mitigation; this trade-off is accepted in exchange for issuer URL stability.
+- Path isolation between MC accounts is enforced by OU membership and CloudTrail audit, not by IAM path prefix conditions. A compromised MC account could in principle overwrite OIDC documents for a hosted cluster assigned to a different MC. This is accepted because MCs are platform-managed accounts under SCP governance, not customer-operated environments.
 
 ## Cross-Cutting Concerns
 
@@ -132,7 +102,7 @@ The RC Terraform module provisions the regional OIDC resources and exports four 
 ### Security
 
 - The regional OIDC bucket is fully private. Public reads are served exclusively through CloudFront via Origin Access Control (OAC); no S3 bucket ACLs or public-access exceptions are used.
-- Cross-account write access uses a dual condition (OU path and explicit account allowlist), limiting writers to known MC accounts within the platform OU. This does not prevent a compromised MC account from overwriting OIDC documents belonging to clusters on other MCs; CloudTrail audit is the detection control for that scenario.
+- Cross-account write access is scoped to the MC OU via `aws:PrincipalOrgPaths`, limiting writers to MC accounts within the platform OU. This does not prevent a compromised MC account from overwriting OIDC documents belonging to clusters on other MCs; CloudTrail audit is the detection control for that scenario.
 - OIDC key material (the private signing key) is never written to the OIDC bucket. Only the public JWKS (`keys.json`) and the discovery document are stored there.
 - CloudTrail provides a full write audit trail. Any unexpected `PutObject` to another cluster's path is detectable.
 

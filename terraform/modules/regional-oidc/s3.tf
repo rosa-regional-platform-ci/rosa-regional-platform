@@ -79,9 +79,6 @@ resource "aws_s3_bucket_policy" "oidc" {
             "aws:PrincipalOrgPaths" = var.mc_ou_path
             "aws:PrincipalArn"      = "arn:*:iam::*:role/*-hypershift-operator"
           }
-          "ForAnyValue:StringEquals" = {
-            "aws:PrincipalAccount" = var.management_cluster_account_ids
-          }
         }
       },
     ]
