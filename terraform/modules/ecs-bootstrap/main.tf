@@ -153,6 +153,39 @@ resource "aws_ecs_task_definition" "bootstrap" {
 
           echo "✓ FIPS NodeClass and NodePool applied"
 
+          # Wait for Karpenter to provision at least one FIPS node before creating
+          # Deployment-based addons (coredns, metrics-server). Without nodes, those
+          # addons stay DEGRADED indefinitely.
+          echo "Waiting for FIPS node to be ready (up to 10 minutes)..."
+          deadline=$(($(date +%s) + 600))
+          until kubectl get nodes --no-headers 2>/dev/null | grep -q " Ready"; do
+            if [ $(date +%s) -ge $deadline ]; then
+              echo "ERROR: No FIPS nodes became ready within 10 minutes"
+              kubectl get nodes 2>/dev/null || true
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "✓ FIPS node ready"
+
+          for ADDON in coredns metrics-server; do
+            echo "Creating $ADDON add-on..."
+            if ! aws eks describe-addon \
+                --cluster-name "$CLUSTER_NAME" \
+                --addon-name "$ADDON" \
+                --region "$AWS_REGION" > /dev/null 2>&1; then
+              aws eks create-addon \
+                --cluster-name "$CLUSTER_NAME" \
+                --addon-name "$ADDON" \
+                --region "$AWS_REGION"
+            fi
+            aws eks wait addon-active \
+              --cluster-name "$CLUSTER_NAME" \
+              --addon-name "$ADDON" \
+              --region "$AWS_REGION"
+            echo "✓ $ADDON active"
+          done
+
           # Check if ArgoCD already exists
           if ! kubectl get deployment argocd-server -n argocd 2>/dev/null; then
             echo "Installing ArgoCD via Helm..."
