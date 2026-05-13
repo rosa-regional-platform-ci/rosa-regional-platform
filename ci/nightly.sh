@@ -8,9 +8,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
-# Generate AWS profiles from Prow-mounted credential files.
-# All downstream consumers (aws.py, e2e-tests.sh, collect-cluster-logs.sh)
-# expect named profiles (rrp-central, rrp-rc, rrp-mc) via AWS_CONFIG_FILE.
+# Load AWS profiles from Prow-mounted aws_config file.
 source ci/setup-aws-profiles.sh
 
 if [[ "${1:-}" == "--teardown" ]] || [[ "${1:-}" == "--teardown-fire-and-forget" ]]; then

@@ -118,12 +118,41 @@ When a Prow job is running (e.g. `on-demand-e2e`), you can watch its logs in rea
 
 > **Note:** Access to the namespace is restricted to the person who triggered the job (i.e. the PR author for pre-submit jobs). There is no configuration option to grant access to additional users.
 
-## CI Credentials
+## AWS Profiles
 
-The e2e jobs use credentials mounted at `/var/run/rosa-credentials/`. Credentials are managed in [Vault](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/list/selfservice/cluster-secrets-rosa-regional-platform-int/). Two credential secrets are used:
+All CI scripts and the ephemeral provider use a standard set of named AWS CLI profiles. The profile names are the same across CI and local development so that downstream consumers (Terraform, boto3, e2e tests) work identically in both contexts.
 
-- `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral` and `on-demand-e2e`.
-- `rosa-regional-platform-integration-creds` — grants access to AWS credentials for testing against the API gateway in the regional integration account. Used by `nightly-integration`.
+| Profile        | Account          | Purpose                              |
+| -------------- | ---------------- | ------------------------------------ |
+| `rrp-central`  | Central          | Pipeline-provisioner, SSM parameters |
+| `rrp-rc`       | Regional Cluster | API Gateway auth, regional infra     |
+| `rrp-mc`       | Management       | Management cluster provisioning      |
+| `rrp-customer` | Customer         | HCP creation e2e tests               |
+
+Not every job needs every profile. The table below shows which profiles each job type requires:
+
+| Job type              | Required profiles                 |
+| --------------------- | --------------------------------- |
+| `nightly-ephemeral`   | `rrp-central`, `rrp-rc`, `rrp-mc` |
+| `on-demand-e2e`       | `rrp-central`, `rrp-rc`, `rrp-mc` |
+| `nightly-integration` | `rrp-rc`, `rrp-customer`          |
+
+### How profiles are loaded
+
+**CI (Prow):** Each vault secret contains a pre-built `aws_config` file with the profiles that job type needs. Prow mounts it at `/var/run/rosa-credentials/aws_config`. Scripts source [`ci/setup-aws-profiles.sh`](setup-aws-profiles.sh) which sets `AWS_CONFIG_FILE` to point at this file.
+
+**Local development:** The dev scripts (`scripts/dev/ephemeral-env.sh`, `scripts/dev/int-env.sh`) obtain STS credentials via SAML and write them to a config file with the same `rrp-*` profile names, so containers see an identical interface. Since `AWS_CONFIG_FILE` is already set before any CI script runs, `setup-aws-profiles.sh` is a no-op in local dev.
+
+### Vault secrets
+
+Credentials are managed in [Vault](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/list/selfservice/cluster-secrets-rosa-regional-platform-int/). Two credential secrets are used:
+
+| Secret                                     | Used by                              | Key fields              |
+| ------------------------------------------ | ------------------------------------ | ----------------------- |
+| `rosa-regional-platform-ephemeral-creds`   | `nightly-ephemeral`, `on-demand-e2e` | `aws_config`            |
+| `rosa-regional-platform-integration-creds` | `nightly-integration`                | `aws_config`, `api_url` |
+
+Each `aws_config` field contains a complete AWS CLI config file with only the profiles that job type requires. To update credentials, edit the `aws_config` field in the relevant vault secret.
 
 ## AWS Account Cleanup (Janitor)
 

@@ -12,7 +12,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 echo "AWS_REGION: ${AWS_REGION}"
 
-# Generate AWS profiles from Prow-mounted credential files.
+# Load AWS profiles from Prow-mounted aws_config file.
 source ci/setup-aws-profiles.sh
 
 # Teardown does not require a machine type override — the environment is

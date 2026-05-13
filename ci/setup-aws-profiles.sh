@@ -1,26 +1,14 @@
 #!/usr/bin/env bash
 #
-# Generate an AWS config file with standardized profiles from CI credentials.
+# Configure AWS profiles from a pre-built config file in CI credentials.
 #
-# In CI (Prow), credentials are mounted as individual files under CREDS_DIR
-# (default: /var/run/rosa-credentials/). This script reads those files and
-# writes an AWS config with profiles that match the interface expected by all
-# downstream consumers (aws.py, e2e-tests.sh, janitor, collect-cluster-logs).
-#
-# Profile names:
-#   rrp-admin    — static IAM keys (source for central role assumption)
-#   rrp-central  — central account via AssumeRole from rrp-admin
-#   rrp-rc       — regional account (direct keys)
-#   rrp-mc       — management account (direct keys)
-#   rrp-customer — customer account (direct keys, optional)
-#
-# After sourcing, AWS_CONFIG_FILE and AWS_SHARED_CREDENTIALS_FILE are exported.
+# In CI (Prow), credentials are mounted under CREDS_DIR (default:
+# /var/run/rosa-credentials/). This script expects an "aws_config" file
+# containing named AWS CLI profiles. It sets AWS_CONFIG_FILE so all
+# downstream consumers (aws.py, e2e-tests.sh, load tests) pick them up.
 #
 # Usage:
 #   source ci/setup-aws-profiles.sh
-#
-# TODO: In the future, CI could mount a pre-built AWS config file directly,
-# eliminating the need for this script entirely.
 
 set -euo pipefail
 
@@ -31,74 +19,10 @@ if [[ -n "${AWS_CONFIG_FILE:-}" ]]; then
   return 0 2>/dev/null || exit 0
 fi
 
-_read_cred() {
-    local name="$1"
-    local env_var
-    env_var=$(echo "$name" | tr 'a-z' 'A-Z')
-    if [[ -n "${!env_var:-}" ]]; then
-        echo "${!env_var}"
-    elif [[ -r "${CREDS_DIR}/${name}" ]]; then
-        cat "${CREDS_DIR}/${name}"
-    else
-        echo "Error: credential '${name}' not found in env (${env_var}) or ${CREDS_DIR}/${name}" >&2
-        return 1
-    fi
-}
-
-_aws_config_dir=$(mktemp -d)
-chmod 700 "$_aws_config_dir"
-export AWS_CONFIG_FILE="${_aws_config_dir}/config"
-export AWS_SHARED_CREDENTIALS_FILE="${_aws_config_dir}/credentials"
-touch "$AWS_SHARED_CREDENTIALS_FILE"
-chmod 600 "$AWS_SHARED_CREDENTIALS_FILE"
-
-# Read required credentials upfront so failures are caught by set -e
-# (command substitution failures inside heredocs do not trigger set -e).
-_central_ak=$(_read_cred central_access_key)
-_central_sk=$(_read_cred central_secret_key)
-_central_role=$(_read_cred central_assume_role_arn)
-_rc_ak=$(_read_cred regional_access_key)
-_rc_sk=$(_read_cred regional_secret_key)
-_mc_ak=$(_read_cred management_access_key)
-_mc_sk=$(_read_cred management_secret_key)
-
-cat > "$AWS_CONFIG_FILE" <<AWSCFG
-[profile rrp-admin]
-aws_access_key_id = ${_central_ak}
-aws_secret_access_key = ${_central_sk}
-region = us-east-1
-
-[profile rrp-central]
-role_arn = ${_central_role}
-source_profile = rrp-admin
-region = us-east-1
-duration_seconds = 3600
-
-[profile rrp-rc]
-aws_access_key_id = ${_rc_ak}
-aws_secret_access_key = ${_rc_sk}
-region = us-east-1
-
-[profile rrp-mc]
-aws_access_key_id = ${_mc_ak}
-aws_secret_access_key = ${_mc_sk}
-region = us-east-1
-AWSCFG
-chmod 600 "$AWS_CONFIG_FILE"
-unset _central_ak _central_sk _central_role _rc_ak _rc_sk _mc_ak _mc_sk
-
-# Customer credentials are optional (not all environments have them)
-if [[ -r "${CREDS_DIR}/customer_access_key" ]] || [[ -n "${CUSTOMER_ACCESS_KEY:-}" ]]; then
-    _cust_ak=$(_read_cred customer_access_key)
-    _cust_sk=$(_read_cred customer_secret_key)
-    cat >> "$AWS_CONFIG_FILE" <<AWSCFG
-
-[profile rrp-customer]
-aws_access_key_id = ${_cust_ak}
-aws_secret_access_key = ${_cust_sk}
-region = us-east-1
-AWSCFG
-    unset _cust_ak _cust_sk
+if [[ ! -r "${CREDS_DIR}/aws_config" ]]; then
+  echo "Error: ${CREDS_DIR}/aws_config not found or not readable" >&2
+  return 1 2>/dev/null || exit 1
 fi
 
+export AWS_CONFIG_FILE="${CREDS_DIR}/aws_config"
 echo "AWS profiles configured (config: ${AWS_CONFIG_FILE})"

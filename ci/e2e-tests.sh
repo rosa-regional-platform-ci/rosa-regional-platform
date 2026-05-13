@@ -9,6 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
 
 source "${SCRIPT_DIR}/setup-aws-profiles.sh"
 
@@ -63,9 +64,7 @@ if [[ -z "${E2E_ACCOUNT_ID:-}" ]]; then
 fi 
 
 # --- HCP Creation E2E Tests ---
-# Customer credentials resolution (first match wins):
-#   1. rrp-customer profile (container config from dev scripts, or CI with profile)
-#   2. CREDS_DIR/customer_access_key file (CI vault-mounted secret)
+# Customer credentials come from the rrp-customer AWS profile.
 # Only run if the platform API tests passed.
 _have_customer_creds=false
 if [[ $rc -ne 0 ]]; then
@@ -84,20 +83,8 @@ elif aws configure export-credentials --profile rrp-customer --format process &>
     echo "Customer account ID: ${E2E_CUSTOMER_ACCOUNT_ID:0:8}..."
   fi
   _have_customer_creds=true
-elif [[ -r "${CREDS_DIR}/customer_access_key" ]]; then
-  export CUSTOMER_AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/customer_access_key")"
-  export CUSTOMER_AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/customer_secret_key")"
-  echo "Customer credentials loaded from ${CREDS_DIR}"
-
-  if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
-    export E2E_CUSTOMER_ACCOUNT_ID="$(AWS_ACCESS_KEY_ID="${CUSTOMER_AWS_ACCESS_KEY_ID}" \
-      AWS_SECRET_ACCESS_KEY="${CUSTOMER_AWS_SECRET_ACCESS_KEY}" \
-      aws sts get-caller-identity --query Account --output text)"
-    echo "Customer account ID: ${E2E_CUSTOMER_ACCOUNT_ID:0:8}..."
-  fi
-  _have_customer_creds=true
 else
-  echo "WARNING: No customer credentials available — skipping HCP creation tests"
+  echo "WARNING: No rrp-customer profile available — skipping HCP creation tests"
 fi
 
 if [[ "$_have_customer_creds" == "true" ]]; then

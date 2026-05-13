@@ -4,6 +4,16 @@ Python package for provisioning, resyncing, and tearing down ephemeral CI enviro
 
 For local development usage via Make targets, see [Provisioning a Development Environment](../../docs/development-environment.md).
 
+## Credentials
+
+The `--creds-dir` directory (default: `/var/run/rosa-credentials/`) must contain:
+
+| File           | Purpose                              | Fallback               |
+| -------------- | ------------------------------------ | ---------------------- |
+| `github_token` | GitHub token for pushing CI branches | `GITHUB_TOKEN` env var |
+
+The provider also expects AWS CLI profiles `rrp-central`, `rrp-rc`, and `rrp-mc` to be available via `AWS_CONFIG_FILE`. See the [AWS Profiles](../README.md#aws-profiles) section in the CI README for details.
+
 ## Direct Usage
 
 ```bash

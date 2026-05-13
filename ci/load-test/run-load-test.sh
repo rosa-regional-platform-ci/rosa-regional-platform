@@ -4,9 +4,11 @@
 
 set -euo pipefail
 
-CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+CREDS_DIR="${CREDS_DIR:-/var/run/rosa-credentials}"
+
+source "${SCRIPT_DIR}/../setup-aws-profiles.sh"
 
 # ---------------------------------------------------------------------------
 # Discover BASE_URL (same logic as ci/e2e-tests.sh)
@@ -32,17 +34,10 @@ fi
 export BASE_URL
 
 # ---------------------------------------------------------------------------
-# AWS credentials for SigV4 signing
+# AWS credentials for SigV4 signing (via rrp-rc profile)
 # ---------------------------------------------------------------------------
-if [[ -r "${CREDS_DIR}/regional_access_key" ]] && [[ -r "${CREDS_DIR}/regional_secret_key" ]]; then
-    export AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")"
-    export AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")"
-    export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
-    echo "AWS credentials loaded from ${CREDS_DIR}"
-else
-    echo "ERROR: AWS credentials not found or not readable at ${CREDS_DIR}/regional_access_key and ${CREDS_DIR}/regional_secret_key" >&2
-    exit 1
-fi
+export AWS_PROFILE="rrp-rc"
+export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
 
 # ---------------------------------------------------------------------------
 # Enable mutating operations (MC create/delete, ManifestWork post) in CI.
