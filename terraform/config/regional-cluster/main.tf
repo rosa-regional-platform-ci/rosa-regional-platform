@@ -39,6 +39,11 @@ provider "aws" {
   use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 }
 
+provider "pagerduty" {
+  token                         = var.enable_pagerduty ? null : "not-configured"
+  skip_credentials_validation   = true
+}
+
 # =============================================================================
 # Data Sources
 # =============================================================================
