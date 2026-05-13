@@ -153,9 +153,23 @@ resource "aws_ecs_task_definition" "bootstrap" {
 
           echo "✓ FIPS NodeClass and NodePool applied"
 
-          # Wait for Karpenter to provision at least one FIPS node before creating
-          # Deployment-based addons (coredns, metrics-server). Without nodes, those
-          # addons stay DEGRADED indefinitely.
+          # Create Deployment-based addons first so their pending pods trigger Karpenter
+          # to provision a FIPS node. Karpenter is reactive — it only provisions nodes
+          # in response to unschedulable pods; applying a NodePool alone is not enough.
+          for ADDON in coredns metrics-server; do
+            echo "Creating $ADDON add-on..."
+            if ! aws eks describe-addon \
+                --cluster-name "$CLUSTER_NAME" \
+                --addon-name "$ADDON" \
+                --region "$AWS_REGION" > /dev/null 2>&1; then
+              aws eks create-addon \
+                --cluster-name "$CLUSTER_NAME" \
+                --addon-name "$ADDON" \
+                --region "$AWS_REGION"
+            fi
+          done
+
+          # Wait for Karpenter to provision a FIPS node (triggered by addon pending pods above).
           echo "Waiting for FIPS node to be ready (up to 10 minutes)..."
           deadline=$(($(date +%s) + 600))
           until kubectl get nodes --no-headers 2>/dev/null | grep -q " Ready"; do
@@ -169,16 +183,6 @@ resource "aws_ecs_task_definition" "bootstrap" {
           echo "✓ FIPS node ready"
 
           for ADDON in coredns metrics-server; do
-            echo "Creating $ADDON add-on..."
-            if ! aws eks describe-addon \
-                --cluster-name "$CLUSTER_NAME" \
-                --addon-name "$ADDON" \
-                --region "$AWS_REGION" > /dev/null 2>&1; then
-              aws eks create-addon \
-                --cluster-name "$CLUSTER_NAME" \
-                --addon-name "$ADDON" \
-                --region "$AWS_REGION"
-            fi
             aws eks wait addon-active \
               --cluster-name "$CLUSTER_NAME" \
               --addon-name "$ADDON" \
