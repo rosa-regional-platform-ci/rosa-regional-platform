@@ -46,6 +46,11 @@ variable "central_aws_profile" {
 variable "ou_path" {
   description = "OU path value for this regional cluster. Resolved from central account SSM by the pipeline."
   type        = string
+
+  validation {
+    condition     = var.ou_path != "__UNDEFINED__"
+    error_message = "ou_path must be defined. Got default undefined value."
+  }
 }
 
 variable "app_code" {
