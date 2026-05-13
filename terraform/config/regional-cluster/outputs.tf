@@ -146,8 +146,13 @@ output "thanos_target_group_arn" {
   value       = module.rhobs_api_gateway.thanos_receive_target_group_arn
 }
 
+output "thanos_query_target_group_arn" {
+  description = "Target group ARN for Thanos Query Frontend TargetGroupBinding (dedicated RHOBS ALB)"
+  value       = module.rhobs_api_gateway.thanos_query_target_group_arn
+}
+
 output "rhobs_api_url" {
-  description = "RHOBS API URL for MC remote_write (dedicated API Gateway invoke URL)"
+  description = "RHOBS API Gateway invoke URL (used for both MC remote_write and Thanos Query)"
   value       = module.rhobs_api_gateway.invoke_url
 }
 

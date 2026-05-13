@@ -7,7 +7,7 @@ Dedicated REST API Gateway with its own ALB and VPC Link for RHOBS (observabilit
 - **Network Isolation**: Separate ALB, VPC Link, and security groups — no shared path with customer-facing Platform API
 - **AWS_IAM Auth**: All requests must be SigV4-signed
 - **Org-Scoped Access**: Resource policy restricts ingestion to accounts within the same AWS Organization
-- **EKS Auto Mode**: Target groups tagged with `eks:eks-cluster-name` for Pod Identity compatibility
+- **EKS Auto Mode**: Target groups tagged with `eks:eks-cluster-name` so the EKS Auto Mode load-balancing controller can discover and register them via `TargetGroupBinding` resources
 
 ## Architecture
 

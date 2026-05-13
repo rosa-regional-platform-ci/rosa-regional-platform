@@ -6,6 +6,7 @@
 # Only MC accounts can invoke this API via resource policy.
 #
 # Flow: POST /api/v1/receive -> VPC Link -> RHOBS ALB -> Thanos Receive (:19291)
+#       GET  /api/v1/query   -> VPC Link -> RHOBS ALB -> Thanos Query Frontend (:9090)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -38,6 +39,8 @@ resource "aws_api_gateway_rest_api" "rhobs" {
 
 # -----------------------------------------------------------------------------
 # Resource chain: /api -> /api/v1 -> /api/v1/receive
+#                                  -> /api/v1/query
+#                                  -> /api/v1/query_range
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_resource" "api" {
@@ -58,6 +61,18 @@ resource "aws_api_gateway_resource" "api_v1_receive" {
   path_part   = "receive"
 }
 
+resource "aws_api_gateway_resource" "api_v1_query" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.api_v1.id
+  path_part   = "query"
+}
+
+resource "aws_api_gateway_resource" "api_v1_query_range" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.api_v1.id
+  path_part   = "query_range"
+}
+
 # -----------------------------------------------------------------------------
 # Deployment and Stage
 # -----------------------------------------------------------------------------
@@ -67,6 +82,8 @@ resource "aws_api_gateway_deployment" "rhobs" {
 
   depends_on = [
     aws_api_gateway_integration.thanos_receive,
+    aws_api_gateway_integration.thanos_query,
+    aws_api_gateway_integration.thanos_query_range,
     aws_api_gateway_rest_api_policy.rhobs,
   ]
 
@@ -77,6 +94,12 @@ resource "aws_api_gateway_deployment" "rhobs" {
       aws_api_gateway_integration.thanos_receive.id,
       aws_api_gateway_rest_api.rhobs.binary_media_types,
       aws_api_gateway_rest_api_policy.rhobs.policy,
+      aws_api_gateway_resource.api_v1_query.id,
+      aws_api_gateway_method.thanos_query.id,
+      aws_api_gateway_integration.thanos_query.id,
+      aws_api_gateway_resource.api_v1_query_range.id,
+      aws_api_gateway_method.thanos_query_range.id,
+      aws_api_gateway_integration.thanos_query_range.id,
     ]))
   }
 

@@ -35,6 +35,22 @@ fi
 export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
+# RHOBS API URL for observability E2E tests (Thanos Query read path).
+# The query path is always available — uses the same invoke URL as remote-write.
+if [[ -z "${RHOBS_API_URL:-}" ]]; then
+  if [[ -r "${CREDS_DIR}/rhobs_api_url" ]]; then
+    RHOBS_API_URL="$(cat "${CREDS_DIR}/rhobs_api_url")"
+  elif [[ -n "${TF_OUTPUTS:-}" && -r "${TF_OUTPUTS:-}" ]]; then
+    RHOBS_API_URL="$(jq -r '.rhobs_api_url.value // empty' "${TF_OUTPUTS}")"
+  fi
+fi
+if [[ -n "${RHOBS_API_URL:-}" ]]; then
+  export RHOBS_API_URL
+  echo "RHOBS API URL: ${RHOBS_API_URL}"
+else
+  echo "WARNING: RHOBS_API_URL not available — observability tests will be skipped"
+fi
+
 # Use the regional account profile for authenticated API calls
 export AWS_PROFILE="rrp-rc"
 export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"

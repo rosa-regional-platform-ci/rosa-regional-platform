@@ -146,7 +146,7 @@ variable "api_throttling_rate_limit" {
 }
 
 # =============================================================================
-# RHOBS API Gateway Method Settings Variables
+# RHOBS API Gateway Variables
 # =============================================================================
 
 variable "rhobs_apigw_metrics_enabled" {

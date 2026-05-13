@@ -92,8 +92,11 @@ The `/prod` stage prefix is required because the sigv4-proxy forwards the path a
 ### API Gateway Configuration
 
 - **Binary media types**: `application/x-protobuf` configured to pass binary payloads through without text encoding
-- **Resource policy**: Allows `execute-api:Invoke` from any principal in the same AWS Organization
-- **Redeployment trigger**: API Gateway must be redeployed when `binary_media_types` changes
+- **Resource policy**:
+  - `POST /api/v1/receive`: Allows any principal in the same AWS Organization (MC remote-write)
+  - `GET /api/v1/query`, `GET /api/v1/query_range`: Restricted to the RC account only (E2E tests, internal tooling)
+- **Query path**: Thanos Query Frontend is exposed unconditionally via the same API Gateway. The read endpoints are locked to the RC account via resource policy, providing a secure query interface for observability E2E tests without requiring direct cluster access
+- **Redeployment trigger**: API Gateway must be redeployed when `binary_media_types` or resource paths change
 
 ## Consequences
 
