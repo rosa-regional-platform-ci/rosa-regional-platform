@@ -4,16 +4,16 @@
   "service_phase": "dev",
   "cost_center": "000",
   "environment": "ephemeral",
-  "account_id": "ssm:///infra/ephemeral/us-east-1/account_id",
+  "account_id": "720644165472",
   "region": "us-east-1",
   "alias": "regional-us-east-1",
   "enable_bastion": true,
   "enable_cloudtrail": false,
   "enable_pagerduty": false,
   "pagerduty_escalation_policy_id": "P5KE444",
-  "regional_id": "regional",
-  "eph_prefix": "",
+  "regional_id": "eph-61fae9-regional",
+  "eph_prefix": "eph-61fae9",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "iot_log_level": "WARN",
-  "management_cluster_account_ids": ["ssm:///infra/ephemeral/us-east-1/mc01/account_id"]
+  "management_cluster_account_ids": ["129678139271"]
 }
