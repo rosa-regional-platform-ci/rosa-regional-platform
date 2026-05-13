@@ -5,6 +5,8 @@
 # Environment: integration
 # Region: us-east-1
 
+hyperfleetAdapter1Chart:
+  baseDomain: 0.us-east-1.int0.rosa.devshift.net
 maestro:
   mqttEndpoint: xxx.iot.us-east-1.amazonaws.com
   iotLogLevel: WARN

@@ -247,11 +247,12 @@ for _first_region_dir in deploy/${ENVIRONMENT}/*/; do
     _prov_tf="${_first_region_dir}pipeline-provisioner-inputs/terraform.json"
     if [ -f "$_prov_tf" ]; then
         ENVIRONMENT_DOMAIN=$(jq -r '.domain // empty' "$_prov_tf" 2>/dev/null || echo "")
+        CREATE_ENVIRONMENT_ZONE=$(jq -r '.create_environment_zone // "false"' "$_prov_tf" 2>/dev/null || echo "false")
     fi
     break
 done
 
-if [ -n "$ENVIRONMENT_DOMAIN" ]; then
+if [ -n "$ENVIRONMENT_DOMAIN" ] && [ "$CREATE_ENVIRONMENT_ZONE" = "true" ]; then
     echo "=========================================="
     echo "Provisioning DNS Environment Zone: $ENVIRONMENT_DOMAIN"
     echo "=========================================="

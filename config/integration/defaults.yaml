@@ -1,9 +1,11 @@
 dns:
   domain: int0.rosa.devshift.net
+  create_environment_zone: true
 
 regional_cluster:
   enable_bastion: true
   enable_cloudtrail: true
+  enable_api_custom_domain: true
 
 management_cluster_defaults:
   enable_bastion: true
