@@ -49,6 +49,8 @@ aws iam update-assume-role-policy \
 ## 2. Configure the Region
 
 > **Skip this step** if reusing an existing environment/region configuration.
+>
+> **DNS prerequisite**: If this environment will have DNS enabled (`dns.domain` set), the environment zone (e.g. `int0.rosa.devshift.net`) must exist in the central account first. This is a one-time setup per environment — see [DNS Architecture: Testing Strategy](design/dns-architecture.md#testing-strategy) for details.
 
 ### 2.1 Store account IDs in SSM
 
@@ -66,7 +68,19 @@ aws ssm put-parameter --name "/infra/${ENV}/${REGION}/mc01/account_id" \
   --value "$MC_ACCOUNT_ID" --type String
 ```
 
-### 2.2 Add the environment configuration
+### 2.2 Store MC OU path in SSM (RC account)
+
+The DNS zone operator trust policy uses `aws:PrincipalOrgPaths` to allow MC accounts to assume the cross-account role. Store the OU path for MC accounts in SSM Parameter Store **in the RC account**.
+
+The OU path format is `o-<org-id>/r-<root-id>/ou-<parent-id>/ou-<child-id>/*`. You can find it by walking the OU tree with `aws organizations list-parents`.
+
+```bash
+# Run with RC account credentials
+aws ssm put-parameter --name "/infra/mc_ou_path" \
+  --value "o-xxxxx/r-xxxx/ou-xxxx-xxxxxxxx/ou-xxxx-xxxxxxxx/*" --type String
+```
+
+### 2.3 Add the environment configuration
 
 Create a new region config file at `config/<environment>/<region>.yaml`. This inherits defaults from `config/defaults.yaml` — override only what differs. Environment-level defaults can be set in `config/<environment>/defaults.yaml`.
 
@@ -86,7 +100,7 @@ management_clusters:
   mc01: {}
 ```
 
-### 2.3 Render and commit
+### 2.4 Render and commit
 
 ```bash
 uv run scripts/render.py

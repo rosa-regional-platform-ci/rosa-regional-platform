@@ -9,9 +9,10 @@
 #
 # All string values support Jinja2 templating. The following variables are
 # injected automatically by render.py:
-#   {{ environment }}    — environment directory name (e.g. "integration")
-#   {{ aws_region }}     — region file stem (e.g. "us-east-1")
-#   {{ cluster_prefix }} — management_cluster key (e.g. "mc01")
+#   {{ environment }}      — environment directory name (e.g. "integration")
+#   {{ deployment_name }}  — logical deployment identifier (see deployment_name below)
+#   {{ aws_region }}       — AWS region, always the config file stem (e.g. "us-east-1")
+#   {{ cluster_prefix }}   — management_cluster key (e.g. "mc01")
 #
 # Documentation: @doc and @used-by annotations (validated by: render.py --check-docs)
 # =============================================================================
@@ -23,6 +24,10 @@ git:
   # @doc git.bootstrap_revision Pipeline provisioner bootstrap revision.
   # @used-by git.bootstrap_revision _context
   bootstrap_revision: main
+
+# @doc deployment_name Logical deployment identifier. Equals aws_region for normal deployments; override in ephemeral/CI to disambiguate multiple deployments in the same region (e.g. "us-east-1-xg4y"). Used for DNS zone naming and resource identification.
+# @used-by deployment_name _context
+deployment_name: "{{ aws_region }}"
 
 aws:
   # @doc aws.account_id Regional AWS account ID.
@@ -36,6 +41,9 @@ dns:
   # @doc dns.domain Base domain for the environment. Must be set per environment.
   # @used-by dns.domain pipeline-provisioner-inputs/terraform.json.j2
   domain: "int0.rosa.devshift.net"
+  # @doc dns.create_environment_zone Create the environment hosted zone in the central account. Set false to reuse an existing zone with pre-configured delegation.
+  # @used-by dns.create_environment_zone pipeline-provisioner-inputs/terraform.json.j2
+  create_environment_zone: true
 
 terraform_tags:
   # @doc terraform_tags.app_code Application code for cost tagging.
@@ -58,6 +66,12 @@ regional_cluster:
   # @doc regional_cluster.enable_cloudtrail Enable CloudTrail audit logging (FedRAMP AU-12). Off by default; enable for environments requiring compliance.
   # @used-by regional_cluster.enable_cloudtrail pipeline-regional-cluster-inputs/terraform.json.j2
   enable_cloudtrail: true
+  # @doc regional_cluster.enable_api_custom_domain Enable API Gateway custom domain and ACM certificate. Off by default; adds ~20 minutes for certificate validation.
+  # @used-by regional_cluster.enable_api_custom_domain pipeline-regional-cluster-inputs/terraform.json.j2
+  enable_api_custom_domain: true
+  # @doc regional_cluster.zone_shard_count Number of DNS zone shards under the regional zone. Each shard supports ~10k records.
+  # @used-by regional_cluster.zone_shard_count pipeline-regional-cluster-inputs/terraform.json.j2
+  zone_shard_count: 1
   # @doc regional_cluster.node_instance_types EC2 instance types for regional cluster nodes.
   # @used-by regional_cluster.node_instance_types pipeline-regional-cluster-inputs/terraform.json.j2
   node_instance_types: ["t3.medium", "t3a.medium"]
@@ -93,10 +107,14 @@ applications:
         # @used-by applications.management-cluster.hypershift.oidcStorageS3Bucket.region _context
         region: "{{ aws_region }}"
       externalDns:
-        # @doc applications.management-cluster.hypershift.externalDns.domain External DNS domain for HyperShift.
+        # @doc applications.management-cluster.hypershift.externalDns.domain External DNS domain filter for HyperShift. Should match the regional zone so external-dns discovers zone shards.
         # @used-by applications.management-cluster.hypershift.externalDns.domain _context
-        domain: "dev.{{ aws_region }}.rosa.example.com"
+        domain: "{% if dns.domain %}{{ deployment_name }}.{{ dns.domain }}{% endif %}"
   regional-cluster:
+    hyperfleetAdapter1Chart:
+      # @doc applications.regional-cluster.hyperfleetAdapter1Chart.baseDomain DNS base domain for HostedClusters. Currently hardcoded to zone shard 0; will be dynamically assigned per-cluster by CLM in a future phase.
+      # @used-by applications.regional-cluster.hyperfleetAdapter1Chart.baseDomain _context
+      baseDomain: "{% if dns.domain %}0.{{ deployment_name }}.{{ dns.domain }}{% endif %}"
     maestro:
       # @doc applications.regional-cluster.maestro.mqttEndpoint Maestro MQTT broker endpoint.
       # @used-by applications.regional-cluster.maestro.mqttEndpoint _context

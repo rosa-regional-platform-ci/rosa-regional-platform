@@ -1,3 +1,8 @@
+deployment_name: "{{ aws_region }}{% if eph_prefix %}-{{ eph_prefix }}{% endif %}"
+
+dns:
+  domain: dev0.rosa.devshift.net
+
 regional_cluster:
   enable_bastion: true
 
