@@ -61,6 +61,8 @@ echo ""
 
 # Set Terraform variables from deploy config and CodeBuild env vars
 export TF_VAR_region="${TARGET_REGION}"
+TF_VAR_deployment_name=$(jq -r '.deployment_name' "$DEPLOY_CONFIG_FILE")
+export TF_VAR_deployment_name
 export TF_VAR_app_code="${APP_CODE}"
 export TF_VAR_service_phase="${SERVICE_PHASE}"
 export TF_VAR_cost_center="${COST_CENTER}"
@@ -96,6 +98,8 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
 export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' false "$DEPLOY_CONFIG_FILE")
+export TF_VAR_enable_api_custom_domain=$(parseBool '.enable_api_custom_domain' false "$DEPLOY_CONFIG_FILE")
+export TF_VAR_zone_shard_count=$(jq -r '.zone_shard_count // 1' "$DEPLOY_CONFIG_FILE")
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
 export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")

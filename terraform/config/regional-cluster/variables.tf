@@ -21,6 +21,16 @@ variable "region" {
   type        = string
 }
 
+variable "deployment_name" {
+  description = "Logical deployment identifier for DNS zone naming. Equals region for normal deployments; includes a suffix for CI/ephemeral (e.g. us-east-1-xg4y)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,23}[a-z0-9])?$", var.deployment_name))
+    error_message = "deployment_name must be 1-25 characters, lowercase alphanumeric or '-', starting and ending with alphanumeric."
+  }
+}
+
 variable "container_image" {
   description = "Public ECR image URI for platform container (used by bastion and ECS bootstrap)"
   type        = string
@@ -89,6 +99,12 @@ variable "enable_cloudtrail" {
   default     = false
 }
 
+variable "enable_api_custom_domain" {
+  description = "Enable API Gateway custom domain and ACM certificate. Adds ~20 minutes for DNS-validated certificate provisioning."
+  type        = bool
+  default     = false
+}
+
 # =============================================================================
 # Platform API Variables
 # =============================================================================
@@ -99,8 +115,19 @@ variable "api_additional_allowed_accounts" {
   default     = ""
 }
 
+variable "zone_shard_count" {
+  description = "Number of DNS zone shards to create under the regional zone. Each shard supports ~10k records."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.zone_shard_count >= 1 && var.zone_shard_count <= 100
+    error_message = "zone_shard_count must be between 1 and 100 (each shard costs $0.50/month)"
+  }
+}
+
 variable "environment_domain" {
-  description = "Environment domain name (e.g. int0.rosa.devshift.net). When set, creates the regional DNS zone (<region>.<environment_domain>) and custom API domain (api.<region>.<environment_domain>). When null, no DNS resources are created."
+  description = "Environment domain name (e.g. int0.rosa.devshift.net). When set, creates the regional DNS zone (<deployment_name>.<environment_domain>). When null, no DNS resources are created."
   type        = string
   default     = null
 }

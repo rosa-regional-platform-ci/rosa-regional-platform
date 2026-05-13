@@ -114,7 +114,7 @@ module "api_gateway" {
   cluster_name           = module.regional_cluster.cluster_name
 
   # Custom domain (e.g. api.us-east-1.int0.rosa.devshift.net)
-  api_domain_name         = var.environment_domain != null ? "api.${var.region}.${var.environment_domain}" : null
+  api_domain_name         = var.enable_api_custom_domain && var.environment_domain != null ? "api.${var.deployment_name}.${var.environment_domain}" : null
   regional_hosted_zone_id = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
 
   # Method-level throttling and observability
@@ -152,28 +152,94 @@ module "rhobs_api_gateway" {
 # When environment_domain is set, creates:
 # - Regional hosted zone (<region>.<environment_domain>) in the RC account
 # - NS delegation records in the environment zone (central account)
+# - Initial zone shard (0.<region>.<environment_domain>) for cluster records
 # =============================================================================
 
 resource "aws_route53_zone" "regional" {
   count = var.environment_domain != null ? 1 : 0
 
-  name = "${var.region}.${var.environment_domain}"
+  name = "${var.deployment_name}.${var.environment_domain}"
 
   tags = {
-    Name = "${var.region}.${var.environment_domain}"
+    Name = "${var.deployment_name}.${var.environment_domain}"
   }
+}
+
+# Look up the environment zone in the central account so we can create NS
+# delegation without owning the zone in this state.
+data "aws_route53_zone" "environment" {
+  count    = var.environment_domain != null ? 1 : 0
+  provider = aws.central
+
+  name         = var.environment_domain
+  private_zone = false
 }
 
 # NS delegation from the environment zone (central account) to the regional zone
 resource "aws_route53_record" "regional_delegation" {
-  count    = var.environment_domain != null && var.environment_hosted_zone_id != null ? 1 : 0
+  count    = var.environment_domain != null ? 1 : 0
   provider = aws.central
 
-  zone_id = var.environment_hosted_zone_id
-  name    = "${var.region}.${var.environment_domain}"
+  zone_id = data.aws_route53_zone.environment[0].zone_id
+  name    = "${var.deployment_name}.${var.environment_domain}"
   type    = "NS"
   ttl     = 300
   records = aws_route53_zone.regional[0].name_servers
+}
+
+# =============================================================================
+# Zone Shards (Optional)
+#
+# Each shard is a separate Route53 HostedZone under the regional zone,
+# providing ~10k records per shard. MC operators (external-dns, cert-manager)
+# create cluster records in shards. CLM assigns clusters to shards.
+# =============================================================================
+
+resource "aws_route53_zone" "zone_shard" {
+  count = var.environment_domain != null ? var.zone_shard_count : 0
+
+  name = "${count.index}.${var.deployment_name}.${var.environment_domain}"
+
+  tags = {
+    Name  = "${count.index}.${var.deployment_name}.${var.environment_domain}"
+    Shard = tostring(count.index)
+  }
+}
+
+# NS delegation from the regional zone to each zone shard
+resource "aws_route53_record" "zone_shard_delegation" {
+  count = var.environment_domain != null ? var.zone_shard_count : 0
+
+  zone_id = aws_route53_zone.regional[0].zone_id
+  name    = "${count.index}.${var.deployment_name}.${var.environment_domain}"
+  type    = "NS"
+  ttl     = 300
+  records = aws_route53_zone.zone_shard[count.index].name_servers
+}
+
+# =============================================================================
+# DNS Zone Operator (Cross-Account IAM for MC operators)
+# =============================================================================
+
+data "aws_ssm_parameter" "mc_ou_path" {
+  count = var.environment_domain != null ? 1 : 0
+  name  = "/infra/mc_ou_path"
+
+  lifecycle {
+    postcondition {
+      condition     = self.value != ""
+      error_message = "SSM parameter /infra/mc_ou_path must not be empty. See docs/environment-provisioning.md section 2.2."
+    }
+  }
+}
+
+module "dns_zone_operator" {
+  count  = var.environment_domain != null ? 1 : 0
+  source = "../../modules/dns-zone-operator"
+
+  regional_id                = var.regional_id
+  zone_shard_hosted_zone_ids = aws_route53_zone.zone_shard[*].zone_id
+  mc_ou_path                 = data.aws_ssm_parameter.mc_ou_path[0].value
 }
 
 # Maestro Infrastructure Module

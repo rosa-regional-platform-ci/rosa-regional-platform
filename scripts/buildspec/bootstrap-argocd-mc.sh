@@ -76,6 +76,10 @@ while [ -z "$RHOBS_API_URL" ]; do
     sleep 30
 done
 echo "  RHOBS API URL: ${RHOBS_API_URL}"
+
+# Construct dns_zone_operator_role_arn deterministically (same pattern as provision-infra-mc.sh)
+export DNS_ZONE_OPERATOR_ROLE_ARN="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/${_RC_REGIONAL_ID}-dns-zone-operator"
+echo "  DNS Zone Operator Role ARN: ${DNS_ZONE_OPERATOR_ROLE_ARN}"
 echo ""
 
 # =====================================================================

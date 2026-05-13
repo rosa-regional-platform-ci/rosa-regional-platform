@@ -89,6 +89,18 @@ module "maestro_agent" {
 }
 
 # =============================================================================
+# DNS Pod Identity (cross-account Route53 access for external-dns + cert-manager)
+# =============================================================================
+
+module "dns_pod_identity" {
+  source = "../../modules/dns-pod-identity"
+
+  management_id              = var.management_id
+  eks_cluster_name           = module.management_cluster.cluster_name
+  dns_zone_operator_role_arn = var.dns_zone_operator_role_arn
+}
+
+# =============================================================================
 # HyperShift OIDC (Private S3 + CloudFront + Pod Identity)
 # =============================================================================
 

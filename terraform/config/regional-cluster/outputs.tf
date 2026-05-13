@@ -190,6 +190,7 @@ output "regional_name_servers" {
   value       = var.environment_domain != null ? aws_route53_zone.regional[0].name_servers : null
 }
 
+
 output "api_domain_name" {
   description = "Custom domain name for the API (e.g. api.us-east-1.int0.rosa.devshift.net)"
   value       = module.api_gateway.api_domain_name
