@@ -39,6 +39,8 @@ spec:
                 key: BROKER_RABBITMQ_URL
           - name: MANAGEMENT_CLUSTER_NAME
             value: "{{ .Values.global.cluster_name }}"
+          - name: BASE_DOMAIN
+            value: "{{ .Values.hyperfleetAdapter1Chart.baseDomain | default "example.com" }}"
         # Service account configuration for AWS Pod Identity
         serviceAccount:
           create: true

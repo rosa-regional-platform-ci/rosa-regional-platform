@@ -8,9 +8,12 @@ hypershift:
   # AWS region — used by the ASCP SecretProviderClass to fetch from Secrets Manager
   region: us-east-1
 
-  # External DNS configuration
+  # External DNS domain filter — set from config via render.py
   externalDns:
-    domain: ".example.com"
+    domain: ""
+    # TODO(ROSAENG-1088): Remove this override once the Red Hat external-dns
+    # build (edo/external-dns-rhel8) bumps aws-sdk-go to >= v1.52 for Pod Identity.
+    image: registry.k8s.io/external-dns/external-dns:v0.21.0
 
   # Hypershift configuration
   hypershift:
