@@ -156,24 +156,21 @@ resource "aws_eks_cluster" "main" {
 # EKS Managed Addons
 #
 # Essential addons for cluster functionality:
-# - CoreDNS: DNS resolution for pods and services
-# - Pod Identity Agent: AWS IAM integration for workloads
-# - AWS Secrets Store CSI Driver Provider: Secret mounting
+# - Pod Identity Agent: AWS IAM integration for workloads (DaemonSet, safe pre-node)
+# - AWS Secrets Store CSI Driver Provider: Secret mounting (DaemonSet, safe pre-node)
+#
+# CoreDNS and metrics-server are Deployment-based addons that require running
+# pods, which means they need nodes. With node_pools=[] (FIPS-only mode), no
+# AWS-managed nodes exist at Terraform apply time — nodes are provisioned by
+# Karpenter after the ECS bootstrap applies the FIPS NodePool. Creating these
+# addons in Terraform would deadlock (addon DEGRADED → 20m timeout → Stage 2
+# never runs → no FIPS NodePool → no nodes → addon never ACTIVE). They are
+# instead created by the ECS bootstrap task after nodes are ready.
 # -----------------------------------------------------------------------------
-
-resource "aws_eks_addon" "coredns" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "coredns"
-}
 
 resource "aws_eks_addon" "pod_identity" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "eks-pod-identity-agent"
-}
-
-resource "aws_eks_addon" "metrics_server" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "metrics-server"
 }
 
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)
