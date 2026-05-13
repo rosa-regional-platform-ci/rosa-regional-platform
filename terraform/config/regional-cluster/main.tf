@@ -39,13 +39,6 @@ provider "aws" {
   use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
 }
 
-# PagerDuty provider — requires PAGERDUTY_TOKEN environment variable.
-# Only used when enable_pagerduty = true; skip validation so plan/init
-# succeed in environments where the token is not available.
-provider "pagerduty" {
-  skip_credentials_validation = true
-}
-
 # =============================================================================
 # Data Sources
 # =============================================================================
