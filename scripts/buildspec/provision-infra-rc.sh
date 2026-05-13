@@ -115,18 +115,19 @@ export TF_VAR_environment=$(jq -r '.environment' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_eph_prefix=$(jq -r '.eph_prefix // ""' "$DEPLOY_CONFIG_FILE")
 
 # Resolve OU path from central account SSM parameter
+_OU_PATH="__UNDEFINED__"
 _OU_PATH_REF=$(jq -r '.ou_path // ""' "$DEPLOY_CONFIG_FILE")
 if [[ "$_OU_PATH_REF" =~ ^ssm:// ]]; then
     _SSM_PARAM="${_OU_PATH_REF#ssm://}"
     echo "Resolving OU path SSM parameter: $_SSM_PARAM"
-    _OU_PATH_REF=$(aws ssm get-parameter \
+    _OU_PATH=$(aws ssm get-parameter \
         --name "$_SSM_PARAM" \
         --with-decryption \
         --query 'Parameter.Value' \
         --output text \
         --region "${TARGET_REGION}")
 fi
-export TF_VAR_ou_path="${_OU_PATH_REF}"
+export TF_VAR_ou_path="${_OU_PATH}"
 
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"
