@@ -285,6 +285,12 @@ def build_context(
     ctx = dict(merged)
     ctx.update(environment=env_name, aws_region=region, eph_prefix=eph_prefix)
 
+    # deployment_name is an explicit config field (default: "{{ aws_region }}").
+    # Resolve it after aws_region is in context so templates can reference it.
+    ctx["deployment_name"] = resolve_templates(
+        ctx.get("deployment_name", region), ctx
+    )
+
     # Resolve templated config values that other templates depend on
     aws = ctx.get("aws", {})
     ctx["account_id"] = resolve_templates(aws.get("account_id", ""), ctx)
