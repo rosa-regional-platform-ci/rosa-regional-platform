@@ -1,36 +1,25 @@
-# Default values for platform-api
-
 platformApi:
-  # Namespace to deploy into
   namespace: platform-api
-
-  # Service Account configuration
   serviceAccount:
     create: true
     name: platform-api-sa
     annotations: {}
-
-  # Application configuration
   app:
     name: platform-api
     image:
-      repository: quay.io/cdoan0/rosa-regional-platform-api
-      tag: latest
+      repository: quay.io/rrp-dev-ci/rosa-regional-platform-api
+      tag: ci-79243-2054568017521545216
       pullPolicy: Always
-
-    # Application arguments
     args:
       logLevel: info
       logFormat: json
       maestroUrl: http://maestro-http.maestro-server:8080
-      allowedAccounts: "123456789012"
+      allowedAccounts: '123456789012'
       dynamodbRegion: us-east-2
       dynamodbPrefix: rosa
       apiPort: 8000
       healthPort: 8081
       metricsPort: 9090
-
-    # Resources for the main app container
     resources:
       requests:
         cpu: 100m
@@ -38,14 +27,10 @@ platformApi:
       limits:
         cpu: 500m
         memory: 512Mi
-
-  # Envoy sidecar configuration
   envoy:
     image:
       repository: envoyproxy/envoy
       tag: v1.31-latest
-
-    # Resources for the Envoy sidecar
     resources:
       requests:
         cpu: 50m
@@ -53,12 +38,8 @@ platformApi:
       limits:
         cpu: 200m
         memory: 256Mi
-
-  # Deployment configuration
   deployment:
     replicas: 2
-
-  # Service configuration
   service:
     type: ClusterIP
     ports:
@@ -66,13 +47,9 @@ platformApi:
       api: 8000
       health: 8081
       metrics: 9090
-
-  # Target Group configuration
   targetGroup:
-    arn: "PLACEHOLDER"
+    arn: PLACEHOLDER
     targetType: ip
-
-  # Health probe configuration
   probes:
     liveness:
       initialDelaySeconds: 10
