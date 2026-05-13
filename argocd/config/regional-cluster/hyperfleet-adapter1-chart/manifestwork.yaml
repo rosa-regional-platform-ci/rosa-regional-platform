@@ -1,3 +1,4 @@
+{{- $hash4 := printf "%.4s" .clusterId -}}
 apiVersion: work.open-cluster-management.io/v1
 kind: ManifestWork
 metadata:
@@ -94,6 +95,23 @@ spec:
               remoteRef:
                 key: /infra/pull-secret
 
+      - apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: api-serving-cert
+          namespace: "clusters-{{ .clusterId }}"
+          labels:
+            hyperfleet.io/cluster-id: "{{ .clusterId }}"
+          annotations:
+            hyperfleet.io/generation: "{{ .generation }}"
+        spec:
+          secretName: api-serving-cert
+          issuerRef:
+            name: letsencrypt-dns01
+            kind: ClusterIssuer
+          dnsNames:
+            - "api.{{ .clusterName }}.{{ $hash4 }}.{{ .baseDomain }}"
+
       - apiVersion: hypershift.openshift.io/v1beta1
         kind: HostedCluster
         metadata:
@@ -115,7 +133,9 @@ spec:
         spec:
           infraID: "{{ .clusterId }}"
           dns:
-            baseDomain: example.com
+            # TODO(ROSAENG-1089): hash4 is currently a naive truncation of clusterId.
+            # CLM must guarantee uniqueness within a zone shard before production.
+            baseDomain: "{{ $hash4 }}.{{ .baseDomain }}"
           fips: true
           release:
             image: quay.io/openshift-release-dev/ocp-release:4.22.0-rc.1-multi
@@ -158,22 +178,29 @@ spec:
                   value: owned
                 - key: red-hat-managed
                   value: "true"
+          configuration:
+            apiServer:
+              servingCerts:
+                namedCertificates:
+                  - names:
+                      - "api.{{ .clusterName }}.{{ $hash4 }}.{{ .baseDomain }}"
+                    servingCertificate:
+                      name: api-serving-cert
           issuerURL: "{{ .cloudUrl }}/{{ .clusterId }}"
           # On EKS (non-OpenShift), using Route with explicit hostnames for KAS
           # and OAuth forces HyperShift to deploy a dedicated HCP router, avoiding
           # the dependency on a management cluster OpenShift ingress controller.
-          # TODO: Replace placeholder hostnames with real DNS once available.
           services:
             - service: APIServer
               servicePublishingStrategy:
                 type: Route
                 route:
-                  hostname: "api.{{ .clusterName }}.example.com"
+                  hostname: "api.{{ .clusterName }}.{{ $hash4 }}.{{ .baseDomain }}"
             - service: OAuthServer
               servicePublishingStrategy:
                 type: Route
                 route:
-                  hostname: "oauth.{{ .clusterName }}.example.com"
+                  hostname: "oauth.{{ .clusterName }}.{{ $hash4 }}.{{ .baseDomain }}"
             - service: Konnectivity
               servicePublishingStrategy:
                 type: Route

@@ -11,6 +11,10 @@ params:
     source: "env.MANAGEMENT_CLUSTER_NAME"
     type: "string"
     required: true
+  - name: "baseDomain"
+    source: "env.BASE_DOMAIN"
+    type: "string"
+    required: true
 
 preconditions:
   - name: "clusterStatus"
