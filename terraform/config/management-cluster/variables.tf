@@ -85,6 +85,12 @@ variable "regional_aws_account_id" {
   }
 }
 
+variable "dns_zone_operator_role_arn" {
+  description = "ARN of the RC-side dns-zone-operator IAM role. When set, creates Pod Identity for external-dns and cert-manager."
+  type        = string
+  default     = ""
+}
+
 variable "maestro_agent_cert_file" {
   description = "Path to JSON file containing Maestro agent certificate material (from IoT Mint outputs)"
   type        = string

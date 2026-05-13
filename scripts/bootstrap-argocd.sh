@@ -109,6 +109,7 @@ else
 fi
 
 RHOBS_API_URL="${RHOBS_API_URL:-}"
+DNS_ZONE_OPERATOR_ROLE_ARN="${DNS_ZONE_OPERATOR_ROLE_ARN:-}"
 
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
@@ -137,7 +138,8 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"},
         {\"name\": \"THANOS_TARGET_GROUP_ARN\", \"value\": \"$THANOS_TARGET_GROUP_ARN\"},
         {\"name\": \"THANOS_QUERY_TARGET_GROUP_ARN\", \"value\": \"$THANOS_QUERY_TARGET_GROUP_ARN\"},
-        {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"}
+        {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"},
+        {\"name\": \"DNS_ZONE_OPERATOR_ROLE_ARN\", \"value\": \"$DNS_ZONE_OPERATOR_ROLE_ARN\"}
       ]
     }]
   }" 2>&1)
