@@ -115,6 +115,7 @@ else
 fi
 
 RHOBS_API_URL="${RHOBS_API_URL:-}"
+DNS_ZONE_OPERATOR_ROLE_ARN="${DNS_ZONE_OPERATOR_ROLE_ARN:-}"
 
 echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
 
@@ -146,7 +147,8 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"LOKI_KMS_KEY_ARN\", \"value\": \"$LOKI_KMS_KEY_ARN\"},
         {\"name\": \"LOKI_DISTRIBUTOR_TARGET_GROUP_ARN\", \"value\": \"$LOKI_DISTRIBUTOR_TARGET_GROUP_ARN\"},
         {\"name\": \"LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN\", \"value\": \"$LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN\"},
-        {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"}
+        {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"},
+        {\"name\": \"DNS_ZONE_OPERATOR_ROLE_ARN\", \"value\": \"$DNS_ZONE_OPERATOR_ROLE_ARN\"}
       ]
     }]
   }" 2>&1)

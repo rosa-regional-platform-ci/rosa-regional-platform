@@ -206,7 +206,8 @@ resource "aws_ecs_task_definition" "bootstrap" {
           echo "  CLUSTER_TYPE: $CLUSTER_TYPE"
           echo "  REPOSITORY_URL: $REPOSITORY_URL"
           echo "  REPOSITORY_BRANCH: $REPOSITORY_BRANCH"
-          
+          echo "  DNS_ZONE_OPERATOR_ROLE_ARN: $DNS_ZONE_OPERATOR_ROLE_ARN"
+
           cat <<-SECRET_EOF | kubectl apply -f -
           apiVersion: v1
           kind: Secret
@@ -234,6 +235,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               loki_query_frontend_target_group_arn: "$LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN"
               aws_account_id: "$AWS_ACCOUNT_ID"
               rhobs_api_url: "$RHOBS_API_URL"
+              dns_zone_operator_role_arn: "$DNS_ZONE_OPERATOR_ROLE_ARN"
           type: Opaque
           stringData:
             name: in-cluster
