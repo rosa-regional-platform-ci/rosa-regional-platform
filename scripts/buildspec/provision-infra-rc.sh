@@ -23,6 +23,29 @@ aws configure set aws_session_token     "$_CENTRAL_AWS_SESSION_TOKEN"     --prof
 aws configure set region                "${TARGET_REGION}"                --profile central
 export TF_VAR_central_aws_profile="central"
 
+# Fetch PagerDuty API token from Secrets Manager (central account, us-east-1)
+# But only if we are enabling PD - no need to fetch the secret otherwise
+PD_ENABLED="  PagerDuty Enabled: false"
+_RAW_PD=$(jq -r '.enable_pagerduty // false' "$DEPLOY_CONFIG_FILE")
+if [ "$_RAW_PD" == "true" ] || [ "$_RAW_PD" == "1" ]; then
+    export TF_VAR_enable_pagerduty="true"
+    export TF_VAR_pagerduty_escalation_policy_id=$(jq -r '.pagerduty_escalation_policy_id // ""' "$DEPLOY_CONFIG_FILE")
+    PAGERDUTY_TOKEN=$(aws secretsmanager get-secret-value \
+        --secret-id "pagerduty/service-account" \
+        --region us-east-1 \
+        --query SecretString \
+        --output text)
+    export PAGERDUTY_TOKEN
+    PD_ENABLED=$(printf "  PagerDuty Enabled: true\n    - PagerDuty token loaded from Secrets Manager\n  Escalation Policy ID: %s" "$TF_VAR_pagerduty_escalation_policy_id")
+else
+    # PagerDuty disabled. The pagerduty provider block in main.tf still requires a
+    # non-empty PAGERDUTY_TOKEN to initialise its plugin client even when
+    # skip_credentials_validation=true. Export a placeholder so terraform apply
+    # succeeds; the pagerduty_service module is gated by enable_pagerduty=false and
+    # will not make any API calls.
+    export PAGERDUTY_TOKEN="disabled"
+fi
+
 # Assume target account role for both state and resource operations
 use_mc_account
 echo ""
@@ -55,7 +78,20 @@ _REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
 export TF_VAR_repository_url="${REPOSITORY_URL}"
 export TF_VAR_repository_branch="${_REPO_BRANCH}"
 
-export TF_VAR_api_additional_allowed_accounts="${TARGET_ACCOUNT_ID}"
+# Build allowed accounts list: target account + all MC accounts
+_ALLOWED_ACCOUNTS="${TARGET_ACCOUNT_ID}"
+# Read MC account IDs from rendered config (may contain SSM references)
+_MC_ACCOUNTS=$(jq -r '.management_cluster_account_ids // [] | .[]' "$DEPLOY_CONFIG_FILE" 2>/dev/null || true)
+for _ACCT in $_MC_ACCOUNTS; do
+    if [[ "$_ACCT" =~ ^ssm:// ]]; then
+        _SSM_PARAM="${_ACCT#ssm://}"
+        _ACCT=$(aws ssm get-parameter --name "$_SSM_PARAM" --with-decryption --query 'Parameter.Value' --output text --region "${TARGET_REGION}" 2>/dev/null || true)
+    fi
+    if [[ -n "$_ACCT" ]]; then
+        _ALLOWED_ACCOUNTS="${_ALLOWED_ACCOUNTS},${_ACCT}"
+    fi
+done
+export TF_VAR_api_additional_allowed_accounts="${_ALLOWED_ACCOUNTS}"
 
 # Set container image for ECS tasks (bastion and bootstrap)
 if [ -z "${PLATFORM_IMAGE:-}" ]; then
@@ -65,6 +101,8 @@ fi
 export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
+
+export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' false "$DEPLOY_CONFIG_FILE")
 
 # Load node_instance_types from deploy config (should be set in config.yaml)
 export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
@@ -81,6 +119,7 @@ fi
 # Extract regional_id and environment from rendered config
 export TF_VAR_regional_id=$(jq -r '.regional_id' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_environment=$(jq -r '.environment' "$DEPLOY_CONFIG_FILE")
+export TF_VAR_eph_prefix=$(jq -r '.eph_prefix // ""' "$DEPLOY_CONFIG_FILE")
 
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"
@@ -91,11 +130,13 @@ echo "  Repository URL: $TF_VAR_repository_url"
 echo "  Repository Branch: $TF_VAR_repository_branch"
 echo "  API Additional Allowed Accounts: $TF_VAR_api_additional_allowed_accounts"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
+echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
 echo "  Node Instance Types: $TF_VAR_node_instance_types"
 echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
 echo "  Regional ID: $TF_VAR_regional_id"
 echo "  Environment: $TF_VAR_environment"
+echo "$PD_ENABLED"
 echo ""
 
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
