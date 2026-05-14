@@ -78,6 +78,12 @@ else
     | yq "select(.kind | test(\"^(${EXCLUDED_KINDS})$\") | not)" \
     > "${CHART_DIR}/templates/operator.yaml"
 
+  # Ensure the operator image is set correctly (kustomize image transformer can
+  # fail silently if the base image name doesn't match after patches).
+  echo "==> Pinning operator image to docker.io/grafana/loki-operator:${VERSION}..."
+  yq -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[0].image) = \"docker.io/grafana/loki-operator:${VERSION}\"" \
+    "${CHART_DIR}/templates/operator.yaml"
+
   # Disable webhook feature gates in the ConfigMap so the operator doesn't try to
   # start a webhook server (which would fail without cert-manager TLS certs).
   echo "==> Disabling webhook feature gates in operator ConfigMap..."
