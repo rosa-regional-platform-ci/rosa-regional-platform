@@ -177,7 +177,14 @@ resource "aws_ecs_task_definition" "bootstrap" {
           until kubectl get nodes --no-headers 2>/dev/null | grep -q " Ready"; do
             if [ $(date +%s) -ge $deadline ]; then
               echo "ERROR: No FIPS nodes became ready within 10 minutes"
-              kubectl get nodes 2>/dev/null || true
+              echo "--- nodes ---"
+              kubectl get nodes -o wide 2>/dev/null || true
+              echo "--- nodeclaims (karpenter provisioning attempts) ---"
+              kubectl get nodeclaims 2>/dev/null || echo "none"
+              echo "--- pending pods (kube-system) ---"
+              kubectl get pods -n kube-system --field-selector=status.phase=Pending -o wide 2>/dev/null || true
+              echo "--- all pending pods ---"
+              kubectl get pods -A --field-selector=status.phase=Pending 2>/dev/null || true
               exit 1
             fi
             sleep 15
