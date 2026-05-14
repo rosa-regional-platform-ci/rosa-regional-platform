@@ -69,6 +69,10 @@ echo "Checking terraform outputs are available..."
         cat /tmp/tf-outputs.json
         exit 1
     fi
+    if [ "$(jq 'length' /tmp/tf-outputs.json)" -eq 0 ]; then
+        echo "ERROR: No terraform outputs found — terraform apply may not have run for this cluster."
+        exit 1
+    fi
     echo "Terraform outputs available:"
     jq 'keys' /tmp/tf-outputs.json
 )
