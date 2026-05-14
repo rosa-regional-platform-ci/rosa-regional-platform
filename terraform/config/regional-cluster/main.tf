@@ -52,6 +52,86 @@ provider "pagerduty" {
 
 data "aws_caller_identity" "current" {}
 
+# =============================================================================
+# External Secrets Operator — Pod Identity
+#
+# Grants ESO access to SSM Parameter Store and Secrets Manager so
+# ClusterSecretStores can resolve regional secrets and config. Always
+# deployed — individual feature modules should NOT create their own ESO
+# pod identity associations.
+# =============================================================================
+
+resource "aws_iam_role" "external_secrets_operator" {
+  name        = "${var.regional_id}-external-secrets-operator"
+  description = "IAM role for External Secrets Operator"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }]
+  })
+
+  tags = {
+    Name      = "${var.regional_id}-external-secrets-operator-role"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy" "eso_ssm" {
+  name = "${var.regional_id}-eso-ssm"
+  role = aws_iam_role.external_secrets_operator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ]
+      Resource = "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${var.regional_id}/*"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "eso_secretsmanager" {
+  name = "${var.regional_id}-eso-secretsmanager"
+  role = aws_iam_role.external_secrets_operator.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ]
+      Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:${var.regional_id}-*"
+    }]
+  })
+}
+
+resource "aws_eks_pod_identity_association" "external_secrets_operator" {
+  cluster_name    = module.regional_cluster.cluster_name
+  namespace       = "external-secrets"
+  service_account = "external-secrets"
+  role_arn        = aws_iam_role.external_secrets_operator.arn
+
+  tags = {
+    Name      = "${var.regional_id}-external-secrets-operator-pod-identity"
+    ManagedBy = "terraform"
+  }
+}
+
 # Call the EKS cluster module for regional cluster infrastructure
 module "regional_cluster" {
   source = "../../modules/eks-cluster"
@@ -294,7 +374,6 @@ module "pagerduty_service" {
   region               = var.region
   eph_prefix           = var.eph_prefix
   escalation_policy_id = var.pagerduty_escalation_policy_id
-  eks_cluster_name     = module.regional_cluster.cluster_name
 }
 
 # =============================================================================
