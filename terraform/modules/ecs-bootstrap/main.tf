@@ -95,9 +95,15 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
-          # Pre-flight: apply FIPS NodeClass and NodePool so Karpenter can provision
+          # Pre-flight: apply FIPS NodeClass and NodePools so Karpenter can provision
           # nodes for ArgoCD pods to schedule on. ArgoCD adopts these on first sync.
-          echo "Applying FIPS NodeClass and NodePool before ArgoCD install..."
+          #
+          # Two NodePools are required (AWS-validated FIPS Auto Mode pattern):
+          #   system-fips     — carries CriticalAddonsOnly:NoSchedule taint; satisfies
+          #                     CoreDNS and metrics-server scheduling requirements
+          #   *-workloads     — for platform and application workloads (no taint)
+          # Both reference the same FIPS NodeClass so all nodes are FIPS-validated.
+          echo "Applying FIPS NodeClass and NodePools before ArgoCD install..."
 
           NODEPOOL_NAME="management-workloads"
           if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
@@ -121,6 +127,38 @@ resource "aws_ecs_task_definition" "bootstrap" {
               fips: true
               kernelLockdown: Integrity
           NODECLASS_EOF
+
+          cat <<-SYSTEM_NODEPOOL_EOF | kubectl apply -f -
+          apiVersion: karpenter.sh/v1
+          kind: NodePool
+          metadata:
+            name: system-fips
+          spec:
+            template:
+              spec:
+                nodeClassRef:
+                  group: eks.amazonaws.com
+                  kind: NodeClass
+                  name: fips
+                taints:
+                  - key: CriticalAddonsOnly
+                    effect: NoSchedule
+                requirements:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values:
+                      - on-demand
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+            limits:
+              cpu: "8"
+              memory: 32Gi
+            disruption:
+              consolidationPolicy: WhenEmpty
+              consolidateAfter: 60s
+          SYSTEM_NODEPOOL_EOF
 
           cat <<-NODEPOOL_EOF | kubectl apply -f -
           apiVersion: karpenter.sh/v1
@@ -151,11 +189,12 @@ resource "aws_ecs_task_definition" "bootstrap" {
               consolidateAfter: 60s
           NODEPOOL_EOF
 
-          echo "✓ FIPS NodeClass and NodePool applied"
+          echo "✓ FIPS NodeClass and NodePools applied"
 
-          # Create Deployment-based addons first so their pending pods trigger Karpenter
-          # to provision a FIPS node. Karpenter is reactive — it only provisions nodes
-          # in response to unschedulable pods; applying a NodePool alone is not enough.
+          # Create Deployment-based addons first so their pending pods trigger Karpenter.
+          # CoreDNS and metrics-server tolerate CriticalAddonsOnly:NoSchedule and will
+          # schedule on system-fips nodes. Karpenter is reactive — it only provisions
+          # nodes in response to unschedulable pods.
           for ADDON in coredns metrics-server; do
             echo "Creating $ADDON add-on..."
             if CREATE_OUTPUT=$(aws eks create-addon \
