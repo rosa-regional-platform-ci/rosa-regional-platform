@@ -117,22 +117,9 @@ resource "aws_eks_cluster" "main" {
   }
 
   compute_config {
-    enabled = true
-    # node_pools=[] disables built-in non-FIPS pools; all nodes are provisioned
-    # by custom Karpenter NodePools referencing the FIPS NodeClass.
-    # node_role_arn is set even with node_pools=[] to register the node role
-    # with EKS Auto Mode's trusted-role registry. Without it, the NodeClass
-    # InstanceProfileReady condition fails with UnauthorizedNodeRole and
-    # Karpenter cannot provision any nodes. EC2_LINUX access entries do not
-    # satisfy this check — only node_role_arn does.
-    node_pools    = []
+    enabled       = true
+    node_pools    = ["system"]
     node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
   }
 
   kubernetes_network_config {
@@ -164,13 +151,8 @@ resource "aws_eks_cluster" "main" {
 # - Pod Identity Agent: AWS IAM integration for workloads (DaemonSet, safe pre-node)
 # - AWS Secrets Store CSI Driver Provider: Secret mounting (DaemonSet, safe pre-node)
 #
-# CoreDNS and metrics-server are Deployment-based addons that require running
-# pods, which means they need nodes. With node_pools=[] (FIPS-only mode), no
-# AWS-managed nodes exist at Terraform apply time — nodes are provisioned by
-# Karpenter after the ECS bootstrap applies the FIPS NodePool. Creating these
-# addons in Terraform would deadlock (addon DEGRADED → 20m timeout → Stage 2
-# never runs → no FIPS NodePool → no nodes → addon never ACTIVE). They are
-# instead created by the ECS bootstrap task after nodes are ready.
+# CoreDNS and metrics-server are managed by the built-in "system" node pool and
+# are provisioned automatically by EKS Auto Mode. They are not created here.
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_addon" "pod_identity" {
