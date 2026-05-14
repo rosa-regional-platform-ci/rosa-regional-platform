@@ -17,6 +17,8 @@ alert-bridge-chart:
       - CreateNamespace=true
 
   helmValues:
+    fullnameOverride: alert-bridge
+
     image:
       repository: quay.io/kbater/rosa-alert-bridge
       tag: "287ca7c"

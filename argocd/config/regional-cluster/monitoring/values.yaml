@@ -31,7 +31,7 @@ kube-prometheus-stack:
         - name: "null"
         - name: sns-alert-bridge
           webhook_configs:
-            - url: http://alert-bridge-rosa-alert-bridge.monitoring.svc.cluster.local:8080/alerts
+            - url: http://alert-bridge.monitoring.svc.cluster.local:8080/alerts
               send_resolved: true
     alertmanagerSpec:
       replicas: 2
