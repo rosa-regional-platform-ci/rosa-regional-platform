@@ -99,8 +99,10 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # nodes for ArgoCD pods to schedule on. ArgoCD adopts these on first sync.
           #
           # Two NodePools are required (AWS-validated FIPS Auto Mode pattern):
-          #   system-fips     — carries CriticalAddonsOnly:NoSchedule taint; satisfies
-          #                     CoreDNS and metrics-server scheduling requirements
+          #   system          — carries CriticalAddonsOnly:NoSchedule taint; named "system"
+          #                     to satisfy CoreDNS/metrics-server required node affinity
+          #                     (karpenter.sh/nodepool: system). Nodes from this pool
+          #                     are FIPS-validated via the FIPS NodeClass.
           #   *-workloads     — for platform and application workloads (no taint)
           # Both reference the same FIPS NodeClass so all nodes are FIPS-validated.
           echo "Applying FIPS NodeClass and NodePools before ArgoCD install..."
@@ -132,7 +134,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
           apiVersion: karpenter.sh/v1
           kind: NodePool
           metadata:
-            name: system-fips
+            name: system
           spec:
             template:
               spec:
@@ -189,7 +191,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               consolidateAfter: 60s
           NODEPOOL_EOF
 
-          echo "✓ FIPS NodeClass and NodePools applied"
+          echo "✓ FIPS NodeClass and NodePools applied (system + $NODEPOOL_NAME)"
 
           # Create Deployment-based addons first so their pending pods trigger Karpenter.
           # CoreDNS and metrics-server tolerate CriticalAddonsOnly:NoSchedule and will
