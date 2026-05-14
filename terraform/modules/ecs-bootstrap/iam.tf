@@ -58,7 +58,11 @@ resource "aws_iam_role_policy" "task_bootstrap" {
           "eks:DescribeNodegroup",
           "eks:ListNodegroups",
           "eks:DescribeUpdate",
-          "eks:ListUpdates"
+          "eks:ListUpdates",
+          "eks:DescribeAddon",
+          "eks:CreateAddon",
+          "eks:UpdateAddon",
+          "eks:ListAddons"
         ]
         Resource = var.eks_cluster_arn
       },
