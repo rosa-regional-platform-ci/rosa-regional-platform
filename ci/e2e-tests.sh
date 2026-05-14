@@ -37,12 +37,24 @@ export BASE_URL
 echo "Running API e2e tests against ${BASE_URL}"
 
 # RHOBS API URL for observability E2E tests (Thanos Query read path).
-# The query path is always available — uses the same invoke URL as remote-write.
 if [[ -z "${RHOBS_API_URL:-}" ]]; then
   if [[ -r "${CREDS_DIR}/rhobs_api_url" ]]; then
     RHOBS_API_URL="$(cat "${CREDS_DIR}/rhobs_api_url")"
   elif [[ -n "${TF_OUTPUTS:-}" && -r "${TF_OUTPUTS:-}" ]]; then
     RHOBS_API_URL="$(jq -r '.rhobs_api_url.value // empty' "${TF_OUTPUTS}")"
+  fi
+fi
+# Probe the query endpoint before running observability tests. The route may not
+# be deployed yet in pre-existing environments after a Terraform change. An
+# unauthenticated request returns 403 ("Missing Authentication Token") when the
+# route exists, or 404 ("No method found") when it hasn't been deployed.
+if [[ -n "${RHOBS_API_URL:-}" ]]; then
+  _probe_body=$(curl -s --max-time 10 "${RHOBS_API_URL}/api/v1/query" 2>/dev/null || true)
+  if echo "${_probe_body}" | grep -q "No method found"; then
+    echo "WARNING: RHOBS query endpoint not yet deployed (404 No method found)."
+    echo "         Run 'terraform apply' on the integration environment to deploy the query route."
+    echo "         Observability tests will be skipped."
+    unset RHOBS_API_URL
   fi
 fi
 if [[ -n "${RHOBS_API_URL:-}" ]]; then
