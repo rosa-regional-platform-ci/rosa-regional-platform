@@ -4,7 +4,7 @@
 
 ## Summary
 
-All EKS clusters in the ROSA Regional Platform use two custom Karpenter NodePools referencing a FIPS-validated NodeClass, with EKS Auto Mode's built-in node pools disabled (`node_pools = []`). This is the AWS-validated pattern for achieving exclusively FIPS-validated compute in EKS Auto Mode while preserving full operational functionality.
+All EKS clusters in the ROSA Regional Platform use two custom Karpenter NodePools referencing a FIPS-validated NodeClass, with EKS Auto Mode's built-in node pools disabled (`node_pools = []`). The system NodePool is named `system` to satisfy the required node affinity EKS Auto Mode places on CoreDNS and metrics-server; it references the FIPS NodeClass so all compute is FIPS-validated.
 
 ## Context
 
@@ -27,11 +27,11 @@ FedRAMP High/Moderate authorization requires that all cryptographic operations u
 
 4. **Disable built-in pools and manually patch CoreDNS affinity**: Set `node_pools = []` and edit the CoreDNS addon configuration to remove the `karpenter.sh/nodepool: system` node affinity. EKS-managed addon scheduling constraints are not user-configurable — changes are overridden by the addon manager. Rejected.
 
-5. **Two custom FIPS NodePools with built-in pools disabled**: Set `node_pools = []` and create two Karpenter NodePools (`system-fips` and `*-workloads`) both referencing a FIPS NodeClass. The `system-fips` pool carries the `CriticalAddonsOnly:NoSchedule` taint, which CoreDNS and metrics-server tolerate, satisfying their scheduling requirements without the `karpenter.sh/nodepool: system` constraint. **Chosen.**
+5. **Two custom FIPS NodePools with built-in pools disabled**: Set `node_pools = []` and create two Karpenter NodePools (`system` and `*-workloads`) both referencing a FIPS NodeClass. The `system` NodePool is named `system` so that nodes from it receive the label `karpenter.sh/nodepool: system`, satisfying the required node affinity EKS Auto Mode places on CoreDNS and metrics-server. It also carries the `CriticalAddonsOnly:NoSchedule` taint to prevent non-system workloads from scheduling on it. With `node_pools = []`, EKS does not own the `system` name, so a user-created NodePool with that name does not conflict. **Chosen.**
 
 ## Design Rationale
 
-- **Justification**: The two-NodePool approach is the AWS-documented pattern for FIPS-only EKS Auto Mode. It satisfies every constraint: all nodes are provisioned from a FIPS NodeClass (Bottlerocket FIPS AMI), CoreDNS and metrics-server schedule successfully (via taint toleration rather than pool affinity), and the cluster can be bootstrapped without requiring changes to EKS-managed addon configuration.
+- **Justification**: The two-NodePool approach satisfies every constraint. All nodes are provisioned from a FIPS NodeClass (Bottlerocket FIPS AMI). CoreDNS and metrics-server schedule successfully because the `system` NodePool produces nodes labeled `karpenter.sh/nodepool: system`, directly satisfying their required node affinity. The `CriticalAddonsOnly:NoSchedule` taint on the system pool prevents workload pods from scheduling there. No changes to EKS-managed addon configuration are required.
 
 - **Evidence**: AWS introduced FIPS support for EKS Auto Mode in October 2025 via the `eks.amazonaws.com/v1` NodeClass `advancedSecurity` field. The `fips: true` flag provisions Bottlerocket nodes with the FIPS kernel and validated cryptographic libraries. The `kernelLockdown: Integrity` setting enforces kernel integrity protection. Both fields are required for FIPS compliance. The two-NodePool pattern (system + workloads) mirrors the structure of the built-in pools it replaces.
 
@@ -42,7 +42,7 @@ FedRAMP High/Moderate authorization requires that all cryptographic operations u
 ### Positive
 
 - All cluster compute nodes run Bottlerocket with FIPS-validated cryptographic modules, satisfying FedRAMP High/Moderate cryptographic requirements.
-- The `system-fips` / `*-workloads` NodePool split provides a clean separation between system addon scheduling and platform workload scheduling, improving blast radius isolation.
+- The `system` / `*-workloads` NodePool split provides a clean separation between system addon scheduling and platform workload scheduling, improving blast radius isolation.
 - Both NodePools reference a single FIPS NodeClass, ensuring consistent FIPS configuration with a single point of update.
 - The NodeClass and NodePools are applied by the ECS bootstrap task and subsequently adopted by ArgoCD on first sync, making them GitOps-managed like all other cluster configuration.
 - The approach is forward-compatible: as AWS expands FIPS Auto Mode capabilities (e.g., additional architectures, instance families), only the NodeClass/NodePool specs need updating.
@@ -57,7 +57,7 @@ FedRAMP High/Moderate authorization requires that all cryptographic operations u
 
 ### Reliability
 
-- **Scalability**: The `system-fips` NodePool is intentionally small (8 CPU / 32 GiB) to limit blast radius for system addon scaling. The `*-workloads` NodePool is large (64 CPU / 256 GiB) and handles all platform and application workloads. Both use `consolidationPolicy: WhenEmpty` to release idle capacity promptly.
+- **Scalability**: The `system` NodePool is intentionally small (8 CPU / 32 GiB) to limit blast radius for system addon scaling. The `*-workloads` NodePool is large (64 CPU / 256 GiB) and handles all platform and application workloads. Both use `consolidationPolicy: WhenEmpty` to release idle capacity promptly.
 - **Observability**: Karpenter NodeClaims are visible via `kubectl get nodeclaims`. Bootstrap failure diagnostics in the ECS task log node state, pending NodeClaims, and pending pods in `kube-system` to pinpoint scheduling failures. CloudWatch logs for the ECS task provide a full audit trail.
 - **Resiliency**: Node provisioning is Karpenter-managed and automatic. The mandatory 21-day rotation means PodDisruptionBudgets are load-bearing for stateful workloads — their absence is a reliability risk, not just a compliance gap.
 
@@ -65,7 +65,7 @@ FedRAMP High/Moderate authorization requires that all cryptographic operations u
 
 - All nodes use Bottlerocket with `advancedSecurity.fips: true` and `kernelLockdown: Integrity`, satisfying FIPS 140-2/140-3 requirements for cryptographic modules (SC-13) and providing kernel integrity enforcement.
 - The FIPS NodeClass (`eks.amazonaws.com/v1`) selects subnets and security groups via cluster-owned tags, ensuring nodes land in the correct private subnets with the correct network policies.
-- The `system-fips` NodePool's `CriticalAddonsOnly:NoSchedule` taint prevents non-system workloads from being scheduled on system nodes without an explicit toleration.
+- The `system` NodePool's `CriticalAddonsOnly:NoSchedule` taint prevents non-system workloads from being scheduled on system nodes without an explicit toleration.
 - Node IAM role (`${cluster_id}-auto-node-role`) is referenced directly in the NodeClass, scoping node permissions to a cluster-specific role rather than a shared role.
 
 ### Performance
@@ -76,7 +76,7 @@ FedRAMP High/Moderate authorization requires that all cryptographic operations u
 ### Cost
 
 - Two NodePools instead of one adds no direct cost — NodePools are Karpenter configuration objects with no AWS billing. Node costs are identical: on-demand EC2 instances running Bottlerocket.
-- `WhenEmpty` consolidation reclaims idle capacity on the `system-fips` pool when CoreDNS and metrics-server scale down replicas (e.g., off-peak), reducing EC2 spend.
+- `WhenEmpty` consolidation reclaims idle capacity on the `system` pool when CoreDNS and metrics-server scale down replicas (e.g., off-peak), reducing EC2 spend.
 
 ### Operability
 
