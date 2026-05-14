@@ -220,12 +220,21 @@ resource "aws_ecs_task_definition" "bootstrap" {
               echo "ERROR: No FIPS nodes became ready within 10 minutes"
               echo "--- nodes ---"
               kubectl get nodes -o wide 2>/dev/null || true
-              echo "--- nodeclaims (karpenter provisioning attempts) ---"
-              kubectl get nodeclaims 2>/dev/null || echo "none"
-              echo "--- pending pods (kube-system) ---"
-              kubectl get pods -n kube-system --field-selector=status.phase=Pending -o wide 2>/dev/null || true
-              echo "--- all pending pods ---"
-              kubectl get pods -A --field-selector=status.phase=Pending 2>/dev/null || true
+              echo "--- nodeclaims ---"
+              kubectl get nodeclaims -o wide 2>/dev/null || echo "none"
+              echo "--- nodeclass fips ---"
+              kubectl describe nodeclass fips 2>/dev/null || echo "not found"
+              echo "--- nodepool system ---"
+              kubectl describe nodepool system 2>/dev/null || echo "not found"
+              echo "--- nodepool $NODEPOOL_NAME ---"
+              kubectl describe nodepool "$NODEPOOL_NAME" 2>/dev/null || echo "not found"
+              echo "--- coredns pod scheduling events ---"
+              FIRST_COREDNS=$(kubectl get pods -n kube-system -l k8s-app=kube-dns --no-headers -o name 2>/dev/null | head -1)
+              if [ -n "$FIRST_COREDNS" ]; then
+                kubectl describe -n kube-system "$FIRST_COREDNS" 2>/dev/null || true
+              fi
+              echo "--- kube-system events (last 20) ---"
+              kubectl get events -n kube-system --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
               exit 1
             fi
             sleep 15
