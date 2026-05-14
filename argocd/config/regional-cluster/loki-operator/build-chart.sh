@@ -62,16 +62,36 @@ for candidate in "config/default" "config/overlays/community" "config/manager"; 
   fi
 done
 
+# Exclude CRDs (managed separately in crds/), cert-manager resources (not available
+# on EKS), and webhook configurations (require cert-manager for TLS CA injection).
+# Webhooks are disabled via feature gates in the operator ConfigMap instead of
+# stripping volumes — this is the supported way to run without cert-manager.
+EXCLUDED_KINDS="CustomResourceDefinition|Certificate|Issuer|ValidatingWebhookConfiguration|MutatingWebhookConfiguration"
+
 if [[ -z "${KUSTOMIZE_DIR}" ]]; then
   echo "WARN: No kustomization.yaml found, falling back to manual manifest assembly" >&2
-  # Assemble from individual config directories
   cat "${WORKDIR}/loki/operator/config/rbac/"*.yaml > "${CHART_DIR}/templates/operator.yaml"
   cat "${WORKDIR}/loki/operator/config/manager/"*.yaml >> "${CHART_DIR}/templates/operator.yaml"
 else
   echo "    Using kustomize dir: ${KUSTOMIZE_DIR}"
   kubectl kustomize "${KUSTOMIZE_DIR}" \
-    | yq 'select(.kind != "CustomResourceDefinition")' \
+    | yq "select(.kind | test(\"^(${EXCLUDED_KINDS})$\") | not)" \
     > "${CHART_DIR}/templates/operator.yaml"
+
+  # Disable webhook feature gates in the ConfigMap so the operator doesn't try to
+  # start a webhook server (which would fail without cert-manager TLS certs).
+  echo "==> Disabling webhook feature gates in operator ConfigMap..."
+  sed -i 's/lokiStackWebhook: true/lokiStackWebhook: false/' "${CHART_DIR}/templates/operator.yaml"
+  sed -i 's/alertingRuleWebhook: true/alertingRuleWebhook: false/' "${CHART_DIR}/templates/operator.yaml"
+  sed -i 's/recordingRuleWebhook: true/recordingRuleWebhook: false/' "${CHART_DIR}/templates/operator.yaml"
+
+  # Remove the webhook-cert volume and its mount from the Deployment — the volume
+  # references a Secret that cert-manager would create, and without it the pod
+  # would be stuck in ContainerCreating.
+  yq -i '(select(.kind == "Deployment") | .spec.template.spec.volumes) |=
+    map(select(.name != "webhook-cert"))' "${CHART_DIR}/templates/operator.yaml"
+  yq -i '(select(.kind == "Deployment") | .spec.template.spec.containers[0].volumeMounts) |=
+    map(select(.name != "webhook-cert"))' "${CHART_DIR}/templates/operator.yaml"
 fi
 
 echo "==> Packaging Helm chart..."
