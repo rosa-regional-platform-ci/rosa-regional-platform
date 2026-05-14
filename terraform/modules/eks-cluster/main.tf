@@ -153,6 +153,25 @@ resource "aws_eks_cluster" "main" {
 }
 
 # -----------------------------------------------------------------------------
+# Node Role Access Entry
+#
+# With node_pools=[] and node_role_arn=null (required together — EKS rejects
+# node_role_arn without node_pools), EKS does not automatically authorize the
+# node IAM role to join the cluster. Custom Karpenter NodePools reference this
+# role via the NodeClass, so we must register it explicitly as EC2_LINUX.
+# Without this, NodeClass.Status shows UnauthorizedNodeRole and Karpenter
+# cannot provision any nodes.
+# -----------------------------------------------------------------------------
+
+resource "aws_eks_access_entry" "node_role" {
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = aws_iam_role.eks_auto_mode_node.arn
+  type          = "EC2_LINUX"
+
+  depends_on = [aws_eks_cluster.main]
+}
+
+# -----------------------------------------------------------------------------
 # EKS Managed Addons
 #
 # Essential addons for cluster functionality:
