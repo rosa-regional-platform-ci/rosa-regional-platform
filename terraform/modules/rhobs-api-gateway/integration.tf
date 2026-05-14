@@ -86,3 +86,82 @@ resource "aws_api_gateway_integration" "thanos_query_range" {
   integration_target      = aws_lb.rhobs.arn
   uri                     = "http://${aws_lb.rhobs.dns_name}/api/v1/query_range"
 }
+
+# -----------------------------------------------------------------------------
+# Loki Push: POST /loki/api/v1/push
+#
+# Accepts log push payloads from MC Vector (via sigv4-proxy).
+# Uses protobuf with snappy compression (same binary_media_types as Thanos).
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_method" "loki_push" {
+  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
+  resource_id   = aws_api_gateway_resource.loki_api_v1_push.id
+  http_method   = "POST"
+  authorization = "AWS_IAM"
+
+  request_parameters = {
+    "method.request.header.Content-Type" = false
+  }
+}
+
+resource "aws_api_gateway_integration" "loki_push" {
+  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
+  resource_id             = aws_api_gateway_resource.loki_api_v1_push.id
+  http_method             = aws_api_gateway_method.loki_push.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "POST"
+  connection_type         = "VPC_LINK"
+  connection_id           = aws_apigatewayv2_vpc_link.rhobs.id
+  integration_target      = aws_lb.rhobs.arn
+  uri                     = "http://${aws_lb.rhobs.dns_name}/loki/api/v1/push"
+}
+
+# -----------------------------------------------------------------------------
+# Loki Query: GET /loki/api/v1/query
+#
+# Exposes LogQL instant queries for E2E tests and internal tooling.
+# Restricted to the RC account only via resource policy.
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_method" "loki_query" {
+  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
+  resource_id   = aws_api_gateway_resource.loki_api_v1_query.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "loki_query" {
+  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
+  resource_id             = aws_api_gateway_resource.loki_api_v1_query.id
+  http_method             = aws_api_gateway_method.loki_query.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  connection_type         = "VPC_LINK"
+  connection_id           = aws_apigatewayv2_vpc_link.rhobs.id
+  integration_target      = aws_lb.rhobs.arn
+  uri                     = "http://${aws_lb.rhobs.dns_name}/loki/api/v1/query"
+}
+
+# -----------------------------------------------------------------------------
+# Loki Query Range: GET /loki/api/v1/query_range
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_method" "loki_query_range" {
+  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
+  resource_id   = aws_api_gateway_resource.loki_api_v1_query_range.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "loki_query_range" {
+  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
+  resource_id             = aws_api_gateway_resource.loki_api_v1_query_range.id
+  http_method             = aws_api_gateway_method.loki_query_range.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  connection_type         = "VPC_LINK"
+  connection_id           = aws_apigatewayv2_vpc_link.rhobs.id
+  integration_target      = aws_lb.rhobs.arn
+  uri                     = "http://${aws_lb.rhobs.dns_name}/loki/api/v1/query_range"
+}

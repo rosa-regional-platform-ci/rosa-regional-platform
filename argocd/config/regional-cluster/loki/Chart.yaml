@@ -1,0 +1,20 @@
+apiVersion: v2
+name: loki
+description: Slim wrapper deploying Loki platform resources; operator itself comes from upstream loki-operator chart via app-of-apps
+type: application
+version: 0.1.0
+appVersion: "6.3.0"
+home: https://github.com/openshift-online/rosa-regional-platform
+sources:
+  - https://github.com/openshift-online/rosa-regional-platform
+  - https://github.com/rhobs/rhobs-konflux-loki-operator
+  - https://github.com/grafana/loki
+maintainers:
+  - name: ROSA Regional Platform Team
+keywords:
+  - loki
+  - operator
+  - logs
+  - observability
+  - rosa
+  - eks

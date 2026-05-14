@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-config
+  namespace: {{ include "vector.namespace" . }}
+  labels:
+    {{- include "vector.labels" . | nindent 4 }}
+  annotations:
+    {{- include "vector.annotations" . | nindent 4 }}
+data:
+  vector.yaml: |
+    data_dir: /vector-data-dir
+
+    sources:
+      kubernetes_logs:
+        type: kubernetes_logs
+        self_node_name: "${VECTOR_SELF_NODE_NAME}"
+
+    transforms:
+      add_cluster_metadata:
+        type: remap
+        inputs:
+          - kubernetes_logs
+        source: |
+          .cluster_name = "{{ .Values.global.cluster_name | default "unknown" }}"
+          .cluster_type = "regional-cluster"
+
+    sinks:
+      loki:
+        type: loki
+        inputs:
+          - add_cluster_metadata
+        endpoint: {{ .Values.lokiEndpoint | quote }}
+        encoding:
+          codec: json
+        labels:
+          cluster_name: "{{ `{{ cluster_name }}` }}"
+          cluster_type: "{{ `{{ cluster_type }}` }}"
+          namespace: "{{ `{{ kubernetes.pod_namespace }}` }}"
+          pod: "{{ `{{ kubernetes.pod_name }}` }}"
+          container: "{{ `{{ kubernetes.container_name }}` }}"
+        out_of_order_action: accept
+        remove_timestamp: false

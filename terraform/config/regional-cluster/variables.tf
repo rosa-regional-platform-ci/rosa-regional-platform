@@ -305,6 +305,33 @@ variable "thanos_service_account" {
 }
 
 # =============================================================================
+# Loki Configuration Variables
+# =============================================================================
+
+variable "loki_logs_retention_days" {
+  description = "Number of days to retain logs in S3 (FedRAMP minimum: 30 days)"
+  type        = number
+  default     = 90
+}
+
+variable "loki_namespace" {
+  description = "Kubernetes namespace where Loki is deployed"
+  type        = string
+  default     = "loki"
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", var.loki_namespace))
+    error_message = "Namespace must conform to DNS-1123 label: lowercase alphanumeric and '-', starting and ending with alphanumeric, max 63 characters."
+  }
+}
+
+variable "loki_service_account" {
+  description = "Kubernetes service account name for Loki operator"
+  type        = string
+  default     = "loki-operator"
+}
+
+# =============================================================================
 # PagerDuty Configuration Variables
 # =============================================================================
 

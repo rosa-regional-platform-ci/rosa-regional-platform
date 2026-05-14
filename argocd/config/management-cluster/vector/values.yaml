@@ -1,0 +1,75 @@
+# Injected by ApplicationSet at runtime — defaults here for helm lint only
+global:
+  cluster_type: ""
+  environment: ""
+  aws_region: ""
+  cluster_name: ""
+  rhobs_api_url: ""
+
+namespace: vector
+
+image:
+  repository: timberio/vector
+  tag: 0.44.0-distroless-libc
+  pullPolicy: IfNotPresent
+
+# Resource limits match RHOBS CLF collector spec
+resources:
+  requests:
+    cpu: 200m
+    memory: 1Gi
+  limits:
+    cpu: 750m
+    memory: 2Gi
+
+# Pod-level security context
+# Vector needs root to read /var/log and /var/lib/docker on host nodes.
+# This matches CLO/Vector behavior on OpenShift where the collector runs privileged.
+podSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security context
+# readOnlyRootFilesystem is false because Vector writes checkpoint data to /vector-data-dir
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - DAC_READ_SEARCH
+
+# Tolerations match RHOBS CLF collector: schedule on all nodes
+tolerations:
+  - operator: Exists
+
+sigv4Proxy:
+  image:
+    repository: public.ecr.aws/aws-observability/aws-sigv4-proxy
+    tag: "1.11"
+    pullPolicy: IfNotPresent
+  port: 8006
+  # For production, use replicas: 2
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL

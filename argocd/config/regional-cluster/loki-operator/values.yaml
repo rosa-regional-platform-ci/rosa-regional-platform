@@ -1,0 +1,22 @@
+loki-operator:
+  manager:
+    image:
+      repository: quay.io/redhat-services-prod/rhobs-mco-tenant/rhobs-loki-operator
+      # Konflux commit hash — same image RHOBS runs in production (loki-operator.v6.3.0)
+      tag: 157c2b41c918d4890ce7879f1e8583b6a50ec8a4
+      pullPolicy: IfNotPresent
+    env:
+      - name: RELATED_IMAGE_LOKI
+        value: "quay.io/redhat-services-prod/rhobs-mco-tenant/rhobs-loki:177faa651b8678f7122500641e29aa009e096e80"
+      - name: RELATED_IMAGE_GATEWAY
+        value: "registry.redhat.io/openshift-logging/lokistack-gateway-rhel9@sha256:710a1a5e486de5724469e55f29e9ff3f6cbef8cd4b2d21dfe254ede2b953c150"
+      - name: OPERATOR_CONDITION_NAME
+        value: "loki-operator.v6.3.0"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    nodeSelector:
+      kubernetes.io/os: linux

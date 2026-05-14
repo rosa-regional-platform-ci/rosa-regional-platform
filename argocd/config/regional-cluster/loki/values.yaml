@@ -1,0 +1,76 @@
+# Injected by ApplicationSet at runtime — defaults here for helm lint only
+global:
+  cluster_type: ""
+  environment: ""
+  aws_region: ""
+  cluster_name: ""
+  aws_account_id: ""
+
+namespace: loki
+
+lokiStack:
+  name: loki
+  # 1x.extra-small is what RHOBS production uses — Loki Operator translates this
+  # into resource requests/limits for each component. S3 is the storage backend,
+  # not local disk, so "extra-small" refers to compute sizing, not storage capacity.
+  size: 1x.extra-small
+  storageSchemaVersion: v13
+  storageClassName: gp3
+  managementState: Managed
+
+  retention:
+    days: 90
+
+  # Ingestion limits — aligned with RHOBS staging baseline.
+  # Production uses higher values (ingestionRate: 250, perStreamRateLimit: 240)
+  # but staging is a safer starting point for our initial deployment.
+  ingestion:
+    ingestionBurstSize: 256
+    ingestionRate: 20
+    maxLineSize: 2097152
+    perStreamRateLimit: 15
+    perStreamRateLimitBurst: 30
+
+  queries:
+    queryTimeout: 5m
+
+  # OTLP stream labels — these become Loki labels for indexing/querying.
+  # We use standard OTel/Kubernetes resource attributes (not OpenShift-specific
+  # ones like openshift.log.source which don't exist on EKS).
+  otlp:
+    streamLabels:
+      resourceAttributes:
+        - name: k8s.namespace.name
+        - name: k8s.pod.name
+        - name: k8s.container.name
+
+  rules:
+    enabled: false
+
+  # For production, use replicas: distributor: 3, ingester: 3, querier: 2, queryFrontend: 2
+  template:
+    distributor:
+      replicas: 1
+    ingester:
+      replicas: 1
+    querier:
+      replicas: 1
+    queryFrontend:
+      replicas: 1
+
+serviceAccount:
+  name: loki-operator
+  annotations: {}
+
+loki:
+  kmsKeyArn: ""
+  distributorTargetGroup:
+    arn: ""
+    serviceName: loki-distributor-http
+    port: 3100
+    targetType: ip
+  queryFrontendTargetGroup:
+    arn: ""
+    serviceName: loki-query-frontend-http
+    port: 3100
+    targetType: ip

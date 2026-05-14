@@ -1,6 +1,6 @@
 apiVersion: v2
 name: grafana
-description: Grafana deployment with Thanos Query Frontend datasource
+description: Grafana deployment with Thanos Query Frontend and Loki datasources
 type: application
 version: 0.1.0
 

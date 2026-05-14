@@ -161,6 +161,7 @@ module "ecs_bootstrap" {
   repository_branch = var.repository_branch
 
   thanos_kms_key_arn = module.thanos_infrastructure.kms_key_arn
+  loki_kms_key_arn   = module.loki_infrastructure.kms_key_arn
 }
 
 # =============================================================================
@@ -389,4 +390,18 @@ module "thanos_infrastructure" {
   metrics_retention_days = var.thanos_metrics_retention_days
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
+}
+
+# =============================================================================
+# Loki Infrastructure Module (Observability - Logs)
+# =============================================================================
+module "loki_infrastructure" {
+  source = "../../modules/loki-infrastructure"
+
+  cluster_id       = var.regional_id
+  eks_cluster_name = module.regional_cluster.cluster_name
+
+  logs_retention_days  = var.loki_logs_retention_days
+  loki_namespace       = var.loki_namespace
+  loki_service_account = var.loki_service_account
 }

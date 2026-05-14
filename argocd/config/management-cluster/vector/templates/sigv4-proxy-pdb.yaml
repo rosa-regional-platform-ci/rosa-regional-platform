@@ -1,0 +1,15 @@
+{{- if gt (int (.Values.sigv4Proxy.replicas | default 2)) 1 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sigv4-proxy-logs
+  namespace: {{ include "vector.namespace" . }}
+  labels:
+    app.kubernetes.io/name: sigv4-proxy-logs
+    app.kubernetes.io/component: logs-proxy
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sigv4-proxy-logs
+{{- end }}

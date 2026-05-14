@@ -84,3 +84,29 @@ variable "thanos_query_port" {
     error_message = "Thanos query port must be between 1 and 65535."
   }
 }
+
+# =============================================================================
+# Loki Target Group Configuration
+# =============================================================================
+
+variable "loki_distributor_port" {
+  description = "Loki Distributor HTTP port for log push"
+  type        = number
+  default     = 3100
+
+  validation {
+    condition     = var.loki_distributor_port >= 1 && var.loki_distributor_port <= 65535
+    error_message = "Loki distributor port must be between 1 and 65535."
+  }
+}
+
+variable "loki_query_frontend_port" {
+  description = "Loki Query Frontend HTTP port"
+  type        = number
+  default     = 3100
+
+  validation {
+    condition     = var.loki_query_frontend_port >= 1 && var.loki_query_frontend_port <= 65535
+    error_message = "Loki query frontend port must be between 1 and 65535."
+  }
+}

@@ -52,3 +52,9 @@ variable "thanos_kms_key_arn" {
   type        = string
   default     = ""
 }
+
+variable "loki_kms_key_arn" {
+  description = "KMS key ARN for Loki S3 encryption"
+  type        = string
+  default     = ""
+}

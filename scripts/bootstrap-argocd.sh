@@ -102,10 +102,14 @@ if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
     API_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.api_target_group_arn.value // ""')
     THANOS_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.thanos_target_group_arn.value // ""')
     THANOS_QUERY_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.thanos_query_target_group_arn.value // ""')
+    LOKI_DISTRIBUTOR_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.loki_distributor_target_group_arn.value // ""')
+    LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN=$(echo "$OUTPUTS" | jq -r '.loki_query_frontend_target_group_arn.value // ""')
 else
     API_TARGET_GROUP_ARN=""
     THANOS_TARGET_GROUP_ARN=""
     THANOS_QUERY_TARGET_GROUP_ARN=""
+    LOKI_DISTRIBUTOR_TARGET_GROUP_ARN=""
+    LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN=""
 fi
 
 RHOBS_API_URL="${RHOBS_API_URL:-}"
@@ -137,6 +141,8 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"API_TARGET_GROUP_ARN\", \"value\": \"$API_TARGET_GROUP_ARN\"},
         {\"name\": \"THANOS_TARGET_GROUP_ARN\", \"value\": \"$THANOS_TARGET_GROUP_ARN\"},
         {\"name\": \"THANOS_QUERY_TARGET_GROUP_ARN\", \"value\": \"$THANOS_QUERY_TARGET_GROUP_ARN\"},
+        {\"name\": \"LOKI_DISTRIBUTOR_TARGET_GROUP_ARN\", \"value\": \"$LOKI_DISTRIBUTOR_TARGET_GROUP_ARN\"},
+        {\"name\": \"LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN\", \"value\": \"$LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN\"},
         {\"name\": \"RHOBS_API_URL\", \"value\": \"$RHOBS_API_URL\"}
       ]
     }]

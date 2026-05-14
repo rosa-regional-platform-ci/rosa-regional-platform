@@ -117,3 +117,47 @@ resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_thanos_query" {
   to_port                      = var.thanos_query_port
   referenced_security_group_id = aws_security_group.alb.id
 }
+
+# -----------------------------------------------------------------------------
+# Loki Security Group Rules
+# -----------------------------------------------------------------------------
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_loki_distributor" {
+  security_group_id            = aws_security_group.alb.id
+  description                  = "Allow traffic to Loki Distributor pods"
+  ip_protocol                  = "tcp"
+  from_port                    = var.loki_distributor_port
+  to_port                      = var.loki_distributor_port
+  referenced_security_group_id = var.node_security_group_id
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_loki_query_frontend" {
+  count = var.loki_distributor_port != var.loki_query_frontend_port ? 1 : 0
+
+  security_group_id            = aws_security_group.alb.id
+  description                  = "Allow traffic to Loki Query Frontend pods"
+  ip_protocol                  = "tcp"
+  from_port                    = var.loki_query_frontend_port
+  to_port                      = var.loki_query_frontend_port
+  referenced_security_group_id = var.node_security_group_id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_loki_distributor" {
+  security_group_id            = var.node_security_group_id
+  description                  = "Allow RHOBS ALB traffic to Loki Distributor pods"
+  ip_protocol                  = "tcp"
+  from_port                    = var.loki_distributor_port
+  to_port                      = var.loki_distributor_port
+  referenced_security_group_id = aws_security_group.alb.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "nodes_from_alb_loki_query_frontend" {
+  count = var.loki_distributor_port != var.loki_query_frontend_port ? 1 : 0
+
+  security_group_id            = var.node_security_group_id
+  description                  = "Allow RHOBS ALB traffic to Loki Query Frontend pods"
+  ip_protocol                  = "tcp"
+  from_port                    = var.loki_query_frontend_port
+  to_port                      = var.loki_query_frontend_port
+  referenced_security_group_id = aws_security_group.alb.id
+}

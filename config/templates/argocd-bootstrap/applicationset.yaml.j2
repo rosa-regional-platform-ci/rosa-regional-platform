@@ -74,6 +74,13 @@ spec:
                 arn: '{{ '{{ .metadata.annotations.thanos_target_group_arn }}' }}'
               queryTargetGroup:
                 arn: '{{ '{{ .metadata.annotations.thanos_query_target_group_arn }}' }}'
+            # Loki Operator values (keys must match chart's values.yaml structure)
+            loki:
+              kmsKeyArn: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
+              distributorTargetGroup:
+                arn: '{{ '{{ .metadata.annotations.loki_distributor_target_group_arn }}' }}'
+              queryFrontendTargetGroup:
+                arn: '{{ '{{ .metadata.annotations.loki_query_frontend_target_group_arn }}' }}'
             hyperfleetApi:
               aws:
                 region: '{{ '{{ .metadata.labels.aws_region }}' }}'

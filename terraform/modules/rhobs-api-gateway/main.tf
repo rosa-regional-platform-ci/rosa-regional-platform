@@ -5,8 +5,14 @@
 # VPC Link, and security groups — fully isolated from the Platform API Gateway.
 # Only MC accounts can invoke this API via resource policy.
 #
-# Flow: POST /api/v1/receive -> VPC Link -> RHOBS ALB -> Thanos Receive (:19291)
-#       GET  /api/v1/query   -> VPC Link -> RHOBS ALB -> Thanos Query Frontend (:9090)
+# Thanos (metrics):
+#   POST /api/v1/receive -> VPC Link -> RHOBS ALB -> Thanos Receive (:19291)
+#   GET  /api/v1/query   -> VPC Link -> RHOBS ALB -> Thanos Query Frontend (:9090)
+#
+# Loki (logs):
+#   POST /loki/api/v1/push        -> VPC Link -> RHOBS ALB -> Loki Distributor (:3100)
+#   GET  /loki/api/v1/query       -> VPC Link -> RHOBS ALB -> Loki Query Frontend (:3100)
+#   GET  /loki/api/v1/query_range -> VPC Link -> RHOBS ALB -> Loki Query Frontend (:3100)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -22,10 +28,10 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_api_gateway_rest_api" "rhobs" {
   name        = "${var.regional_id}-rhobs"
-  description = "RHOBS metrics ingestion API (Thanos Receive)"
+  description = "RHOBS observability API (Thanos metrics + Loki logs)"
 
   # Binary media types — API GW passes these payloads through as-is
-  # without text encoding. Required for Prometheus remote_write (protobuf).
+  # without text encoding. Required for Prometheus remote_write and Loki push (protobuf).
   binary_media_types = ["application/x-protobuf"]
 
   endpoint_configuration {
@@ -74,6 +80,48 @@ resource "aws_api_gateway_resource" "api_v1_query_range" {
 }
 
 # -----------------------------------------------------------------------------
+# Resource chain: /loki -> /loki/api -> /loki/api/v1 -> /loki/api/v1/push
+#                                                     -> /loki/api/v1/query
+#                                                     -> /loki/api/v1/query_range
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_resource" "loki" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_rest_api.rhobs.root_resource_id
+  path_part   = "loki"
+}
+
+resource "aws_api_gateway_resource" "loki_api" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.loki.id
+  path_part   = "api"
+}
+
+resource "aws_api_gateway_resource" "loki_api_v1" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.loki_api.id
+  path_part   = "v1"
+}
+
+resource "aws_api_gateway_resource" "loki_api_v1_push" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.loki_api_v1.id
+  path_part   = "push"
+}
+
+resource "aws_api_gateway_resource" "loki_api_v1_query" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.loki_api_v1.id
+  path_part   = "query"
+}
+
+resource "aws_api_gateway_resource" "loki_api_v1_query_range" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.loki_api_v1.id
+  path_part   = "query_range"
+}
+
+# -----------------------------------------------------------------------------
 # Deployment and Stage
 # -----------------------------------------------------------------------------
 
@@ -84,6 +132,9 @@ resource "aws_api_gateway_deployment" "rhobs" {
     aws_api_gateway_integration.thanos_receive,
     aws_api_gateway_integration.thanos_query,
     aws_api_gateway_integration.thanos_query_range,
+    aws_api_gateway_integration.loki_push,
+    aws_api_gateway_integration.loki_query,
+    aws_api_gateway_integration.loki_query_range,
     aws_api_gateway_rest_api_policy.rhobs,
   ]
 
@@ -100,6 +151,15 @@ resource "aws_api_gateway_deployment" "rhobs" {
       aws_api_gateway_resource.api_v1_query_range.id,
       aws_api_gateway_method.thanos_query_range.id,
       aws_api_gateway_integration.thanos_query_range.id,
+      aws_api_gateway_resource.loki_api_v1_push.id,
+      aws_api_gateway_method.loki_push.id,
+      aws_api_gateway_integration.loki_push.id,
+      aws_api_gateway_resource.loki_api_v1_query.id,
+      aws_api_gateway_method.loki_query.id,
+      aws_api_gateway_integration.loki_query.id,
+      aws_api_gateway_resource.loki_api_v1_query_range.id,
+      aws_api_gateway_method.loki_query_range.id,
+      aws_api_gateway_integration.loki_query_range.id,
     ]))
   }
 

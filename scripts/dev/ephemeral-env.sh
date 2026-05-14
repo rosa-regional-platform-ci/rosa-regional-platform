@@ -717,12 +717,13 @@ cmd_bastion_port_forward() {
     local argocd="argocd    - ArgoCD server HTTPS"
     local prometheus="prometheus  - Prometheus Monitoring Dashboard"
     local thanos="thanos    - Thanos Query Frontend (aggregated RC+MC metrics)"
+    local loki="loki      - Loki Query Frontend (platform logs)"
     local alertmanager="alertmanager - AlertManager Web UI"
     local grafana="grafana   - Grafana Dashboard"
     local custom="custom    - Custom service / ports"
 
     # custom services are added only for interactive
-    local regional_svc_list=("$maestro" "$argocd" "$prometheus" "$thanos" "$alertmanager" "$grafana")
+    local regional_svc_list=("$maestro" "$argocd" "$prometheus" "$thanos" "$loki" "$alertmanager" "$grafana")
     local management_svc_list=("$argocd" "$prometheus")
 
     local services
@@ -774,6 +775,11 @@ cmd_bastion_port_forward() {
         thanos)
             forwards+=(
             "Thanos-Query 10902 10902 thanos-query-frontend-thanos-query thanos 9090"
+            )
+            ;;
+        loki)
+            forwards+=(
+            "Loki-Query 13100 13100 loki-query-frontend-http loki 3100"
             )
             ;;
         alertmanager)

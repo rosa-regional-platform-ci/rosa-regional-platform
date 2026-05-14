@@ -1,0 +1,20 @@
+apiVersion: v2
+name: vector
+description: Vector log collector for management cluster — collects pod logs and forwards to RC Loki via sigv4-proxy
+type: application
+version: 0.1.0
+appVersion: "0.44.0"
+home: https://github.com/openshift-online/rosa-regional-platform
+sources:
+  - https://github.com/openshift-online/rosa-regional-platform
+  - https://vector.dev
+maintainers:
+  - name: ROSA Regional Platform Team
+keywords:
+  - vector
+  - logs
+  - observability
+  - loki
+  - rosa
+  - eks
+  - management-cluster
