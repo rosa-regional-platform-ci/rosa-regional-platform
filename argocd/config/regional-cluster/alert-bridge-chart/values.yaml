@@ -27,9 +27,10 @@ alert-bridge-chart:
 
     config:
       logLevel: "info"
-      snsTopicArnFromSecret:
-        name: alert-bridge-sns-config
-        key: sns-topic-arn
+      snsTopicArnFrom:
+        secretKeyRef:
+          name: alert-bridge-sns-config
+          key: sns-topic-arn
 
     serviceMonitor:
       enabled: true
