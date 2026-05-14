@@ -6,5 +6,5 @@ version: 0.1.0
 
 dependencies:
   - name: loki-operator
-    version: 6.3.0
-    repository: oci://quay.io/redhat-services-prod/rhobs-mco-tenant/rhobs-loki-operator-chart
+    version: 0.10.0
+    repository: oci://quay.io/slopezz/loki-operator-chart
