@@ -118,10 +118,15 @@ resource "aws_eks_cluster" "main" {
 
   compute_config {
     enabled = true
-    # No built-in node pools — all scheduling is handled by the custom FIPS NodePool/NodeClass.
-    # EKS rejects node_role_arn without node_pools, so both must be null.
+    # node_pools=[] disables built-in non-FIPS pools; all nodes are provisioned
+    # by custom Karpenter NodePools referencing the FIPS NodeClass.
+    # node_role_arn is set even with node_pools=[] to register the node role
+    # with EKS Auto Mode's trusted-role registry. Without it, the NodeClass
+    # InstanceProfileReady condition fails with UnauthorizedNodeRole and
+    # Karpenter cannot provision any nodes. EC2_LINUX access entries do not
+    # satisfy this check — only node_role_arn does.
     node_pools    = []
-    node_role_arn = null
+    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
 
     # TODO: Enable IMDSv2 enforcement for security compliance
     # node_pool_defaults configuration for launch template metadata_options
@@ -150,25 +155,6 @@ resource "aws_eks_cluster" "main" {
     aws_cloudwatch_log_group.eks_cluster,
     aws_kms_key.eks_secrets
   ]
-}
-
-# -----------------------------------------------------------------------------
-# Node Role Access Entry
-#
-# With node_pools=[] and node_role_arn=null (required together — EKS rejects
-# node_role_arn without node_pools), EKS does not automatically authorize the
-# node IAM role to join the cluster. Custom Karpenter NodePools reference this
-# role via the NodeClass, so we must register it explicitly as EC2_LINUX.
-# Without this, NodeClass.Status shows UnauthorizedNodeRole and Karpenter
-# cannot provision any nodes.
-# -----------------------------------------------------------------------------
-
-resource "aws_eks_access_entry" "node_role" {
-  cluster_name  = aws_eks_cluster.main.name
-  principal_arn = aws_iam_role.eks_auto_mode_node.arn
-  type          = "EC2_LINUX"
-
-  depends_on = [aws_eks_cluster.main]
 }
 
 # -----------------------------------------------------------------------------
