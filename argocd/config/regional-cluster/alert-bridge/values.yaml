@@ -1,0 +1,36 @@
+alert-bridge-chart:
+  applicationName: alert-bridge
+  namespace: argocd
+  targetNamespace: monitoring
+  project: default
+
+  source:
+    repoURL: https://github.com/iamkirkbater/rosa-alert-bridge.git
+    targetRevision: main
+    path: charts/rosa-alert-bridge
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+
+  helmValues:
+    image:
+      repository: quay.io/iamkirkbater/rosa-alert-bridge
+      tag: latest
+      pullPolicy: Always
+
+    serviceAccount:
+      name: alert-sns-bridge
+
+    config:
+      logLevel: "info"
+
+    serviceMonitor:
+      enabled: true
+
+    networkPolicy:
+      enabled: true
+      alertmanagerNamespace: "monitoring"
