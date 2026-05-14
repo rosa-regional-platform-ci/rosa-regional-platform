@@ -326,9 +326,9 @@ variable "loki_namespace" {
 }
 
 variable "loki_service_account" {
-  description = "Kubernetes service account name for Loki operator"
+  description = "Kubernetes service account name for Loki (shared by all Loki components in SimpleScalable mode)"
   type        = string
-  default     = "loki-operator"
+  default     = "loki"
 }
 
 # =============================================================================
@@ -345,9 +345,7 @@ variable "pagerduty_escalation_policy_id" {
   description = "ID of an existing PagerDuty escalation policy to use for the regional service"
   type        = string
   default     = ""
-}
-
-variable "eph_prefix" {
+}variable "eph_prefix" {
   description = "Ephemeral environment prefix (e.g., xg4y). Passed to PagerDuty service naming to avoid collisions."
   type        = string
   default     = ""

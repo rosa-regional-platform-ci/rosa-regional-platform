@@ -28,13 +28,8 @@ output "kms_key_id" {
 }
 
 output "writer_role_arn" {
-  description = "ARN of the IAM role for Loki write components (distributor, ingester, compactor)"
+  description = "ARN of the IAM role for Loki (all components share this via a single ServiceAccount)"
   value       = aws_iam_role.loki_writer.arn
-}
-
-output "reader_role_arn" {
-  description = "ARN of the IAM role for Loki read components (querier, index-gateway, query-frontend)"
-  value       = aws_iam_role.loki_reader.arn
 }
 
 output "region" {
@@ -45,28 +40,4 @@ output "region" {
 output "fips_enabled" {
   description = "Whether FIPS endpoints are being used (required for FedRAMP in US regions)"
   value       = local.use_fips
-}
-
-# =============================================================================
-# Helm Values Output
-# =============================================================================
-
-output "helm_values" {
-  description = "Values to pass to the Loki Helm chart"
-  value = {
-    aws = {
-      region = data.aws_region.current.region
-    }
-    loki = {
-      storage = {
-        type = "s3"
-        s3 = {
-          bucket   = aws_s3_bucket.loki.id
-          endpoint = local.s3_endpoint
-          region   = data.aws_region.current.region
-        }
-      }
-      kmsKeyArn = aws_kms_key.loki.arn
-    }
-  }
 }

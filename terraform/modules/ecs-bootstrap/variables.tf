@@ -59,8 +59,3 @@ variable "loki_kms_key_arn" {
   default     = ""
 }
 
-variable "loki_writer_role_arn" {
-  description = "IAM role ARN for Loki write components (STS validation in storage secret)"
-  type        = string
-  default     = ""
-}

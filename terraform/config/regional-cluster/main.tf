@@ -160,9 +160,8 @@ module "ecs_bootstrap" {
   repository_url    = var.repository_url
   repository_branch = var.repository_branch
 
-  thanos_kms_key_arn   = module.thanos_infrastructure.kms_key_arn
-  loki_kms_key_arn     = module.loki_infrastructure.kms_key_arn
-  loki_writer_role_arn = module.loki_infrastructure.writer_role_arn
+  thanos_kms_key_arn = module.thanos_infrastructure.kms_key_arn
+  loki_kms_key_arn   = module.loki_infrastructure.kms_key_arn
 }
 
 # =============================================================================

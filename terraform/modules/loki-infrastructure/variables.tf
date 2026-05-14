@@ -23,9 +23,9 @@ variable "loki_namespace" {
 }
 
 variable "loki_service_account" {
-  description = "Name of the Loki operator service account"
+  description = "Name of the Loki service account (used by all Loki pods in SimpleScalable mode)"
   type        = string
-  default     = "loki-operator"
+  default     = "loki"
 }
 
 variable "logs_retention_days" {

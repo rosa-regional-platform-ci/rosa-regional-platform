@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vector
+  namespace: {{ include "vector.namespace" . }}
+  labels:
+    {{- include "vector.labels" . | nindent 4 }}
+  annotations:
+    {{- include "vector.annotations" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "vector.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "vector.namespace" . }}
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics

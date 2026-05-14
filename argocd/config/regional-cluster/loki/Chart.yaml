@@ -1,20 +1,24 @@
 apiVersion: v2
 name: loki
-description: Slim wrapper deploying Loki platform resources; operator itself comes from upstream loki-operator chart via app-of-apps
+description: Loki log aggregation deployed via upstream grafana/loki Helm chart in SimpleScalable mode
 type: application
-version: 0.1.0
-appVersion: "6.3.0"
+version: 0.2.0
+appVersion: "3.6.7"
 home: https://github.com/openshift-online/rosa-regional-platform
 sources:
   - https://github.com/openshift-online/rosa-regional-platform
-  - https://github.com/rhobs/rhobs-konflux-loki-operator
   - https://github.com/grafana/loki
+  - https://grafana.github.io/helm-charts
 maintainers:
   - name: ROSA Regional Platform Team
 keywords:
   - loki
-  - operator
   - logs
   - observability
   - rosa
   - eks
+
+dependencies:
+  - name: loki
+    version: "7.0.0"
+    repository: "https://grafana.github.io/helm-charts"

@@ -16,6 +16,9 @@ data:
         type: kubernetes_logs
         self_node_name: "${VECTOR_SELF_NODE_NAME}"
 
+      internal_metrics:
+        type: internal_metrics
+
     transforms:
       add_cluster_metadata:
         type: remap
@@ -42,3 +45,9 @@ data:
           container: "{{ `{{ kubernetes.container_name }}` }}"
         out_of_order_action: accept
         remove_timestamp: false
+
+      prometheus_exporter:
+        type: prometheus_exporter
+        inputs:
+          - internal_metrics
+        address: "0.0.0.0:9090"

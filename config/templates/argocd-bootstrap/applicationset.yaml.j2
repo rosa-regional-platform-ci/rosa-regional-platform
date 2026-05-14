@@ -74,14 +74,21 @@ spec:
                 arn: '{{ '{{ .metadata.annotations.thanos_target_group_arn }}' }}'
               queryTargetGroup:
                 arn: '{{ '{{ .metadata.annotations.thanos_query_target_group_arn }}' }}'
-            # Loki Operator values (keys must match chart's values.yaml structure)
-            loki:
+            # Loki platform values (keys must match chart's values.yaml structure)
+            platform:
               kmsKeyArn: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
-              writerRoleArn: '{{ '{{ .metadata.annotations.loki_writer_role_arn | default "" }}' }}'
               distributorTargetGroup:
                 arn: '{{ '{{ .metadata.annotations.loki_distributor_target_group_arn }}' }}'
               queryFrontendTargetGroup:
                 arn: '{{ '{{ .metadata.annotations.loki_query_frontend_target_group_arn }}' }}'
+            # Client-side SSE-KMS (defense-in-depth, matches Thanos pattern)
+            loki:
+              loki:
+                storage:
+                  s3:
+                    sse:
+                      type: SSE-KMS
+                      kms_key_id: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
             hyperfleetApi:
               aws:
                 region: '{{ '{{ .metadata.labels.aws_region }}' }}'

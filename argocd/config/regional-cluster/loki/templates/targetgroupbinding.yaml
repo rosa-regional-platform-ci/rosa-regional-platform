@@ -1,4 +1,4 @@
-{{- if .Values.loki.distributorTargetGroup.arn }}
+{{- if .Values.platform.distributorTargetGroup.arn }}
 apiVersion: eks.amazonaws.com/v1
 kind: TargetGroupBinding
 metadata:
@@ -10,13 +10,13 @@ metadata:
     {{- include "loki.annotations" . | nindent 4 }}
 spec:
   serviceRef:
-    name: {{ .Values.loki.distributorTargetGroup.serviceName | default "loki-distributor-http" }}
-    port: {{ .Values.loki.distributorTargetGroup.port | default 3100 }}
-  targetGroupARN: {{ .Values.loki.distributorTargetGroup.arn | quote }}
-  targetType: {{ .Values.loki.distributorTargetGroup.targetType | default "ip" }}
+    name: {{ .Values.platform.distributorTargetGroup.serviceName | default "loki-loki-write" }}
+    port: {{ .Values.platform.distributorTargetGroup.port | default 3100 }}
+  targetGroupARN: {{ .Values.platform.distributorTargetGroup.arn | quote }}
+  targetType: {{ .Values.platform.distributorTargetGroup.targetType | default "ip" }}
 {{- end }}
 ---
-{{- if .Values.loki.queryFrontendTargetGroup.arn }}
+{{- if .Values.platform.queryFrontendTargetGroup.arn }}
 apiVersion: eks.amazonaws.com/v1
 kind: TargetGroupBinding
 metadata:
@@ -28,8 +28,8 @@ metadata:
     {{- include "loki.annotations" . | nindent 4 }}
 spec:
   serviceRef:
-    name: {{ .Values.loki.queryFrontendTargetGroup.serviceName | default "loki-query-frontend-http" }}
-    port: {{ .Values.loki.queryFrontendTargetGroup.port | default 3100 }}
-  targetGroupARN: {{ .Values.loki.queryFrontendTargetGroup.arn | quote }}
-  targetType: {{ .Values.loki.queryFrontendTargetGroup.targetType | default "ip" }}
+    name: {{ .Values.platform.queryFrontendTargetGroup.serviceName | default "loki-loki-read" }}
+    port: {{ .Values.platform.queryFrontendTargetGroup.port | default 3100 }}
+  targetGroupARN: {{ .Values.platform.queryFrontendTargetGroup.arn | quote }}
+  targetType: {{ .Values.platform.queryFrontendTargetGroup.targetType | default "ip" }}
 {{- end }}

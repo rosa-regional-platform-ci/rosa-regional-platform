@@ -1,8 +1,0 @@
-# The upstream loki-operator chart is built from kustomize manifests.
-# Image overrides are not needed — the operator image is baked into the
-# kustomize output (docker.io/grafana/loki-operator:0.10.0).
-#
-# To switch to RHOBS productized images later, rebuild the chart from
-# https://github.com/rhobs/rhobs-loki using build-chart.sh and update
-# Chart.yaml to point to the new registry.
-loki-operator: {}

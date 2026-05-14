@@ -6,74 +6,228 @@ global:
   cluster_name: ""
   aws_account_id: ""
 
-namespace: loki
-
-lokiStack:
-  name: loki
-  # 1x.extra-small is what RHOBS production uses — Loki Operator translates this
-  # into resource requests/limits for each component. S3 is the storage backend,
-  # not local disk, so "extra-small" refers to compute sizing, not storage capacity.
-  size: 1x.extra-small
-  storageSchemaVersion: v13
-  storageClassName: gp3
-  managementState: Managed
-
-  retention:
-    days: 90
-
-  # Ingestion limits — aligned with RHOBS staging baseline.
-  # Production uses higher values (ingestionRate: 250, perStreamRateLimit: 240)
-  # but staging is a safer starting point for our initial deployment.
-  ingestion:
-    ingestionBurstSize: 256
-    ingestionRate: 20
-    maxLineSize: 2097152
-    perStreamRateLimit: 15
-    perStreamRateLimitBurst: 30
-
-  queries:
-    queryTimeout: 5m
-
-  # OTLP stream labels — these become Loki labels for indexing/querying.
-  # We use standard OTel/Kubernetes resource attributes (not OpenShift-specific
-  # ones like openshift.log.source which don't exist on EKS).
-  otlp:
-    streamLabels:
-      resourceAttributes:
-        - name: k8s.namespace.name
-        - name: k8s.pod.name
-        - name: k8s.container.name
-
-  rules:
-    enabled: false
-
-  # For production, use replicas: distributor: 3, ingester: 3, querier: 2, queryFrontend: 2
-  template:
-    distributor:
-      replicas: 1
-    ingester:
-      replicas: 1
-    querier:
-      replicas: 1
-    queryFrontend:
-      replicas: 1
-
-serviceAccount:
-  name: loki-operator
-  annotations: {}
-
-loki:
+# Platform-level values consumed by our wrapper templates (targetgroupbinding, serviceaccount, etc.)
+# Separate from the "loki:" key which is reserved for the grafana/loki subchart.
+platform:
+  # KMS key ARN for client-side SSE-KMS (defense-in-depth, matches Thanos pattern).
+  # Injected at runtime by the ApplicationSet from loki_kms_key_arn annotation.
   kmsKeyArn: ""
-  # IAM role ARN for Loki write components (used by loki-operator for STS validation).
-  # Actual auth is via EKS Pod Identity; this satisfies the operator's secret validation.
-  writerRoleArn: ""
   distributorTargetGroup:
     arn: ""
-    serviceName: loki-distributor-http
+    # In SimpleScalable mode, the write target handles distribution.
+    # The chart creates a service named "<release>-loki-write".
+    serviceName: loki-loki-write
     port: 3100
     targetType: ip
   queryFrontendTargetGroup:
     arn: ""
-    serviceName: loki-query-frontend-http
+    # In SimpleScalable mode, the read target handles queries.
+    # The chart creates a service named "<release>-loki-read".
+    serviceName: loki-loki-read
     port: 3100
     targetType: ip
+
+serviceAccount:
+  name: loki
+  annotations: {}
+
+# =====================================================================
+# grafana/loki subchart values
+# Translates RHOBS LokiStack CR into direct Loki config.
+# See PLAN-loki-direct-helm-chart.md for full field-by-field mapping.
+# =====================================================================
+loki:
+  # SimpleScalable: 3 targets (write, read, backend) instead of 7+ microservices.
+  # Recommended by Grafana for installs up to ~1TB/day.
+  deploymentMode: SimpleScalable
+
+  loki:
+    # Single tenant — no gateway or multi-tenancy needed.
+    auth_enabled: false
+
+    commonConfig:
+      path_prefix: /var/loki
+      # Operator's 1x.extra-small uses replication_factor: 2
+      replication_factor: 2
+
+    # Maps to: spec.storage.schemas[0]
+    schemaConfig:
+      configs:
+        - from: "2025-06-06"      # spec.storage.schemas[0].effectiveDate
+          store: tsdb
+          object_store: s3
+          schema: v13             # spec.storage.schemas[0].version
+          index:
+            prefix: index_
+            period: 24h
+
+    # Maps to: spec.storage.secret (type: s3)
+    # S3 auth is via EKS Pod Identity (transparent via AWS SDK env vars).
+    # No explicit credentials needed — the ServiceAccount IRSA annotation handles it.
+    storage:
+      type: s3                    # spec.storage.secret.type
+      s3:
+        region: ""                # templated from global.aws_region
+        s3ForcePathStyle: false
+        # Client-side SSE-KMS (defense-in-depth, matches Thanos sse_config pattern).
+        # The S3 bucket also has default SSE-KMS encryption; this ensures every
+        # PutObject request explicitly includes the x-amz-server-side-encryption header.
+        # kms_key_id is injected at runtime by ApplicationSet valuesObject merge.
+        sse:
+          type: SSE-KMS
+          kms_key_id: ""
+      bucketNames:
+        chunks: ""                # templated: <cluster_name>-loki-logs-<account_id>
+        ruler: ""                 # same bucket (ruler disabled)
+
+    # Maps to: spec.limits.global
+    # Aligned with RHOBS staging baseline.
+    # Production uses higher values (ingestionRate: 250, perStreamRateLimit: 240).
+    limits_config:
+      ingestion_rate_mb: 20                 # spec.limits.global.ingestion.ingestionRate
+      ingestion_burst_size_mb: 256          # spec.limits.global.ingestion.ingestionBurstSize
+      max_line_size: 2097152                # spec.limits.global.ingestion.maxLineSize (2MB)
+      per_stream_rate_limit: 15MB           # spec.limits.global.ingestion.perStreamRateLimit
+      per_stream_rate_limit_burst: 30MB     # spec.limits.global.ingestion.perStreamRateLimitBurst
+      query_timeout: 5m                     # spec.limits.global.queries.queryTimeout
+      retention_period: 2160h               # spec.limits.global.retention.days: 90 (90*24h)
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      split_queries_by_interval: 15m
+      volume_enabled: true
+
+    # Required for retention_period to take effect
+    compactor:
+      retention_enabled: true
+
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 9095
+      http_server_read_timeout: 600s
+      http_server_write_timeout: 600s
+
+  # --- write (distributor + ingester) ---
+  # RHOBS production: distributor: 3, ingester: 3
+  write:
+    replicas: 1  # production: 3
+    # Operator 1x.extra-small: distributor (1 CPU, 1Gi) + ingester (2 CPU, 8Gi)
+    # Combined baseline for the merged write target.
+    resources:
+      requests:
+        cpu: "2"
+        memory: 5Gi
+      limits:
+        memory: 8Gi
+    persistence:
+      size: 10Gi                  # operator ingester PVC size
+      storageClass: gp3           # spec.storageClassName: gp3-csi (EKS equivalent)
+    # Standard hostname + zone anti-affinity (same pattern as HyperShift operators)
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: write
+              topologyKey: kubernetes.io/hostname
+          - weight: 99
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: write
+              topologyKey: topology.kubernetes.io/zone
+
+  # --- read (querier + query-frontend) ---
+  # RHOBS production: querier: 2, queryFrontend: 2
+  read:
+    replicas: 1  # production: 2
+    # Operator 1x.extra-small: querier (1.5 CPU, 3Gi) + query-frontend (1 CPU, 1Gi)
+    resources:
+      requests:
+        cpu: "1500m"
+        memory: 2Gi
+      limits:
+        memory: 4Gi
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: read
+              topologyKey: kubernetes.io/hostname
+          - weight: 99
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: read
+              topologyKey: topology.kubernetes.io/zone
+
+  # --- backend (compactor + index-gateway) ---
+  # Ruler disabled via ruler.enabled: false below
+  backend:
+    replicas: 1  # production: 2
+    # Operator 1x.extra-small: compactor (1 CPU, 2Gi) + indexGateway (500m, 1Gi)
+    resources:
+      requests:
+        cpu: "1"
+        memory: 2Gi
+      limits:
+        memory: 4Gi
+    persistence:
+      size: 10Gi                  # operator compactor PVC size
+      storageClass: gp3
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: backend
+              topologyKey: kubernetes.io/hostname
+          - weight: 99
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: backend
+              topologyKey: topology.kubernetes.io/zone
+
+  # We manage the SA ourselves (with IRSA annotation) via serviceaccount.yaml.
+  # The chart must know the SA name to mount it on pods.
+  serviceAccount:
+    create: false
+    name: loki
+
+  # --- Monitoring ---
+  # Loki exposes Prometheus metrics on /metrics (port http-metrics).
+  # The chart creates ServiceMonitor resources that Prometheus auto-discovers
+  # (monitoring stack has serviceMonitorSelectorNilUsesHelmValues: false).
+  monitoring:
+    serviceMonitor:
+      enabled: true
+      labels: {}
+    selfMonitoring:
+      enabled: false
+      grafanaAgent:
+        installOperator: false
+
+  # --- Disabled components ---
+  minio:
+    enabled: false          # using real S3
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+  gateway:
+    enabled: false          # single tenant, Vector writes directly to write target
+  rollout_operator:
+    enabled: false
+  chunksCache:
+    enabled: false          # can enable later with memcached for production
+  resultsCache:
+    enabled: false
+  ruler:
+    enabled: false          # spec.rules.enabled: false
