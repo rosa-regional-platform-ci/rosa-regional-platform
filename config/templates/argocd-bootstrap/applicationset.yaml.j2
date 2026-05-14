@@ -77,6 +77,7 @@ spec:
             # Loki Operator values (keys must match chart's values.yaml structure)
             loki:
               kmsKeyArn: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
+              writerRoleArn: '{{ '{{ .metadata.annotations.loki_writer_role_arn | default "" }}' }}'
               distributorTargetGroup:
                 arn: '{{ '{{ .metadata.annotations.loki_distributor_target_group_arn }}' }}'
               queryFrontendTargetGroup:

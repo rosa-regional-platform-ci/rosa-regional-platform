@@ -408,6 +408,11 @@ output "loki_query_frontend_target_group_arn" {
   value       = module.rhobs_api_gateway.loki_query_frontend_target_group_arn
 }
 
+output "loki_writer_role_arn" {
+  description = "IAM role ARN for Loki write components (used in storage secret for STS validation)"
+  value       = module.loki_infrastructure.writer_role_arn
+}
+
 output "loki_helm_values" {
   description = "Helm values for Loki chart (use with -f flag)"
   value       = module.loki_infrastructure.helm_values

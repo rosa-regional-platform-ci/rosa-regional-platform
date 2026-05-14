@@ -64,6 +64,9 @@ serviceAccount:
 
 loki:
   kmsKeyArn: ""
+  # IAM role ARN for Loki write components (used by loki-operator for STS validation).
+  # Actual auth is via EKS Pod Identity; this satisfies the operator's secret validation.
+  writerRoleArn: ""
   distributorTargetGroup:
     arn: ""
     serviceName: loki-distributor-http
