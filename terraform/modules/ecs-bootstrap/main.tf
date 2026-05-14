@@ -158,14 +158,16 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # in response to unschedulable pods; applying a NodePool alone is not enough.
           for ADDON in coredns metrics-server; do
             echo "Creating $ADDON add-on..."
-            if ! aws eks describe-addon \
+            if CREATE_OUTPUT=$(aws eks create-addon \
                 --cluster-name "$CLUSTER_NAME" \
                 --addon-name "$ADDON" \
-                --region "$AWS_REGION" > /dev/null 2>&1; then
-              aws eks create-addon \
-                --cluster-name "$CLUSTER_NAME" \
-                --addon-name "$ADDON" \
-                --region "$AWS_REGION"
+                --region "$AWS_REGION" 2>&1); then
+              echo "  $ADDON created"
+            elif echo "$CREATE_OUTPUT" | grep -q "ResourceInUseException"; then
+              echo "  $ADDON already exists"
+            else
+              echo "$CREATE_OUTPUT" >&2
+              exit 1
             fi
           done
 
