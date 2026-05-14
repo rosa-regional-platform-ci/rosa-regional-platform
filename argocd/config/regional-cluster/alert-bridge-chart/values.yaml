@@ -27,6 +27,9 @@ alert-bridge-chart:
 
     config:
       logLevel: "info"
+      snsTopicArnFromSecret:
+        name: alert-bridge-sns-config
+        key: sns-topic-arn
 
     serviceMonitor:
       enabled: true
@@ -34,3 +37,21 @@ alert-bridge-chart:
     networkPolicy:
       enabled: true
       alertmanagerNamespace: "monitoring"
+
+    extraVolumes:
+      - name: secrets-store-inline
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: alert-bridge-sns-config
+
+    extraVolumeMounts:
+      - name: secrets-store-inline
+        mountPath: /mnt/secrets-store
+        readOnly: true
+
+secretProviderClass:
+  enabled: true
+  name: alert-bridge-sns-config
+  secretName: alert-bridge-sns-config
