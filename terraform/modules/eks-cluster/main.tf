@@ -148,12 +148,27 @@ resource "aws_eks_cluster" "main" {
 # EKS Managed Addons
 #
 # Essential addons for cluster functionality:
+# - CoreDNS: cluster DNS resolution
+# - metrics-server: pod/node metrics for HPA and kubectl top
 # - Pod Identity Agent: AWS IAM integration for workloads (DaemonSet, safe pre-node)
 # - AWS Secrets Store CSI Driver Provider: Secret mounting (DaemonSet, safe pre-node)
 #
-# CoreDNS and metrics-server are managed by the built-in "system" node pool and
-# are provisioned automatically by EKS Auto Mode. They are not created here.
+# CoreDNS and metrics-server are declared here so Terraform creates them before
+# the ECS bootstrap task runs. The built-in "system" pool provides nodes for them
+# to schedule on, so there is no deadlock. Without this declaration, a fresh cluster
+# has no coredns/metrics-server addons and the bootstrap wait-addon-active call fails
+# with ResourceNotFoundException.
 # -----------------------------------------------------------------------------
+
+resource "aws_eks_addon" "coredns" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "coredns"
+}
+
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "metrics-server"
+}
 
 resource "aws_eks_addon" "pod_identity" {
   cluster_name = aws_eks_cluster.main.name
