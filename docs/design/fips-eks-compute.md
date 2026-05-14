@@ -88,11 +88,13 @@ operating system — specifically Bottlerocket with FIPS mode enabled.
 
 - Platform and application workloads run on Bottlerocket with FIPS-validated cryptographic modules,
   satisfying FedRAMP High/Moderate cryptographic requirements for customer-bearing compute.
-- Bootstrap is reliable: CoreDNS and metrics-server are Active at ECS task start time; no node
-  wait or addon creation logic needed in the bootstrap script.
+- Bootstrap is reliable: the built-in `system` pool provisions nodes and brings up CoreDNS and
+  metrics-server automatically. The bootstrap task applies the FIPS NodeClass and workloads
+  NodePool, waits for both addons to become Active, then installs ArgoCD — no custom node-wait
+  loop or addon creation required.
 - The FIPS NodeClass and workloads NodePool are applied by the ECS bootstrap task and subsequently
   adopted by ArgoCD on first sync, making them GitOps-managed.
-- Eliminating `general-purpose` prevents accidental scheduling of platform workloads on non-FIPS
+- Disabling `general-purpose` prevents accidental scheduling of platform workloads on non-FIPS
   nodes.
 
 ### Negative
