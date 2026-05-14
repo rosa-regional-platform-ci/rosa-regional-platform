@@ -86,10 +86,13 @@ else
 
   # Disable webhook feature gates in the ConfigMap so the operator doesn't try to
   # start a webhook server (which would fail without cert-manager TLS certs).
-  echo "==> Disabling webhook feature gates in operator ConfigMap..."
+  # Disable webhook feature gates (require cert-manager) and the gateway
+  # (requires tenants config — we write directly to distributor from Vector).
+  echo "==> Disabling webhook and gateway feature gates in operator ConfigMap..."
   sed -i 's/lokiStackWebhook: true/lokiStackWebhook: false/' "${CHART_DIR}/templates/operator.yaml"
   sed -i 's/alertingRuleWebhook: true/alertingRuleWebhook: false/' "${CHART_DIR}/templates/operator.yaml"
   sed -i 's/recordingRuleWebhook: true/recordingRuleWebhook: false/' "${CHART_DIR}/templates/operator.yaml"
+  sed -i 's/lokiStackGateway: true/lokiStackGateway: false/' "${CHART_DIR}/templates/operator.yaml"
 
   # Remove the webhook-cert volume and its mount from the Deployment — the volume
   # references a Secret that cert-manager would create, and without it the pod
