@@ -18,6 +18,21 @@ kube-prometheus-stack:
 
   alertmanager:
     enabled: true
+    config:
+      route:
+        # Default receiver drops alerts not matched by any route.
+        # All real delivery happens via explicit routes with continue: true,
+        # so alerts flow through every matching receiver (SNS, PagerDuty, etc.).
+        receiver: "null"
+        routes:
+          - receiver: sns-alert-bridge
+            continue: true
+      receivers:
+        - name: "null"
+        - name: sns-alert-bridge
+          webhook_configs:
+            - url: http://alert-bridge-rosa-alert-bridge.monitoring.svc.cluster.local:8080/alerts
+              send_resolved: true
     alertmanagerSpec:
       replicas: 2
       resources:
