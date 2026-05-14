@@ -59,12 +59,20 @@ resource "aws_iam_role_policy" "task_bootstrap" {
           "eks:ListNodegroups",
           "eks:DescribeUpdate",
           "eks:ListUpdates",
-          "eks:DescribeAddon",
           "eks:CreateAddon",
-          "eks:UpdateAddon",
           "eks:ListAddons"
         ]
         Resource = var.eks_cluster_arn
+      },
+      {
+        # eks:DescribeAddon and eks:UpdateAddon operate on the addon resource type,
+        # whose ARN differs from the cluster ARN and must be granted separately.
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeAddon",
+          "eks:UpdateAddon"
+        ]
+        Resource = "arn:aws:eks:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:addon/${var.eks_cluster_name}/*/*"
       },
       {
         Effect = "Allow"
