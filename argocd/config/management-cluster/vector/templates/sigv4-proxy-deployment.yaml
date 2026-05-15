@@ -50,6 +50,8 @@ spec:
             - {{ (urlParse (.Values.global.rhobs_api_url | default "")).host | quote }}
             - --port
             - {{ printf ":%d" (int .Values.sigv4Proxy.port) | quote }}
+            - --strip
+            - Content-Encoding
           ports:
             - name: proxy
               containerPort: {{ .Values.sigv4Proxy.port }}

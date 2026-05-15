@@ -112,6 +112,18 @@ module "prometheus_remote_write" {
 }
 
 # =============================================================================
+# Loki Log Forwarder (MC -> RC log forwarding via API Gateway)
+# =============================================================================
+
+module "loki_log_forwarder" {
+  source = "../../modules/loki-log-forwarder"
+
+  management_id           = var.management_id
+  regional_aws_account_id = var.regional_aws_account_id
+  eks_cluster_name        = module.management_cluster.cluster_name
+}
+
+# =============================================================================
 # CloudWatch Exporter (Pod Identity for YACE)
 # =============================================================================
 
