@@ -47,8 +47,10 @@ loki:
 
     commonConfig:
       path_prefix: /var/loki
-      # Operator's 1x.extra-small uses replication_factor: 2
-      replication_factor: 2
+      # IMPORTANT: replication_factor must be <= write.replicas.
+      # Ephemeral (1 replica): RF=1. Production (3 replicas): RF=2.
+      # Override via env-overlay argocd-values-regional-cluster.yaml.
+      replication_factor: 1
 
     # Maps to: spec.storage.schemas[0]
     schemaConfig:

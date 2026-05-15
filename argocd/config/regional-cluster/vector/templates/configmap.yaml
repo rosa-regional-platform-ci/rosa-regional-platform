@@ -20,15 +20,35 @@ data:
       kubernetes_logs:
         type: kubernetes_logs
         self_node_name: "${VECTOR_SELF_NODE_NAME}"
+        # Exclude webhook containers: high-volume, low-value admission webhook
+        # logs that inflate storage cost without aiding debugging. Matches RHOBS
+        # ClusterLogForwarder exclusion pattern (gitlab/configuration).
+        exclude_paths_glob_patterns:
+          - "/var/log/pods/*/webhook*/**"
+          - "/var/log/pods/*/webhooks/**"
 
       internal_metrics:
         type: internal_metrics
 
     transforms:
-      add_cluster_metadata:
+      # Parse JSON log lines into structured fields. Improves Loki query
+      # performance by enabling label-based filtering on structured data.
+      # Mirrors the RHOBS CLF "parse-json" filter. Non-JSON lines are
+      # passed through unchanged.
+      parse_json:
         type: remap
         inputs:
           - kubernetes_logs
+        source: |
+          parsed, err = parse_json(.message)
+          if err == null {
+            . = merge(., parsed)
+          }
+
+      add_cluster_metadata:
+        type: remap
+        inputs:
+          - parse_json
         source: |
           .cluster_name = "{{ .Values.global.cluster_name | default "unknown" }}"
           .cluster_type = "regional-cluster"
@@ -49,6 +69,19 @@ data:
           container: "{{ `{{ kubernetes.container_name }}` }}"
         out_of_order_action: accept
         remove_timestamp: false
+        # Disk buffer prevents log loss during Loki restarts or transient
+        # unavailability. 256MB limit per node; blocks when full rather than
+        # dropping. Retry up to 5 min with exponential backoff.
+        buffer:
+          type: disk
+          max_size: 268435488
+          when_full: block
+        batch:
+          max_bytes: 2049000
+          timeout_secs: 5
+        request:
+          retry_max_duration_secs: 300
+          retry_initial_backoff_secs: 1
 
       prometheus_exporter:
         type: prometheus_exporter
