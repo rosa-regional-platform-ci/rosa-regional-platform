@@ -104,9 +104,12 @@ loki:
     # Disable query-scheduler discovery so query-frontend operates in
     # standalone mode (internal queuing). Without this, the chart defaults
     # to connecting to loki-query-scheduler which we don't deploy.
-    # See: https://github.com/grafana/helm-charts/issues/2746
+    # References:
+    #   - https://github.com/grafana/loki/issues/12138
+    #   - https://github.com/grafana/loki/issues/12506
     query_scheduler:
       max_outstanding_requests_per_tenant: 32768
+      use_scheduler_ring: false
 
     frontend:
       scheduler_address: ""
