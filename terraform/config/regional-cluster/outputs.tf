@@ -398,13 +398,13 @@ output "thanos_helm_values" {
 # Loki Infrastructure Outputs
 # =============================================================================
 
-output "loki_write_target_group_arn" {
-  description = "Target group ARN for Loki Write TargetGroupBinding (dedicated RHOBS ALB)"
-  value       = module.rhobs_api_gateway.loki_write_target_group_arn
+output "loki_distributor_target_group_arn" {
+  description = "Target group ARN for Loki Distributor TargetGroupBinding (dedicated RHOBS ALB)"
+  value       = module.rhobs_api_gateway.loki_distributor_target_group_arn
 }
 
-output "loki_read_target_group_arn" {
-  description = "Target group ARN for Loki Read TargetGroupBinding (dedicated RHOBS ALB)"
-  value       = module.rhobs_api_gateway.loki_read_target_group_arn
+output "loki_query_frontend_target_group_arn" {
+  description = "Target group ARN for Loki Query Frontend TargetGroupBinding (dedicated RHOBS ALB)"
+  value       = module.rhobs_api_gateway.loki_query_frontend_target_group_arn
 }
 

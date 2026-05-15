@@ -40,12 +40,12 @@ output "thanos_query_target_group_arn" {
   value       = aws_lb_target_group.thanos_query.arn
 }
 
-output "loki_write_target_group_arn" {
-  description = "Target group ARN for Loki Write TargetGroupBinding"
-  value       = aws_lb_target_group.loki_write.arn
+output "loki_distributor_target_group_arn" {
+  description = "Target group ARN for Loki Distributor TargetGroupBinding"
+  value       = aws_lb_target_group.loki_distributor.arn
 }
 
-output "loki_read_target_group_arn" {
-  description = "Target group ARN for Loki Read TargetGroupBinding"
-  value       = aws_lb_target_group.loki_read.arn
+output "loki_query_frontend_target_group_arn" {
+  description = "Target group ARN for Loki Query Frontend TargetGroupBinding"
+  value       = aws_lb_target_group.loki_query_frontend.arn
 }

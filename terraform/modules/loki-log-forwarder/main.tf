@@ -2,7 +2,7 @@
 # Loki Log Forwarder Module
 #
 # Creates an IAM role for the sigv4-proxy on the Management Cluster to send
-# logs to Loki Write on the Regional Cluster via API Gateway.
+# logs to Loki Distributor on the Regional Cluster via API Gateway.
 # Uses EKS Pod Identity for credential injection.
 #
 # Mirrors the prometheus-remote-write module pattern.

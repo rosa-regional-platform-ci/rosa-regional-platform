@@ -12,14 +12,15 @@ platform:
   # KMS key ARN for client-side SSE-KMS (defense-in-depth, matches Thanos pattern).
   # Injected at runtime by the ApplicationSet from loki_kms_key_arn annotation.
   kmsKeyArn: ""
-  writeTargetGroup:
+  # In Distributed mode, ALB routes to individual component services.
+  distributorTargetGroup:
     arn: ""
-    serviceName: loki-write
+    serviceName: loki-distributor
     port: 3100
     targetType: ip
-  readTargetGroup:
+  queryFrontendTargetGroup:
     arn: ""
-    serviceName: loki-read
+    serviceName: loki-query-frontend
     port: 3100
     targetType: ip
 
@@ -28,14 +29,18 @@ serviceAccount:
   annotations: {}
 
 # =====================================================================
-# grafana/loki subchart values
-# Translates RHOBS LokiStack CR into direct Loki config.
-# See PLAN-loki-direct-helm-chart.md for full field-by-field mapping.
+# grafana/loki subchart values — Distributed (microservices) mode
+#
+# Each Loki component runs as a separate Deployment/StatefulSet.
+# Mirrors RHOBS LokiStack 1x.extra-small architecture.
+#
+# Production replicas (env-overlay):
+#   distributor: 3-6, ingester: 3-6, querier: 2, queryFrontend: 2
+#   indexGateway: 2, compactor: 1
+#   replication_factor: 2
 # =====================================================================
 loki:
-  # SimpleScalable: 3 targets (write, read, backend) instead of 7+ microservices.
-  # Recommended by Grafana for installs up to ~1TB/day.
-  deploymentMode: SimpleScalable
+  deploymentMode: Distributed
 
   loki:
     # Single tenant — no gateway or multi-tenancy needed.
@@ -43,58 +48,49 @@ loki:
 
     commonConfig:
       path_prefix: /var/loki
-      # IMPORTANT: replication_factor must be <= write.replicas.
-      # Ephemeral (1 replica): RF=1. Production (3 replicas): RF=2.
+      # IMPORTANT: replication_factor must be <= ingester replicas.
+      # Ephemeral (1 replica): RF=1. Production (3+ replicas): RF=2.
       # Override via env-overlay argocd-values-regional-cluster.yaml.
       replication_factor: 1
 
     # Maps to: spec.storage.schemas[0]
     schemaConfig:
       configs:
-        - from: "2025-06-06"      # spec.storage.schemas[0].effectiveDate
+        - from: "2025-06-06"
           store: tsdb
           object_store: s3
-          schema: v13             # spec.storage.schemas[0].version
+          schema: v13
           index:
             prefix: index_
             period: 24h
 
-    # Maps to: spec.storage.secret (type: s3)
     # S3 auth is via EKS Pod Identity (transparent via AWS SDK env vars).
-    # No explicit credentials needed — the ServiceAccount IRSA annotation handles it.
     storage:
-      type: s3                    # spec.storage.secret.type
+      type: s3
       s3:
-        region: ""                # templated from global.aws_region
+        region: ""
         s3ForcePathStyle: false
-        # Client-side SSE-KMS (defense-in-depth, matches Thanos sse_config pattern).
-        # The S3 bucket also has default SSE-KMS encryption; this ensures every
-        # PutObject request explicitly includes the x-amz-server-side-encryption header.
-        # kms_key_id is injected at runtime by ApplicationSet valuesObject merge.
         sse:
           type: SSE-KMS
           kms_key_id: ""
       bucketNames:
-        chunks: ""                # templated: <cluster_name>-loki-logs-<account_id>
-        ruler: ""                 # same bucket (ruler disabled)
+        chunks: ""
+        ruler: ""
 
-    # Maps to: spec.limits.global
-    # Aligned with RHOBS staging baseline.
-    # Production uses higher values (ingestionRate: 250, perStreamRateLimit: 240).
+    # Aligned with RHOBS production baseline.
     limits_config:
-      ingestion_rate_mb: 20                 # spec.limits.global.ingestion.ingestionRate
-      ingestion_burst_size_mb: 256          # spec.limits.global.ingestion.ingestionBurstSize
-      max_line_size: 2097152                # spec.limits.global.ingestion.maxLineSize (2MB)
-      per_stream_rate_limit: 15MB           # spec.limits.global.ingestion.perStreamRateLimit
-      per_stream_rate_limit_burst: 30MB     # spec.limits.global.ingestion.perStreamRateLimitBurst
-      query_timeout: 5m                     # spec.limits.global.queries.queryTimeout
-      retention_period: 2160h               # spec.limits.global.retention.days: 90 (90*24h)
+      ingestion_rate_mb: 20
+      ingestion_burst_size_mb: 256
+      max_line_size: 2097152
+      per_stream_rate_limit: 15MB
+      per_stream_rate_limit_burst: 30MB
+      query_timeout: 5m
+      retention_period: 2160h               # 90 days
       reject_old_samples: true
       reject_old_samples_max_age: 168h
       split_queries_by_interval: 15m
       volume_enabled: true
 
-    # Required for retention_period to take effect
     compactor:
       retention_enabled: true
       delete_request_store: s3
@@ -105,47 +101,62 @@ loki:
       http_server_read_timeout: 600s
       http_server_write_timeout: 600s
 
-  # --- write (distributor + ingester) ---
-  # RHOBS production: distributor: 3, ingester: 3
-  write:
-    replicas: 1  # production: 3
-    # Operator 1x.extra-small: distributor (1 CPU, 1Gi) + ingester (2 CPU, 8Gi)
-    # Combined baseline for the merged write target.
+  # ==========================================================================
+  # Distributed mode components
+  # Resource requests from RHOBS operator 1x.extra-small size template.
+  # Replicas set to 1 for ephemeral; production values in comments.
+  # ==========================================================================
+
+  # Receives pushes, validates, hashes, routes to ingesters
+  # RHOBS production: 6 replicas
+  distributor:
+    replicas: 1  # production: 3-6
+    resources:
+      requests:
+        cpu: "1"
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: distributor
+            topologyKey: kubernetes.io/hostname
+
+  # Writes chunks to S3, holds recent data in WAL
+  # RHOBS production: 6 replicas
+  ingester:
+    replicas: 1  # production: 3-6 (must be >= replication_factor)
+    zoneAwareReplication:
+      enabled: false
     resources:
       requests:
         cpu: "2"
-        memory: 5Gi
-      limits:
         memory: 8Gi
+      limits:
+        memory: 10Gi
     persistence:
-      size: 10Gi                  # operator ingester PVC size
-      storageClass: gp3           # spec.storageClassName: gp3-csi (EKS equivalent)
-    # Standard hostname + zone anti-affinity (same pattern as HyperShift operators)
+      enabled: true
+      size: 10Gi
+      storageClass: gp3
     affinity:
       podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: write
-              topologyKey: kubernetes.io/hostname
-          - weight: 99
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: write
-              topologyKey: topology.kubernetes.io/zone
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: ingester
+            topologyKey: kubernetes.io/hostname
 
-  # --- read (querier + query-frontend) ---
-  # RHOBS production: querier: 2, queryFrontend: 2
-  read:
+  # Executes LogQL queries against stored data
+  # RHOBS production: 2 replicas
+  querier:
     replicas: 1  # production: 2
-    # Operator 1x.extra-small: querier (1.5 CPU, 3Gi) + query-frontend (1 CPU, 1Gi)
     resources:
       requests:
         cpu: "1500m"
-        memory: 2Gi
+        memory: 3Gi
       limits:
         memory: 4Gi
     affinity:
@@ -155,20 +166,28 @@ loki:
             podAffinityTerm:
               labelSelector:
                 matchLabels:
-                  app.kubernetes.io/component: read
+                  app.kubernetes.io/component: querier
               topologyKey: kubernetes.io/hostname
-          - weight: 99
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: read
-              topologyKey: topology.kubernetes.io/zone
 
-  # --- backend (compactor + index-gateway) ---
-  # Ruler disabled via ruler.enabled: false below
-  backend:
+  # Splits/caches queries, entry point for Grafana and API Gateway reads
+  # RHOBS production: 2 replicas
+  queryFrontend:
     replicas: 1  # production: 2
-    # Operator 1x.extra-small: compactor (1 CPU, 2Gi) + indexGateway (500m, 1Gi)
+    resources:
+      requests:
+        cpu: "1"
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+
+  # Not deployed by Loki Operator, not needed at our scale (single-tenant).
+  # Query-frontend handles queuing internally.
+  queryScheduler:
+    replicas: 0
+
+  # Compacts index/chunks, enforces retention
+  compactor:
+    replicas: 1
     resources:
       requests:
         cpu: "1"
@@ -176,34 +195,48 @@ loki:
       limits:
         memory: 4Gi
     persistence:
-      size: 10Gi                  # operator compactor PVC size
+      enabled: true
+      size: 10Gi
       storageClass: gp3
-    affinity:
-      podAntiAffinity:
-        preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: backend
-              topologyKey: kubernetes.io/hostname
-          - weight: 99
-            podAffinityTerm:
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/component: backend
-              topologyKey: topology.kubernetes.io/zone
 
-  # We manage the SA ourselves (with IRSA annotation) via serviceaccount.yaml.
-  # The chart must know the SA name to mount it on pods.
+  # Serves index lookups for querier
+  indexGateway:
+    replicas: 1  # production: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: gp3
+
+  # --- Explicitly disable SimpleScalable and SingleBinary targets ---
+  backend:
+    replicas: 0
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  singleBinary:
+    replicas: 0
+
+  # --- Bloom components (not used) ---
+  bloomPlanner:
+    replicas: 0
+  bloomBuilder:
+    replicas: 0
+  bloomGateway:
+    replicas: 0
+
+  # We manage the SA ourselves (with Pod Identity) via serviceaccount.yaml.
   serviceAccount:
     create: false
     name: loki
 
   # --- Monitoring ---
-  # Loki exposes Prometheus metrics on /metrics (port http-metrics).
-  # The chart creates ServiceMonitor resources that Prometheus auto-discovers
-  # (monitoring stack has serviceMonitorSelectorNilUsesHelmValues: false).
   monitoring:
     serviceMonitor:
       enabled: true
@@ -215,18 +248,18 @@ loki:
 
   # --- Disabled components ---
   minio:
-    enabled: false          # using real S3
+    enabled: false
   lokiCanary:
     enabled: false
   test:
     enabled: false
   gateway:
-    enabled: false          # single tenant, Vector writes directly to write target
+    enabled: false          # single tenant, auth at API Gateway level
   rollout_operator:
     enabled: false
   chunksCache:
-    enabled: false          # can enable later with memcached for production
+    enabled: false          # can enable later with memcached
   resultsCache:
     enabled: false
   ruler:
-    enabled: false          # spec.rules.enabled: false
+    enabled: false

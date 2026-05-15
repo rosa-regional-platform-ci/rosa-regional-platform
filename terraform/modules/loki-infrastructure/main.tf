@@ -3,7 +3,7 @@
 #
 # Creates S3 bucket, KMS key, IAM role, and EKS Pod Identity association
 # for Loki log storage. All Loki components share a single writer role
-# via one ServiceAccount (SimpleScalable deployment mode).
+# via one ServiceAccount (Distributed deployment mode).
 # =============================================================================
 
 data "aws_caller_identity" "current" {}
@@ -200,9 +200,10 @@ resource "aws_iam_role_policy" "loki_s3_write" {
 # =============================================================================
 # EKS Pod Identity Association
 #
-# The grafana/loki Helm chart in SimpleScalable mode uses a single
-# ServiceAccount for all targets (write, read, backend). All need write
-# access since the compactor deletes objects.
+# The grafana/loki Helm chart in Distributed mode uses a single
+# ServiceAccount shared by all components (distributor, ingester, querier,
+# compactor, etc.). All need S3 write access since the compactor deletes
+# objects and ingesters flush chunks.
 # =============================================================================
 
 resource "aws_eks_pod_identity_association" "loki" {
