@@ -116,6 +116,7 @@ loki:
 
     frontend_worker:
       scheduler_address: ""
+      frontend_address: "loki-query-frontend.loki.svc.cluster.local:9095"
 
   # ==========================================================================
   # Distributed mode components
