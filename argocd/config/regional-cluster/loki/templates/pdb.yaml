@@ -62,6 +62,22 @@ spec:
       app.kubernetes.io/instance: loki
 {{- end }}
 ---
+{{- if gt (int (.Values.loki.compactor.replicas | default 1)) 1 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: loki-compactor
+  namespace: {{ include "loki.namespace" . }}
+  labels:
+    {{- include "loki.labels" . | nindent 4 }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: compactor
+      app.kubernetes.io/instance: loki
+{{- end }}
+---
 {{- if gt (int (.Values.loki.indexGateway.replicas | default 1)) 1 }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
