@@ -130,7 +130,7 @@ case "$SERVICE" in
     ;;
   loki)
     FORWARDS=(
-      "Loki-QueryFrontend 3100 3100 loki-query-frontend-http loki 3100"
+      "Loki-Query 13100 13100 loki-read loki 3100"
     )
     ;;
   custom)
@@ -243,17 +243,52 @@ cleanup() {
 }
 trap cleanup EXIT
 
-TARGET="ecs:${CLUSTER}_${TASK_ID}_${RUNTIME_ID}"
+# Recycle the bastion task to clear stale port-forwards.
+# ECS execute-command has no reliable non-interactive mode, so we cannot
+# remotely pkill inside the container. Instead, stop the task and start a
+# fresh one — this guarantees no orphaned kubectl processes hold ports.
+echo "==> Recycling bastion task to clear stale port state..."
+aws ecs stop-task --cluster "$CLUSTER" --task "$TASK_ID" &>/dev/null || true
+aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK_ID" 2>/dev/null || sleep 15
 
-# Kill stale port-forwards on bastion
-echo "==> Cleaning up stale port-forwards on bastion..."
-aws ecs execute-command \
+echo "==> Starting fresh bastion task..."
+cd "$CONFIG_DIR"
+eval "$(terraform output -raw bastion_run_task_command)" >/dev/null
+TASK_ID=$(aws ecs list-tasks --cluster "$CLUSTER" --desired-status RUNNING --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
+
+if [ -z "$TASK_ID" ] || [ "$TASK_ID" = "None" ] || [ "$TASK_ID" = "null" ]; then
+  echo "Error: Failed to start fresh bastion task."
+  exit 1
+fi
+
+echo "==> Waiting for new task to be running..."
+aws ecs wait tasks-running --cluster "$CLUSTER" --tasks "$TASK_ID"
+
+echo "==> Waiting for execute command agent..."
+for i in $(seq 1 12); do
+  AGENT_STATUS=$(aws ecs describe-tasks \
+    --cluster "$CLUSTER" --tasks "$TASK_ID" \
+    --query 'tasks[0].containers[?name==`bastion`].managedAgents[?name==`ExecuteCommandAgent`].lastStatus | [0][0]' \
+    --output text 2>/dev/null)
+  [ "$AGENT_STATUS" = "RUNNING" ] && break
+  sleep 5
+done
+
+RUNTIME_ID=$(aws ecs describe-tasks \
   --cluster "$CLUSTER" \
-  --task "$TASK_ID" \
-  --container bastion \
-  --interactive \
-  --command "pkill -f kubectl.port-forward || true" &>/dev/null || true
-sleep 2
+  --tasks "$TASK_ID" \
+  --query 'tasks[0].containers[?name==`bastion`].runtimeId | [0]' \
+  --output text)
+
+if [[ -z "$RUNTIME_ID" || "$RUNTIME_ID" == "None" ]]; then
+  echo "Error: runtime_id not found for new task '$TASK_ID'"
+  exit 1
+fi
+
+cd "$CURRENT_DIR"
+TARGET="ecs:${CLUSTER}_${TASK_ID}_${RUNTIME_ID}"
+echo "    New Task ID:    $TASK_ID"
+echo "    New Runtime ID: $RUNTIME_ID"
 
 # Start kubectl port-forward(s) inside the bastion (one ECS exec per forward).
 # The ECS exec session is short-lived but kubectl keeps running in the container.

@@ -160,8 +160,8 @@ resource "aws_ecs_task_definition" "bootstrap" {
               thanos_target_group_arn: "$THANOS_TARGET_GROUP_ARN"
               thanos_query_target_group_arn: "$THANOS_QUERY_TARGET_GROUP_ARN"
               loki_kms_key_arn: "$LOKI_KMS_KEY_ARN"
-              loki_distributor_target_group_arn: "$LOKI_DISTRIBUTOR_TARGET_GROUP_ARN"
-              loki_query_frontend_target_group_arn: "$LOKI_QUERY_FRONTEND_TARGET_GROUP_ARN"
+              loki_write_target_group_arn: "$LOKI_WRITE_TARGET_GROUP_ARN"
+              loki_read_target_group_arn: "$LOKI_READ_TARGET_GROUP_ARN"
               aws_account_id: "$AWS_ACCOUNT_ID"
               rhobs_api_url: "$RHOBS_API_URL"
           type: Opaque

@@ -7,8 +7,8 @@
 #
 # Flow: RHOBS API Gateway -> VPC Link -> RHOBS ALB -> Thanos Receive (:19291)
 #                                                   -> Thanos Query Frontend (:9090)
-#                                                   -> Loki Distributor (:3100)
-#                                                   -> Loki Query Frontend (:3100)
+#                                                   -> Loki Write (:3100)
+#                                                   -> Loki Read (:3100)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -153,15 +153,15 @@ resource "aws_lb_listener_rule" "thanos_query" {
 }
 
 # -----------------------------------------------------------------------------
-# Loki Distributor Target Group
+# Loki Write Target Group
 #
 # Receives log push requests from MC Vector (via sigv4-proxy) and RC Vector.
 # Uses IP target type for TargetGroupBinding compatibility with EKS Auto Mode.
 # -----------------------------------------------------------------------------
 
-resource "aws_lb_target_group" "loki_distributor" {
-  name        = "${var.regional_id}-loki-dist"
-  port        = var.loki_distributor_port
+resource "aws_lb_target_group" "loki_write" {
+  name        = "${var.regional_id}-loki-write"
+  port        = var.loki_write_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
@@ -179,7 +179,7 @@ resource "aws_lb_target_group" "loki_distributor" {
   }
 
   tags = {
-    Name                   = "${var.regional_id}-loki-dist"
+    Name                   = "${var.regional_id}-loki-write"
     "eks:eks-cluster-name" = var.cluster_name
   }
 }
@@ -190,7 +190,7 @@ resource "aws_lb_listener_rule" "loki_push" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.loki_distributor.arn
+    target_group_arn = aws_lb_target_group.loki_write.arn
   }
 
   condition {
@@ -201,15 +201,15 @@ resource "aws_lb_listener_rule" "loki_push" {
 }
 
 # -----------------------------------------------------------------------------
-# Loki Query Frontend Target Group
+# Loki Read Target Group
 #
 # Serves LogQL queries from E2E tests and internal tooling via RHOBS API GW.
 # Uses IP target type for TargetGroupBinding compatibility with EKS Auto Mode.
 # -----------------------------------------------------------------------------
 
-resource "aws_lb_target_group" "loki_query_frontend" {
-  name        = "${var.regional_id}-loki-qfe"
-  port        = var.loki_query_frontend_port
+resource "aws_lb_target_group" "loki_read" {
+  name        = "${var.regional_id}-loki-read"
+  port        = var.loki_read_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
   target_type = "ip"
@@ -227,7 +227,7 @@ resource "aws_lb_target_group" "loki_query_frontend" {
   }
 
   tags = {
-    Name                   = "${var.regional_id}-loki-qfe"
+    Name                   = "${var.regional_id}-loki-read"
     "eks:eks-cluster-name" = var.cluster_name
   }
 }
@@ -238,7 +238,7 @@ resource "aws_lb_listener_rule" "loki_query" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.loki_query_frontend.arn
+    target_group_arn = aws_lb_target_group.loki_read.arn
   }
 
   condition {

@@ -77,10 +77,10 @@ spec:
             # Loki platform values (keys must match chart's values.yaml structure)
             platform:
               kmsKeyArn: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
-              distributorTargetGroup:
-                arn: '{{ '{{ .metadata.annotations.loki_distributor_target_group_arn }}' }}'
-              queryFrontendTargetGroup:
-                arn: '{{ '{{ .metadata.annotations.loki_query_frontend_target_group_arn }}' }}'
+              writeTargetGroup:
+                arn: '{{ '{{ .metadata.annotations.loki_write_target_group_arn }}' }}'
+              readTargetGroup:
+                arn: '{{ '{{ .metadata.annotations.loki_read_target_group_arn }}' }}'
             # Loki subchart runtime values (bucket names, region, SSE-KMS)
             loki:
               loki:
