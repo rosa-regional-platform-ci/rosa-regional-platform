@@ -92,7 +92,20 @@ compactor:
     storageClass: gp3
 
 ruler:
-  enabled: false
+  enabled: true
+  replicas: 2
+  evaluationInterval: 1m
+  retention: 48h
+  alertmanagerURL: "http://monitoring-kube-prometheus-alertmanager.monitoring:9093"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  storage:
+    size: 10Gi
+    storageClass: gp3
 
 serviceAccount:
   name: thanos-operator

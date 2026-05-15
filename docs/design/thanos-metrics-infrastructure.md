@@ -105,6 +105,7 @@ All templates are platform-specific resources not provided by either upstream re
 | `query.yaml`              | `ThanosQuery` CR               | Platform config (replicas, frontend)               |
 | `store.yaml`              | `ThanosStore` CR               | Platform config (replicas, storage)                |
 | `compact.yaml`            | `ThanosCompact` CR             | Platform config (retention, storage)               |
+| `ruler.yaml`              | `ThanosRuler` CR               | Rule evaluation against Thanos Query, alerting     |
 | `objstore-secret.yaml`    | `Secret` (`objstore.yml`)      | S3/KMS config derived from global values           |
 | `serviceaccount.yaml`     | `ServiceAccount`               | Pod Identity annotation — AWS-specific             |
 | `targetgroupbinding.yaml` | `TargetGroupBinding`           | ALB wiring — AWS-specific                          |
@@ -112,14 +113,15 @@ All templates are platform-specific resources not provided by either upstream re
 
 ### Components
 
-| Component              | Purpose                                        | Replicas |
-| ---------------------- | ---------------------------------------------- | -------- |
-| ThanosReceive Router   | Distributes incoming `remote_write` requests   | 1        |
-| ThanosReceive Ingester | Stores metrics locally, ships 2h blocks to S3  | 1        |
-| ThanosQuery            | Queries Receiver (live) and Store (historical) | 2        |
-| ThanosQuery Frontend   | Caches and splits queries                      | 1        |
-| ThanosStore            | Serves historical blocks from S3               | 2        |
-| ThanosCompact          | Compacts and downsamples S3 blocks             | 1        |
+| Component              | Purpose                                             | Replicas |
+| ---------------------- | --------------------------------------------------- | -------- |
+| ThanosReceive Router   | Distributes incoming `remote_write` requests        | 1        |
+| ThanosReceive Ingester | Stores metrics locally, ships 2h blocks to S3       | 1        |
+| ThanosQuery            | Queries Receiver (live) and Store (historical)      | 2        |
+| ThanosQuery Frontend   | Caches and splits queries                           | 1        |
+| ThanosStore            | Serves historical blocks from S3                    | 2        |
+| ThanosCompact          | Compacts and downsamples S3 blocks                  | 1        |
+| ThanosRuler            | Evaluates alerting/recording rules via Thanos Query | 2        |
 
 ### Terraform Resources (`terraform/modules/thanos-infrastructure/`)
 
@@ -127,7 +129,7 @@ All templates are platform-specific resources not provided by either upstream re
 - `aws_kms_key` — dedicated key for Thanos S3 encryption
 - `aws_iam_role.thanos_receiver` — write role for ingester and compactor; KMS key generation included
 - `aws_iam_role.thanos_store` — read-only role for Store Gateway; no write or key-generation permissions
-- `aws_eks_pod_identity_association` — one per operator-managed service account, wired to the appropriate role
+- `aws_eks_pod_identity_association` — one per operator-managed service account, wired to the appropriate role (includes Ruler, which uses the write role)
 
 ### Key Pinned Values
 

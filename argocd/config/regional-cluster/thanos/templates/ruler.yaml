@@ -1,0 +1,36 @@
+{{- if .Values.ruler.enabled }}
+apiVersion: monitoring.thanos.io/v1alpha1
+kind: ThanosRuler
+metadata:
+  name: thanos-ruler
+  namespace: {{ include "thanos-operator.namespace" . }}
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ruler.replicas | default 2 }}
+  queryLabelSelector:
+    matchLabels:
+      app.kubernetes.io/name: thanos-query
+  alertmanagerURL: {{ .Values.ruler.alertmanagerURL | quote }}
+  defaultObjectStorageConfig:
+    name: {{ .Values.objectStore.secretName }}
+    key: objstore.yml
+  evaluationInterval: {{ .Values.ruler.evaluationInterval | default "1m" }}
+  retention: {{ .Values.ruler.retention | default "48h" }}
+  externalLabels:
+    ruler: "true"
+    region: {{ .Values.global.aws_region | quote }}
+  resourceRequirements:
+    requests:
+      cpu: {{ .Values.ruler.resources.requests.cpu }}
+      memory: {{ .Values.ruler.resources.requests.memory }}
+    limits:
+      memory: {{ .Values.ruler.resources.limits.memory }}
+  storage:
+    size: {{ .Values.ruler.storage.size }}
+    {{- if .Values.ruler.storage.storageClass }}
+    storageClass: {{ .Values.ruler.storage.storageClass }}
+    {{- end }}
+{{- end }}

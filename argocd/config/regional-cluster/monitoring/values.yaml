@@ -9,12 +9,7 @@ kube-prometheus-stack:
     enabled: true
 
   defaultRules:
-    create: true
-    rules:
-      etcd: false
-      kubeSchedulerAlerting: false
-      kubeSchedulerRecording: false
-      kubeControllerManager: false
+    create: false
 
   alertmanager:
     enabled: true

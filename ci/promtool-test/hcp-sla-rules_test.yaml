@@ -1,0 +1,89 @@
+evaluation_interval: 1m
+
+rule_files:
+  - rules.yaml
+
+tests:
+  # Recording rule: returns 1 when HostedCluster Available condition is True
+  - interval: 1m
+    input_series:
+      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+        values: "1x10"
+    promql_expr_test:
+      - expr: hcp:hostedcluster_available{name="test-hcp"}
+        eval_time: 5m
+        exp_samples:
+          - labels: 'hcp:hostedcluster_available{namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+            value: 1
+
+  # Recording rule: returns 0 when HostedCluster Available condition is False
+  - interval: 1m
+    input_series:
+      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+        values: "0x10"
+    promql_expr_test:
+      - expr: hcp:hostedcluster_available{name="test-hcp"}
+        eval_time: 5m
+        exp_samples:
+          - labels: 'hcp:hostedcluster_available{namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+            value: 0
+
+  # Fast burn alert fires when error rate exceeds 14.4x budget (99.95% SLA)
+  # Threshold: 14.4 * 0.0005 = 0.0072
+  # We simulate 100% downtime (value=0) for 1h+2m to exceed the 1h window + for duration
+  - interval: 1m
+    input_series:
+      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+        values: "0x70"
+    alert_rule_test:
+      - eval_time: 1h2m
+        alertname: HCPAvailabilityErrorBudgetFastBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: clusters-test
+              name: test-hcp
+              cluster: mc-1
+            exp_annotations:
+              summary: "HCP availability error budget burning fast"
+              description: "HostedCluster test-hcp in namespace clusters-test on cluster mc-1 is consuming its 30-day availability error budget at 14.4x the sustainable rate. At this pace the budget will be exhausted in ~2 hours."
+
+  # Fast burn alert does NOT fire at normal availability
+  - interval: 1m
+    input_series:
+      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+        values: "1x70"
+    alert_rule_test:
+      - eval_time: 1h2m
+        alertname: HCPAvailabilityErrorBudgetFastBurn
+        exp_alerts: []
+
+  # Slow burn alert fires when error rate exceeds 6x budget over 6h
+  # Threshold: 6 * 0.0005 = 0.003
+  # We simulate 100% downtime for 6h+5m
+  - interval: 1m
+    input_series:
+      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+        values: "0x370"
+    alert_rule_test:
+      - eval_time: 6h5m
+        alertname: HCPAvailabilityErrorBudgetSlowBurn
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              namespace: clusters-test
+              name: test-hcp
+              cluster: mc-1
+            exp_annotations:
+              summary: "HCP availability error budget burning steadily"
+              description: "HostedCluster test-hcp in namespace clusters-test on cluster mc-1 is consuming its 30-day availability error budget at 6x the sustainable rate. At this pace the budget will be exhausted in ~5 hours."
+
+  # Slow burn alert does NOT fire at normal availability
+  - interval: 1m
+    input_series:
+      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+        values: "1x370"
+    alert_rule_test:
+      - eval_time: 6h5m
+        alertname: HCPAvailabilityErrorBudgetSlowBurn
+        exp_alerts: []

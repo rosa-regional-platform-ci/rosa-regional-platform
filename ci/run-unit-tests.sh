@@ -7,3 +7,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "=== Running render.py unit tests ==="
 uv run scripts/test_render.py
+
+echo ""
+echo "=== Running promtool rule tests ==="
+./ci/promtool-test.sh

@@ -322,6 +322,18 @@ resource "aws_eks_pod_identity_association" "thanos_compact" {
   }
 }
 
+# ThanosRuler: Evaluates rules against Thanos Query, writes TSDB blocks to S3
+resource "aws_eks_pod_identity_association" "thanos_ruler" {
+  cluster_name    = var.eks_cluster_name
+  namespace       = var.thanos_namespace
+  service_account = "thanos-ruler-thanos-ruler"
+  role_arn        = aws_iam_role.thanos_receiver.arn
+
+  tags = {
+    Name = "${var.cluster_id}-thanos-ruler"
+  }
+}
+
 # ThanosReceive Ingester: Receives and stores metrics from remote_write endpoints
 resource "aws_eks_pod_identity_association" "thanos_receive_ingester" {
   cluster_name    = var.eks_cluster_name
