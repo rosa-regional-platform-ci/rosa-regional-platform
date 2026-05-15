@@ -99,6 +99,7 @@ loki:
     # Required for retention_period to take effect
     compactor:
       retention_enabled: true
+      delete_request_store: s3
 
     server:
       http_listen_port: 3100
