@@ -118,14 +118,8 @@ resource "aws_eks_cluster" "main" {
 
   compute_config {
     enabled       = true
-    node_pools    = ["general-purpose"]
+    node_pools    = ["system"]
     node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
   }
 
   kubernetes_network_config {
@@ -154,9 +148,16 @@ resource "aws_eks_cluster" "main" {
 # EKS Managed Addons
 #
 # Essential addons for cluster functionality:
-# - CoreDNS: DNS resolution for pods and services
-# - Pod Identity Agent: AWS IAM integration for workloads
-# - AWS Secrets Store CSI Driver Provider: Secret mounting
+# - CoreDNS: cluster DNS resolution
+# - metrics-server: pod/node metrics for HPA and kubectl top
+# - Pod Identity Agent: AWS IAM integration for workloads (DaemonSet, safe pre-node)
+# - AWS Secrets Store CSI Driver Provider: Secret mounting (DaemonSet, safe pre-node)
+#
+# CoreDNS and metrics-server are declared here so Terraform creates them before
+# the ECS bootstrap task runs. The built-in "system" pool provides nodes for them
+# to schedule on, so there is no deadlock. Without this declaration, a fresh cluster
+# has no coredns/metrics-server addons and the bootstrap wait-addon-active call fails
+# with ResourceNotFoundException.
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_addon" "coredns" {
@@ -164,14 +165,14 @@ resource "aws_eks_addon" "coredns" {
   addon_name   = "coredns"
 }
 
-resource "aws_eks_addon" "pod_identity" {
-  cluster_name = aws_eks_cluster.main.name
-  addon_name   = "eks-pod-identity-agent"
-}
-
 resource "aws_eks_addon" "metrics_server" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "metrics-server"
+}
+
+resource "aws_eks_addon" "pod_identity" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "eks-pod-identity-agent"
 }
 
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)

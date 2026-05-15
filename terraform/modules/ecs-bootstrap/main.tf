@@ -95,6 +95,76 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
+          # Apply FIPS NodeClass and workloads NodePool for FIPS-validated compute.
+          # The built-in "system" pool (enabled in compute_config) handles CoreDNS
+          # and metrics-server, so no custom system NodePool is needed here.
+          echo "Applying FIPS NodeClass and workloads NodePool..."
+
+          NODEPOOL_NAME="management-workloads"
+          if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
+            NODEPOOL_NAME="regional-workloads"
+          fi
+
+          cat <<-NODECLASS_EOF | kubectl apply -f -
+          apiVersion: eks.amazonaws.com/v1
+          kind: NodeClass
+          metadata:
+            name: fips
+          spec:
+            role: "$CLUSTER_NAME-auto-node-role"
+            subnetSelectorTerms:
+              - tags:
+                  "kubernetes.io/cluster/$CLUSTER_NAME": owned
+            securityGroupSelectorTerms:
+              - tags:
+                  aws:eks:cluster-name: "$CLUSTER_NAME"
+            advancedSecurity:
+              fips: true
+              kernelLockdown: Integrity
+          NODECLASS_EOF
+
+          cat <<-NODEPOOL_EOF | kubectl apply -f -
+          apiVersion: karpenter.sh/v1
+          kind: NodePool
+          metadata:
+            name: $NODEPOOL_NAME
+          spec:
+            template:
+              spec:
+                nodeClassRef:
+                  group: eks.amazonaws.com
+                  kind: NodeClass
+                  name: fips
+                requirements:
+                  - key: karpenter.sh/capacity-type
+                    operator: In
+                    values:
+                      - on-demand
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+            limits:
+              cpu: "64"
+              memory: 256Gi
+            disruption:
+              consolidationPolicy: WhenEmpty
+              consolidateAfter: 60s
+          NODEPOOL_EOF
+
+          echo "✓ FIPS NodeClass and $NODEPOOL_NAME NodePool applied"
+
+          # Wait for coredns and metrics-server (managed by the built-in system pool)
+          # to be active before installing ArgoCD.
+          for ADDON in coredns metrics-server; do
+            echo "Waiting for $ADDON to be active..."
+            aws eks wait addon-active \
+              --cluster-name "$CLUSTER_NAME" \
+              --addon-name "$ADDON" \
+              --region "$AWS_REGION"
+            echo "✓ $ADDON active"
+          done
+
           # Check if ArgoCD already exists
           if ! kubectl get deployment argocd-server -n argocd 2>/dev/null; then
             echo "Installing ArgoCD via Helm..."
