@@ -157,7 +157,7 @@ The existing RHOBS API Gateway is extended with Loki paths:
 
 - **Source**: `kubernetes_logs` with auto-discovery of all pods/namespaces
 - **Transforms**: add `cluster_type`, `cluster_name`, filter unwanted containers
-- **Sink**: `loki` type pointing to local write service (`loki-loki-write.loki.svc:3100`)
+- **Sink**: `loki` type pointing to local write service (`loki-write.loki.svc:3100`)
 - **Metrics**: `internal_metrics` source + `prometheus_exporter` sink on port 9090, scraped via ServiceMonitor
 - **Deployment**: DaemonSet with tolerations for all taints
 - **Resources**: 200m/1Gi request, 750m/2Gi limit (matches RHOBS CLF collector)

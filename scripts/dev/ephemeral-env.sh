@@ -779,7 +779,7 @@ cmd_bastion_port_forward() {
             ;;
         loki)
             forwards+=(
-            "Loki-Query 13100 13100 loki-loki-read loki 3100"
+            "Loki-Query 13100 13100 loki-read loki 3100"
             )
             ;;
         alertmanager)

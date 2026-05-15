@@ -16,14 +16,14 @@ platform:
     arn: ""
     # In SimpleScalable mode, the write target handles distribution.
     # The chart creates a service named "<release>-loki-write".
-    serviceName: loki-loki-write
+    serviceName: loki-write
     port: 3100
     targetType: ip
   queryFrontendTargetGroup:
     arn: ""
     # In SimpleScalable mode, the read target handles queries.
     # The chart creates a service named "<release>-loki-read".
-    serviceName: loki-loki-read
+    serviceName: loki-read
     port: 3100
     targetType: ip
 

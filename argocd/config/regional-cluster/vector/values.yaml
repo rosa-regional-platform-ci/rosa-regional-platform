@@ -45,4 +45,4 @@ containerSecurityContext:
 tolerations:
   - operator: Exists
 
-lokiEndpoint: "http://loki-loki-write.loki.svc:3100"
+lokiEndpoint: "http://loki-write.loki.svc:3100"
