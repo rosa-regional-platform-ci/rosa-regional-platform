@@ -168,7 +168,7 @@ resource "aws_lb_target_group" "loki_distributor" {
 
   health_check {
     enabled             = true
-    path                = "/-/ready"
+    path                = "/ready"
     port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 2
@@ -216,7 +216,7 @@ resource "aws_lb_target_group" "loki_query_frontend" {
 
   health_check {
     enabled             = true
-    path                = "/-/ready"
+    path                = "/ready"
     port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 2
