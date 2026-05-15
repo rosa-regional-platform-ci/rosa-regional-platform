@@ -25,7 +25,7 @@ Services:
   maestro   - Maestro HTTP (8080) + gRPC (8090)  [regional only]
   argocd    - ArgoCD server HTTPS (8443)          [regional or management]
   grafana   - Grafana Dashboard (3000)            [regional only]
-  loki      - Loki Query Frontend (3100)          [regional only]
+  loki      - Loki Read (3100)                     [regional only]
   custom    - Custom service (will prompt for details)
 
 Cluster type:
@@ -71,7 +71,7 @@ else
       "maestro   - Maestro HTTP + gRPC" \
       "argocd    - ArgoCD server HTTPS" \
       "grafana   - Grafana Dashboard" \
-      "loki      - Loki Query Frontend" \
+      "loki      - Loki Read" \
       "custom    - Custom service / ports")
   else
     SERVICE=$(fzf_pick "Select service (${CLUSTER_TYPE}):" \
@@ -360,7 +360,7 @@ fi
 
 if [ "$SERVICE" = "loki" ]; then
   echo ""
-  echo "    Loki Query Frontend: http://localhost:3100"
+  echo "    Loki Read: http://localhost:3100"
   echo "    Test with: curl -s http://localhost:3100/loki/api/v1/labels | jq ."
 fi
 

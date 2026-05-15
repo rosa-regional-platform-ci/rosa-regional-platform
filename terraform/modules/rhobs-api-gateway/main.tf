@@ -10,9 +10,9 @@
 #   GET  /api/v1/query   -> VPC Link -> RHOBS ALB -> Thanos Query Frontend (:9090)
 #
 # Loki (logs):
-#   POST /loki/api/v1/push        -> VPC Link -> RHOBS ALB -> Loki Distributor (:3100)
-#   GET  /loki/api/v1/query       -> VPC Link -> RHOBS ALB -> Loki Query Frontend (:3100)
-#   GET  /loki/api/v1/query_range -> VPC Link -> RHOBS ALB -> Loki Query Frontend (:3100)
+#   POST /loki/api/v1/push        -> VPC Link -> RHOBS ALB -> Loki Write (:3100)
+#   GET  /loki/api/v1/query       -> VPC Link -> RHOBS ALB -> Loki Read (:3100)
+#   GET  /loki/api/v1/query_range -> VPC Link -> RHOBS ALB -> Loki Read (:3100)
 # =============================================================================
 
 # -----------------------------------------------------------------------------

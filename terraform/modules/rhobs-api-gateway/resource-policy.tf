@@ -7,7 +7,7 @@
 #
 # Loki (logs):
 # - POST /loki/api/v1/push: Any org account (MC log forwarding)
-# - GET /loki/api/v1/query, /loki/api/v1/query_range: RC account only (E2E tests, Grafana)
+# - GET /loki/api/v1/query, /loki/api/v1/query_range: RC account only (E2E tests, internal tooling)
 # =============================================================================
 
 data "aws_organizations_organization" "current" {}

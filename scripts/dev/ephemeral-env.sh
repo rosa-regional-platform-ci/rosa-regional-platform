@@ -717,7 +717,7 @@ cmd_bastion_port_forward() {
     local argocd="argocd    - ArgoCD server HTTPS"
     local prometheus="prometheus  - Prometheus Monitoring Dashboard"
     local thanos="thanos    - Thanos Query Frontend (aggregated RC+MC metrics)"
-    local loki="loki      - Loki Query Frontend (platform logs)"
+    local loki="loki      - Loki Read (platform logs)"
     local alertmanager="alertmanager - AlertManager Web UI"
     local grafana="grafana   - Grafana Dashboard"
     local custom="custom    - Custom service / ports"
