@@ -14,7 +14,7 @@
         "type": "loki",
         "uid": "Loki"
       },
-      "description": "Log volume by cluster type over time",
+      "description": "Log volume by cluster over time",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -52,12 +52,12 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "sum by (cluster_type) (count_over_time({cluster_type=~\"$cluster_type\"} [$__interval]))",
-          "legendFormat": "{{ cluster_type }}",
+          "expr": "sum by (cluster_name) (count_over_time({cluster_name=~\"$cluster_name\"} [$__interval]))",
+          "legendFormat": "{{ cluster_name }}",
           "refId": "A"
         }
       ],
-      "title": "Log Volume by Cluster Type",
+      "title": "Log Volume by Cluster",
       "type": "timeseries"
     },
     {
@@ -103,7 +103,7 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "sum by (namespace) (count_over_time({cluster_type=~\"$cluster_type\", namespace=~\"$namespace\"} [$__interval]))",
+          "expr": "sum by (namespace) (count_over_time({cluster_name=~\"$cluster_name\", namespace=~\"$namespace\"} [$__interval]))",
           "legendFormat": "{{ namespace }}",
           "refId": "A"
         }
@@ -140,7 +140,7 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "{cluster_type=~\"$cluster_type\", namespace=~\"$namespace\", cluster_name=~\"$cluster_name\"}",
+          "expr": "{cluster_name=~\"$cluster_name\", namespace=~\"$namespace\"}",
           "refId": "A"
         }
       ],
@@ -152,31 +152,6 @@
   "tags": ["loki", "logs", "platform"],
   "templating": {
     "list": [
-      {
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "loki",
-          "uid": "Loki"
-        },
-        "definition": "",
-        "includeAll": true,
-        "label": "Cluster Type",
-        "multi": true,
-        "name": "cluster_type",
-        "options": [],
-        "query": {
-          "label": "cluster_type",
-          "refId": "LokiVariableQueryEditor-VariableQuery",
-          "stream": "",
-          "type": 1
-        },
-        "refresh": 2,
-        "type": "query"
-      },
       {
         "current": {
           "selected": true,
@@ -221,7 +196,7 @@
         "query": {
           "label": "namespace",
           "refId": "LokiVariableQueryEditor-VariableQuery",
-          "stream": "",
+          "stream": "{cluster_name=~\"$cluster_name\"}",
           "type": 1
         },
         "refresh": 2,
@@ -230,10 +205,10 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-15m",
     "to": "now"
   },
   "title": "Platform Logs",
   "uid": "platform-logs",
-  "version": 1
+  "version": 2
 }
