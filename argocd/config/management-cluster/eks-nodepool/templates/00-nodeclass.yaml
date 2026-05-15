@@ -10,6 +10,7 @@ spec:
   securityGroupSelectorTerms:
     - tags:
         aws:eks:cluster-name: "{{ .Values.global.cluster_name }}"
+  amiFamily: Bottlerocket
   advancedSecurity:
     fips: true
     kernelLockdown: Integrity
