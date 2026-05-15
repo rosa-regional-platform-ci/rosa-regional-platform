@@ -101,6 +101,19 @@ loki:
       http_server_read_timeout: 600s
       http_server_write_timeout: 600s
 
+    # Disable query-scheduler discovery so query-frontend operates in
+    # standalone mode (internal queuing). Without this, the chart defaults
+    # to connecting to loki-query-scheduler which we don't deploy.
+    # See: https://github.com/grafana/helm-charts/issues/2746
+    query_scheduler:
+      max_outstanding_requests_per_tenant: 32768
+
+    frontend:
+      scheduler_address: ""
+
+    frontend_worker:
+      scheduler_address: ""
+
   # ==========================================================================
   # Distributed mode components
   # Resource requests from RHOBS operator 1x.extra-small size template.
@@ -217,8 +230,9 @@ loki:
                   app.kubernetes.io/component: query-frontend
               topologyKey: topology.kubernetes.io/zone
 
-  # Not deployed by Loki Operator, not needed at our scale (single-tenant).
-  # Query-frontend handles queuing internally.
+  # Not deployed — not used in RHOBS LokiStack, and not needed at our scale
+  # (single-tenant). Query-frontend handles queuing internally when no
+  # scheduler address is configured.
   queryScheduler:
     replicas: 0
 
