@@ -40,7 +40,9 @@
         "legend": {
           "calcs": ["sum"],
           "displayMode": "table",
-          "placement": "right"
+          "placement": "right",
+          "sortBy": "Total",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi"
@@ -91,7 +93,9 @@
         "legend": {
           "calcs": ["sum"],
           "displayMode": "table",
-          "placement": "right"
+          "placement": "right",
+          "sortBy": "Total",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi"
