@@ -115,13 +115,21 @@ resource "null_resource" "iot_logging" {
         --policy-arn "arn:aws:iam::aws:policy/service-role/AWSIoTLogging" \
         2>&1 || true
 
-      # Brief wait for IAM propagation
-      sleep 5
-
-      # Set IoT logging options (idempotent — overwrites existing config)
-      aws iot set-v2-logging-options \
-        --role-arn "$${ROLE_ARN}" \
-        --default-log-level "$${LOG_LEVEL}"
+      # Retry loop: IAM propagation can take 15-30s after role creation,
+      # causing set-v2-logging-options to fail with InvalidRequestException.
+      for attempt in $(seq 1 6); do
+        if aws iot set-v2-logging-options \
+          --role-arn "$${ROLE_ARN}" \
+          --default-log-level "$${LOG_LEVEL}"; then
+          break
+        fi
+        if [ "$attempt" -eq 6 ]; then
+          echo "ERROR: set-v2-logging-options failed after $attempt attempts"
+          exit 1
+        fi
+        echo "Attempt $attempt failed (IAM propagation delay), retrying in 10s..."
+        sleep 10
+      done
     EOT
   }
 }
