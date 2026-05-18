@@ -1,0 +1,2 @@
+regional_cluster:
+  ou_path: "ssm:///infra/ci/on-demand-e2e/ou-path"
