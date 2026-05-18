@@ -1,9 +1,10 @@
-regional_cluster:
-  enable_bastion: true
-  ou_path: "ssm:///infra/dev/e2e/ou-path"
-
 management_cluster_defaults:
   enable_bastion: true
+
+regional_cluster:
+  enable_bastion: true
+  enable_cloudtrail: false
+  ou_path: "ssm:///infra/dev/e2e/ou-path"
 
 observability:
   pagerduty:
