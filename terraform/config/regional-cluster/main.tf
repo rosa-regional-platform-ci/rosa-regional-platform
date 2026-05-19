@@ -305,12 +305,12 @@ resource "aws_route53_record" "zone_shard_delegation" {
 
 data "aws_ssm_parameter" "mc_ou_path" {
   count = var.environment_domain != null ? 1 : 0
-  name  = "/infra/mc_ou_path"
+  name  = "/infra/region-ou-path"
 
   lifecycle {
     postcondition {
       condition     = self.value != ""
-      error_message = "SSM parameter /infra/mc_ou_path must not be empty. See docs/environment-provisioning.md section 2.2."
+      error_message = "SSM parameter /infra/region-ou-path must not be empty. This parameter must be created in the RC account — see docs/environment-provisioning.md."
     }
   }
 }
