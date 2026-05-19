@@ -14,7 +14,7 @@ spec:
     matchLabels:
       app.kubernetes.io/name: thanos-query
   alertmanagerURL: {{ .Values.ruler.alertmanagerURL | quote }}
-  defaultObjectStorageConfig:
+  objectStorageConfig:
     name: {{ .Values.objectStore.secretName }}
     key: objstore.yml
   evaluationInterval: {{ .Values.ruler.evaluationInterval | default "1m" }}
