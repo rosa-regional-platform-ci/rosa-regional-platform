@@ -1,6 +1,6 @@
 # Regional OIDC Ownership for HyperShift-Hosted Clusters
 
-**Last Updated Date**: 2026-05-12
+**Last Updated Date**: 2026-05-19
 
 ## Summary
 
@@ -8,9 +8,9 @@ The HyperShift OIDC S3 bucket and CloudFront distribution are owned by the Regio
 
 ## Context
 
-- **Problem Statement**: The OIDC issuer URL for a HyperShift-hosted cluster is embedded in AWS IAM trust policies and in ServiceAccount tokens issued to workloads. It must remain stable for the lifetime of the cluster. If OIDC ownership were per-management-cluster, migrating a control plane to a different MC would change the CloudFront domain and therefore the issuer URL, breaking IRSA for every workload on the migrated cluster.
+- **Problem Statement**: The OIDC issuer URL for a HyperShift-hosted cluster is embedded in AWS IAM trust policies and in ServiceAccount tokens issued to workloads. It must remain stable for the lifetime of the cluster.
 
-- **Constraints**: The OIDC issuer URL is written into ServiceAccount tokens at cluster creation time and into IAM trust policies by customers. Neither can be updated automatically during a migration. The solution must not require HyperShift operator modifications. MC accounts are in a dedicated OU within the organization.
+- **Constraints**: The OIDC issuer URL is written into ServiceAccount tokens at cluster creation time and into IAM trust policies by customers. Neither can be updated automatically. The solution must not require HyperShift operator modifications. MC accounts are in a dedicated OU within the organization.
 
 - **Assumptions**: Each region has exactly one Regional Cluster account. All MC accounts for a region belong to a known AWS Organizations OU. MCs are platform-managed accounts governed by SCPs, not customer-operated accounts. CloudFront's global availability is sufficient for the OIDC serving path.
 
@@ -58,23 +58,13 @@ OIDC documents are stored under `/{hosted-cluster-name}/`. The path is keyed to 
 
 The RC Terraform module provisions the regional OIDC resources and exports four outputs consumed by the MC provisioning pipeline: `oidc_cloudfront_domain` (the stable issuer URL base), `oidc_bucket_name` (injected into HyperShift configuration), `oidc_bucket_arn` (used as the IAM policy resource target), and `oidc_bucket_region` (used for S3 API endpoint selection). The MC provisioning pipeline reads these values from RC Terraform state — the same pattern used for `rhobs_api_url` — and injects them into MC Terraform variables. The MC then configures HyperShift to write to the regional bucket using its cross-account role.
 
-## Alternatives Considered
-
-1. **Per-MC CloudFront with custom domain names**: Custom domains (via Route 53 and ACM) decouple the CloudFront distribution's identity from its domain, so the issuer URL could be kept stable while the distribution changes. However, this requires provisioning a Route 53 record and ACM certificate per MC, with DNS propagation delays on MC provisioning and decommission. It does not address the underlying ownership model — each MC still owns its own resources — and adds Route 53 as a dependency in the OIDC serving path. Rejected because it adds complexity without solving the migration problem cleanly.
-
-2. **RC Platform API as OIDC write proxy**: MCs send OIDC documents to the Platform API, which writes to S3 on their behalf. This is the strongest isolation model: the MC never has direct S3 access to the RC account. However, it requires either modifying HyperShift's S3 write interface or introducing a translation sidecar on every MC. This is a meaningful change to the HyperShift integration surface. Deferred to the roadmap; the cross-account bucket policy model is considered acceptable for the current trust boundary (platform-managed MC accounts).
-
 ## Design Rationale
-
-- **Justification**: A single regional OIDC resource removes the coupling between OIDC issuer URL and the MC that happens to be hosting a given cluster. The issuer URL is determined by the region and the cluster name — two things that do not change during migrations. All other design choices (path structure, TTL, cross-account access model) follow from this primary goal.
 
 - **No-cache TTL (`default_ttl = 0`, `max_ttl = 0`)**: OIDC discovery documents and JWKS keys change only on key rotation. Setting TTL to zero eliminates the need for cross-account CloudFront cache invalidation after a key rotation: the origin (S3) is always authoritative. OIDC endpoints are low-traffic — AWS STS fetches them only when validating tokens — so no-cache has negligible performance cost.
 
 - **`force_destroy = false`**: The regional OIDC bucket is a permanent regional resource. Accidentally destroying it would break OIDC validation for every hosted cluster in the region simultaneously.
 
 - **`s3:DeleteObject` granted to MC accounts**: Removing this permission would not improve security, because `s3:PutObject` (which allows overwrite) is already granted. Restricting to `PutObject`-only would prevent HyperShift from cleaning up documents for deleted hosted clusters, creating orphaned objects in the bucket.
-
-- **Comparison**: A per-MC model would be simpler and self-contained but couples OIDC identity to physical infrastructure. The regional model introduces a cross-account dependency but eliminates migration breakage. The Platform API proxy alternative provides stronger isolation but requires upstream changes; it remains the preferred long-term direction.
 
 ## Consequences
 
@@ -88,7 +78,7 @@ The RC Terraform module provisions the regional OIDC resources and exports four 
 
 ### Negative
 
-- The RC account is in the OIDC document-serving path for all hosted clusters in the region. An RC account outage affects OIDC validation for all clusters in the region. CloudFront's global HA and S3's durability are considered sufficient mitigation; this trade-off is accepted in exchange for issuer URL stability.
+- The RC account is in the OIDC document-serving path for all hosted clusters in the region. An RC account outage affects OIDC validation for all clusters in the region. CloudFront's global HA and S3's durability are considered sufficient mitigation.
 - Path isolation between MC accounts is enforced by OU membership and CloudTrail audit, not by IAM path prefix conditions. A compromised MC account could in principle overwrite OIDC documents for a hosted cluster assigned to a different MC. This is accepted because MCs are platform-managed accounts under SCP governance, not customer-operated environments.
 
 ## Cross-Cutting Concerns
@@ -97,7 +87,7 @@ The RC Terraform module provisions the regional OIDC resources and exports four 
 
 - **Scalability**: One bucket and one CloudFront distribution per region, regardless of the number of MCs or hosted clusters. Path-per-cluster means no naming collisions and no structural changes as the cluster count grows.
 - **Observability**: CloudTrail logs all `PutObject`, `DeleteObject`, and `GetObject` calls to the regional OIDC bucket. CloudFront access logs and S3 server access logs provide the serving audit trail. AWS STS token validation errors surface in CloudTrail as `AssumeRoleWithWebIdentity` failures.
-- **Resiliency**: S3 provides 11 nines of durability. CloudFront is a globally distributed CDN; regional S3 availability does not directly affect CloudFront edge cache hits. With `max_ttl = 0`, every request is a cache miss — a short S3 outage would cause STS token validation failures until S3 recovers. CloudFront's distributed edge fleet provides availability; the single point of concern is the S3 origin.
+- **Resiliency**: S3 provides 11 nines of durability. CloudFront is a globally distributed CDN. With `max_ttl = 0`, every request is a cache miss — a short S3 outage would cause STS token validation failures until S3 recovers.
 
 ### Security
 
@@ -113,8 +103,7 @@ The RC Terraform module provisions the regional OIDC resources and exports four 
 
 ### Cost
 
-- One CloudFront distribution and one S3 bucket per region, replacing one distribution and one bucket per MC. For a region with ten MCs, this reduces distribution count by nine. CloudFront costs are proportional to requests and data transfer, not to the number of distributions; the cost profile is similar.
-- Zero-TTL caching increases origin request volume relative to a cached configuration. At OIDC traffic volumes (STS role assumptions only), the incremental S3 GET cost is negligible.
+- One CloudFront distribution and one S3 bucket per region. CloudFront costs are proportional to requests and data transfer; zero-TTL caching at OIDC traffic volumes (STS role assumptions only) has negligible cost impact.
 
 ### Operability
 
