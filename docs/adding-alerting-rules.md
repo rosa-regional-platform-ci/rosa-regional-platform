@@ -27,6 +27,7 @@ metadata:
   labels:
     app.kubernetes.io/name: alerting-rules
     app.kubernetes.io/managed-by: Helm
+    operator.thanos.io/prometheus-rule: "true"
 spec:
   groups:
     - name: my-recording-rules
@@ -56,7 +57,7 @@ spec:
 Key points:
 
 - **namespace**: Always `thanos` — Thanos Ruler discovers rules in this namespace.
-- **labels**: Include `app.kubernetes.io/name: alerting-rules` and `app.kubernetes.io/managed-by: Helm` for consistency.
+- **labels**: The `operator.thanos.io/prometheus-rule: "true"` label is **required** — the thanos-operator uses it to discover PrometheusRule CRs. Also include `app.kubernetes.io/name: alerting-rules` and `app.kubernetes.io/managed-by: Helm` for consistency.
 - **Helm escaping**: Prometheus template expressions (`{{ $labels.name }}`) conflict with Helm's `{{ }}` syntax. Escape them as `{{ "{{" }} $labels.name {{ "}}" }}`.
 
 ## Using Helm Values
