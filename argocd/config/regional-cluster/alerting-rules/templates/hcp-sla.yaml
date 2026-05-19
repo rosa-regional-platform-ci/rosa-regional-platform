@@ -25,16 +25,15 @@ spec:
 
     - name: hcp-availability-alerts
       rules:
-        # Fast burn: 14.4x error budget consumption rate.
-        # At this rate the 30-day budget is exhausted in ~2 hours.
-        # Long window (1h) detects sustained problems; short window (5m)
+        # Fast burn: detects severe outages within ~6 minutes.
+        # Long window (5m) detects the problem; short window (2m)
         # confirms the issue is still active.
         - alert: HCPAvailabilityErrorBudgetFastBurn
           expr: |
-            (1 - avg_over_time(hcp:hostedcluster_available[1h])) > (14.4 * (1 - {{ .Values.sla.target }}))
-            and
             (1 - avg_over_time(hcp:hostedcluster_available[5m])) > (14.4 * (1 - {{ .Values.sla.target }}))
-          for: 2m
+            and
+            (1 - avg_over_time(hcp:hostedcluster_available[2m])) > (14.4 * (1 - {{ .Values.sla.target }}))
+          for: 1m
           labels:
             severity: critical
           annotations:
@@ -44,16 +43,16 @@ spec:
               {{ "{{" }} $labels.namespace {{ "}}" }} on cluster
               {{ "{{" }} $labels.cluster {{ "}}" }} is consuming its 30-day
               availability error budget at 14.4x the sustainable rate.
-              At this pace the budget will be exhausted in ~2 hours.
 
-        # Slow burn: 6x error budget consumption rate.
-        # At this rate the 30-day budget is exhausted in ~5 hours.
+        # Slow burn: detects partial degradation within ~32 minutes.
+        # Long window (30m) detects the problem; short window (5m)
+        # confirms the issue is still active.
         - alert: HCPAvailabilityErrorBudgetSlowBurn
           expr: |
-            (1 - avg_over_time(hcp:hostedcluster_available[6h])) > (6 * (1 - {{ .Values.sla.target }}))
-            and
             (1 - avg_over_time(hcp:hostedcluster_available[30m])) > (6 * (1 - {{ .Values.sla.target }}))
-          for: 5m
+            and
+            (1 - avg_over_time(hcp:hostedcluster_available[5m])) > (6 * (1 - {{ .Values.sla.target }}))
+          for: 2m
           labels:
             severity: critical
           annotations:
@@ -63,4 +62,3 @@ spec:
               {{ "{{" }} $labels.namespace {{ "}}" }} on cluster
               {{ "{{" }} $labels.cluster {{ "}}" }} is consuming its 30-day
               availability error budget at 6x the sustainable rate.
-              At this pace the budget will be exhausted in ~5 hours.

@@ -33,15 +33,13 @@ tests:
           - labels: 'hcp:hostedcluster_available{namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
             value: 0
 
-  # Fast burn alert fires when error rate exceeds 14.4x budget (99.95% SLA)
-  # Threshold: 14.4 * 0.0005 = 0.0072
-  # We simulate 100% downtime (value=0) for 1h+2m to exceed the 1h window + for duration
+  # Fast burn alert fires at 100% downtime after 5m window + 1m for duration = ~6m
   - interval: 1m
     input_series:
       - series: 'kube_customresource_hostedcluster_status_condition{type="KubeAPIServerAvailable", status="True", cluster_type="management-cluster", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
-        values: "0x70"
+        values: "0x10"
     alert_rule_test:
-      - eval_time: 1h2m
+      - eval_time: 6m
         alertname: HCPAvailabilityErrorBudgetFastBurn
         exp_alerts:
           - exp_labels:
@@ -51,27 +49,25 @@ tests:
               cluster: mc-1
             exp_annotations:
               summary: "HCP availability error budget burning fast"
-              description: "HostedCluster test-hcp in namespace clusters-test on cluster mc-1 is consuming its 30-day availability error budget at 14.4x the sustainable rate. At this pace the budget will be exhausted in ~2 hours."
+              description: "HostedCluster test-hcp in namespace clusters-test on cluster mc-1 is consuming its 30-day availability error budget at 14.4x the sustainable rate."
 
   # Fast burn alert does NOT fire at normal availability
   - interval: 1m
     input_series:
       - series: 'kube_customresource_hostedcluster_status_condition{type="KubeAPIServerAvailable", status="True", cluster_type="management-cluster", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
-        values: "1x70"
+        values: "1x10"
     alert_rule_test:
-      - eval_time: 1h2m
+      - eval_time: 6m
         alertname: HCPAvailabilityErrorBudgetFastBurn
         exp_alerts: []
 
-  # Slow burn alert fires when error rate exceeds 6x budget over 6h
-  # Threshold: 6 * 0.0005 = 0.003
-  # We simulate 100% downtime for 6h+5m
+  # Slow burn alert fires at 100% downtime after 30m window + 2m for duration = ~32m
   - interval: 1m
     input_series:
       - series: 'kube_customresource_hostedcluster_status_condition{type="KubeAPIServerAvailable", status="True", cluster_type="management-cluster", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
-        values: "0x370"
+        values: "0x35"
     alert_rule_test:
-      - eval_time: 6h5m
+      - eval_time: 32m
         alertname: HCPAvailabilityErrorBudgetSlowBurn
         exp_alerts:
           - exp_labels:
@@ -81,14 +77,14 @@ tests:
               cluster: mc-1
             exp_annotations:
               summary: "HCP availability error budget burning steadily"
-              description: "HostedCluster test-hcp in namespace clusters-test on cluster mc-1 is consuming its 30-day availability error budget at 6x the sustainable rate. At this pace the budget will be exhausted in ~5 hours."
+              description: "HostedCluster test-hcp in namespace clusters-test on cluster mc-1 is consuming its 30-day availability error budget at 6x the sustainable rate."
 
   # Slow burn alert does NOT fire at normal availability
   - interval: 1m
     input_series:
       - series: 'kube_customresource_hostedcluster_status_condition{type="KubeAPIServerAvailable", status="True", cluster_type="management-cluster", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
-        values: "1x370"
+        values: "1x35"
     alert_rule_test:
-      - eval_time: 6h5m
+      - eval_time: 32m
         alertname: HCPAvailabilityErrorBudgetSlowBurn
         exp_alerts: []

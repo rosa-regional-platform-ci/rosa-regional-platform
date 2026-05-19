@@ -287,10 +287,10 @@ See [Adding Alerting Rules](../adding-alerting-rules.md) for a developer guide o
 
 SLA alerts use multi-window, multi-burn-rate alerting (from the Google SRE workbook) instead of simple threshold alerts. A threshold on a 30-day average only fires after the budget is already exhausted. Burn rate alerts detect unsustainable consumption while budget remains:
 
-| Alert | Burn rate | Long window | Short window | `for` | Time to exhaust 30d budget |
-| ----- | --------- | ----------- | ------------ | ----- | -------------------------- |
-| Fast  | 14.4x     | 1h          | 5m           | 2m    | ~2 hours                   |
-| Slow  | 6x        | 6h          | 30m          | 5m    | ~5 hours                   |
+| Alert | Burn rate | Long window | Short window | `for` | Detection time |
+| ----- | --------- | ----------- | ------------ | ----- | -------------- |
+| Fast  | 14.4x     | 5m          | 2m           | 1m    | ~6 minutes     |
+| Slow  | 6x        | 30m         | 5m           | 2m    | ~32 minutes    |
 
 The long window detects sustained problems; the short window confirms the issue is still active (preventing false positives from brief historical blips). Both windows must exceed the threshold for the alert to fire.
 
