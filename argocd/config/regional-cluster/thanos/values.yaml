@@ -96,7 +96,7 @@ ruler:
   replicas: 2
   evaluationInterval: 1m
   retention: 48h
-  alertmanagerURL: "http://monitoring-kube-prometheus-alertmanager.monitoring:9093"
+  alertmanagerURL: "http://monitoring-alertmanager.monitoring:9093"
   resources:
     requests:
       cpu: 100m
