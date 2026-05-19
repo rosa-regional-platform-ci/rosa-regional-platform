@@ -13,6 +13,8 @@ spec:
   queryLabelSelector:
     matchLabels:
       app.kubernetes.io/name: thanos-query
+  ruleConfigSelector:
+    matchLabels: {}
   alertmanagerURL: {{ .Values.ruler.alertmanagerURL | quote }}
   objectStorageConfig:
     name: {{ .Values.objectStore.secretName }}
