@@ -303,14 +303,14 @@ resource "aws_route53_record" "zone_shard_delegation" {
 # DNS Zone Operator (Cross-Account IAM for MC operators)
 # =============================================================================
 
-data "aws_ssm_parameter" "mc_ou_path" {
+data "aws_ssm_parameter" "region_ou_path" {
   count = var.environment_domain != null ? 1 : 0
-  name  = "/infra/mc_ou_path"
+  name  = "/infra/region-ou-path"
 
   lifecycle {
     postcondition {
       condition     = self.value != ""
-      error_message = "SSM parameter /infra/mc_ou_path must not be empty. See docs/environment-provisioning.md section 2.2."
+      error_message = "SSM parameter /infra/region-ou-path must not be empty. This parameter must be created in the RC account — see docs/environment-provisioning.md."
     }
   }
 }
@@ -320,8 +320,9 @@ module "dns_zone_operator" {
   source = "../../modules/dns-zone-operator"
 
   regional_id                = var.regional_id
+  regional_hosted_zone_id    = aws_route53_zone.regional[0].zone_id
   zone_shard_hosted_zone_ids = aws_route53_zone.zone_shard[*].zone_id
-  mc_ou_path                 = data.aws_ssm_parameter.mc_ou_path[0].value
+  region_ou_path             = data.aws_ssm_parameter.region_ou_path[0].value
 }
 
 # Maestro Infrastructure Module

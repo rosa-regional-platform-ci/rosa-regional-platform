@@ -23,10 +23,10 @@ resource "aws_iam_role" "dns_zone_operator" {
       ]
       Condition = {
         StringEquals = {
-          "aws:PrincipalOrgID" = split("/", var.mc_ou_path)[0]
+          "aws:PrincipalOrgID" = split("/", var.region_ou_path)[0]
         }
         "ForAnyValue:StringLike" = {
-          "aws:PrincipalOrgPaths" = var.mc_ou_path
+          "aws:PrincipalOrgPaths" = "${var.region_ou_path}*"
         }
       }
     }]
@@ -61,9 +61,12 @@ resource "aws_iam_role_policy" "dns_zone_operator" {
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["route53:ListResourceRecordSets"]
-        Resource = [for id in var.zone_shard_hosted_zone_ids : "arn:aws:route53:::hostedzone/${id}"]
+        Effect = "Allow"
+        Action = ["route53:ListResourceRecordSets"]
+        Resource = concat(
+          ["arn:aws:route53:::hostedzone/${var.regional_hosted_zone_id}"],
+          [for id in var.zone_shard_hosted_zone_ids : "arn:aws:route53:::hostedzone/${id}"]
+        )
       }
     ]
   })
