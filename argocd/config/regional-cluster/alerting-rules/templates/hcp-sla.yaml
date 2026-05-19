@@ -17,9 +17,9 @@ spec:
           expr: |
             max by (namespace, name, cluster) (
               kube_customresource_hostedcluster_status_condition{
-                type="Available",
+                type="KubeAPIServerAvailable",
                 status="True",
-                cluster_type="management"
+                cluster_type="management-cluster"
               }
             )
 
