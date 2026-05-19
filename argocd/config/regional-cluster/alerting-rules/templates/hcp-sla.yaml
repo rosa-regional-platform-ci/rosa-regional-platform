@@ -6,7 +6,6 @@ metadata:
   labels:
     app.kubernetes.io/name: alerting-rules
     app.kubernetes.io/managed-by: Helm
-    operator.thanos.io/prometheus-rule: "true"
 spec:
   groups:
     - name: hcp-availability-recording
