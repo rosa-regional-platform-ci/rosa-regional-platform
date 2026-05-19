@@ -25,9 +25,9 @@ metadata:
   name: my-rules
   namespace: thanos
   labels:
-    app.kubernetes.io/name: alerting-rules
+    app.kubernetes.io/name: alerting-rules          # required — ThanosRuler ruleConfigSelector
     app.kubernetes.io/managed-by: Helm
-    operator.thanos.io/prometheus-rule: "true"
+    operator.thanos.io/prometheus-rule: "true"       # required — thanos-operator default label
 spec:
   groups:
     - name: my-recording-rules
@@ -57,7 +57,11 @@ spec:
 Key points:
 
 - **namespace**: Always `thanos` — Thanos Ruler discovers rules in this namespace.
-- **labels**: The `app.kubernetes.io/name: alerting-rules` label is **required** — the ThanosRuler `ruleConfigSelector` uses it to discover PrometheusRule CRs. Also include `app.kubernetes.io/managed-by: Helm` for consistency.
+- **labels**: Two labels are **required** for Thanos Ruler to discover the PrometheusRule:
+  - `app.kubernetes.io/name: alerting-rules` — matched by the ThanosRuler `ruleConfigSelector`
+  - `operator.thanos.io/prometheus-rule: "true"` — the thanos-operator's default label, always merged into the selector via `BuildLabelSelectorFrom()`
+  - Both must be present. Missing either one causes the operator to skip the rule (`found prometheus rule-based configmaps count=0`).
+  - Also include `app.kubernetes.io/managed-by: Helm` for consistency.
 - **Helm escaping**: Prometheus template expressions (`{{ $labels.name }}`) conflict with Helm's `{{ }}` syntax. Escape them as `{{ "{{" }} $labels.name {{ "}}" }}`.
 
 ## Using Helm Values
