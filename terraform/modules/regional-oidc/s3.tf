@@ -45,6 +45,23 @@ resource "aws_s3_bucket_policy" "oidc" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "DenyInsecureTransport"
+        Effect = "Deny"
+        Principal = {
+          AWS = "*"
+        }
+        Action = "s3:*"
+        Resource = [
+          aws_s3_bucket.oidc.arn,
+          "${aws_s3_bucket.oidc.arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+      {
         Sid    = "AllowCloudFrontOAC"
         Effect = "Allow"
         Principal = {
