@@ -27,6 +27,7 @@ git:
 
 # @doc deployment_name Logical deployment identifier. Equals aws_region for normal deployments; override in ephemeral/CI to disambiguate multiple deployments in the same region (e.g. "us-east-1-xg4y"). Used for DNS zone naming and resource identification.
 # @used-by deployment_name _context
+# @used-by deployment_name pipeline-regional-cluster-inputs/terraform.json.j2
 deployment_name: "{{ aws_region }}"
 
 aws:
