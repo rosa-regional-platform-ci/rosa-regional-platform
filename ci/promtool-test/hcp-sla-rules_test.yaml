@@ -7,7 +7,7 @@ tests:
   # Recording rule: returns 1 when HostedCluster Available condition is True
   - interval: 1m
     input_series:
-      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+      - series: 'kube_customresource_hostedcluster_status_condition{type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
         values: "1x10"
     promql_expr_test:
       - expr: hcp:hostedcluster_available{name="test-hcp"}
@@ -19,7 +19,7 @@ tests:
   # Recording rule: returns 0 when HostedCluster Available condition is False
   - interval: 1m
     input_series:
-      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+      - series: 'kube_customresource_hostedcluster_status_condition{type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
         values: "0x10"
     promql_expr_test:
       - expr: hcp:hostedcluster_available{name="test-hcp"}
@@ -33,7 +33,7 @@ tests:
   # We simulate 100% downtime (value=0) for 1h+2m to exceed the 1h window + for duration
   - interval: 1m
     input_series:
-      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+      - series: 'kube_customresource_hostedcluster_status_condition{type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
         values: "0x70"
     alert_rule_test:
       - eval_time: 1h2m
@@ -51,7 +51,7 @@ tests:
   # Fast burn alert does NOT fire at normal availability
   - interval: 1m
     input_series:
-      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+      - series: 'kube_customresource_hostedcluster_status_condition{type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
         values: "1x70"
     alert_rule_test:
       - eval_time: 1h2m
@@ -63,7 +63,7 @@ tests:
   # We simulate 100% downtime for 6h+5m
   - interval: 1m
     input_series:
-      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+      - series: 'kube_customresource_hostedcluster_status_condition{type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
         values: "0x370"
     alert_rule_test:
       - eval_time: 6h5m
@@ -81,7 +81,7 @@ tests:
   # Slow burn alert does NOT fire at normal availability
   - interval: 1m
     input_series:
-      - series: 'kube_customresource_status_condition{customresource_group="hypershift.openshift.io", customresource_kind="HostedCluster", type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
+      - series: 'kube_customresource_hostedcluster_status_condition{type="Available", status="True", cluster_type="management", namespace="clusters-test", name="test-hcp", cluster="mc-1"}'
         values: "1x370"
     alert_rule_test:
       - eval_time: 6h5m

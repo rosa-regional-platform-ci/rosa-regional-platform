@@ -300,8 +300,8 @@ For a 99.95% SLA target, the error budget is 0.05%. The threshold formula: `erro
 
 | Alert                                | Source metric                                                    | SLA target | Severity |
 | ------------------------------------ | ---------------------------------------------------------------- | ---------- | -------- |
-| `HCPAvailabilityErrorBudgetFastBurn` | `kube_customresource_status_condition` (HostedCluster Available) | 99.95%     | critical |
-| `HCPAvailabilityErrorBudgetSlowBurn` | `kube_customresource_status_condition` (HostedCluster Available) | 99.95%     | critical |
+| `HCPAvailabilityErrorBudgetFastBurn` | `kube_customresource_hostedcluster_status_condition` (HostedCluster Available) | 99.95%     | critical |
+| `HCPAvailabilityErrorBudgetSlowBurn` | `kube_customresource_hostedcluster_status_condition` (HostedCluster Available) | 99.95%     | critical |
 
 ## Open Questions
 

@@ -24,6 +24,36 @@ kube-prometheus-stack:
         memory: 256Mi
 
   kube-state-metrics:
+    rbac:
+      extraRules:
+        - apiGroups: ["hypershift.openshift.io"]
+          resources: ["hostedclusters"]
+          verbs: ["list", "watch"]
+    customResourceState:
+      enabled: true
+      config:
+        kind: CustomResourceStateMetrics
+        spec:
+          resources:
+            - groupVersionKind:
+                group: hypershift.openshift.io
+                version: v1beta1
+                kind: HostedCluster
+              labelsFromPath:
+                name: [metadata, name]
+                namespace: [metadata, namespace]
+              metrics:
+                - name: "hostedcluster_status_condition"
+                  help: "Status conditions for HostedCluster resources"
+                  each:
+                    type: StateSet
+                    stateSet:
+                      labelName: status
+                      path: [status, conditions]
+                      labelsFromPath:
+                        type: [type]
+                      list: ["True", "False", "Unknown"]
+                      valueFrom: [status]
     resources:
       requests:
         cpu: 50m

@@ -16,9 +16,7 @@ spec:
         - record: hcp:hostedcluster_available
           expr: |
             max by (namespace, name, cluster) (
-              kube_customresource_status_condition{
-                customresource_group="hypershift.openshift.io",
-                customresource_kind="HostedCluster",
+              kube_customresource_hostedcluster_status_condition{
                 type="Available",
                 status="True",
                 cluster_type="management"
