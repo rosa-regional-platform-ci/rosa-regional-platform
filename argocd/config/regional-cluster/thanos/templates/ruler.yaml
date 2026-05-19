@@ -23,7 +23,6 @@ spec:
   evaluationInterval: {{ .Values.ruler.evaluationInterval | default "1m" }}
   retention: {{ .Values.ruler.retention | default "48h" }}
   externalLabels:
-    ruler: "true"
     region: {{ .Values.global.aws_region | quote }}
   resourceRequirements:
     requests:
