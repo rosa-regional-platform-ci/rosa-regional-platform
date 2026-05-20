@@ -108,7 +108,7 @@ class PipelineMonitor:
                 )
                 status = response["pipelineExecution"]["status"]
             except Exception:
-                log.info("Pipeline '%s' not yet visible — waiting %ds...", pipeline_name, POLL_INTERVAL)
+                log.info("Pipeline '%s' discovery pending — waiting %ds...", pipeline_name, POLL_INTERVAL)
                 time.sleep(POLL_INTERVAL)
                 continue
 

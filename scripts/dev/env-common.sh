@@ -74,8 +74,11 @@ ensure_image() {
 
     if ! $CONTAINER_ENGINE image inspect "$CI_IMAGE" >/dev/null 2>&1; then
         echo "Building CI image..."
+        local build_args=""
+        [[ -n "${PROXY_CA_CERT:-}" ]] && build_args="--build-arg PROXY_CA_CERT=${PROXY_CA_CERT}"
         local build_output
-        if ! build_output=$($CONTAINER_ENGINE build -t "$CI_IMAGE" -f ci/Containerfile ci 2>&1); then
+        # shellcheck disable=SC2086
+        if ! build_output=$($CONTAINER_ENGINE build -t "$CI_IMAGE" -f ci/Containerfile $build_args ci 2>&1); then
             echo "$build_output"
             die "Failed to build CI image."
         fi

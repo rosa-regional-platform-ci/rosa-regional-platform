@@ -204,6 +204,14 @@ fetch_vault_config() {
 
 # Create temporary AWS config with ephemeral profiles.
 setup_aws_config() {
+    # If AWS profiles are already configured, skip Vault fetch
+    if [[ -n "${RRP_AWS_PROFILES_PRESET:-}" ]]; then
+        echo "Using pre-existing AWS credentials (RRP_AWS_PROFILES_PRESET)"
+        export AWS_CONFIG_FILE=${AWS_CONFIG_FILE:-$HOME/.aws/config}
+        export GITHUB_TOKEN=${GITHUB_TOKEN:-}
+        return 0
+    fi
+
     fetch_vault_config
     init_aws_config
 
@@ -243,6 +251,17 @@ AWSCFG
 
 # Resolve ephemeral profiles to static container credentials.
 write_eph_container_config() {
+    # If profiles are preset, mount the whole .aws dir — config, cred-helper,
+    # and real_credentials all need to be present at the same absolute paths.
+    if [[ -n "${RRP_AWS_PROFILES_PRESET:-}" ]]; then
+        _CONTAINER_AWS_FLAGS="-v ${HOME}/.aws:/home/agent/.aws:ro,z -e AWS_CONFIG_FILE=/home/agent/.aws/config"
+        # Pass through TLS env vars if set in the caller's environment
+        for _var in AWS_CA_BUNDLE REQUESTS_CA_BUNDLE SSL_CERT_FILE UV_NATIVE_TLS; do
+            [[ -n "${!_var:-}" ]] && _CONTAINER_AWS_FLAGS="${_CONTAINER_AWS_FLAGS} -e ${_var}=${!_var}"
+        done
+        return 0
+    fi
+
     write_container_config \
         "rrp-ephemeral-central rrp-central us-east-1" \
         "rrp-ephemeral-rc rrp-rc us-east-1" \
@@ -307,7 +326,11 @@ bastion_setup() {
 # Check that required CLI tools are available.
 preflight() {
     local missing=""
-    for tool in vault jq uv aws git python3 fzf; do
+    local required_tools="jq uv aws git python3"
+    if [[ -z "${RRP_AWS_PROFILES_PRESET:-}" ]]; then
+        required_tools="vault fzf $required_tools"
+    fi
+    for tool in $required_tools; do
         command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
     done
     [[ -n "$CONTAINER_ENGINE" ]] || missing="$missing podman/docker"
@@ -1055,12 +1078,16 @@ esac
 # Bastion/collect-logs need vault + aws but not container engine
 case "${1:-help}" in
     bastion|collect-logs)
-        for tool in vault jq uv aws; do
+        _required="jq uv aws"
+        [[ -n "${RRP_AWS_PROFILES_PRESET:-}" ]] || _required="vault $_required"
+        for tool in $_required; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
     port-forward)
-        for tool in vault jq uv aws fzf lsof; do
+        _required="jq uv aws fzf lsof"
+        [[ -n "${RRP_AWS_PROFILES_PRESET:-}" ]] || _required="vault $_required"
+        for tool in $_required; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;

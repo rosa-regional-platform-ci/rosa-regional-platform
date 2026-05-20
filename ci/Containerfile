@@ -4,6 +4,14 @@
 
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
+# Optionally install a proxy CA cert at build time (e.g. egress proxy environments).
+# Pass the PEM content via: --build-arg PROXY_CA_CERT="$(cat /path/to/ca.crt)"
+ARG PROXY_CA_CERT=""
+RUN if [ -n "${PROXY_CA_CERT}" ]; then \
+        echo "${PROXY_CA_CERT}" > /etc/pki/ca-trust/source/anchors/proxy-ca.crt && \
+        update-ca-trust; \
+    fi
+
 ARG TERRAFORM_VERSION=1.14.3
 ARG HELM_VERSION=v3.16.0
 ARG UV_VERSION=0.6.0
@@ -41,12 +49,15 @@ RUN arch=$(uname -m) && \
     curl -fsSLO "${TF_BASE_URL}/${TF_PACKAGE}" && \
     curl -fsSLO "${TF_BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
     curl -fsSLO "${TF_BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" && \
-    ( gpg --batch --keyserver keyserver.ubuntu.com --recv-keys \
-        C874011F0AB405110D02105534365D9472D7468F || \
-      gpg --batch --keyserver keys.openpgp.org --recv-keys \
-        C874011F0AB405110D02105534365D9472D7468F || \
-      gpg --batch --keyserver pgp.mit.edu --recv-keys \
-        C874011F0AB405110D02105534365D9472D7468F ) && \
+    ( if [ -n "${PROXY_CA_CERT}" ]; then \
+        curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC874011F0AB405110D02105534365D9472D7468F" | gpg --batch --import || \
+        curl -fsSL "https://keys.openpgp.org/vks/v1/by-fingerprint/C874011F0AB405110D02105534365D9472D7468F" | gpg --batch --import || \
+        curl -fsSL "https://pgp.mit.edu/pks/lookup?op=get&search=0xC874011F0AB405110D02105534365D9472D7468F" | gpg --batch --import; \
+      else \
+        gpg --batch --keyserver keyserver.ubuntu.com --recv-keys C874011F0AB405110D02105534365D9472D7468F || \
+        gpg --batch --keyserver keys.openpgp.org --recv-keys C874011F0AB405110D02105534365D9472D7468F || \
+        gpg --batch --keyserver pgp.mit.edu --recv-keys C874011F0AB405110D02105534365D9472D7468F; \
+      fi ) && \
     gpg --batch --verify "terraform_${TERRAFORM_VERSION}_SHA256SUMS.sig" \
         "terraform_${TERRAFORM_VERSION}_SHA256SUMS" && \
     grep "${TF_PACKAGE}" "terraform_${TERRAFORM_VERSION}_SHA256SUMS" | sha256sum -c - && \
@@ -114,4 +125,8 @@ ENV GOPATH=/tmp/gopath
 ENV GOCACHE=/tmp/.cache/go-build
 
 # Python packages (awscurl for API Gateway testing)
-RUN uv pip install --system awscurl
+RUN if [ -n "${PROXY_CA_CERT}" ]; then \
+        uv pip install --system --native-tls awscurl; \
+    else \
+        uv pip install --system awscurl; \
+    fi
