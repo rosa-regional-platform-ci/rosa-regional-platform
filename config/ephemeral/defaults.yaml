@@ -1,7 +1,8 @@
 deployment_name: "{{ aws_region }}{% if eph_prefix %}-{{ eph_prefix }}{% endif %}"
 
 dns:
-  domain: dev0.rosa.devshift.net
+  # ci is true when BUILD_ID is set (CI pipelines); selects ci00 vs dev0 account pool
+  domain: "{% if ci %}ci00{% else %}dev0{% endif %}.rosa.devshift.net"
 
 regional_cluster:
   enable_bastion: true
