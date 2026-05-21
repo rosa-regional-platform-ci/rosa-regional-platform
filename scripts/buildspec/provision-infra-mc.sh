@@ -189,6 +189,11 @@ terraform init -reconfigure \
     -backend-config="region=${TF_STATE_REGION}" \
     -backend-config="use_lockfile=true"
 
+# Idempotent state imports (adopt pre-existing AWS resources into TF state)
+if [ "${TERRAFORM_ACTION}" == "apply" ] && [ -f imports.sh ]; then
+    source imports.sh
+fi
+
 set +e
 terraform "${TERRAFORM_ACTION}" -auto-approve
 TERRAFORM_STATUS=$?
