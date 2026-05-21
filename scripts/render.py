@@ -279,11 +279,18 @@ def cleanup_stale_files(
 
 
 def build_context(
-    merged: dict[str, Any], env_name: str, region: str, eph_prefix: str
+    merged: dict[str, Any], env_name: str, region: str, eph_prefix: str,
 ) -> dict[str, Any]:
     """Build the template context from merged config values."""
     ctx = dict(merged)
-    ctx.update(environment=env_name, aws_region=region, eph_prefix=eph_prefix)
+    # ci: true when rendering an ephemeral environment during CI provisioning
+    # (both EPH_PREFIX and BUILD_ID set). Ephemeral environments are templates
+    # instantiated into shared account pools — CI pools use a different DNS
+    # domain (ci00) than developer pools (dev0). Requires both flags so that
+    # CI lint/render checks (BUILD_ID set, no EPH_PREFIX) produce the same
+    # output as local renders, avoiding spurious diffs.
+    ci = env_name == "ephemeral" and bool(eph_prefix) and bool(os.environ.get("BUILD_ID"))
+    ctx.update(environment=env_name, aws_region=region, eph_prefix=eph_prefix, ci=ci)
 
     # deployment_name is an explicit config field (default: "{{ aws_region }}").
     # Resolve it after aws_region is in context so templates can reference it.
@@ -297,7 +304,7 @@ def build_context(
     ctx["terraform_tags"] = resolve_templates(ctx.get("terraform_tags", {}), ctx)
     ctx["regional_cluster"] = resolve_templates(ctx.get("regional_cluster", {}), ctx)
     ctx["management_cluster_defaults"] = resolve_templates(ctx.get("management_cluster_defaults", {}), ctx)
-    ctx["dns"] = ctx.get("dns", {})
+    ctx["dns"] = resolve_templates(ctx.get("dns", {}), ctx)
 
     return ctx
 
@@ -330,7 +337,7 @@ CONTEXT_VARS = {
     "cluster_type",
     "application_values", "region_configs", "eph_prefix",
     "delete", "delete_pipeline", "mc_key", "region",
-    "pinned", "mc_account_ids",
+    "pinned", "mc_account_ids", "ci",
 }
 
 _DOC_RE = re.compile(r"^\s*#\s*(?:#\s*)?@doc\s+(\S+)\s+(.+)$", re.MULTILINE)

@@ -341,7 +341,6 @@ module "dns_zone_operator" {
   source = "../../modules/dns-zone-operator"
 
   regional_id                = var.regional_id
-  regional_hosted_zone_id    = aws_route53_zone.regional[0].zone_id
   zone_shard_hosted_zone_ids = aws_route53_zone.zone_shard[*].zone_id
   region_ou_path             = data.aws_ssm_parameter.region_ou_path[0].value
 }

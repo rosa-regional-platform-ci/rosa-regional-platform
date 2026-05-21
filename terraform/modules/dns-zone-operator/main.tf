@@ -23,10 +23,10 @@ resource "aws_iam_role" "dns_zone_operator" {
       ]
       Condition = {
         StringEquals = {
-          "aws:PrincipalOrgID" = split("/", var.mc_ou_path)[0]
+          "aws:PrincipalOrgID" = split("/", var.region_ou_path)[0]
         }
         "ForAnyValue:StringLike" = {
-          "aws:PrincipalOrgPaths" = var.mc_ou_path
+          "aws:PrincipalOrgPaths" = var.region_ou_path
         }
       }
     }]

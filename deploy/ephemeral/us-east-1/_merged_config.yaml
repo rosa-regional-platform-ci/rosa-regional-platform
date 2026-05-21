@@ -27,6 +27,7 @@ git:
 
 # @doc deployment_name Logical deployment identifier. Equals aws_region for normal deployments; override in ephemeral/CI to disambiguate multiple deployments in the same region (e.g. "us-east-1-xg4y"). Used for DNS zone naming and resource identification.
 # @used-by deployment_name _context
+# @used-by deployment_name pipeline-regional-cluster-inputs/terraform.json.j2
 deployment_name: "{{ aws_region }}{% if eph_prefix %}-{{ eph_prefix }}{% endif %}"
 
 aws:
@@ -38,9 +39,9 @@ aws:
   management_cluster_account_id: "ssm:///infra/{{ environment }}/{{ aws_region }}/{{ cluster_prefix }}/account_id"
 
 dns:
-  # @doc dns.domain Base domain for the environment. Must be set per environment.
+  # @doc dns.domain Base domain for the environment. Must be set per environment. See config/ephemeral/defaults.yaml for how the ephemeral template selects between CI and dev account pools.
   # @used-by dns.domain pipeline-provisioner-inputs/terraform.json.j2
-  domain: "dev0.rosa.devshift.net"
+  domain: "{% if ci %}ci00{% else %}dev0{% endif %}.rosa.devshift.net"
   # @doc dns.create_environment_zone Create the environment hosted zone in the central account. Set false to reuse an existing zone with pre-configured delegation.
   # @used-by dns.create_environment_zone pipeline-provisioner-inputs/terraform.json.j2
   create_environment_zone: false
