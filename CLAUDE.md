@@ -126,6 +126,10 @@ docs/
 4. Management Clusters auto-provision as needed
 5. Run `make pre-push` before pushing to validate all rendered files and documentation
 
+#### Ephemeral Environments
+
+See [`docs/development-environment.md`](docs/development-environment.md) for full usage — provisioning, resync, E2E, teardown, and port forwarding.
+
 ### Security Guidelines
 
 - **AWS IAM Only**: Use AWS IAM for all authentication/authorization
