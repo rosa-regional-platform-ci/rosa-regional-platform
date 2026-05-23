@@ -41,6 +41,8 @@ spec:
             value: "{{ .Values.global.cluster_name }}"
           - name: BASE_DOMAIN
             value: "{{ .Values.hyperfleetAdapter1Chart.baseDomain | default "example.com" }}"
+          - name: DNS_ZONE_OPERATOR_ROLE_ARN
+            value: "{{ .Values.global.dns_zone_operator_role_arn | default "" }}"
         # Service account configuration for AWS Pod Identity
         serviceAccount:
           create: true
