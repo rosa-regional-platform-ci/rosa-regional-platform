@@ -10,12 +10,69 @@ locals {
 data "aws_region" "current" {}
 
 # =============================================================================
+# FedRAMP AU-09: KMS Key for Bastion CloudWatch Log Encryption
+# =============================================================================
+
+resource "aws_kms_key" "bastion_logs" {
+  description             = "KMS key for Bastion ECS CloudWatch log encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.cluster_id}/bastion"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_id}-bastion-logs"
+  })
+}
+
+resource "aws_kms_alias" "bastion_logs" {
+  name          = "alias/${var.cluster_id}-bastion-logs"
+  target_key_id = aws_kms_key.bastion_logs.key_id
+}
+
+# =============================================================================
 # CloudWatch Log Group
 # =============================================================================
 
 resource "aws_cloudwatch_log_group" "bastion" {
   name              = "/ecs/${var.cluster_id}/bastion"
   retention_in_days = local.effective_log_retention_days
+  kms_key_id        = aws_kms_key.bastion_logs.arn
+
+  depends_on = [aws_kms_key.bastion_logs]
 
   tags = var.tags
 }

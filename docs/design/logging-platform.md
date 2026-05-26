@@ -324,6 +324,7 @@ For FedRAMP Moderate in US commercial regions, the FIPS S3 endpoints satisfy the
 
 ## Related
 
+- [Infrastructure CloudWatch Logging](infrastructure-logging.md) — AWS service-level logs (EKS, RDS, API GW, IoT Core)
 - [Thanos Metrics Infrastructure](thanos-metrics-infrastructure.md) — parallel pattern for metrics
 - [MC Metrics Pipeline via Remote Write](mc-metrics-remote-write.md) — cross-account ingestion pattern
 - [Metrics Platform Overview](monitoring-platform.md) — end-to-end observability architecture

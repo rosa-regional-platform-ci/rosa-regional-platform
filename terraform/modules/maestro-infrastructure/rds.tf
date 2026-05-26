@@ -5,6 +5,86 @@
 # ManifestWork resources
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# FedRAMP AU-09: KMS Key for RDS CloudWatch Log Encryption
+# -----------------------------------------------------------------------------
+
+resource "aws_kms_key" "rds_logs" {
+  description             = "KMS key for Maestro RDS CloudWatch log encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/rds/instance/${var.regional_id}-maestro/*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-maestro-rds-logs"
+      Component = "maestro-server"
+    }
+  )
+}
+
+resource "aws_kms_alias" "rds_logs" {
+  name          = "alias/${var.regional_id}-maestro-rds-logs"
+  target_key_id = aws_kms_key.rds_logs.key_id
+}
+
+resource "aws_cloudwatch_log_group" "rds_postgresql" {
+  name              = "/aws/rds/instance/${var.regional_id}-maestro/postgresql"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.rds_logs.arn
+
+  tags = merge(local.common_tags, {
+    Name      = "${var.regional_id}-maestro-rds-postgresql-logs"
+    Component = "maestro-server"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "rds_upgrade" {
+  name              = "/aws/rds/instance/${var.regional_id}-maestro/upgrade"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.rds_logs.arn
+
+  tags = merge(local.common_tags, {
+    Name      = "${var.regional_id}-maestro-rds-upgrade-logs"
+    Component = "maestro-server"
+  })
+}
+
 # Generate secure random password for database
 # TODO: Will go once using ASCP for access
 resource "random_password" "db_password" {
@@ -155,5 +235,9 @@ resource "aws_db_instance" "maestro" {
     ignore_changes = [final_snapshot_identifier]
   }
 
-  depends_on = [aws_security_group.maestro_db]
+  depends_on = [
+    aws_security_group.maestro_db,
+    aws_cloudwatch_log_group.rds_postgresql,
+    aws_cloudwatch_log_group.rds_upgrade,
+  ]
 }
