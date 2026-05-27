@@ -1026,6 +1026,18 @@ cmd_e2e() {
         -e "E2E_REPO=$e2e_repo" \
         "$CI_IMAGE" \
         bash ci/e2e-tests.sh
+
+    echo ""
+    echo "Running SNS alerting e2e tests..."
+    $CONTAINER_ENGINE run --rm \
+        $_CONTAINER_AWS_FLAGS \
+        -v "${REPO_ROOT}:/workspace:ro,z" \
+        -w /workspace \
+        -e "REGIONAL_ID=eph-${BUILD_ID}-regional" \
+        -e "AWS_DEFAULT_REGION=$region" \
+        -e "AWS_REGION=$region" \
+        "$CI_IMAGE" \
+        bash ci/e2e-sns-alerting-test.sh
 }
 
 cmd_collect_logs() {
