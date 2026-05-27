@@ -108,7 +108,7 @@ flowchart LR
 4. Choose a Log Group from the dropdown (matches the log group names in the tables above)
 5. Write a [CloudWatch Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html) query, for example:
 
-```
+```sql
 fields @timestamp, @message
 | filter @message like /error/i
 | sort @timestamp desc
@@ -119,7 +119,7 @@ fields @timestamp, @message
 
 **EKS API server audit — denied requests:**
 
-```
+```sql
 fields @timestamp, user.username, verb, objectRef.resource, objectRef.namespace, responseStatus.code
 | filter responseStatus.code >= 400
 | sort @timestamp desc
@@ -127,7 +127,7 @@ fields @timestamp, user.username, verb, objectRef.resource, objectRef.namespace,
 
 **RDS slow queries (postgresql log group):**
 
-```
+```sql
 fields @timestamp, @message
 | filter @message like /duration:/
 | sort @timestamp desc
@@ -135,7 +135,7 @@ fields @timestamp, @message
 
 **API Gateway 5xx errors (access log group):**
 
-```
+```sql
 fields @timestamp, httpMethod, path, status, responseLatency, requestId
 | filter status >= 500
 | sort @timestamp desc
