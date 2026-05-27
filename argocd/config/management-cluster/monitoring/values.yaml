@@ -32,6 +32,9 @@ kube-prometheus-stack:
         memory: 256Mi
 
   prometheus-node-exporter:
+    priorityClassName: system-node-critical
+    tolerations:
+      - operator: Exists
     resources:
       requests:
         cpu: 50m
