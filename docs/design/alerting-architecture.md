@@ -88,15 +88,14 @@ An alert with `severity=warning, team=storage` would skip PagerDuty and skip the
 
 ### Design
 
-Phase 2 extends Phase 1 by adding an SNS fan-out path alongside the existing AlertManager routes. The Phase 1 PagerDuty route remains in place — it continues to receive critical alerts directly from AlertManager with no additional latency or dependencies. A new route using AlertManager's native `sns_configs` receiver publishes all alerts to an SNS topic that fans out to subscribers.
+Phase 2 adds an SNS fan-out path to AlertManager. A new route using AlertManager's native `sns_configs` receiver publishes all alerts to an SNS topic that fans out to subscribers. Additional AlertManager routes (e.g., PagerDuty for critical alerts) can be added alongside SNS using `continue: true` — they are independent of the SNS path.
 
 This approach uses AlertManager's built-in SNS receiver with SigV4 authentication via EKS Pod Identity — no intermediate webhook bridge service is needed.
 
 ```mermaid
 flowchart LR
     P[Prometheus] --> AM[AlertManager]
-    AM -->|severity=critical| PD[PagerDuty]
-    AM -->|continue| SNS[SNS Topic]
+    AM -->|all alerts| SNS[SNS Topic]
     SNS --> Sub1[Subscriber 1]
     SNS --> Sub2[Subscriber 2]
     SNS --> SubN[Subscriber N...]
@@ -110,28 +109,13 @@ AlertManager natively supports publishing to SNS topics via the `sns_configs` re
 
 ```yaml
 route:
-  receiver: default
-  group_by: ["alertname", "namespace"]
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
+  receiver: "null"
   routes:
-    # Phase 1 — Critical alerts → PagerDuty (unchanged)
-    - match:
-        severity: critical
-      receiver: pagerduty
-      continue: true
-
-    # Phase 2 — All alerts → SNS fan-out
     - receiver: sns-alerts
       continue: true
 
 receivers:
-  - name: default
-
-  - name: pagerduty
-    pagerduty_configs:
-      - service_key_file: /etc/alertmanager/secrets/pagerduty-service-key
+  - name: "null"
 
   - name: sns-alerts
     sns_configs:
@@ -140,6 +124,8 @@ receivers:
           region: "<region>"
         send_resolved: true
 ```
+
+The `"null"` receiver drops unmatched alerts. The `continue: true` directive on the SNS route allows additional routes (e.g., PagerDuty) to be added as siblings without replacing SNS delivery.
 
 #### SNS Topic
 
@@ -156,20 +142,20 @@ Any number of subscribers can be added to the SNS topic. SNS natively supports m
 
 Each subscription can include a [filter policy](https://docs.aws.amazon.com/sns/latest/dg/sns-subscription-filter-policies.html) to selectively receive alerts based on message attributes. Subscribers without a filter policy receive all alerts.
 
-> **Note:** PagerDuty is _not_ an SNS subscriber — it receives critical alerts directly from AlertManager via the Phase 1 route. This avoids adding latency or an SNS dependency to the paging path.
+> **Note:** When a PagerDuty route is added, it should be a direct AlertManager route (not an SNS subscriber) to avoid adding latency or an SNS dependency to the paging path.
 
 Subscribers are fully independent — deployed, scaled, and owned by different teams if needed.
 
 ### Terraform Sketch
 
-```hcl
-resource "aws_sns_topic" "alerts" {
-  name = "rrp-alerts"
-}
+The `sns-alerting` module (`terraform/modules/sns-alerting/`) creates the SNS topic, a KMS key for encryption, an SSM parameter storing the topic ARN, an IAM role for AlertManager, and an EKS Pod Identity Association. Subscribers are not part of the module — they are added independently.
 
-# Example: SQS subscriber with filter policy
+The following sketch shows how subscribers can be added:
+
+```hcl
+# Example: SQS subscriber with filter policy (topic created by sns-alerting module)
 resource "aws_sqs_queue" "example_alerts" {
-  name = "rrp-alerts-example"
+  name = "${var.regional_id}-alerts-example"
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.example_alerts_dlq.arn
     maxReceiveCount     = 3
@@ -177,11 +163,11 @@ resource "aws_sqs_queue" "example_alerts" {
 }
 
 resource "aws_sqs_queue" "example_alerts_dlq" {
-  name = "rrp-alerts-example-dlq"
+  name = "${var.regional_id}-alerts-example-dlq"
 }
 
 resource "aws_sns_topic_subscription" "example_sqs" {
-  topic_arn = aws_sns_topic.alerts.arn
+  topic_arn = module.sns_alerting[0].sns_topic_arn
   protocol  = "sqs"
   endpoint  = aws_sqs_queue.example_alerts.arn
   filter_policy = jsonencode({
@@ -191,7 +177,7 @@ resource "aws_sns_topic_subscription" "example_sqs" {
 
 # Example: Lambda subscriber (no filter — receives all alerts)
 resource "aws_sns_topic_subscription" "example_lambda" {
-  topic_arn = aws_sns_topic.alerts.arn
+  topic_arn = module.sns_alerting[0].sns_topic_arn
   protocol  = "lambda"
   endpoint  = aws_lambda_function.alert_handler.arn
 }
@@ -209,14 +195,14 @@ No AlertManager changes required. New subscribers are fully decoupled via the SN
 
 | Concern                   | Phase 1 only                        | Phase 2 (Phase 1 + SNS)                                                          |
 | ------------------------- | ----------------------------------- | -------------------------------------------------------------------------------- |
-| PagerDuty path            | Direct AlertManager → PagerDuty     | Unchanged — same direct path                                                     |
+| PagerDuty path            | Direct AlertManager → PagerDuty     | Independent — can be added as a sibling route alongside SNS                      |
 | New subscriber onboarding | Config change + AlertManager reload | Subscribe to SNS topic + deploy (no AlertManager change)                         |
 | Durability                | Limited retry/buffering             | Depends on protocol — SQS provides retention + DLQ; Lambda retries automatically |
-| Coupling                  | All receivers in one config         | Only PagerDuty in AlertManager; all others decoupled via SNS                     |
+| Coupling                  | All receivers in one config         | Only direct routes in AlertManager; all others decoupled via SNS                 |
 | Filtering                 | AlertManager label matching         | SNS subscription filter policies                                                 |
 | Cross-account/region      | Difficult                           | Native SNS/SQS cross-account support                                             |
 | Observability             | AlertManager metrics                | AlertManager metrics + CloudWatch metrics per subscriber                         |
-| Additional infrastructure | None                                | SNS topic, IAM role for Alertmanager                                             |
+| Additional infrastructure | None                                | SNS topic, KMS key, SSM parameter, IAM role, EKS Pod Identity                    |
 
 ### Failure Modes
 
@@ -243,8 +229,7 @@ flowchart LR
     TS[Thanos Store / S3] --> TQ
     TRuler[Thanos Ruler] -->|queries| TQ
     TRuler -->|fires alerts| AM[AlertManager]
-    AM -->|severity=critical| PD[PagerDuty]
-    AM -->|continue| B[Webhook Bridge]
+    AM -->|continue| SNS[SNS Topic]
 ```
 
 ### Rule Deployment
