@@ -8,6 +8,7 @@
 # Thanos (metrics):
 #   POST /api/v1/receive -> VPC Link -> RHOBS ALB -> Thanos Receive (:19291)
 #   GET  /api/v1/query   -> VPC Link -> RHOBS ALB -> Thanos Query Frontend (:9090)
+#   GET  /api/v1/rules   -> VPC Link -> RHOBS ALB -> Thanos Query Frontend (:9090)
 #
 # Loki (logs):
 #   POST /loki/api/v1/push        -> VPC Link -> RHOBS ALB -> Loki Distributor (:3100)
@@ -47,6 +48,7 @@ resource "aws_api_gateway_rest_api" "rhobs" {
 # Resource chain: /api -> /api/v1 -> /api/v1/receive
 #                                  -> /api/v1/query
 #                                  -> /api/v1/query_range
+#                                  -> /api/v1/rules
 # -----------------------------------------------------------------------------
 
 resource "aws_api_gateway_resource" "api" {
@@ -77,6 +79,12 @@ resource "aws_api_gateway_resource" "api_v1_query_range" {
   rest_api_id = aws_api_gateway_rest_api.rhobs.id
   parent_id   = aws_api_gateway_resource.api_v1.id
   path_part   = "query_range"
+}
+
+resource "aws_api_gateway_resource" "api_v1_rules" {
+  rest_api_id = aws_api_gateway_rest_api.rhobs.id
+  parent_id   = aws_api_gateway_resource.api_v1.id
+  path_part   = "rules"
 }
 
 # -----------------------------------------------------------------------------
@@ -132,6 +140,7 @@ resource "aws_api_gateway_deployment" "rhobs" {
     aws_api_gateway_integration.thanos_receive,
     aws_api_gateway_integration.thanos_query,
     aws_api_gateway_integration.thanos_query_range,
+    aws_api_gateway_integration.thanos_rules,
     aws_api_gateway_integration.loki_push,
     aws_api_gateway_integration.loki_query,
     aws_api_gateway_integration.loki_query_range,
@@ -151,6 +160,9 @@ resource "aws_api_gateway_deployment" "rhobs" {
       aws_api_gateway_resource.api_v1_query_range.id,
       aws_api_gateway_method.thanos_query_range.id,
       aws_api_gateway_integration.thanos_query_range.id,
+      aws_api_gateway_resource.api_v1_rules.id,
+      aws_api_gateway_method.thanos_rules.id,
+      aws_api_gateway_integration.thanos_rules.id,
       aws_api_gateway_resource.loki_api_v1_push.id,
       aws_api_gateway_method.loki_push.id,
       aws_api_gateway_integration.loki_push.id,

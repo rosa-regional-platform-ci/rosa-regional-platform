@@ -65,6 +65,32 @@ resource "aws_api_gateway_integration" "thanos_query" {
 }
 
 # -----------------------------------------------------------------------------
+# Thanos Rules: GET /api/v1/rules
+#
+# Exposes alerting and recording rule status for E2E tests.
+# Restricted to the RC account only via resource policy.
+# -----------------------------------------------------------------------------
+
+resource "aws_api_gateway_method" "thanos_rules" {
+  rest_api_id   = aws_api_gateway_rest_api.rhobs.id
+  resource_id   = aws_api_gateway_resource.api_v1_rules.id
+  http_method   = "GET"
+  authorization = "AWS_IAM"
+}
+
+resource "aws_api_gateway_integration" "thanos_rules" {
+  rest_api_id             = aws_api_gateway_rest_api.rhobs.id
+  resource_id             = aws_api_gateway_resource.api_v1_rules.id
+  http_method             = aws_api_gateway_method.thanos_rules.http_method
+  type                    = "HTTP_PROXY"
+  integration_http_method = "GET"
+  connection_type         = "VPC_LINK"
+  connection_id           = aws_apigatewayv2_vpc_link.rhobs.id
+  integration_target      = aws_lb.rhobs.arn
+  uri                     = "http://${aws_lb.rhobs.dns_name}/api/v1/rules"
+}
+
+# -----------------------------------------------------------------------------
 # Thanos Query Range: GET /api/v1/query_range
 # -----------------------------------------------------------------------------
 

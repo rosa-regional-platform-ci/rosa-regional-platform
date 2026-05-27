@@ -3,7 +3,7 @@
 #
 # Thanos (metrics):
 # - POST /api/v1/receive: Any org account (MC remote-write)
-# - GET /api/v1/query, /api/v1/query_range: RC account only (E2E tests, internal tooling)
+# - GET /api/v1/query, /api/v1/query_range, /api/v1/rules: RC account only (E2E tests, internal tooling)
 #
 # Loki (logs):
 # - POST /loki/api/v1/push: Any org account (MC log forwarding)
@@ -56,6 +56,7 @@ resource "aws_api_gateway_rest_api_policy" "rhobs" {
         Resource = [
           "arn:aws:execute-api:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.rhobs.id}/*/GET/api/v1/query",
           "arn:aws:execute-api:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.rhobs.id}/*/GET/api/v1/query_range",
+          "arn:aws:execute-api:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.rhobs.id}/*/GET/api/v1/rules",
           "arn:aws:execute-api:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.rhobs.id}/*/GET/loki/api/v1/query",
           "arn:aws:execute-api:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.rhobs.id}/*/GET/loki/api/v1/query_range"
         ]

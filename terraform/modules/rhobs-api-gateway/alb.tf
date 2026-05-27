@@ -152,6 +152,22 @@ resource "aws_lb_listener_rule" "thanos_query" {
   }
 }
 
+resource "aws_lb_listener_rule" "thanos_rules" {
+  listener_arn = aws_lb_listener.rhobs.arn
+  priority     = 250
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.thanos_query.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/v1/rules"]
+    }
+  }
+}
+
 # -----------------------------------------------------------------------------
 # Loki Distributor Target Group
 #
