@@ -257,6 +257,36 @@ See [Adding Alerting Rules](../adding-alerting-rules.md) for a developer guide o
 
 SLA alerts use multi-window, multi-burn-rate alerting from the [Google SRE Workbook](https://sre.google/workbook/alerting-on-slos/). See `argocd/config/regional-cluster/alerting-rules/templates/` for current alert definitions and [Adding Alerting Rules](../adding-alerting-rules.md) for the developer guide.
 
+## E2E Testing
+
+The SNS alerting infrastructure is validated by `ci/e2e-sns-alerting-test.sh`, which runs in two phases against a provisioned environment.
+
+### Phase A: Infrastructure Verification
+
+Read-only AWS API calls that confirm Terraform created the correct resources:
+
+- **SNS topic** exists and is KMS-encrypted
+- **KMS key** is enabled with automatic rotation
+- **SSM parameter** (`/<regional-id>/alerting/sns-topic-arn`) stores the correct topic ARN
+- **IAM role** (`<regional-id>-alertmanager-sns`) exists with a trust policy allowing `pods.eks.amazonaws.com`
+- **EKS Pod Identity Association** links the IAM role to the `monitoring-alertmanager` service account
+
+### Phase B: End-to-End Delivery
+
+Validates that SNS fan-out actually delivers messages:
+
+1. Creates a temporary SQS queue
+2. Subscribes the queue to the SNS topic
+3. Publishes a test message to the topic
+4. Polls the queue until the message arrives (60s timeout)
+5. Cleans up the queue and subscription via an EXIT trap
+
+### Limitations
+
+Phase B publishes directly to the SNS topic using the CI runner's AWS credentials rather than triggering through AlertManager. This means the test validates that the SNS topic, KMS encryption, and SQS fan-out delivery work, but it does **not** validate the full AlertManager → SNS path (Pod Identity credential injection, SigV4 signing, AlertManager's `sns_configs` receiver).
+
+A full end-to-end test — creating a firing PrometheusRule, waiting for AlertManager to route it to SNS, and verifying delivery in SQS — would require `kubectl` access to the regional cluster's Kubernetes API. The e2e test runner does not have this access because regional clusters are fully private (no public API endpoint), and the bastion path adds significant complexity and fragility to CI. The Pod Identity and IAM role checks in Phase A provide partial coverage for the authentication path, but the runtime integration between AlertManager and SNS remains untested in CI.
+
 ## Open Questions
 
 - [ ] Do we need cross-region alert replication, or is per-region alerting sufficient given regional independence?
