@@ -73,20 +73,24 @@ _REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
 export TF_VAR_repository_url="${REPOSITORY_URL}"
 export TF_VAR_repository_branch="${_REPO_BRANCH}"
 
-# Build allowed accounts list: target account + all MC accounts
-_ALLOWED_ACCOUNTS="${TARGET_ACCOUNT_ID}"
-# Read MC account IDs from rendered config (may contain SSM references)
-_MC_ACCOUNTS=$(jq -r '.management_cluster_account_ids // [] | .[]' "$DEPLOY_CONFIG_FILE" 2>/dev/null || true)
-for _ACCT in $_MC_ACCOUNTS; do
+# Resolve MC accounts: "mc01:123456789012,mc02:987654321098"
+# Single source of truth for MC identity — Terraform derives API allowed accounts from this.
+_MC_ACCOUNTS=""
+_MC_INFO=$(jq -c '.management_clusters_info // []' "$DEPLOY_CONFIG_FILE")
+for _ENTRY in $(echo "$_MC_INFO" | jq -r '.[] | @base64'); do
+    _ID=$(echo "$_ENTRY" | base64 -d | jq -r '.id')
+    _ACCT=$(echo "$_ENTRY" | base64 -d | jq -r '.account_id')
     if [[ "$_ACCT" =~ ^ssm:// ]]; then
         _SSM_PARAM="${_ACCT#ssm://}"
-        _ACCT=$(aws ssm get-parameter --name "$_SSM_PARAM" --with-decryption --query 'Parameter.Value' --output text --region "${TARGET_REGION}" 2>/dev/null || true)
+        _ACCT=$(aws ssm get-parameter --name "$_SSM_PARAM" --with-decryption \
+            --query 'Parameter.Value' --output text --region "${TARGET_REGION}" 2>/dev/null || true)
     fi
-    if [[ -n "$_ACCT" ]]; then
-        _ALLOWED_ACCOUNTS="${_ALLOWED_ACCOUNTS},${_ACCT}"
+    if [[ -n "$_ACCT" && -n "$_ID" ]]; then
+        [ -n "$_MC_ACCOUNTS" ] && _MC_ACCOUNTS="${_MC_ACCOUNTS},"
+        _MC_ACCOUNTS="${_MC_ACCOUNTS}${_ID}:${_ACCT}"
     fi
 done
-export TF_VAR_api_additional_allowed_accounts="${_ALLOWED_ACCOUNTS}"
+export TF_VAR_mc_accounts="${_MC_ACCOUNTS}"
 
 # Set container image for ECS tasks (bastion and bootstrap)
 if [ -z "${PLATFORM_IMAGE:-}" ]; then
@@ -142,7 +146,7 @@ echo "  Service Phase: $TF_VAR_service_phase"
 echo "  Cost Center: $TF_VAR_cost_center"
 echo "  Repository URL: $TF_VAR_repository_url"
 echo "  Repository Branch: $TF_VAR_repository_branch"
-echo "  API Additional Allowed Accounts: $TF_VAR_api_additional_allowed_accounts"
+echo "  MC Accounts: ${TF_VAR_mc_accounts:-<none>}"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
 echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
 echo "  Node Instance Types: $TF_VAR_node_instance_types"

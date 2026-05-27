@@ -165,3 +165,15 @@ module "cloudwatch_exporter" {
   source       = "../../modules/cloudwatch-exporter"
   cluster_name = module.management_cluster.cluster_name
 }
+
+# =============================================================================
+# Grafana CloudWatch Logs Reader (cross-account role for RC Grafana)
+# =============================================================================
+
+module "grafana_cloudwatch_logs" {
+  source                  = "../../modules/grafana-cloudwatch-logs"
+  mode                    = "reader"
+  cluster_name            = module.management_cluster.cluster_name
+  regional_id             = var.management_id
+  grafana_role_account_id = var.regional_aws_account_id
+}

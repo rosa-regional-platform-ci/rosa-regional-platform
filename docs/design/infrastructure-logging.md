@@ -1,6 +1,6 @@
 # Infrastructure CloudWatch Logging
 
-**Last Updated**: 2026-05-26
+**Last Updated**: 2026-05-27
 
 ## Summary
 
@@ -60,6 +60,86 @@ Each module creates a dedicated KMS key for its CloudWatch log groups following 
 | --- | --- |
 | CloudFront (OIDC) | CloudFront only supports logging to S3 buckets or Kinesis Data Firehose — no native CloudWatch Logs integration exists |
 | S3 (Loki, Thanos, OIDC) | S3 Server Access Logging delivers logs to a target S3 bucket — no native CloudWatch Logs integration exists. Access auditing is covered by CloudTrail instead |
+
+## Accessing Logs via Grafana
+
+Infrastructure CloudWatch Logs are accessible from the Regional Cluster's Grafana instance through dedicated CloudWatch datasources. No additional tools or AWS Console access is required.
+
+### Datasources
+
+| Datasource Name | Account | Authentication |
+| --- | --- | --- |
+| CloudWatch Logs (Regional) | RC account | EKS Pod Identity (direct) |
+| CloudWatch Logs (`<mc-id>`) | MC account(s) | EKS Pod Identity → cross-account AssumeRole |
+
+MC datasources are dynamically generated — one per Management Cluster. When a new MC is provisioned, its datasource appears automatically after the next RC pipeline run.
+
+### IAM Architecture
+
+```mermaid
+flowchart LR
+    subgraph RC["Regional Cluster Account"]
+        Grafana["Grafana Pod"]
+        PodId["EKS Pod Identity"]
+        RcRole["*-grafana-cw-logs"]
+        RcLogs["RC CloudWatch Logs"]
+    end
+    subgraph MC["Management Cluster Account"]
+        McRole["*-grafana-cw-logs-reader"]
+        CwLogs["MC CloudWatch Logs"]
+    end
+    Grafana -->|"credentials via"| PodId
+    PodId -->|"assumes"| RcRole
+    RcRole -->|"reads RC logs directly"| RcLogs
+    RcRole -->|"sts:AssumeRole"| McRole
+    McRole -->|"reads MC logs"| CwLogs
+```
+
+- **RC role** (`<regional_id>-grafana-cw-logs`): Pod Identity role with `logs:*` read permissions and permission to assume any `*-grafana-cw-logs-reader` role cross-account.
+- **MC role** (`<mc_id>-grafana-cw-logs-reader`): Trusts only the RC Grafana role (scoped by `aws:PrincipalArn` condition). Grants `logs:*` read permissions in the MC account.
+
+### How to Query
+
+1. Open Grafana → **Explore** (compass icon in sidebar)
+2. Select the datasource from the dropdown:
+   - **CloudWatch Logs (Regional)** for RC account logs
+   - **CloudWatch Logs (mc01)** etc. for MC account logs
+3. Switch the query mode to **CloudWatch Logs** using the toggle at the top of the query editor (it defaults to CloudWatch Metrics)
+4. Choose a Log Group from the dropdown (matches the log group names in the tables above)
+4. Write a [CloudWatch Logs Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html) query, for example:
+
+```
+fields @timestamp, @message
+| filter @message like /error/i
+| sort @timestamp desc
+| limit 100
+```
+
+### Common Queries
+
+**EKS API server audit — denied requests:**
+
+```
+fields @timestamp, user.username, verb, objectRef.resource, objectRef.namespace, responseStatus.code
+| filter responseStatus.code >= 400
+| sort @timestamp desc
+```
+
+**RDS slow queries (postgresql log group):**
+
+```
+fields @timestamp, @message
+| filter @message like /duration:/
+| sort @timestamp desc
+```
+
+**API Gateway 5xx errors (access log group):**
+
+```
+fields @timestamp, httpMethod, path, status, responseLatency, requestId
+| filter status >= 500
+| sort @timestamp desc
+```
 
 ## Related
 
