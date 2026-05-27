@@ -112,12 +112,12 @@ terraform "${TERRAFORM_ACTION}" -auto-approve
 
 Core function that idempotently imports a single resource. Handles four outcomes:
 
-| Scenario | Behavior | Pipeline Impact |
-| --- | --- | --- |
-| Resource already in TF state | Skip (~10ms, no AWS API call) | None |
-| Resource exists in AWS, not in state | `terraform import` succeeds | Resource now managed |
-| Resource doesn't exist in AWS | Import fails with known "not found" pattern | None (expected on fresh env) |
-| Unexpected error (permissions, API) | Counted as failure | Pipeline aborted by `tf_import_summary` |
+| Scenario                             | Behavior                                    | Pipeline Impact                         |
+| ------------------------------------ | ------------------------------------------- | --------------------------------------- |
+| Resource already in TF state         | Skip (~10ms, no AWS API call)               | None                                    |
+| Resource exists in AWS, not in state | `terraform import` succeeds                 | Resource now managed                    |
+| Resource doesn't exist in AWS        | Import fails with known "not found" pattern | None (expected on fresh env)            |
+| Unexpected error (permissions, API)  | Counted as failure                          | Pipeline aborted by `tf_import_summary` |
 
 ### `tf_state_value <terraform-address> <jq-path>`
 
@@ -133,12 +133,12 @@ Prints a summary and acts as a pipeline gate — exits non-zero if any imports f
 
 The framework is designed to be **unconditionally safe** at any point in time, on any environment, in any state:
 
-| Environment State | What Happens | Result |
-| --- | --- | --- |
-| Fresh (first deploy, no AWS resources exist) | All imports report `[not-found]` | Terraform creates resources normally |
-| Existing (AWS resources exist, not in TF state) | Imports report `[imported]` | Terraform updates config in-place |
-| Migrated (AWS resources exist AND in TF state) | All imports report `[skip]` | No-op, ~10ms per entry |
-| Partially migrated (some in state, some not) | Mix of `[skip]` and `[imported]` | Each resource handled independently |
+| Environment State                               | What Happens                     | Result                               |
+| ----------------------------------------------- | -------------------------------- | ------------------------------------ |
+| Fresh (first deploy, no AWS resources exist)    | All imports report `[not-found]` | Terraform creates resources normally |
+| Existing (AWS resources exist, not in TF state) | Imports report `[imported]`      | Terraform updates config in-place    |
+| Migrated (AWS resources exist AND in TF state)  | All imports report `[skip]`      | No-op, ~10ms per entry               |
+| Partially migrated (some in state, some not)    | Mix of `[skip]` and `[imported]` | Each resource handled independently  |
 
 This means:
 
