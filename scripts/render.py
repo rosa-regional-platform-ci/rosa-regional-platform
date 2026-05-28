@@ -399,7 +399,7 @@ def scan_template_variables(templates_dir: Path) -> dict[str, list[str]]:
         for pattern in _TPL_PATTERNS:
             for match in pattern.finditer(content):
                 var = match.group(1)
-                if var.split(".")[0] in ("true", "false", "none", "loop"):
+                if var.startswith("_") or var.split(".")[0] in ("true", "false", "none", "loop"):
                     continue
                 if var not in var_to_templates:
                     var_to_templates[var] = []
@@ -407,6 +407,8 @@ def scan_template_variables(templates_dir: Path) -> dict[str, list[str]]:
                     var_to_templates[var].append(rel)
         for match in _TPL_BRACKET_PATTERN.finditer(content):
             var = match.group(1) + "." + match.group(2) + match.group(3)
+            if var.startswith("_"):
+                continue
             if var not in var_to_templates:
                 var_to_templates[var] = []
             if rel not in var_to_templates[var]:

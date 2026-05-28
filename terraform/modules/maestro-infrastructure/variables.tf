@@ -123,7 +123,7 @@ variable "mqtt_topic_prefix" {
 variable "iot_log_level" {
   description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
   type        = string
-  default     = "WARN"
+  default     = "INFO"
 
   validation {
     condition     = contains(["DISABLED", "ERROR", "WARN", "INFO", "DEBUG"], var.iot_log_level)

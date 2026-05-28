@@ -129,7 +129,7 @@ variable "metrics_enabled" {
 }
 
 variable "logging_level" {
-  description = "CloudWatch logging level for API methods (OFF, ERROR, INFO)"
+  description = "CloudWatch execution logging level for API methods (OFF, ERROR, INFO). INFO level logs full request/response headers which may include caller identity (PII consideration for customer-facing APIs)."
   type        = string
   default     = "ERROR"
 

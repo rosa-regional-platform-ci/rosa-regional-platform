@@ -1606,7 +1606,11 @@ class TestMainIntegration:
             / "terraform.json"
         )
         data = json.loads(tf_file.read_text())
-        assert sorted(data["management_cluster_account_ids"]) == ["111", "222"]
+        mc_info = sorted(data["management_clusters_info"], key=lambda x: x["id"])
+        assert mc_info == [
+            {"id": "mc01", "account_id": "111"},
+            {"id": "mc02", "account_id": "222"},
+        ]
 
     def test_argocd_values_files(self, tmp_path):
         deploy_dir = self._run_main(

@@ -8,6 +8,90 @@
 # to be in its security group; who can connect is defined independently.
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# FedRAMP AU-09: KMS Key for AmazonMQ CloudWatch Log Encryption
+# -----------------------------------------------------------------------------
+
+resource "aws_kms_key" "mq_logs" {
+  description             = "KMS key for HyperFleet AmazonMQ CloudWatch log encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/amazonmq/broker/*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-hyperfleet-mq-logs"
+      Component = "hyperfleet-sentinel"
+    }
+  )
+}
+
+resource "aws_kms_alias" "mq_logs" {
+  name          = "alias/${var.regional_id}-hyperfleet-mq-logs"
+  target_key_id = aws_kms_key.mq_logs.key_id
+}
+
+resource "aws_cloudwatch_log_group" "mq_general" {
+  name              = "/aws/amazonmq/broker/${aws_mq_broker.hyperfleet.id}/general"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.mq_logs.arn
+
+  depends_on = [aws_mq_broker.hyperfleet]
+
+  tags = merge(local.common_tags, {
+    Name      = "${var.regional_id}-hyperfleet-mq-general-logs"
+    Component = "hyperfleet-sentinel"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "mq_connection" {
+  name              = "/aws/amazonmq/broker/${aws_mq_broker.hyperfleet.id}/connection"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.mq_logs.arn
+
+  depends_on = [aws_mq_broker.hyperfleet]
+
+  tags = merge(local.common_tags, {
+    Name      = "${var.regional_id}-hyperfleet-mq-connection-logs"
+    Component = "hyperfleet-sentinel"
+  })
+}
+
 # Generate secure random password for broker
 resource "random_password" "mq_password" {
   length  = 32

@@ -19,8 +19,11 @@
   "eph_prefix": "{{ eph_prefix | default('') }}",
   "node_instance_types": {{ regional_cluster.node_instance_types | tojson }},
   "iot_log_level": {{ applications['regional-cluster'].maestro.iotLogLevel | default('WARN') | tojson }}
-{%- set mc_account_ids = management_clusters | selectattr("account_id", "defined") | map(attribute="account_id") | list %}
-{%- if mc_account_ids %},
-  "management_cluster_account_ids": {{ mc_account_ids | tojson }}{% endif %}{% if delete %},
+{%- set _mc_info = [] %}
+{%- for mc in management_clusters if mc.account_id is defined %}
+{%- set _ = _mc_info.append({"id": mc.management_id, "account_id": mc.account_id}) %}
+{%- endfor %}
+{%- if _mc_info %},
+  "management_clusters_info": {{ _mc_info | tojson }}{% endif %}{% if delete %},
   "delete": true{% endif %}
 }

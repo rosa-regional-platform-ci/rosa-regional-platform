@@ -53,7 +53,7 @@ spec:
 
 ## Design Decisions
 
-- **No access logging**: This is internal M2M traffic (MCs pushing metrics), not customer-facing. Access logging is reserved for the Platform API (FedRAMP AU-02). Operational debugging uses CloudWatch metrics from YACE + ALB health checks.
+- **Access logging enabled**: Structured JSON access logs are sent to CloudWatch (FedRAMP AU-02) with 365-day retention and KMS encryption. Although this is internal M2M traffic, logging provides an audit trail for cross-account observability ingestion.
 - **No throttling**: Callers are our own MCs — misbehaving senders are fixed at the source, not rate-limited at the gateway.
 - **No FedRAMP system use notification**: No human users interact with this API.
 

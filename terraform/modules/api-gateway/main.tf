@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------
 
 data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
 
 # -----------------------------------------------------------------------------
 # REST API
@@ -143,10 +144,70 @@ resource "aws_api_gateway_account" "main" {
   depends_on = [aws_iam_role_policy_attachment.api_gateway_cloudwatch]
 }
 
+# =============================================================================
+# FedRAMP AU-09: KMS Key for API Gateway Access Log Encryption
+# =============================================================================
+
+resource "aws_kms_key" "api_gateway_logs" {
+  description             = "KMS key for API Gateway CloudWatch log encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = [
+              "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/api-gateway/${var.regional_id}/*",
+              "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:API-Gateway-Execution-Logs_*"
+            ]
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.regional_id}-api-gateway-logs"
+  }
+}
+
+resource "aws_kms_alias" "api_gateway_logs" {
+  name          = "alias/${var.regional_id}-api-gateway-logs"
+  target_key_id = aws_kms_key.api_gateway_logs.key_id
+}
+
 # CloudWatch Log Group for API Gateway access logs (FedRAMP AU-02)
 resource "aws_cloudwatch_log_group" "api_gateway_access" {
   name              = "/aws/api-gateway/${var.regional_id}/${var.stage_name}/access"
   retention_in_days = 365
+  kms_key_id        = aws_kms_key.api_gateway_logs.arn
+
+  depends_on = [aws_kms_key.api_gateway_logs]
 
   tags = {
     Name = "${var.regional_id}-api-access-logs"
@@ -255,6 +316,20 @@ resource "aws_api_gateway_gateway_response" "default_4xx" {
 }
 
 # -----------------------------------------------------------------------------
+# FedRAMP AU-09: API Gateway Execution Log Group
+# -----------------------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "api_gateway_execution" {
+  name              = "API-Gateway-Execution-Logs_${aws_api_gateway_rest_api.main.id}/${var.stage_name}"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.api_gateway_logs.arn
+
+  tags = {
+    Name = "${var.regional_id}-api-execution-logs"
+  }
+}
+
+# -----------------------------------------------------------------------------
 # FedRAMP CM-07: Least Functionality — API Gateway Method Settings
 #
 # Restrict unnecessary capabilities: enable detailed metrics and throttling,
@@ -274,4 +349,6 @@ resource "aws_api_gateway_method_settings" "main" {
     throttling_burst_limit = var.throttling_burst_limit
     throttling_rate_limit  = var.throttling_rate_limit
   }
+
+  depends_on = [aws_cloudwatch_log_group.api_gateway_execution]
 }

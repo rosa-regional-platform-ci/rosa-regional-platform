@@ -74,6 +74,16 @@ grafana:
   persistence:
     enabled: false
 
+  envFromConfigMaps:
+    - name: grafana-region-env
+
+  extraConfigmapMounts:
+    - name: mc-cw-datasources
+      mountPath: /etc/grafana/provisioning/datasources/mc-datasources.yaml
+      configMap: grafana-mc-cw-datasources
+      subPath: mc-datasources.yaml
+      readOnly: true
+
   datasources:
     datasources.yaml:
       apiVersion: 1
@@ -94,6 +104,14 @@ grafana:
           editable: false
           jsonData:
             maxLines: 1000
+        - name: CloudWatch Logs (Regional)
+          type: cloudwatch
+          access: proxy
+          editable: false
+          jsonData:
+            authType: default
+            defaultRegion: $AWS_DEFAULT_REGION
+            logsTimeout: "15m"
 
   resources:
     requests:

@@ -52,6 +52,14 @@ provider "pagerduty" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  mc_account_ids = [for entry in split(",", var.mc_accounts) : split(":", entry)[1] if entry != ""]
+  api_allowed_accounts = distinct(compact(concat(
+    [data.aws_caller_identity.current.account_id],
+    local.mc_account_ids,
+  )))
+}
+
 # =============================================================================
 # External Secrets Operator — Pod Identity
 #
@@ -183,6 +191,8 @@ module "ecs_bootstrap" {
 
   thanos_kms_key_arn = module.thanos_infrastructure.kms_key_arn
   loki_kms_key_arn   = module.loki_infrastructure.kms_key_arn
+
+  mc_accounts = var.mc_accounts
 }
 
 # =============================================================================
@@ -391,7 +401,7 @@ module "authz" {
   frontend_api_namespace       = var.authz_frontend_api_namespace
   frontend_api_service_account = var.authz_frontend_api_service_account
 
-  bootstrap_accounts = distinct(compact(split(",", var.api_additional_allowed_accounts != "" ? "${data.aws_caller_identity.current.account_id},${var.api_additional_allowed_accounts}" : data.aws_caller_identity.current.account_id)))
+  bootstrap_accounts = local.api_allowed_accounts
 }
 
 # =============================================================================
@@ -441,6 +451,17 @@ module "regional_oidc" {
 
   regional_id = var.regional_id
   mc_ou_path  = var.mc_ou_path
+}
+
+# =============================================================================
+# Grafana CloudWatch Logs (Pod Identity for CW Logs datasource)
+# =============================================================================
+
+module "grafana_cloudwatch_logs" {
+  source       = "../../modules/grafana-cloudwatch-logs"
+  mode         = "primary"
+  cluster_name = module.regional_cluster.cluster_name
+  regional_id  = var.regional_id
 }
 
 # =============================================================================

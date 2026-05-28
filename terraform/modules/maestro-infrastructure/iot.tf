@@ -88,6 +88,75 @@ resource "aws_iot_policy_attachment" "maestro_server" {
 # configuration or the shared IAM role.
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# FedRAMP AU-09: KMS Key for IoT Core CloudWatch Log Encryption
+# -----------------------------------------------------------------------------
+
+resource "aws_kms_key" "iot_logs" {
+  description             = "KMS key for IoT Core CloudWatch log encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:AWSIotLogsV2"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name      = "${var.regional_id}-iot-core-logs"
+      Component = "maestro-iot"
+    }
+  )
+}
+
+resource "aws_kms_alias" "iot_logs" {
+  name          = "alias/${var.regional_id}-iot-core-logs"
+  target_key_id = aws_kms_key.iot_logs.key_id
+}
+
+resource "aws_cloudwatch_log_group" "iot_core" {
+  name              = "AWSIotLogsV2"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.iot_logs.arn
+
+  tags = merge(local.common_tags, {
+    Name      = "${var.regional_id}-iot-core-logs"
+    Component = "maestro-iot"
+  })
+}
+
 resource "null_resource" "iot_logging" {
   triggers = {
     log_level = var.iot_log_level
@@ -132,5 +201,7 @@ resource "null_resource" "iot_logging" {
       done
     EOT
   }
+
+  depends_on = [aws_cloudwatch_log_group.iot_core]
 }
 

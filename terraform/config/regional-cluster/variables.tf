@@ -115,12 +115,6 @@ variable "enable_sns_alerting" {
 # Platform API Variables
 # =============================================================================
 
-variable "api_additional_allowed_accounts" {
-  description = "Additional AWS account IDs allowed to access the Platform API (comma-separated). The current account is automatically included."
-  type        = string
-  default     = ""
-}
-
 variable "zone_shard_count" {
   description = "Number of DNS zone shards to create under the regional zone. Each shard supports ~10k records."
   type        = number
@@ -131,6 +125,7 @@ variable "zone_shard_count" {
     error_message = "zone_shard_count must be between 1 and 100 (each shard costs $0.50/month)"
   }
 }
+
 
 variable "environment_domain" {
   description = "Environment domain name (e.g. int0.rosa.devshift.net). When set, creates the regional DNS zone (<deployment_name>.<environment_domain>). When null, no DNS resources are created."
@@ -396,6 +391,16 @@ variable "pagerduty_escalation_policy_id" {
 
 variable "eph_prefix" {
   description = "Ephemeral environment prefix (e.g., xg4y). Passed to PagerDuty service naming to avoid collisions."
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# Cross-Account MC Identity
+# =============================================================================
+
+variable "mc_accounts" {
+  description = "Comma-separated MC ID:AccountID pairs (e.g. mc01:123456789012,mc02:987654321098)"
   type        = string
   default     = ""
 }

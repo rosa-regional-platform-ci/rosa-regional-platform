@@ -180,14 +180,106 @@ resource "aws_api_gateway_deployment" "rhobs" {
   }
 }
 
+# -----------------------------------------------------------------------------
+# FedRAMP AU-09: KMS Key for RHOBS API Gateway Access Log Encryption
+# -----------------------------------------------------------------------------
+
+resource "aws_kms_key" "api_gateway_logs" {
+  description             = "KMS key for RHOBS API Gateway CloudWatch log encryption (FedRAMP AU-09)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.id}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/api-gateway/${var.regional_id}-rhobs/*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.regional_id}-rhobs-api-gateway-logs"
+  }
+}
+
+resource "aws_kms_alias" "api_gateway_logs" {
+  name          = "alias/${var.regional_id}-rhobs-api-gateway-logs"
+  target_key_id = aws_kms_key.api_gateway_logs.key_id
+}
+
+# CloudWatch Log Group for RHOBS API Gateway access logs (FedRAMP AU-02)
+resource "aws_cloudwatch_log_group" "api_gateway_access" {
+  name              = "/aws/api-gateway/${var.regional_id}-rhobs/${var.stage_name}/access"
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.api_gateway_logs.arn
+
+  depends_on = [aws_kms_key.api_gateway_logs]
+
+  tags = {
+    Name = "${var.regional_id}-rhobs-api-access-logs"
+  }
+}
+
 resource "aws_api_gateway_stage" "rhobs" {
   rest_api_id   = aws_api_gateway_rest_api.rhobs.id
   deployment_id = aws_api_gateway_deployment.rhobs.id
   stage_name    = var.stage_name
 
+  # FedRAMP AU-02: Enable access logging to capture caller identity, request
+  # path, response codes, and latency for all RHOBS API Gateway requests.
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway_access.arn
+    format = jsonencode({
+      requestId          = "$context.requestId"
+      ip                 = "$context.identity.sourceIp"
+      caller             = "$context.identity.caller"
+      user               = "$context.identity.user"
+      userArn            = "$context.identity.userArn"
+      requestTime        = "$context.requestTime"
+      httpMethod         = "$context.httpMethod"
+      resourcePath       = "$context.resourcePath"
+      status             = "$context.status"
+      protocol           = "$context.protocol"
+      responseLength     = "$context.responseLength"
+      errorMessage       = "$context.error.message"
+      errorType          = "$context.error.responseType"
+      integrationLatency = "$context.integrationLatency"
+      responseLatency    = "$context.responseLatency"
+    })
+  }
+
   tags = {
     Name = "${var.regional_id}-rhobs-${var.stage_name}"
   }
+
+  depends_on = [aws_cloudwatch_log_group.api_gateway_access]
 }
 
 # -----------------------------------------------------------------------------
