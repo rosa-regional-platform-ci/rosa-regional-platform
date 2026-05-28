@@ -61,11 +61,17 @@ sequenceDiagram
 
 ### Step 3: Clean up leftover resources
 
-After both teardowns complete, some resources may remain in the RC and MC AWS accounts. The most common leftover is **Secrets Manager secrets** with deletion protection or retention periods, which will cause name conflicts on re-provision.
+After both teardowns complete, three Secrets Manager secrets in the MC account will remain scheduled for deletion with a 30-day recovery window. These block re-provision because Terraform cannot create a secret while another with the same name is pending deletion. Force-delete them:
 
-Switch to each target account and delete any remaining secrets. If the teardown failed more broadly, also check for other leaked resources (ENIs, EBS volumes, VPC components, EKS clusters) and clean them up.
+```bash
+for secret in mc01-maestro-agent-cert mc01-maestro-agent-config hypershift/mc01-config; do
+  aws secretsmanager delete-secret --secret-id "$secret" --force-delete-without-recovery --region us-east-1
+done
+```
 
-Tip: to find remaining resources quickly, use [AWS Resource Explorer](https://resource-explorer.console.aws.amazon.com/) in each account.
+RC secrets do not need manual cleanup (they use `recovery_window_in_days = 0`).
+
+If the teardown failed more broadly, also check for other leaked resources (ENIs, EBS volumes, VPC components, EKS clusters) using [AWS Resource Explorer](https://resource-explorer.console.aws.amazon.com/) in each account.
 
 ### Step 4: Re-provision
 
@@ -85,6 +91,19 @@ Trigger the parent provisioner pipeline to re-create the RC and MC pipelines and
    If the provision fails due to leftover resources from Step 3, delete the conflicting resources and re-trigger the failed pipeline.
 
 ## Post-Rebuild
+
+### Update CI credentials
+
+The RHOBS API Gateway uses a raw `execute-api` URL that changes on every rebuild (unlike the Platform API, which has a stable custom domain). Update the Prow vault secret so the nightly-integration job can reach Thanos and Loki:
+
+1. Get the new RHOBS API Gateway URL from the Terraform state in the RC account:
+
+   ```bash
+   aws s3 cp s3://terraform-state-$(aws sts get-caller-identity --query Account --output text)-us-east-1/regional-cluster/regional.tfstate - \
+     | jq -r '.outputs.rhobs_api_url.value'
+   ```
+
+2. Update the `rhobs_api_url` field in the Vault secret `selfservice/cluster-secrets-rosa-regional-platform-int/integration-creds` with the new URL.
 
 ### Verify the rebuild
 
