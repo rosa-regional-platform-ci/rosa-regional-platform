@@ -39,10 +39,14 @@ echo ""
 # (skipped on destroy — IoT resources already cleaned up by Mint-IoT stage)
 # =====================================================================
 if [ "${DELETE_FLAG}" == "true" ]; then
-    # Terraform still evaluates file() during destroy; provide empty placeholders.
-    # (Can't use /dev/null — the cleanup line below would rm it in the container.)
+    # Terraform still evaluates file() and variable validations during destroy;
+    # provide placeholders so terraform destroy can pass the planning phase.
     export TF_VAR_maestro_agent_cert_file=$(mktemp)
     export TF_VAR_maestro_agent_config_file=$(mktemp)
+    export TF_VAR_oidc_cloudfront_domain="placeholder"
+    export TF_VAR_oidc_bucket_name="placeholder"
+    export TF_VAR_oidc_bucket_arn="arn:aws:s3:::placeholder"
+    export TF_VAR_oidc_bucket_region="us-east-1"
 else
     echo "Reading IoT certificate data from RC account state..."
     use_rc_account
