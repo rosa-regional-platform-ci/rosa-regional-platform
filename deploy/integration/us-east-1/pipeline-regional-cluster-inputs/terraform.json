@@ -15,8 +15,8 @@
   "enable_api_custom_domain": true,
   "zone_shard_count": 1,
   "enable_sns_alerting": true,
-  "regional_id": "regional",
-  "eph_prefix": "",
+  "regional_id": "eph-b9ce14-regional",
+  "eph_prefix": "eph-b9ce14",
   "node_instance_types": ["t3.medium", "t3a.medium"],
   "iot_log_level": "WARN",
   "management_cluster_account_ids": ["ssm:///infra/integration/us-east-1/mc01/account_id"]
