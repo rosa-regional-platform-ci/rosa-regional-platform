@@ -10,5 +10,6 @@
   "management_id": "eph-4d53c6-mc01",
   "regional_aws_account_id": "720644165472",
   "node_instance_types": ["m5.large", "m5a.large"],
-  "enable_bastion": true
+  "enable_bastion": true,
+  "delete": true
 }
