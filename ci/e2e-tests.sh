@@ -86,7 +86,7 @@ fi
 # Only run if the platform API tests passed.
 _have_customer_creds=false
 if [[ $platform_rc -ne 0 ]]; then
-  echo "Skipping HCP creation tests — platform API tests failed (exit code: $platform_rc)"
+  echo "Skipping HCP creation & Platform Monitoring tests — platform API tests failed (exit code: $platform_rc)"
 elif aws configure export-credentials --profile rrp-customer --format process &>/dev/null; then
   _cust_creds=$(aws configure export-credentials --profile rrp-customer --format process)
   export CUSTOMER_AWS_ACCESS_KEY_ID=$(echo "$_cust_creds" | jq -r '.AccessKeyId')
