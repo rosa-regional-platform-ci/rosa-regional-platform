@@ -137,10 +137,14 @@ if [[ "$_have_customer_creds" == "true" ]]; then
   }
 
   test_hcp_creation || hcp_rc=$?
+
+  echo ""
+  echo "=== Platform Monitoring Tests ==="
+  echo ""
   make test-e2e-platform-monitoring || monitoring_rc=$?
 fi
 
-if [[ $hcp_rc -ne 0 ]] || [[ $monitoring_rc -ne 0 ]]; then
+if [[ $platform_rc -ne 0 ]] || [[ $hcp_rc -ne 0 ]] || [[ $monitoring_rc -ne 0 ]]; then
     echo ""
     if [[ $hcp_rc -ne 0 ]]; then
         echo "HCP E2E tests failed (exit code: $hcp_rc)."
