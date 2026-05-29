@@ -121,11 +121,8 @@ operating system — specifically Bottlerocket with FIPS mode enabled.
 
 ### Security
 
-- Platform and application workload nodes use Bottlerocket with `advancedSecurity.fips: true` and
-  `kernelLockdown: Integrity`, satisfying FIPS 140-2/140-3 requirements for SC-13. The NodeClass
-  must explicitly set `amiFamily: Bottlerocket` — EKS Auto Mode only applies `advancedSecurity`
-  fields when the AMI family is Bottlerocket; omitting this field causes EKS to ignore FIPS and
-  kernelLockdown settings silently.
+- Platform and application workload nodes run with `advancedSecurity.fips: true` and
+  `kernelLockdown: Integrity`, satisfying FIPS 140-2/140-3 requirements for SC-13.
 - The FIPS NodeClass selects subnets and security groups via cluster-owned tags, ensuring nodes
   land in the correct private subnets with correct network policies.
 - Node IAM role (`${cluster_id}-auto-node-role`) is referenced directly in the NodeClass, scoping
