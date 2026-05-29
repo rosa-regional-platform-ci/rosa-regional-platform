@@ -21,9 +21,11 @@ dns:
 
 regional_cluster:
   enable_bastion: true
+  node_instance_families: ["m8i-flex", "m7i-flex"]
 
 management_cluster_defaults:
   enable_bastion: true
+  node_instance_families: ["m8i-flex", "m7i-flex"]
 
 observability:
   pagerduty:

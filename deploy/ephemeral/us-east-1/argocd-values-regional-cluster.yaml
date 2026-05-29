@@ -7,8 +7,8 @@
 
 eksNodePool:
   instanceFamilies:
-  - m7i
-  - m7a
+  - m8i-flex
+  - m7i-flex
 hyperfleetAdapter1Chart:
   baseDomain: 0.us-east-1.dev0.rosa.devshift.net
 maestro:
