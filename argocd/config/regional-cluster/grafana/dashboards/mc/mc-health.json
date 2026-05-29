@@ -2789,7 +2789,7 @@
       "pluginVersion": "11.4.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum by (cluster, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (cluster, le) (rate(apiserver_request_duration_seconds_bucket{cluster=~\"$cluster\", verb!~\"WATCH|CONNECT\"}[5m])))",
           "legendFormat": "p99",
           "refId": "A"
         }
