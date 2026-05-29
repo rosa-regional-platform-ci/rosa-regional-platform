@@ -102,8 +102,8 @@ module "regional_cluster" {
 | `cluster_version`               | Kubernetes version                                                              | `string`       | `"1.34"`                                                       | no       |
 | `vpc_cidr`                      | VPC CIDR block                                                                  | `string`       | `"10.0.0.0/16"`                                                | no       |
 | `availability_zones`            | List of availability zones (auto-detected if empty)                             | `list(string)` | `[]`                                                           | no       |
-| `private_subnet_cidrs`          | CIDR blocks for private subnets                                                 | `list(string)` | `["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]`                | no       |
-| `public_subnet_cidrs`           | CIDR blocks for public subnets                                                  | `list(string)` | `["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]`          | no       |
+| `private_subnet_cidrs`          | CIDR blocks for private subnets                                                 | `list(string)` | `["10.0.16.0/20", "10.0.32.0/20", "10.0.48.0/20"]`             | no       |
+| `public_subnet_cidrs`           | CIDR blocks for public subnets                                                  | `list(string)` | `["10.0.64.0/24", "10.0.65.0/24", "10.0.66.0/24"]`             | no       |
 | `node_instance_types`           | EC2 instance types for nodes                                                    | `list(string)` | `["t3.medium", "t3a.medium"]`                                  | no       |
 | `node_group_desired_size`       | Desired number of nodes                                                         | `number`       | `2`                                                            | no       |
 | `node_group_min_size`           | Minimum number of nodes                                                         | `number`       | `1`                                                            | no       |
