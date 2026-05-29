@@ -79,11 +79,11 @@ def _create_config_structure(
         },
         "regional_cluster": {
             "enable_bastion": False,
-            "node_instance_types": ["t3.medium", "t3a.medium"],
+            "node_instance_families": ["m7i", "m7a"],
         },
         "management_cluster_defaults": {
             "enable_bastion": False,
-            "node_instance_types": ["t3.medium", "t3a.medium"],
+            "node_instance_families": ["m7i", "m7a"],
         },
         "observability": {
             "pagerduty": {
@@ -1817,17 +1817,29 @@ class TestMainIntegration:
         data = json.loads(tf_file.read_text())
         assert data["domain"] == "int0.rosa.devshift.net"
 
-    def test_instance_types_default_values(self, tmp_path):
-        """Instance types should have default values from defaults.yaml"""
+    def test_instance_families_default_values(self, tmp_path):
+        """Instance families should flow from defaults.yaml into ArgoCD values"""
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
                 "aws": {"account_id": "111", "management_cluster_account_id": "222"},
                 "regional_cluster": {
-                    "node_instance_types": ["t3.medium", "t3a.medium"],
+                    "node_instance_families": ["m7i", "m7a"],
                 },
                 "management_cluster_defaults": {
-                    "node_instance_types": ["t3.medium", "t3a.medium"],
+                    "node_instance_families": ["m7i", "m7a"],
+                },
+                "applications": {
+                    "regional-cluster": {
+                        "eksNodePool": {
+                            "instanceFamilies": "{{ regional_cluster.node_instance_families }}",
+                        },
+                    },
+                    "management-cluster": {
+                        "eksNodePool": {
+                            "instanceFamilies": "{{ management_cluster_defaults.node_instance_families }}",
+                        },
+                    },
                 },
             },
             environments={
@@ -1840,7 +1852,7 @@ class TestMainIntegration:
             },
         )
 
-        # Check MC terraform.json
+        # Check MC terraform.json no longer has node_instance_types
         mc_file = (
             deploy_dir
             / "test"
@@ -1849,9 +1861,9 @@ class TestMainIntegration:
             / "terraform.json"
         )
         mc_data = json.loads(mc_file.read_text())
-        assert mc_data["node_instance_types"] == ["t3.medium", "t3a.medium"]
+        assert "node_instance_types" not in mc_data
 
-        # Check RC terraform.json
+        # Check RC terraform.json no longer has node_instance_types
         rc_file = (
             deploy_dir
             / "test"
@@ -1860,29 +1872,50 @@ class TestMainIntegration:
             / "terraform.json"
         )
         rc_data = json.loads(rc_file.read_text())
-        assert rc_data["node_instance_types"] == ["t3.medium", "t3a.medium"]
+        assert "node_instance_types" not in rc_data
 
-    def test_instance_types_environment_override(self, tmp_path):
-        """Instance types can be overridden at environment level"""
+        # Check ArgoCD values contain instance families
+        rc_values_file = deploy_dir / "test" / "us-east-1" / "argocd-values-regional-cluster.yaml"
+        rc_values = yaml.safe_load(rc_values_file.read_text())
+        assert rc_values["eksNodePool"]["instanceFamilies"] == ["m7i", "m7a"]
+
+        mc_values_file = deploy_dir / "test" / "us-east-1" / "argocd-values-management-cluster.yaml"
+        mc_values = yaml.safe_load(mc_values_file.read_text())
+        assert mc_values["eksNodePool"]["instanceFamilies"] == ["m7i", "m7a"]
+
+    def test_instance_families_environment_override(self, tmp_path):
+        """Instance families can be overridden at environment level"""
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
                 "aws": {"account_id": "111", "management_cluster_account_id": "222"},
                 "regional_cluster": {
-                    "node_instance_types": ["t3.medium"],
+                    "node_instance_families": ["m7i", "m7a"],
                 },
                 "management_cluster_defaults": {
-                    "node_instance_types": ["t3.medium"],
+                    "node_instance_families": ["m7i", "m7a"],
+                },
+                "applications": {
+                    "regional-cluster": {
+                        "eksNodePool": {
+                            "instanceFamilies": "{{ regional_cluster.node_instance_families }}",
+                        },
+                    },
+                    "management-cluster": {
+                        "eksNodePool": {
+                            "instanceFamilies": "{{ management_cluster_defaults.node_instance_families }}",
+                        },
+                    },
                 },
             },
             environments={
                 "prod": {
                     "defaults": {
                         "regional_cluster": {
-                            "node_instance_types": ["m5.xlarge", "m5a.xlarge"],
+                            "node_instance_families": ["c6i", "c6a"],
                         },
                         "management_cluster_defaults": {
-                            "node_instance_types": ["m5.large", "m5a.large"],
+                            "node_instance_families": ["m6i"],
                         },
                     },
                     "regions": {
@@ -1892,37 +1925,37 @@ class TestMainIntegration:
             },
         )
 
-        mc_file = (
-            deploy_dir
-            / "prod"
-            / "us-east-1"
-            / "pipeline-management-cluster-mc01-inputs"
-            / "terraform.json"
-        )
-        mc_data = json.loads(mc_file.read_text())
-        assert mc_data["node_instance_types"] == ["m5.large", "m5a.large"]
+        rc_values_file = deploy_dir / "prod" / "us-east-1" / "argocd-values-regional-cluster.yaml"
+        rc_values = yaml.safe_load(rc_values_file.read_text())
+        assert rc_values["eksNodePool"]["instanceFamilies"] == ["c6i", "c6a"]
 
-        rc_file = (
-            deploy_dir
-            / "prod"
-            / "us-east-1"
-            / "pipeline-regional-cluster-inputs"
-            / "terraform.json"
-        )
-        rc_data = json.loads(rc_file.read_text())
-        assert rc_data["node_instance_types"] == ["m5.xlarge", "m5a.xlarge"]
+        mc_values_file = deploy_dir / "prod" / "us-east-1" / "argocd-values-management-cluster.yaml"
+        mc_values = yaml.safe_load(mc_values_file.read_text())
+        assert mc_values["eksNodePool"]["instanceFamilies"] == ["m6i"]
 
-    def test_instance_types_region_override(self, tmp_path):
-        """Instance types can be overridden at region level"""
+    def test_instance_families_region_override(self, tmp_path):
+        """Instance families can be overridden at region level"""
         deploy_dir = self._run_main(
             tmp_path,
             global_defaults={
                 "aws": {"account_id": "111", "management_cluster_account_id": "222"},
                 "regional_cluster": {
-                    "node_instance_types": ["t3.medium"],
+                    "node_instance_families": ["m7i", "m7a"],
                 },
                 "management_cluster_defaults": {
-                    "node_instance_types": ["t3.medium"],
+                    "node_instance_families": ["m7i", "m7a"],
+                },
+                "applications": {
+                    "regional-cluster": {
+                        "eksNodePool": {
+                            "instanceFamilies": "{{ regional_cluster.node_instance_families }}",
+                        },
+                    },
+                    "management-cluster": {
+                        "eksNodePool": {
+                            "instanceFamilies": "{{ management_cluster_defaults.node_instance_families }}",
+                        },
+                    },
                 },
             },
             environments={
@@ -1931,7 +1964,7 @@ class TestMainIntegration:
                     "regions": {
                         "us-east-1": {
                             "regional_cluster": {
-                                "node_instance_types": ["c5.2xlarge"],
+                                "node_instance_families": ["c5"],
                             },
                             "provision_mcs": {"mc01": {}},
                         },
@@ -1940,15 +1973,9 @@ class TestMainIntegration:
             },
         )
 
-        rc_file = (
-            deploy_dir
-            / "test"
-            / "us-east-1"
-            / "pipeline-regional-cluster-inputs"
-            / "terraform.json"
-        )
-        rc_data = json.loads(rc_file.read_text())
-        assert rc_data["node_instance_types"] == ["c5.2xlarge"]
+        rc_values_file = deploy_dir / "test" / "us-east-1" / "argocd-values-regional-cluster.yaml"
+        rc_values = yaml.safe_load(rc_values_file.read_text())
+        assert rc_values["eksNodePool"]["instanceFamilies"] == ["c5"]
 
     def test_merged_config_yaml_output(self, tmp_path):
         """Verify _merged_config.yaml is written with merged configuration"""

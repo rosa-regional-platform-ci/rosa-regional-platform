@@ -131,13 +131,3 @@ variable "oidc_cloudfront_domain" {
   default     = ""
 }
 
-variable "node_instance_types" {
-  description = "List of EC2 instance types for worker nodes (configurable via config.yaml terraform_vars)"
-  type        = list(string)
-  default     = ["t3.medium", "t3a.medium"]
-
-  validation {
-    condition     = length(var.node_instance_types) > 0
-    error_message = "Must specify at least one instance type."
-  }
-}

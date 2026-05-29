@@ -62,65 +62,6 @@ variable "vpc_endpoints_security_group_id" {
 }
 
 # =============================================================================
-# EKS node group configuration
-# =============================================================================
-
-variable "node_instance_types" {
-  description = "List of EC2 instance types for worker nodes"
-  type        = list(string)
-  default     = ["t3.medium", "t3a.medium"]
-
-  validation {
-    condition     = length(var.node_instance_types) > 0
-    error_message = "Must specify at least one instance type."
-  }
-}
-
-variable "node_group_desired_size" {
-  description = "Desired number of worker nodes"
-  type        = number
-  default     = 2
-
-  validation {
-    condition     = var.node_group_desired_size >= 1 && var.node_group_desired_size <= 100
-    error_message = "Node group desired size must be between 1 and 100."
-  }
-}
-
-variable "node_group_min_size" {
-  description = "Minimum number of worker nodes"
-  type        = number
-  default     = 1
-
-  validation {
-    condition     = var.node_group_min_size >= 1
-    error_message = "Node group minimum size must be at least 1."
-  }
-}
-
-variable "node_group_max_size" {
-  description = "Maximum number of worker nodes"
-  type        = number
-  default     = 4
-
-  validation {
-    condition     = var.node_group_max_size >= 1
-    error_message = "Node group maximum size must be at least 1."
-  }
-}
-
-variable "node_disk_size" {
-  description = "Disk size in GiB for worker nodes"
-  type        = number
-  default     = 20
-
-  validation {
-    condition     = var.node_disk_size >= 20 && var.node_disk_size <= 1000
-    error_message = "Node disk size must be between 20 and 1000 GiB."
-  }
-}
-
-# =============================================================================
 # Advanced security configuration options
 # =============================================================================
 
@@ -130,10 +71,3 @@ variable "enable_pod_security_standards" {
   default     = true
 }
 
-# =============================================================================
-# Validation Rules
-# =============================================================================
-
-locals {
-  node_size_validation = var.node_group_desired_size >= var.node_group_min_size && var.node_group_desired_size <= var.node_group_max_size ? true : tobool("Node group desired size must be between min_size and max_size")
-}

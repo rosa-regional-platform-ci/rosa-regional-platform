@@ -85,17 +85,17 @@ This directory is gitignored — it only affects your local machine.
 
 ### Examples
 
-Use default topology but enable bastion and change instance types:
+Use default topology but enable bastion and change instance families:
 
 ```yaml
 # .ephemeral-env/defaults.yaml
 regional_cluster:
   enable_bastion: true
-  node_instance_types: ["m5.xlarge"]
+  node_instance_families: ["m7i"]
 
 management_cluster_defaults:
   enable_bastion: true
-  node_instance_types: ["m5.xlarge"]
+  node_instance_families: ["m7i"]
 ```
 
 ```yaml

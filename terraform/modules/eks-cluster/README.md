@@ -69,11 +69,7 @@ module "management_cluster" {
   cluster_type = "management-cluster"
 
   # Optional cluster configuration
-  cluster_version         = "1.34"
-  node_instance_types     = ["t3.medium", "t3a.medium"]
-  node_group_desired_size = 1
-  node_group_min_size     = 1
-  node_group_max_size     = 2
+  cluster_version = "1.34"
 }
 ```
 
@@ -86,10 +82,6 @@ module "regional_cluster" {
   cluster_id   = var.regional_id
   cluster_type = "regional-cluster"
 
-  # Optional cluster configuration
-  node_group_desired_size = 2
-  node_group_min_size     = 1
-  node_group_max_size     = 4
 }
 ```
 
@@ -104,11 +96,6 @@ module "regional_cluster" {
 | `availability_zones`            | List of availability zones (auto-detected if empty)                             | `list(string)` | `[]`                                                           | no       |
 | `private_subnet_cidrs`          | CIDR blocks for private subnets                                                 | `list(string)` | `["10.0.0.0/18", "10.0.64.0/18", "10.0.128.0/18"]`             | no       |
 | `public_subnet_cidrs`           | CIDR blocks for public subnets                                                  | `list(string)` | `["10.0.192.0/22", "10.0.196.0/22", "10.0.200.0/22"]`          | no       |
-| `node_instance_types`           | EC2 instance types for nodes                                                    | `list(string)` | `["t3.medium", "t3a.medium"]`                                  | no       |
-| `node_group_desired_size`       | Desired number of nodes                                                         | `number`       | `2`                                                            | no       |
-| `node_group_min_size`           | Minimum number of nodes                                                         | `number`       | `1`                                                            | no       |
-| `node_group_max_size`           | Maximum number of nodes                                                         | `number`       | `4`                                                            | no       |
-| `node_disk_size`                | EBS volume size for nodes (GiB)                                                 | `number`       | `20`                                                           | no       |
 | `enable_pod_security_standards` | Enable Pod Security Standards                                                   | `bool`         | `true`                                                         | no       |
 | `bootstrap_enabled`             | Enable ArgoCD bootstrap for GitOps management                                   | `bool`         | `true`                                                         | no       |
 | `argocd_namespace`              | Kubernetes namespace for ArgoCD installation                                    | `string`       | `"argocd"`                                                     | no       |

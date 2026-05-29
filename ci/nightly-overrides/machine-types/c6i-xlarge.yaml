@@ -1,5 +1,5 @@
 regional_cluster:
-  node_instance_types: ["c6i.xlarge"]
+  node_instance_families: ["c6i"]
 
 management_cluster_defaults:
-  node_instance_types: ["c6i.xlarge"]
+  node_instance_families: ["c6i"]

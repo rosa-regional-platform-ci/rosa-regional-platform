@@ -165,10 +165,6 @@ module "regional_cluster" {
   private_subnet_ids              = module.vpc.private_subnet_ids
   cluster_security_group_id       = module.vpc.cluster_security_group_id
   vpc_endpoints_security_group_id = module.vpc.vpc_endpoints_security_group_id
-
-  # Instance types (configurable via config.yaml)
-  node_instance_types = var.node_instance_types
-
 }
 
 # =============================================================================

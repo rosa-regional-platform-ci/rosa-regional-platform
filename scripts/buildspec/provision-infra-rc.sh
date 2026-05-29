@@ -106,9 +106,6 @@ export TF_VAR_enable_api_custom_domain=$(parseBool '.enable_api_custom_domain' f
 export TF_VAR_zone_shard_count=$(jq -r '.zone_shard_count // 1' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_enable_sns_alerting=$(parseBool '.enable_sns_alerting' false "$DEPLOY_CONFIG_FILE")
 
-# Load node_instance_types from deploy config (should be set in config.yaml)
-export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
-
 # Read the MC OU path from SSM. This parameter is provisioned by account-minter
 # in the RC account and is required for the regional OIDC S3 bucket policy.
 # See config/README.md for the expected SSM parameter path.
@@ -151,7 +148,6 @@ echo "  MC Accounts: ${TF_VAR_mc_accounts:-<none>}"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
 echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
 echo "  Enable SNS Alerting: $TF_VAR_enable_sns_alerting"
-echo "  Node Instance Types: $TF_VAR_node_instance_types"
 echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
 echo "  Regional ID: $TF_VAR_regional_id"

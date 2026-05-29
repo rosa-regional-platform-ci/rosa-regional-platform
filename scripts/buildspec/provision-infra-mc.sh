@@ -162,16 +162,12 @@ if [ -n "${DNS_ZONE_OPERATOR_ROLE_ARN:-}" ]; then
     export TF_VAR_dns_zone_operator_role_arn="${DNS_ZONE_OPERATOR_ROLE_ARN}"
 fi
 
-# Load node_instance_types from deploy config (should be set in config.yaml)
-export TF_VAR_node_instance_types=$(jq -c '.node_instance_types' "$DEPLOY_CONFIG_FILE")
-
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"
 echo "  Target Account: $TARGET_ACCOUNT_ID"
 echo "  Management ID: $TF_VAR_management_id"
 echo "  Regional AWS Account: $TF_VAR_regional_aws_account_id"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
-echo "  Node Instance Types: $TF_VAR_node_instance_types"
 echo "  App Code: $TF_VAR_app_code"
 echo "  Service Phase: $TF_VAR_service_phase"
 echo "  Cost Center: $TF_VAR_cost_center"
