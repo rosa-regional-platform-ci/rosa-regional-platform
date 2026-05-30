@@ -46,6 +46,18 @@ variable "memory" {
   default     = "1024"
 }
 
+variable "log_collector_cpu" {
+  description = "CPU units for the log-collector Fargate task"
+  type        = string
+  default     = "1024"
+}
+
+variable "log_collector_memory" {
+  description = "Memory (MB) for the log-collector Fargate task"
+  type        = string
+  default     = "4096"
+}
+
 variable "container_image" {
   description = "Container image for the bastion task (from platform-image module)"
   type        = string
