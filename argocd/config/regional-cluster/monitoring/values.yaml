@@ -6,7 +6,7 @@ kube-prometheus-stack:
   namespaceOverride: "monitoring"
 
   crds:
-    enabled: true
+    enabled: false
 
   defaultRules:
     create: false
