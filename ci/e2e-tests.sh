@@ -46,6 +46,18 @@ if [[ -z "${RHOBS_API_URL:-}" ]]; then
   fi
 fi
 if [[ -n "${RHOBS_API_URL:-}" ]]; then
+  # Validate the URL is DNS-resolvable before running tests.
+  # A stale URL (e.g. after integration environment rebuild) would produce confusing
+  # "no such host" errors deep in the test output; fail fast with a clear fix.
+  _rhobs_host="${RHOBS_API_URL#https://}"
+  _rhobs_host="${_rhobs_host%%/*}"
+  if ! host "${_rhobs_host}" >/dev/null 2>&1; then
+    echo "ERROR: RHOBS_API_URL host '${_rhobs_host}' is not DNS-resolvable." >&2
+    echo "  The integration environment may have been rebuilt with a new RHOBS API Gateway." >&2
+    echo "  Operational fix: update the Prow/Vault secret 'rhobs_api_url' with the current" >&2
+    echo "  URL from: terraform output rhobs_api_url  (terraform/config/regional-cluster)" >&2
+    exit 1
+  fi
   export RHOBS_API_URL
   echo "RHOBS API URL: ${RHOBS_API_URL}"
 else
