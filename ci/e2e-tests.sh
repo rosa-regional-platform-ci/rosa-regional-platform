@@ -72,6 +72,9 @@ git clone --depth 1 --branch "${E2E_REF}" \
   "${E2E_REPO}" "${WORK_DIR}/api"
 cd "${WORK_DIR}/api"
 
+echo "===           ==="
+echo "working commit $(git rev-parse HEAD)"
+
 go install github.com/onsi/ginkgo/v2/ginkgo@v2.28.1
 export PATH="$(go env GOPATH)/bin:${PATH}"
 
