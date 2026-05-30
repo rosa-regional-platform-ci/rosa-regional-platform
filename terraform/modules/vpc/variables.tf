@@ -32,7 +32,7 @@ variable "availability_zones" {
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
-  default     = ["10.0.0.0/18", "10.0.64.0/18", "10.0.128.0/18"]
+  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 
   validation {
     condition     = length(var.private_subnet_cidrs) >= 2
@@ -52,7 +52,7 @@ variable "private_subnet_cidrs" {
 variable "public_subnet_cidrs" {
   description = "CIDR blocks for public subnets (used only for NAT gateway)"
   type        = list(string)
-  default     = ["10.0.192.0/22", "10.0.196.0/22", "10.0.200.0/22"]
+  default     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
 
   validation {
     condition     = length(var.public_subnet_cidrs) >= 1
