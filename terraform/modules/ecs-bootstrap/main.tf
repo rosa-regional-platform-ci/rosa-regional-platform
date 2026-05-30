@@ -181,9 +181,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
             helm upgrade --install argocd argo/argo-cd \
               --namespace argocd \
               --version $ARGOCD_VERSION \
-              --set-string 'controller.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-              --set-string 'server.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-              --set-string 'repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
+              --set-string 'controller.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
+              --set-string 'server.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
+              --set-string 'repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
               --wait --timeout=5m
 
             echo "✓ ArgoCD installation complete"
