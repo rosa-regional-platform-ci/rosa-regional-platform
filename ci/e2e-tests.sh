@@ -58,11 +58,16 @@ export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 E2E_REF="ROSAENG-195/kas-availability-e2e"
-E2E_REPO="${E2E_REPO:-https://github.com/iamkirkbater/rosa-regional-platform-api.git}"
+E2E_REPO="https://github.com/iamkirkbater/rosa-regional-platform-api.git"
 CLI_REF="${CLI_REF:-main}"
 CLI_REPO="${CLI_REPO:-https://github.com/openshift-online/rosa-regional-platform-cli.git}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
+echo ""
+echo "=== API Tests ==="
+echo "===           ==="
+echo "Repo: ${E2E_REPO} - Branch: ${E2E_REF}"
+echo ""
 git clone --depth 1 --branch "${E2E_REF}" \
   "${E2E_REPO}" "${WORK_DIR}/api"
 cd "${WORK_DIR}/api"
