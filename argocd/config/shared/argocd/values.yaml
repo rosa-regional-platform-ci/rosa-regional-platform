@@ -10,6 +10,22 @@ argo-cd:
     autoscaling:
       enabled: true
       minReplicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: server
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: server
     resources:
       limits:
         cpu: 500m
@@ -24,6 +40,23 @@ argo-cd:
 
   # Controller configuration
   controller:
+    replicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: application-controller
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: application-controller
     resources:
       limits:
         cpu: 1000m
@@ -41,6 +74,22 @@ argo-cd:
     autoscaling:
       enabled: true
       minReplicas: 2
+    pdb:
+      enabled: true
+      minAvailable: 1
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: repo-server
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/component: repo-server
     resources:
       limits:
         cpu: 500m
@@ -105,3 +154,23 @@ argo-cd:
   configs:
     params:
       server.insecure: false
+      controller.sync.timeout.seconds: 600
+    # Health check for Application CRs so sync-waves gate on child app health.
+    # Without this, newly created Application CRs have no status and ArgoCD
+    # treats them as Healthy, causing all waves to apply simultaneously.
+    cm:
+      resource.customizations.health.argoproj.io_Application: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.health ~= nil then
+            hs.status = obj.status.health.status
+            if obj.status.health.message ~= nil then
+              hs.message = obj.status.health.message
+            end
+          end
+        end
+        if hs.status == nil or hs.status == "Unknown" then
+          hs.status = "Progressing"
+          hs.message = "Waiting for application to be reconciled"
+        end
+        return hs

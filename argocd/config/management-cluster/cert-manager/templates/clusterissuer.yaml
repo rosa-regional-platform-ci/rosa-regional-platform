@@ -4,9 +4,8 @@ kind: ClusterIssuer
 metadata:
   name: letsencrypt-dns01
   annotations:
-    # Temporary: defer ClusterIssuer until cert-manager webhook endpoints are ready.
-    # Proper fix: adopt ApplicationSet RollingSync strategy for cross-app dependency ordering.
-    argocd.argoproj.io/sync-wave: "2"
+    # Deploy after cert-manager webhook is healthy
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
