@@ -1,0 +1,11 @@
+cert-manager:
+  crds:
+    enabled: true
+    keep: true
+  replicaCount: 0
+  webhook:
+    replicaCount: 0
+  cainjector:
+    enabled: false
+  startupapicheck:
+    enabled: false
