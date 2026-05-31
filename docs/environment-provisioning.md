@@ -164,20 +164,7 @@ From the Regional Cluster bastion:
 kubectl get applications -A
 ```
 
-Expected output:
-
-```
-NAMESPACE   NAME                  SYNC STATUS   HEALTH STATUS
-argocd      argocd                Synced        Healthy
-argocd      hyperfleet-adapter1   Synced        Healthy
-argocd      hyperfleet-api        Synced        Healthy
-argocd      hyperfleet-sentinel   Synced        Healthy
-argocd      maestro-server        Synced        Healthy
-argocd      monitoring          Synced        Healthy
-argocd      platform-api        Synced        Healthy
-argocd      root                Synced        Healthy
-argocd      storageclass        Synced        Healthy
-```
+All applications should show `Synced` and `Healthy`. The full list is derived from `argocd/config/app-of-apps/values.yaml` — filter by `clusterTypes: [regional-cluster]` plus shared apps (no `clusterTypes` field). The `app-of-apps` and `root` applications should also be present.
 
 From the Management Cluster bastion:
 
@@ -185,18 +172,7 @@ From the Management Cluster bastion:
 kubectl get applications -A
 ```
 
-Expected output:
-
-```
-NAMESPACE   NAME            SYNC STATUS   HEALTH STATUS
-argocd      argocd          Synced        Healthy
-argocd      cert-manager    Synced        Healthy
-argocd      hypershift      Synced        Healthy
-argocd      maestro-agent   Synced        Healthy
-argocd      monitoring      Synced        Healthy
-argocd      root            Synced        Healthy
-argocd      storageclass    Synced        Healthy
-```
+All applications should show `Synced` and `Healthy`. The expected apps are those with `clusterTypes: [management-cluster]` plus shared apps in `argocd/config/app-of-apps/values.yaml`.
 
 ### 4.3 Verify the Platform API
 

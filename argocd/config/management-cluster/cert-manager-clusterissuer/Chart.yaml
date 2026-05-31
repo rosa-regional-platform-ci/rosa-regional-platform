@@ -1,0 +1,5 @@
+apiVersion: v2
+name: cert-manager-clusterissuer
+description: ClusterIssuer resources for cert-manager
+type: application
+version: 0.1.0

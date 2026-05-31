@@ -92,9 +92,10 @@ terraform/
 
 argocd/
 ├── config/                   # Live Helm chart configurations
-│   ├── management-cluster/   # MC application templates
-│   ├── regional-cluster/     # RC application templates
-│   └── shared/              # Shared configurations
+│   ├── app-of-apps/          # Root chart — renders all child Applications
+│   ├── management-cluster/   # MC-specific charts
+│   ├── regional-cluster/     # RC-specific charts
+│   └── shared/              # Charts deployed to both RC and MC
 └── README.md
 
 .ambient/

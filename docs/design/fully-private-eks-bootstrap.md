@@ -110,6 +110,9 @@ Creates fully private EKS cluster with:
 
 ECS Fargate-based ArgoCD installation:
 
+- Clones the platform repository and installs directly from the repo's Helm charts, ensuring the bootstrap configuration matches the steady-state GitOps-managed configuration
+- Applies the FIPS NodePool from `argocd/config/$CLUSTER_TYPE/eks-nodepool` via `helm template` before installing ArgoCD
+- Installs ArgoCD from `argocd/config/shared/argocd` (the same chart the self-managed ArgoCD app uses)
 - Dedicated ECS infrastructure for secure cluster operations
 - Tasks run in private subnets with controlled EKS API access
 - Tasks are logged in CloudWatch for observability/auditing

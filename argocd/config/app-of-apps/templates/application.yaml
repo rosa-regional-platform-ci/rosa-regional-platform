@@ -1,0 +1,97 @@
+{{- range .Values.applications }}
+{{- if or (not .clusterTypes) (has $.Values.global.cluster_type .clusterTypes) }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  labels:
+    cluster_type: {{ $.Values.global.cluster_type | quote }}
+    environment: {{ $.Values.global.environment | quote }}
+    region_deployment: {{ $.Values.global.region_deployment | quote }}
+    aws_region: {{ $.Values.global.aws_region | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .wave | quote }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    namespace: {{ .name }}
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=true
+  sources:
+    - helm:
+        valueFiles:
+          - values.yaml
+          - $values/deploy/{{ $.Values.global.environment }}/{{ $.Values.global.region_deployment }}/argocd-values-{{ $.Values.global.cluster_type }}.yaml
+        valuesObject:
+          global:
+            cluster_type: {{ $.Values.global.cluster_type | quote }}
+            environment: {{ $.Values.global.environment | quote }}
+            aws_region: {{ $.Values.global.aws_region | quote }}
+            cluster_name: {{ $.Values.global.cluster_name | quote }}
+            aws_account_id: {{ $.Values.global.aws_account_id | quote }}
+            mc_accounts: {{ $.Values.global.mc_accounts | quote }}
+            rhobs_api_url: {{ $.Values.global.rhobs_api_url | quote }}
+            dns_zone_operator_role_arn: {{ $.Values.global.dns_zone_operator_role_arn | quote }}
+          platformApi:
+            targetGroup:
+              arn: {{ $.Values.infrastructure.api_target_group_arn | quote }}
+            app:
+              args:
+                dynamodbRegion: {{ $.Values.infrastructure.dynamodb_region | quote }}
+                dynamodbPrefix: {{ $.Values.infrastructure.dynamodb_prefix | quote }}
+          thanos:
+            kmsKeyArn: {{ $.Values.infrastructure.thanos_kms_key_arn | quote }}
+            targetGroup:
+              arn: {{ $.Values.infrastructure.thanos_target_group_arn | quote }}
+            queryTargetGroup:
+              arn: {{ $.Values.infrastructure.thanos_query_target_group_arn | quote }}
+          platform:
+            kmsKeyArn: {{ $.Values.infrastructure.loki_kms_key_arn | quote }}
+            distributorTargetGroup:
+              arn: {{ $.Values.infrastructure.loki_distributor_target_group_arn | quote }}
+            queryFrontendTargetGroup:
+              arn: {{ $.Values.infrastructure.loki_query_frontend_target_group_arn | quote }}
+          loki:
+            loki:
+              storage:
+                s3:
+                  region: {{ $.Values.global.aws_region | quote }}
+                  sse:
+                    type: SSE-KMS
+                    kms_key_id: {{ $.Values.infrastructure.loki_kms_key_arn | quote }}
+                bucketNames:
+                  chunks: {{ printf "%s-loki-logs-%s" $.Values.global.cluster_name $.Values.global.aws_account_id | quote }}
+                  ruler: {{ printf "%s-loki-logs-%s" $.Values.global.cluster_name $.Values.global.aws_account_id | quote }}
+          hyperfleetApi:
+            aws:
+              region: {{ $.Values.global.aws_region | quote }}
+          hyperfleetSentinel:
+            aws:
+              region: {{ $.Values.global.aws_region | quote }}
+          hyperfleetAdapter:
+            aws:
+              region: {{ $.Values.global.aws_region | quote }}
+      path: argocd/config/{{ .path }}
+      repoURL: {{ $.Values.git.repo | quote }}
+      targetRevision: {{ $.Values.git.chartRevision | quote }}
+    - repoURL: {{ $.Values.git.repo | replace "github.com" "github.com:443" | quote }}
+      targetRevision: {{ $.Values.git.valuesRevision | quote }}
+      ref: values
+{{- end }}
+{{- end }}
