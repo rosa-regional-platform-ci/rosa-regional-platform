@@ -2,18 +2,20 @@
 
 ## Overview
 
-Each cluster's ArgoCD is configured to use a rendered ApplicationSet from `config/templates/argocd-bootstrap/applicationset.yaml.j2` as its entrypoint. This ApplicationSet can be configured in two ways:
+Each cluster's ArgoCD uses an **app-of-apps pattern** for deployment. A thin ApplicationSet (cluster generator) creates a single `app-of-apps` Application that deploys a Helm chart rendering all child Applications with sync-wave annotations for ordered deployment.
 
-1. **Live Config**: Uses Helm charts from `argocd/config/<cluster_type>/` and `argocd/config/shared/` directly from the current git revision (main branch or your development branch passed during cluster provisioning)
+The system supports two configuration modes:
 
-2. **Pinned Commits**: Uses specific commit hashes that refer to a snapshotted point in time of the rosa-regional-platform repository's charts. This is used for progressive delivery where we "cut releases" by bundling applications.
+1. **Live Config**: Helm charts track the current git revision (integration environments)
+2. **Pinned Commits**: Charts pinned to a specific commit hash (staging/production)
 
 ## Repository Structure
 
-```
+```text
 argocd/
 ├── config/
-│   ├── shared/                          # Shared charts (ArgoCD, etc.)
+│   ├── app-of-apps/                     # Parent chart — renders all child Applications
+│   ├── shared/                          # Charts deployed to both RC and MC
 │   ├── management-cluster/              # MC-specific charts
 │   └── regional-cluster/                # RC-specific charts
 └── README.md
@@ -21,10 +23,7 @@ argocd/
 config/                                  # Region deployment configuration
 └── <env>/
     ├── defaults.yaml                    # Per-environment defaults
-    └── <region>.yaml                   # Per-region values (git.revision for pinning)
-
-scripts/
-└── render.py                            # Generates values, ApplicationSets, and terraform configs
+    └── <region>.yaml                    # Per-region values (git.revision for pinning)
 
 deploy/                                  # Generated outputs (DO NOT EDIT)
 └── {environment}/{region}/
@@ -38,52 +37,30 @@ deploy/                                  # Generated outputs (DO NOT EDIT)
 ### Live Config (Integration)
 
 - **Integration environments** run off the dynamic state in the current git revision (main or development branch configured for the cluster's ArgoCD)
-- **No commit pinning** - always uses latest changes
-- **Fast iteration** - changes appear immediately
+- **No commit pinning** — always uses latest changes
+- **Fast iteration** — changes appear immediately
 
 ### Pinned Commits (Staging/Production)
 
 - **"Cut releases"** by setting `git.revision` to a commit hash in the region config
-- **Progressive delivery** - roll through staging region deployments, then production region deployments
-- **Immutable deployments** - exact reproducible state
+- **Progressive delivery** — roll through staging region deployments, then production region deployments
+- **Immutable deployments** — exact reproducible state
 
 See [Config Directory](../config/README.md) for the full configuration hierarchy and examples.
+
+## Adding Applications
+
+To add a new application, plumb a Terraform value, or configure secrets from AWS Secrets Manager, see [Adding an ArgoCD Application](../docs/adding-argocd-application.md).
+
+## How It Works
+
+ArgoCD uses an **app-of-apps pattern** where a thin ApplicationSet generates a single parent Application pointing to the `argocd/config/app-of-apps/` Helm chart. That chart renders child Application CRs with sync-wave annotations, ensuring ordered deployment (CRD operators before CRD consumers, infrastructure before platform workloads).
+
+For the full architecture, alternatives considered, and implementation details, see [GitOps Cluster Configuration](../docs/design/gitops-cluster-configuration.md).
 
 ## Workflow
 
 1. **Development**: Work with integration region deployments using live config (current branch)
 2. **Release**: When ready, pin staging region deployments to tested commit hash
 3. **Production**: Roll pinned commits through production region deployments
-4. **Generate configs**: Run `./scripts/render.py` after changes
-
-## Adding New Helm Charts
-
-Create Helm charts in the appropriate directory based on where they should be deployed:
-
-```bash
-# For charts shared by all clusters
-argocd/config/shared/my-new-app/
-├── Chart.yaml
-├── values.yaml
-└── templates/
-
-# For management cluster specific charts
-argocd/config/management-cluster/my-mc-app/
-├── Chart.yaml
-├── values.yaml
-└── templates/
-
-# For regional cluster specific charts
-argocd/config/regional-cluster/my-rc-app/
-├── Chart.yaml
-├── values.yaml
-└── templates/
-```
-
-The ApplicationSet will automatically discover and deploy new charts. Run `./scripts/render.py` to generate the required configuration files.
-
-## How It Works
-
-ArgoCD uses a **Matrix Generator** pattern combining a Git Generator (discovers Helm charts) with a Cluster Generator (reads cluster identity). Charts are sourced from either a pinned commit hash or the current git revision, while rendered values always come from the latest revision.
-
-For the full architecture, alternatives considered, and implementation details, see [GitOps Cluster Configuration](../docs/design/gitops-cluster-configuration.md).
+4. **Generate configs**: Run `make render` after changes

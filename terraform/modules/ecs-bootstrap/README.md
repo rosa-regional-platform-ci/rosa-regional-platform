@@ -7,7 +7,7 @@ This Terraform module creates an ECS Fargate infrastructure for external ArgoCD 
 The module creates:
 
 - **ECS Fargate Cluster**: Dedicated cluster for bootstrap operations
-- **ECS Task Definition**: Containerized bootstrap execution with AWS CLI base image
+- **ECS Task Definition**: Containerized bootstrap execution (requires aws, kubectl, helm, git, jq)
 - **IAM Roles**: Separate execution and task roles with minimal required permissions
 - **Security Groups**: Network isolation with controlled EKS API access
 - **CloudWatch Logging**: Complete audit trail for all bootstrap operations
@@ -47,25 +47,11 @@ module "ecs_bootstrap" {
 
 ## Inputs
 
-| Name                          | Description                                                       | Type           | Default | Required |
-| ----------------------------- | ----------------------------------------------------------------- | -------------- | ------- | :------: |
-| cluster_id                    | Cluster identifier for resource naming (e.g., `regional`, `mc01`) | `string`       | n/a     |   yes    |
-| vpc_id                        | VPC ID for ECS task execution                                     | `string`       | n/a     |   yes    |
-| private_subnets               | Private subnet IDs for task execution                             | `list(string)` | n/a     |   yes    |
-| eks_cluster_arn               | EKS cluster ARN for bootstrap configuration                       | `string`       | n/a     |   yes    |
-| eks_cluster_name              | EKS cluster name for bootstrap configuration                      | `string`       | n/a     |   yes    |
-| eks_cluster_security_group_id | EKS cluster security group ID                                     | `string`       | n/a     |   yes    |
-| environment                   | Environment name for tagging                                      | `string`       | `"dev"` |    no    |
+See `variables.tf` for the full list of inputs and their descriptions.
 
 ## Outputs
 
-| Name                        | Description                                            |
-| --------------------------- | ------------------------------------------------------ |
-| ecs_cluster_arn             | ARN of the ECS cluster for bootstrap tasks             |
-| task_definition_arn         | ARN of the ECS task definition for bootstrap execution |
-| log_group_name              | CloudWatch log group name for bootstrap operations     |
-| bootstrap_security_group_id | Security group ID for bootstrap ECS tasks              |
-| private_subnets             | Private subnet IDs where bootstrap tasks run           |
+See `outputs.tf` for the full list of outputs and their descriptions.
 
 ## Requirements
 

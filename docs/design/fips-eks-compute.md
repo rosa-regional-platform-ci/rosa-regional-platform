@@ -104,8 +104,8 @@ operating system — specifically Bottlerocket with FIPS mode enabled.
   FIPS-validated.
 - EKS Auto Mode enforces a mandatory 21-day maximum node lifetime. Stateful workloads (Thanos,
   Grafana) must have `PodDisruptionBudgets` to prevent data loss during node rotation.
-- Adding a new cluster type requires updating the bootstrap script's `NODEPOOL_NAME` selection
-  logic.
+- Adding a new cluster type requires adding a new `eks-nodepool` chart directory under
+  `argocd/config/<cluster-type>/eks-nodepool/`.
 
 ## Cross-Cutting Concerns
 
@@ -146,4 +146,5 @@ operating system — specifically Bottlerocket with FIPS mode enabled.
 - The 21-day mandatory rotation is fully automatic. Operators need only ensure PodDisruptionBudgets
   exist for stateful workloads.
 - Cluster type-specific NodePool naming (`management-workloads` vs `regional-workloads`) is
-  resolved at bootstrap time via the `CLUSTER_TYPE` environment variable.
+  resolved by the `CLUSTER_TYPE` environment variable, which selects the corresponding Helm chart
+  (`argocd/config/$CLUSTER_TYPE/eks-nodepool`).
