@@ -14,22 +14,20 @@ metadata:
   namespace: argocd
 spec:
   goTemplate: true
+  # Prevent cascade-deletion of all child Applications if the cluster
+  # identity Secret is accidentally removed. The child apps themselves
+  # still have prune: true and the resources finalizer, so removing an
+  # app from values.yaml correctly cleans up its resources.
+  syncPolicy:
+    preserveResourcesOnDeletion: true
   generators:
-  - matrix:
-      generators:
-      - clusters:
-          selector:
-            matchLabels:
-              argocd.argoproj.io/secret-type: cluster
-      - git:
-          directories:
-          - path: argocd/config/{{ '{{ .metadata.labels.cluster_type }}' }}/*
-          - path: argocd/config/shared/*
-          repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
-          revision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
+  - clusters:
+      selector:
+        matchLabels:
+          argocd.argoproj.io/secret-type: cluster
   template:
     metadata:
-      name: '{{ '{{ .path.basename }}' }}'
+      name: app-of-apps
       labels:
         cluster_type: '{{ '{{ .metadata.labels.cluster_type }}' }}'
         environment: '{{ '{{ .metadata.labels.environment }}' }}'
@@ -38,7 +36,7 @@ spec:
     spec:
       project: default
       destination:
-        namespace: '{{ '{{ .path.basename }}' }}'
+        namespace: argocd
         server: '{{ '{{ .server }}' }}'
       syncPolicy:
         automated:
@@ -55,62 +53,32 @@ spec:
         - CreateNamespace=true
       sources:
       - helm:
-          valueFiles:
-          - values.yaml
-          - $values/deploy/{{ '{{ .metadata.labels.environment }}' }}/{{ '{{ .metadata.labels.region_deployment }}' }}/argocd-values-{{ '{{ .metadata.labels.cluster_type }}' }}.yaml
           valuesObject:
+            git:
+              repo: '{{ '{{ .metadata.annotations.git_repo }}' }}'
+              chartRevision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
+              valuesRevision: '{{ '{{ .metadata.annotations.git_revision }}' }}'
             global:
               cluster_type: '{{ '{{ .metadata.labels.cluster_type }}' }}'
               environment: '{{ '{{ .metadata.labels.environment }}' }}'
               aws_region: '{{ '{{ .metadata.labels.aws_region }}' }}'
+              region_deployment: '{{ '{{ .metadata.labels.region_deployment }}' }}'
               cluster_name: '{{ '{{ .metadata.labels.cluster_name }}' }}'
               aws_account_id: '{{ '{{ .metadata.annotations.aws_account_id }}' }}'
               mc_accounts: '{{ '{{ .metadata.annotations.mc_accounts }}' }}'
               rhobs_api_url: '{{ '{{ .metadata.annotations.rhobs_api_url }}' }}'
               dns_zone_operator_role_arn: '{{ '{{ .metadata.annotations.dns_zone_operator_role_arn }}' }}'
-            platformApi:
-              targetGroup:
-                arn: '{{ '{{ .metadata.annotations.api_target_group_arn }}' }}'
-              app:
-                args:
-                  dynamodbRegion: '{{ '{{ .metadata.annotations.dynamodb_region }}' }}'
-                  dynamodbPrefix: '{{ '{{ .metadata.annotations.dynamodb_prefix }}' }}'
-            # Thanos Operator values (keys must match chart's values.yaml structure)
-            thanos:
-              kmsKeyArn: '{{ '{{ .metadata.annotations.thanos_kms_key_arn }}' }}'
-              targetGroup:
-                arn: '{{ '{{ .metadata.annotations.thanos_target_group_arn }}' }}'
-              queryTargetGroup:
-                arn: '{{ '{{ .metadata.annotations.thanos_query_target_group_arn }}' }}'
-            # Loki platform values (keys must match chart's values.yaml structure)
-            platform:
-              kmsKeyArn: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
-              distributorTargetGroup:
-                arn: '{{ '{{ .metadata.annotations.loki_distributor_target_group_arn }}' }}'
-              queryFrontendTargetGroup:
-                arn: '{{ '{{ .metadata.annotations.loki_query_frontend_target_group_arn }}' }}'
-            # Loki subchart runtime values (bucket names, region, SSE-KMS)
-            loki:
-              loki:
-                storage:
-                  s3:
-                    region: '{{ '{{ .metadata.labels.aws_region }}' }}'
-                    sse:
-                      type: SSE-KMS
-                      kms_key_id: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
-                  bucketNames:
-                    chunks: '{{ '{{ .metadata.labels.cluster_name }}' }}-loki-logs-{{ '{{ .metadata.annotations.aws_account_id }}' }}'
-                    ruler: '{{ '{{ .metadata.labels.cluster_name }}' }}-loki-logs-{{ '{{ .metadata.annotations.aws_account_id }}' }}'
-            hyperfleetApi:
-              aws:
-                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
-            hyperfleetSentinel:
-              aws:
-                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
-            hyperfleetAdapter:
-              aws:
-                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
-        path: '{{ '{{ .path.path }}' }}'
+            infrastructure:
+              api_target_group_arn: '{{ '{{ .metadata.annotations.api_target_group_arn }}' }}'
+              dynamodb_region: '{{ '{{ .metadata.annotations.dynamodb_region }}' }}'
+              dynamodb_prefix: '{{ '{{ .metadata.annotations.dynamodb_prefix }}' }}'
+              thanos_kms_key_arn: '{{ '{{ .metadata.annotations.thanos_kms_key_arn }}' }}'
+              thanos_target_group_arn: '{{ '{{ .metadata.annotations.thanos_target_group_arn }}' }}'
+              thanos_query_target_group_arn: '{{ '{{ .metadata.annotations.thanos_query_target_group_arn }}' }}'
+              loki_kms_key_arn: '{{ '{{ .metadata.annotations.loki_kms_key_arn }}' }}'
+              loki_distributor_target_group_arn: '{{ '{{ .metadata.annotations.loki_distributor_target_group_arn }}' }}'
+              loki_query_frontend_target_group_arn: '{{ '{{ .metadata.annotations.loki_query_frontend_target_group_arn }}' }}'
+        path: argocd/config/app-of-apps
         repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
         targetRevision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
       - repoURL: '{{ "{{ .metadata.annotations.git_repo | replace \"github.com\" \"github.com:443\" }}" }}'

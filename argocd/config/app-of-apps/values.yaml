@@ -1,0 +1,157 @@
+# Git source configuration (injected by ApplicationSet from cluster Secret)
+git:
+  repo: ""
+  chartRevision: main
+  valuesRevision: main
+
+# Cluster identity (injected by ApplicationSet from cluster Secret)
+global:
+  cluster_type: ""
+  environment: ""
+  aws_region: ""
+  region_deployment: ""
+  cluster_name: ""
+  aws_account_id: ""
+  mc_accounts: ""
+  rhobs_api_url: ""
+  dns_zone_operator_role_arn: ""
+
+# Infrastructure values from Terraform (injected by ApplicationSet from cluster Secret annotations)
+infrastructure:
+  api_target_group_arn: ""
+  dynamodb_region: ""
+  dynamodb_prefix: ""
+  thanos_kms_key_arn: ""
+  thanos_target_group_arn: ""
+  thanos_query_target_group_arn: ""
+  loki_kms_key_arn: ""
+  loki_distributor_target_group_arn: ""
+  loki_query_frontend_target_group_arn: ""
+
+# Application topology with sync-wave assignments.
+# Wave 0:  Foundations — CRD operators, storage, node pools (zero dependencies)
+# Wave 5:  ArgoCD — self-management handoff (depends on CRDs from wave 0)
+# Wave 10: Infrastructure — configure operators, install secondary CRD operators
+# Wave 20: Services — all platform workloads and observability
+applications:
+  # ── Wave 0: Foundations (CRD operators, storage, node pools) ──
+  - name: storageclass
+    wave: 0
+    path: shared/storageclass
+  - name: prometheus-crds
+    wave: 0
+    path: shared/prometheus-crds
+  - name: cert-manager
+    wave: 0
+    path: management-cluster/cert-manager
+    clusterTypes: [management-cluster]
+  - name: external-secrets
+    wave: 0
+    path: shared/external-secrets
+  - name: eks-nodepool
+    wave: 0
+    path: regional-cluster/eks-nodepool
+    clusterTypes: [regional-cluster]
+  - name: eks-nodepool
+    wave: 0
+    path: management-cluster/eks-nodepool
+    clusterTypes: [management-cluster]
+
+  # ── Wave 5: ArgoCD self-management ─────────────────────────────────
+  # Controller restart (bootstrap → self-managed) happens after CRDs
+  # are installed (wave 0) but before any workload waves.
+  - name: argocd
+    wave: 5
+    path: shared/argocd
+
+  # ── Wave 10: Infrastructure (configure operators, secondary CRD operators)
+  - name: cert-manager-clusterissuer
+    wave: 10
+    path: management-cluster/cert-manager-clusterissuer
+    clusterTypes: [management-cluster]
+  - name: thanos-operator
+    wave: 10
+    path: regional-cluster/thanos-operator
+    clusterTypes: [regional-cluster]
+  - name: external-secrets-config
+    wave: 10
+    path: regional-cluster/external-secrets-config
+    clusterTypes: [regional-cluster]
+  - name: external-secrets-config
+    wave: 10
+    path: management-cluster/external-secrets-config
+    clusterTypes: [management-cluster]
+
+  # ── Wave 20: Services (all platform workloads and observability) ───
+  - name: monitoring
+    wave: 20
+    path: regional-cluster/monitoring
+    clusterTypes: [regional-cluster]
+  - name: monitoring
+    wave: 20
+    path: management-cluster/monitoring
+    clusterTypes: [management-cluster]
+  - name: alerting-rules
+    wave: 20
+    path: regional-cluster/alerting-rules
+    clusterTypes: [regional-cluster]
+  - name: thanos
+    wave: 20
+    path: regional-cluster/thanos
+    clusterTypes: [regional-cluster]
+  - name: cloudwatch-exporter
+    wave: 20
+    path: regional-cluster/cloudwatch-exporter
+    clusterTypes: [regional-cluster]
+  - name: cloudwatch-exporter
+    wave: 20
+    path: management-cluster/cloudwatch-exporter
+    clusterTypes: [management-cluster]
+  - name: loki
+    wave: 20
+    path: regional-cluster/loki
+    clusterTypes: [regional-cluster]
+  - name: vector
+    wave: 20
+    path: regional-cluster/vector
+    clusterTypes: [regional-cluster]
+  - name: vector
+    wave: 20
+    path: management-cluster/vector
+    clusterTypes: [management-cluster]
+  - name: grafana
+    wave: 20
+    path: regional-cluster/grafana
+    clusterTypes: [regional-cluster]
+  - name: hypershift
+    wave: 20
+    path: management-cluster/hypershift
+    clusterTypes: [management-cluster]
+  - name: maestro-server
+    wave: 20
+    path: regional-cluster/maestro-server
+    clusterTypes: [regional-cluster]
+  - name: maestro-agent
+    wave: 20
+    path: management-cluster/maestro-agent
+    clusterTypes: [management-cluster]
+  - name: platform-api
+    wave: 20
+    path: regional-cluster/platform-api
+    clusterTypes: [regional-cluster]
+  - name: cluster-cleanup
+    wave: 20
+    path: regional-cluster/cluster-cleanup
+    clusterTypes: [regional-cluster]
+  - name: hyperfleet-api-chart
+    wave: 20
+    path: regional-cluster/hyperfleet-api-chart
+    clusterTypes: [regional-cluster]
+  - name: hyperfleet-sentinel-chart
+    wave: 20
+    path: regional-cluster/hyperfleet-sentinel-chart
+    clusterTypes: [regional-cluster]
+  - name: hyperfleet-adapter1-chart
+    wave: 20
+    path: regional-cluster/hyperfleet-adapter1-chart
+    clusterTypes: [regional-cluster]
