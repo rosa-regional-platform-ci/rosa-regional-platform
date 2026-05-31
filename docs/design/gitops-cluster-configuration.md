@@ -1,41 +1,39 @@
 # GitOps Cluster Configuration Architecture
 
-**Last Updated Date**: 2026-02-02
+**Last Updated Date**: 2026-05-30
 
 ## Summary
 
-The ROSA Regional Platform implements a sophisticated GitOps cluster configuration system using ArgoCD ApplicationSets with matrix generators that enables scalable, versioned, and region-aware deployment of applications across multiple clusters while maintaining regional independence and progressive deployment capabilities.
+The ROSA Regional Platform uses an app-of-apps pattern with a thin ApplicationSet bridge for GitOps cluster configuration. This provides ordered deployment via sync-waves, hash-based version pinning for progressive delivery, and region-aware configuration — while keeping each cluster independently self-managing.
 
 ## Context
 
-The ROSA Regional Platform is architected from the ground up as a regionally-distributed system where each cluster (Regional Clusters and Management Clusters) operates independently with its own ArgoCD instance for self-configuration. Within each region (containing 1 Regional Cluster + 1 to N Management Clusters), the configuration management system must support this cluster independence while sharing common application definitions and enabling coordinated deployments across environments.
+Each cluster (Regional and Management) runs its own ArgoCD instance and self-configures independently. The configuration system must share common application definitions across clusters while supporting region-specific overrides, ordered deployment (CRD operators before consumers), and progressive delivery to production.
 
-- **Problem Statement**: How to manage application configuration across multiple regions and environments while supporting independent regional operations, progressive deployments, and maintaining audit trails for production safety
-- **Constraints**: Must integrate with fully private EKS clusters, support region-specific customizations, enable version control for production deployments, and scale to hundreds of regions
-- **Assumptions**: GitOps is the primary deployment mechanism, ArgoCD is the GitOps controller, and teams require both development velocity and production safety controls
+- **Problem Statement**: How to manage application configuration across regions and environments with deployment ordering, progressive delivery, and production safety
+- **Constraints**: Fully private EKS clusters (no direct API access from outside VPC), region-specific customizations, cross-application deployment ordering, scale to hundreds of regions
+- **Assumptions**: ArgoCD is the GitOps controller, CRD-installing operators must deploy before CRD consumers
 
 ## Architecture Overview
 
-The ROSA Regional Platform implements a GitOps cluster configuration system using ArgoCD ApplicationSets with hash-based versioning for production-grade deployment controls while maintaining regional independence.
-
 ### Foundation Concepts
 
-**ECS Bootstrap Process**: Each cluster starts completely private with no external access. AWS ECS Fargate tasks running in the cluster's private subnets provide the secure mechanism to install ArgoCD and create the initial application and the cluster identity secret. This is part of the overall bootstrap process that provisions private EKS clusters. Once ECS completes the handoff, ArgoCD takes full control.
+**ECS Bootstrap**: ECS Fargate tasks run inside the cluster's private subnets to install ArgoCD, create the cluster identity Secret, and create the initial Application pointing to the rendered ApplicationSet. After handoff, ArgoCD takes full control.
 
-**ArgoCD ApplicationSets**: ArgoCD's ApplicationSet controller automatically generates multiple ArgoCD Applications based on templates and generators. Instead of manually creating dozens of Applications for each cluster, we use one ApplicationSet that discovers applications and clusters dynamically.
+**App-of-Apps Pattern**: A root Application deploys a Helm chart that renders child Application CRs. This enables cross-application deployment ordering through sync-waves, unlike independent Applications from an ApplicationSet which have no ordering guarantees.
 
-**Matrix Generators**: ApplicationSets support different generator types. We use a "matrix" generator that combines two other generators:
+**Sync-Waves (Two-Level Ordering)**:
 
-- **Cluster Generator**: Finds clusters to deploy to (in our case, finds the cluster's own identity)
-- **Git Generator**: Discovers applications to deploy by scanning repository directories
+1. **Parent level (cross-application)**: Child Application CRs are annotated with sync-wave numbers (0, 10, 20, 30). ArgoCD syncs each wave in order, waiting for health before proceeding.
+2. **Child level (intra-application)**: Sync-waves inside a chart are evaluated only within that application's sync and don't interact with other applications' waves.
 
-The matrix creates the cartesian product: 1 cluster × N applications = N Applications for that cluster.
+**CRD Splitting**: CRDs consumed by other applications are split into standalone charts at wave 0, separate from their operator (wave 10). Example: `prometheus-crds` installs ServiceMonitor/PrometheusRule CRDs at wave 0; `monitoring` (kube-prometheus-stack with `crds.enabled: false`) deploys at wave 10. Follows gcp-hcp-infra's approach.
 
-**Cluster Identity Secret**: Each cluster has a Kubernetes secret that serves as its identity, containing labels (cluster_type, environment, region_deployment, aws_region) and annotations (git repository, revision) that ApplicationSets use to determine what and how to deploy.
+**ApplicationSet Bridge**: A thin ApplicationSet uses only the cluster generator to read the cluster identity Secret and generate a single app-of-apps Application, passing infrastructure values from Secret annotations (target group ARNs, KMS key ARNs, DynamoDB config) into Helm values.
+
+**Cluster Identity Secret**: A Kubernetes Secret per cluster containing labels (cluster_type, environment, region_deployment, aws_region) and annotations (git repo, revision, infrastructure values from Terraform) that the ApplicationSet reads to configure the root Application.
 
 ### GitOps Configuration Flow
-
-The core bootstrap and configuration process follows this flow:
 
 ```mermaid
 sequenceDiagram
@@ -43,491 +41,193 @@ sequenceDiagram
     participant ArgoCD as ArgoCD
     participant Secret as Cluster Secret
     participant AppSet as ApplicationSet
-    participant Git as Git Repo
-    participant Apps as Applications
+    participant Root as Root Application
+    participant AoA as App-of-Apps Chart
+    participant Children as Child Applications
 
-    ECS->>ArgoCD: Install ArgoCD
-    ECS->>Secret: Create cluster secret with labels/annotations
-    ECS->>ArgoCD: Create Application pointing to ApplicationSet
-    ArgoCD->>AppSet: Pull ApplicationSet definition
-    AppSet->>Secret: Read cluster labels/annotations for identity
-    AppSet->>Git: Discover charts based on cluster_type
-    AppSet->>Git: Use cluster context for value overrides
-    AppSet->>Apps: Generate Applications (maestro, hypershift, etc.)
+    ECS->>ArgoCD: 1. Install ArgoCD
+    ECS->>Secret: 2. Create cluster secret (labels + infra annotations)
+    ECS->>ArgoCD: 3. Create initial Application pointing to ApplicationSet
+    ArgoCD->>AppSet: 4. Pull ApplicationSet (cluster generator)
+    AppSet->>Secret: 5. Read cluster labels/annotations for identity
+    AppSet->>Root: 6. Generate ONE app-of-apps Application
+    Root->>AoA: 7. Pull app-of-apps Helm chart
+    AoA->>Children: 8. Render child Applications with sync-waves
+    Children->>ArgoCD: 9. Deploy in wave order (0 → 10 → 20)
+
+    Note over ECS,Secret: ECS handoff complete
+    Note over AppSet,Root: Thin ApplicationSet bridge
+    Note over Root,Children: App-of-apps chart with sync-waves
 ```
 
-**Core Process**: ECS bootstrap creates the cluster identity secret and initial Application. ArgoCD then takes over, using the ApplicationSet to dynamically discover and deploy applications based on the cluster's identity.
+### ApplicationSet: Thin Bridge to App-of-Apps
 
-### ApplicationSet Matrix Generator Pattern
-
-Each cluster uses a **rendered ApplicationSet** that's customized per environment through the render script. The render script creates environment-specific ApplicationSets with hash overrides for production deployments.
+Each cluster uses a **rendered ApplicationSet** customized per environment through the render script.
 
 **Integration Environment (Live Config)**:
 
 ```yaml
-# deploy/integration/eu-west-1/argocd-bootstrap-management-cluster/applicationset.yaml
+# deploy/integration/us-east-1/argocd-bootstrap-regional-cluster/applicationset.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: root-applicationset
   namespace: argocd
 spec:
+  goTemplate: true
   generators:
-    - matrix:
-        generators:
-          - clusters:
-              selector:
-                matchLabels:
-                  argocd.argoproj.io/secret-type: cluster
-          - git:
-              directories:
-                - path: argocd/config/{{ .metadata.labels.cluster_type }}/*
-                - path: argocd/config/shared/*
-              repoURL: "{{ .metadata.annotations.git_repo }}"
-              # Integration: Uses git_revision from cluster secret (main branch)
-              revision: "{{ .metadata.annotations.git_revision }}"
+    - clusters:
+        selector:
+          matchLabels:
+            argocd.argoproj.io/secret-type: cluster
   template:
+    metadata:
+      name: app-of-apps
     spec:
       sources:
-        # Source 1: Charts + default values (from cluster secret revision)
-        - path: "{{ .path.path }}"
-          helm:
-            valueFiles:
-              - values.yaml # Chart defaults
-              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd-values-{{ .metadata.labels.cluster_type }}.yaml
+        - helm:
+            valuesObject:
+              git:
+                repo: "{{ .metadata.annotations.git_repo }}"
+                chartRevision: "{{ .metadata.annotations.git_revision }}"
+                valuesRevision: "{{ .metadata.annotations.git_revision }}"
+              global:
+                cluster_type: "{{ .metadata.labels.cluster_type }}"
+                environment: "{{ .metadata.labels.environment }}"
+                aws_region: "{{ .metadata.labels.aws_region }}"
+                # ... other labels/annotations
+              infrastructure:
+                api_target_group_arn: "{{ .metadata.annotations.api_target_group_arn }}"
+                thanos_kms_key_arn: "{{ .metadata.annotations.thanos_kms_key_arn }}"
+                # ... other infrastructure annotations
+          path: argocd/config/app-of-apps
           repoURL: "{{ .metadata.annotations.git_repo }}"
-          targetRevision: "{{ .metadata.annotations.git_revision }}" # From cluster secret
-
-        # Source 2: Rendered values (from cluster secret revision)
+          targetRevision: "{{ .metadata.annotations.git_revision }}"
         - ref: values
-          repoURL: '{{ .metadata.annotations.git_repo | replace "github.com" "github.com:443" }}' # Workaround for duplicate repo
-          targetRevision: "{{ .metadata.annotations.git_revision }}" # From cluster secret
+          repoURL: '{{ .metadata.annotations.git_repo | replace "github.com" "github.com:443" }}'
+          targetRevision: "{{ .metadata.annotations.git_revision }}"
 ```
 
 **Staging/Production (Hash-Pinned Config)**:
 
-```yaml
-# deploy/staging/eu-west-1/argocd-bootstrap-management-cluster/applicationset.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: root-applicationset
-  namespace: argocd
-spec:
-  generators:
-    - matrix:
-        generators:
-          - clusters:
-              selector:
-                matchLabels:
-                  argocd.argoproj.io/secret-type: cluster
-          - git:
-              directories:
-                - path: argocd/config/{{ .metadata.labels.cluster_type }}/*
-                - path: argocd/config/shared/*
-              repoURL: "{{ .metadata.annotations.git_repo }}"
-              # Staging/Prod: Uses pinned commit hash from config.yaml
-              revision: 826fa76d08fc2ce87c863196e52d5a4fa9259a82
-  template:
-    spec:
-      sources:
-        # Source 1: Charts + default values (pinned to specific commit)
-        - path: "{{ .path.path }}"
-          helm:
-            valueFiles:
-              - values.yaml # Chart defaults from pinned commit
-              - $values/deploy/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/argocd-values-{{ .metadata.labels.cluster_type }}.yaml
-          repoURL: "{{ .metadata.annotations.git_repo }}"
-          targetRevision: 826fa76d08fc2ce87c863196e52d5a4fa9259a82 # Pinned commit hash
+When `git.revision` is a commit hash in `config.yaml`, `chartRevision` and `targetRevision` are pinned to that hash, while `valuesRevision` still tracks the cluster secret's branch:
 
-        # Source 2: Rendered values (still from cluster secret for latest config)
-        - ref: values
-          repoURL: '{{ .metadata.annotations.git_repo | replace "github.com" "github.com:443" }}' # Workaround for duplicate repo
-          targetRevision: "{{ .metadata.annotations.git_revision }}" # From cluster secret (latest values)
+```yaml
+valuesObject:
+  git:
+    chartRevision: "826fa76d08fc2ce87c863196e52d5a4fa9259a82" # Pinned
+    valuesRevision: "{{ .metadata.annotations.git_revision }}" # Latest
 ```
 
-**Key Implementation Details**:
+**Key details**:
 
-1. **Rendered ApplicationSets**: The render script creates environment-specific ApplicationSets with hardcoded commit hashes for staging/production, enabling hash-based versioning.
+1. Uses only the cluster generator (not matrix) to generate a single Application named `app-of-apps`
+2. Reads Terraform-provided infrastructure values from cluster Secret annotations into Helm values
+3. Integration uses `git_revision` from cluster secret; staging/production uses a hardcoded commit hash from `config.yaml` for `chartRevision`
+4. Charts pinned to specific commits for stability; values always track the cluster secret's revision
 
-2. **Hash Override Mechanism**:
-   - **Integration**: Uses `'{{ .metadata.annotations.git_revision }}'` from cluster secret (typically main branch)
-   - **Staging/Production**: Uses hardcoded commit hash (e.g., `826fa76d08fc2ce87c863196e52d5a4fa9259a82`) rendered from `config.yaml`
+### App-of-Apps Chart with Sync-Waves
 
-3. **Dual Source Strategy**:
-   - **Charts**: Pinned to specific commits for staging/production stability
-   - **Values**: Always use cluster secret revision for latest environment configuration
+**App-of-Apps Chart Structure**:
 
-4. **GitHub Workaround**: The `replace "github.com" "github.com:443"` in the values source avoids ArgoCD issues with duplicate repository references.
+```
+argocd/config/app-of-apps/
+├── Chart.yaml
+├── values.yaml             # Application topology with sync-wave assignments
+└── templates/
+    └── application.yaml    # Template rendering child Application CRs
+```
 
-5. **Matrix Result**: If Git discovers 3 directories (hypershift, maestro, argocd), the matrix creates 3 Applications for that cluster, each using the appropriate chart version and latest rendered values.
+**Sync-Wave Assignments** (from `app-of-apps/values.yaml`):
+
+| Wave | Name          | Purpose                                      | Applications                                                                                                          |
+| ---- | ------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 0    | Operators     | CRD installers with zero dependencies        | storageclass, prometheus-crds, cert-manager-crds (MC), external-secrets, eks-nodepool                                 |
+| 10   | Platform      | Configure operators, secondary CRD operators | cert-manager (MC), monitoring (both), thanos-operator (RC), external-secrets-config (both)                            |
+| 20   | Core Services | Consume CRDs from wave 0+10                  | argocd, alerting-rules (RC), thanos (RC), cloudwatch-exporter, loki (RC), vector, grafana (RC)                        |
+| 30   | Applications  | Platform workloads                           | hypershift (MC), maestro-server (RC), maestro-agent (MC), platform-api (RC), cluster-cleanup (RC), hyperfleet-\* (RC) |
+
+Each child Application uses the same two-source pattern: chart at `chartRevision`, values ref at `valuesRevision`. Applications are filtered by `clusterTypes` so RC and MC apps deploy only where appropriate.
 
 ### Configuration Hierarchy
 
-Helm charts use a simple two-layer configuration system:
+Values flow through two layers:
 
-1. **Chart Defaults**: Each chart defines default values in `argocd/config/*/values.yaml`
-2. **Rendered Overrides**: Region/environment-specific values from `deploy/<env>/<region_deployment>/argocd-values-<cluster_type>.yaml` override defaults
+1. **Chart Defaults**: `argocd/config/*/values.yaml`
+2. **Rendered Overrides**: `deploy/<env>/<region_deployment>/argocd-values-<cluster_type>.yaml`
 
-```yaml
-# ApplicationSet uses both sources
-sources:
-  - path: argocd/config/management-cluster/hypershift # Chart + defaults
-    helm:
-      valueFiles:
-        - values.yaml # Chart defaults
-        - $values/deploy/{{ .environment }}/{{ .region_deployment }}/argocd-values-management-cluster.yaml # Overrides
-  - ref: values # Rendered overrides source
-    repoURL: https://github.com/openshift-online/rosa-platform
-    targetRevision: HEAD
+```
+Cluster Secret → ApplicationSet → App-of-Apps Chart → Child Applications
 ```
 
-**Example**:
+### ArgoCD Self-Management
 
-- Chart default: `hypershift.replicas: 1`
-- Rendered override: `hypershift.replicas: 3`
-- **Result**: `hypershift.replicas: 3` (override wins)
-
-## Private Cluster GitOps Integration
-
-### Bootstrap-then-Handoff Pattern
-
-The GitOps system integrates seamlessly with the fully private cluster architecture through a carefully orchestrated handoff process:
-
-```mermaid
-sequenceDiagram
-    participant TF as Terraform
-    participant ECS as ECS Fargate
-    participant ArgoCD as ArgoCD
-    participant Git as Git Repository
-    participant Apps as Applications
-
-    TF->>ECS: 1. Trigger bootstrap task
-    ECS->>ArgoCD: 2. Install initial ArgoCD
-    ECS->>ArgoCD: 3. Create root application
-    ArgoCD->>Git: 4. Pull ApplicationSet
-    ArgoCD->>Apps: 5. Generate applications
-    Apps->>ArgoCD: 6. Self-manage ArgoCD
-
-    Note over ECS,ArgoCD: ECS handoff complete
-    Note over ArgoCD,Apps: GitOps takes control
-```
-
-### GitOps Handoff Implementation
-
-**Application of Applications Pattern**: The ECS bootstrap task creates a single root ArgoCD application that immediately enables complete self-management:
-
-1. **Initial ArgoCD Installation**: ECS Fargate task installs ArgoCD components using Helm within the private cluster network
-2. **Root Application Creation**: ECS task creates the initial ArgoCD application pointing to the Git repository's ApplicationSet configuration
-3. **Immediate Handoff**: ArgoCD immediately takes control by pulling the ApplicationSet from Git, which generates all subsequent applications
-4. **Self-Configuration**: The ApplicationSet includes ArgoCD's own configuration, enabling complete self-management via GitOps
-
-### ArgoCD Self-Management Architecture
-
-**Bootstrap-then-Handoff Pattern**: After the initial ECS-based installation, ArgoCD manages its own updates by pulling its chart version from the self-owning application within the ApplicationSet matrix.
-
-**Self-Management Benefits**:
-
-- **Zero External Dependencies**: No ongoing external access required for cluster configuration management
-- **Audit Trail Preservation**: All changes tracked through Git commits, including ArgoCD's own updates
-- **Version Control**: ArgoCD version pinning through the same `config_revision` mechanism used for other applications
-- **Cluster Independence**: Each cluster's ArgoCD operates independently, enabling autonomous regional operations without cross-cluster dependencies
+After ECS bootstrap, ArgoCD manages its own updates through the `argocd` child Application (wave 20). Each cluster's ArgoCD operates independently.
 
 ## Progressive Deployment Strategy
 
-### Sector-Based Release Management
-
-The architecture enables sophisticated deployment patterns through sector configuration:
+Hash-based versioning through `config.yaml`:
 
 ```yaml
-# Sector progression example
-region_deployments:
-  # Integration: Always HEAD for rapid development
-  - name: "us-east-1"
-    aws_region: "us-east-1"
-    sector: "integration"
-    # No config_revision = follows HEAD of repository
+# Integration: follows HEAD
+git:
+  revision: main
 
-  # Staging: Pinned commits for QA validation
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    sector: "staging"
-    config_revision:
-      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-
-  # Production: Promoted commits with explicit approval
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    sector: "production"
-    config_revision:
-      management-cluster: "7f8a9b2c15e4d3c6f9a8b7e6d5c4b3a2f1e0d9c8"
-      regional-cluster: "7f8a9b2c15e4d3c6f9a8b7e6d5c4b3a2f1e0d9c8"
+# Staging: pinned to tested commit
+git:
+  revision: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
 ```
+
+Changes merge to main → integration validates at HEAD → staging pins to validated commit → production promotes the pinned commit.
 
 ## Cross-Cutting Concerns
 
 ### Operability
 
-**Configuration Management**:
-
-- Single `config.yaml` file provides clear configuration entry point
-- Automated rendering creates single configuration file entrypoint for the whole fleet
-- Git-based workflow integrates with standard development practices
-- Clear separation between chart definitions and environment customization
-
-**Troubleshooting**:
-
-- ArgoCD UI provides comprehensive application health visualization
-- Git commit history enables configuration change tracking
-- Rendered value files provide clear visibility into final configuration
-
-**Emergency Procedures**:
-
-- Git revert capabilities enable rapid rollback
-- Manual Application and cluster identity secret can be updated by re-running ECS task if needed
-- Cluster-level ArgoCD isolation prevents cross-cluster impact
+- `config.yaml` is the single configuration entry point
+- `app-of-apps/values.yaml` is the single reference for all applications and their wave assignments
+- ArgoCD UI shows wave-by-wave health progression
+- Git revert for rollback; wave ordering lets you stop a rollout mid-way
 
 ## Alternatives Considered
 
-Through a systematic proof-of-concept evaluation process, three alternative configuration approaches were evaluated and rejected:
-
 ### 1. Static Repository Paths
 
-**Approach**: ECS task installs ArgoCD on cluster and creates application pointing at static path for management cluster applications
-
-```mermaid
-sequenceDiagram
-    participant ECS as ECS Task
-    participant ArgoCD as ArgoCD
-    participant Git as Git Repo
-    participant Apps as Applications
-
-    ECS->>ArgoCD: Install ArgoCD
-    ECS->>ArgoCD: Create Application pointing to static path
-    ArgoCD->>Git: Pull from argocd/charts/management-cluster
-    Git->>ArgoCD: Return static charts + values
-    ArgoCD->>Apps: Deploy applications (maestro, hypershift, etc.)
-```
-
-```yaml
-# Application created by ECS task
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-spec:
-  source:
-    path: argocd/charts/management-cluster
-    repoURL: https://github.com/openshift-online/rosa-platform
-    targetRevision: HEAD
-```
-
-**Pros**:
-
-- Minimal configuration overhead
-- Simple to understand and implement
-- Single source of truth for all clusters
-
-**Cons**:
-
-- No region-specific configurations possible
-- Doesn't support regional independence goal
-- All clusters forced to same application versions
-- Cannot handle environment-specific values
-
-**Decision**: Rejected - too limiting for multi-region requirements
+Application pointing at static path for all clusters. Rejected — no region-specific configurations.
 
 ### 2. Dynamic Repository Paths
 
-**Approach**: ECS task installs ArgoCD on cluster and creates application pointing at path by region/env, e.g. `rendered/management-cluster/integration/us-west-1`. Render script creates duplicated/rendered apps for each region.
+Render script creates duplicated apps per region. Rejected — chart duplication scales poorly, version drift between regions.
 
-```mermaid
-sequenceDiagram
-    participant Render as Render Script
-    participant ECS as ECS Task
-    participant ArgoCD as ArgoCD
-    participant Git as Git Repo
-    participant Apps as Applications
+### 3. ApplicationSet with Dynamic Paths (Unversioned)
 
-    Render->>Git: Take config/management-cluster/<app>/ + overrides
-    Render->>Git: Generate rendered/management-cluster/integration/us-west-1/
-    ECS->>ArgoCD: Install ArgoCD
-    ECS->>ArgoCD: Create Application pointing to rendered path
-    ArgoCD->>Git: Pull from rendered/management-cluster/integration/us-west-1
-    Git->>ArgoCD: Return region-specific rendered charts
-    ArgoCD->>Apps: Deploy applications (maestro, hypershift, etc.)
-```
+ApplicationSet with cluster secret for identity but no version pinning. Rejected — no progressive deployment controls.
 
-**Repository Structure**:
+### 4. ApplicationSet with Matrix Generator (Previous Approach — Used Until 2026-05-30)
 
-```
-config/management-cluster/
-├── maestro/
-│   ├── Chart.yaml
-│   ├── values.yaml (defaults)
-│   └── integration/us-west-1/  # Override yamls/applications (values set in rendered/)
-└── hypershift/
-    ├── Chart.yaml
-    ├── values.yaml (defaults)
-    └── integration/us-west-1/  # Override yamls/applications (values set in rendered/)
+**Approach**: ApplicationSet with matrix generator (cluster × git directories) auto-discovers chart directories and generates ~20 independent Applications with hash-based versioning.
 
-rendered/management-cluster/integration/us-west-1/  # Generated by render script
-├── maestro/
-│   ├── Chart.yaml (copied)
-│   └── values.yaml (merged with overrides)
-└── hypershift/
-    ├── Chart.yaml (copied)
-    └── values.yaml (merged with overrides)
-```
+**Why we moved away**: Generated Applications are independent peers with no ordering guarantees. Sync-waves only order resources _within_ a single Application, not across Applications. In practice, CRD-installing operators and CRD consumers raced each other, requiring retry loops (limit 5, exponential backoff) that papered over the problem but didn't solve it.
 
-```yaml
-# Application created by ECS task
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-spec:
-  source:
-    path: rendered/management-cluster/integration/us-west-1
-    repoURL: https://github.com/openshift-online/rosa-platform
-    targetRevision: HEAD
-```
+**What it did well**: Auto-discovery (add directory = deploy app), hash-based versioning, scales to hundreds of regions.
 
-**CI/CD Characteristics**:
+**Decision**: Superseded by app-of-apps — we kept hash-based versioning but gained deterministic cross-application ordering through sync-waves.
 
-- Single component updates cascade across regions by updating overrides through regions for single app roll-out
-- Very fast for individual component propagation
-- Each region can independently lag behind or advance beyond others
+### 5. ApplicationSet with RollingSync
 
-**Pros**:
+**Approach**: Matrix generator with wave assignment encoded in directory structure (e.g., `regional-cluster/0-operators/storageclass/`). `strategy.type: RollingSync` provides cross-application ordering with health-gating between steps.
 
-- Simple implementation with familiar patterns
-- Region-specific configurations fully supported
-- Independent region deployment control
-- Excellent visibility - very easy to see what's deployed by browsing directories
-- Fast single application updates across regions
-- Standardization benefit - used by gcp-hcp team
+**Pros**: Auto-discovery via directory structure, `git mv` to change waves, less indirection than app-of-apps, native ArgoCD progressive rollout.
 
 **Cons**:
 
-- Chart duplication across all regions in rendered directories
-- Maintenance overhead scales with region count
-- Version drift risk between regions
-- Repository size growth becomes problematic
-- Testing complexity - configurations can differ vastly between regions, reducing test confidence
+- **RollingSync disables selfHeal**: The ApplicationSet controller takes over sync orchestration, so in-cluster drift won't auto-revert — a hard requirement for zero-operator-access
+- **Beta** with [known v3 bug](https://github.com/argoproj/argo-cd/issues/22976): RollingSync doesn't auto-sync the next app after the first completes
+- Designed for homogeneous workloads (same app across clusters), not heterogeneous platform components
+- Requires `--enable-progressive-syncs` feature flag
 
-### 3. ApplicationSet with Dynamic Paths
+**Decision**: Rejected — loss of selfHeal is the dealbreaker.
 
-**Approach**: ECS task installs ArgoCD, creates cluster secret for cluster identity with labels/annotations (region_deployment, aws_region, env, cluster name, repository, revision), creates application that points at a static ApplicationSet which uses cluster secret labels to point at the right charts based on cluster type, and uses region specific values created through render script.
+## Trade-offs
 
-```mermaid
-sequenceDiagram
-    participant Render as Render Script
-    participant ECS as ECS Task
-    participant ArgoCD as ArgoCD
-    participant Secret as Cluster Secret
-    participant AppSet as Static ApplicationSet
-    participant Git as Git Repo
-    participant Apps as Applications
-
-    Render->>Git: Generate rendered values for regions
-    ECS->>ArgoCD: Install ArgoCD
-    ECS->>Secret: Create cluster secret with labels/annotations (region_deployment, aws_region, env, repo, revision)
-    ECS->>ArgoCD: Create Application pointing to static ApplicationSet
-    ArgoCD->>AppSet: Pull ApplicationSet definition
-    AppSet->>Secret: Read cluster labels/annotations for identity
-    AppSet->>Git: Discover charts from config/management-cluster/*
-    AppSet->>Git: Use rendered values for cluster region/env
-    AppSet->>Apps: Generate Applications (maestro, hypershift, etc.)
-```
-
-```yaml
-# Cluster secret created by ECS task (cluster identity)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: management-cluster-us-west-1-staging
-  namespace: argocd
-  labels:
-    argocd.argoproj.io/secret-type: cluster
-    cluster_type: management-cluster
-    environment: staging
-    sector: staging
-    region_deployment: us-west-1
-    aws_region: us-west-1
-    cluster_name: mc01
-  annotations:
-    git_repo: https://github.com/openshift-online/rosa-platform
-    git_revision: HEAD  # Allows changes for dev
-type: Opaque
-
-# Application created by ECS task
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-spec:
-  source:
-    path: argocd/applicationsets
-    repoURL: https://github.com/openshift-online/rosa-platform
-    targetRevision: HEAD
-
-# Static ApplicationSet definition
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: management-cluster-apps
-spec:
-  generators:
-    - matrix:
-        generators:
-          - clusters:
-              selector:
-                matchLabels:
-                  argocd.argoproj.io/secret-type: cluster
-          - git:
-              directories:
-                - path: argocd/config/management-cluster/*
-              repoURL: '{{ .metadata.annotations.git_repo }}'
-              revision: '{{ .metadata.annotations.git_revision }}'
-  template:
-    spec:
-      source:
-        path: '{{ .path.path }}'
-        helm:
-          valueFiles:
-            - values.yaml
-            - ../../../rendered/{{ .metadata.labels.environment }}/{{ .metadata.labels.region_deployment }}/management-cluster-values.yaml
-```
-
-**Pros**:
-
-- Eliminates chart duplication completely
-- Consistent chart versions across regions
-- Dynamic application discovery
-- Scales efficiently with region growth
-- Single ApplicationSet manages all regions
-
-**Cons**:
-
-- Abstraction layer reduces visibility - harder to see what's deployed without understanding ApplicationSet logic
-- No explicit versioning control for production safety
-- All regions follow same chart commits automatically
-- Limited progressive deployment capabilities
-
-**Decision**: Rejected - good foundation but lacks production deployment controls
-
-## Continuous Delivery Evaluation: Option 2 vs Current Approach
-
-**Option 2 Trade-offs**:
-
-- Very fast individual component propagation region by region
-- Could implement cascading updates across regions by overriding from canonical region
-- Each region can have different versions, reducing test confidence
-- Requires complex tooling to manage region-to-region propagation
-
-**Current Approach Trade-offs**:
-
-- Trades single component speed for comprehensive bundle testing
-- All regions deploy identical, fully-tested chart combinations
-- Single configuration file controls all deployments
-- Clear integration → staging → production progression with explicit approval gates
-
-Option 2 optimizes for speed of individual component updates but accepts testing complexity. With Option 2 we could have had a single component roll out through regions by overriding from one and having that override continue through regions. However, this adds additional complexity and reduces testability.
-
-Our current approach optimizes for testing confidence and operational safety but accepts slower individual component velocity. We trade the speed of updating single components for fully tested hashes that comprise a bundle of helm charts at a certain version, making testing easier.
+We trade auto-discovery convenience (new apps must be added to `app-of-apps/values.yaml`) for deterministic cross-application ordering and elimination of CRD race conditions. All regions deploy identical chart combinations; `config.yaml` controls progression from integration → staging → production.

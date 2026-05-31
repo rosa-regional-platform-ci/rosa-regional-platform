@@ -95,9 +95,11 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
-          # Apply FIPS NodeClass and workloads NodePool for FIPS-validated compute.
-          # The built-in "system" pool (enabled in compute_config) handles CoreDNS
-          # and metrics-server, so no custom system NodePool is needed here.
+          # Bootstrap the FIPS NodePool before ArgoCD so ArgoCD pods have nodes
+          # to schedule on. EKS Auto Mode's built-in pools ("system",
+          # "general-purpose") can't be made FIPS-compliant — FIPS requires a
+          # custom NodeClass. Once ArgoCD is running, the eks-nodepool chart
+          # (Wave 0) adopts these resources via Server-Side Apply.
           echo "Applying FIPS NodeClass and workloads NodePool..."
 
           NODEPOOL_NAME="management-workloads"
@@ -181,9 +183,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
             helm upgrade --install argocd argo/argo-cd \
               --namespace argocd \
               --version $ARGOCD_VERSION \
-              --set-string 'controller.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-              --set-string 'server.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
-              --set-string 'repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd-self-management:argoproj.io/Application:argocd/argocd-self-management' \
+              --set-string 'controller.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
+              --set-string 'server.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
+              --set-string 'repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
               --wait --timeout=5m
 
             echo "✓ ArgoCD installation complete"
