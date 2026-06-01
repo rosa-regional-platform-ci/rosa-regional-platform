@@ -41,9 +41,9 @@ query:
     resources:
       requests:
         cpu: 1
-        memory: 500Mi
+        memory: 1Gi
       limits:
-        memory: 3Gi
+        memory: 5Gi
 storeGateway:
   resources:
     requests:

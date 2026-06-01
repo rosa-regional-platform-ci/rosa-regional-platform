@@ -137,9 +137,9 @@ observability:
       resources:
         requests:
           cpu: 1
-          memory: 500Mi
+          memory: 1Gi
         limits:
-          memory: 3Gi
+          memory: 5Gi
     # @doc observability.thanos.storeGateway Thanos Store Gateway resource requests and limits.
     # @used-by observability.thanos.storeGateway _context
     storeGateway:
