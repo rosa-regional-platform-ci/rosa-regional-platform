@@ -11,102 +11,6 @@ namespace: thanos
 objectStore:
   secretName: thanos-objstore-config
 
-receive:
-  enabled: true
-  # For production, use replicas: 3, replicationFactor: 2
-  replicas: 1
-  replicationFactor: 1
-  retention: 2h
-
-  resources:
-    requests:
-      cpu: 700m
-      memory: 3Gi
-    limits:
-      memory: 5Gi
-
-  router:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 250m
-        memory: 1Gi
-      limits:
-        memory: 4Gi
-
-  storage:
-    size: 50Gi
-    storageClass: gp3
-
-query:
-  enabled: true
-  replicas: 2
-
-  resources:
-    requests:
-      cpu: 1
-      memory: 1Gi
-    limits:
-      memory: 5Gi
-
-  frontend:
-    replicas: 1
-    resources:
-      requests:
-        cpu: 1
-        memory: 500Mi
-      limits:
-        memory: 3Gi
-
-storeGateway:
-  enabled: true
-  replicas: 2
-
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      memory: 1Gi
-
-  storage:
-    size: 20Gi
-    storageClass: gp3
-
-compactor:
-  enabled: true
-
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      memory: 1Gi
-
-  retentionResolutionRaw: 90d
-  retentionResolution5m: 180d
-  retentionResolution1h: 365d
-
-  storage:
-    size: 50Gi
-    storageClass: gp3
-
-ruler:
-  enabled: true
-  replicas: 2
-  evaluationInterval: 1m
-  retention: 48h
-  alertmanagerURL: "http://monitoring-alertmanager.monitoring:9093"
-  resources:
-    requests:
-      cpu: 100m
-      memory: 256Mi
-    limits:
-      memory: 512Mi
-  storage:
-    size: 10Gi
-    storageClass: gp3
-
 serviceAccount:
   name: thanos-operator
   annotations: {}
@@ -123,3 +27,89 @@ thanos:
     serviceName: thanos-query-frontend-thanos-query
     port: 9090
     targetType: ip
+
+  receive:
+    enabled: true
+    # For production, use replicas: 3, replicationFactor: 2
+    replicas: 1
+    replicationFactor: 1
+    retention: 2h
+    resources:
+      requests:
+        cpu: 700m
+        memory: 3Gi
+      limits:
+        memory: 5Gi
+    router:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 250m
+          memory: 1Gi
+        limits:
+          memory: 4Gi
+    storage:
+      size: 50Gi
+      storageClass: gp3
+
+  query:
+    enabled: true
+    replicas: 2
+    resources:
+      requests:
+        cpu: 1
+        memory: 1Gi
+      limits:
+        memory: 5Gi
+    frontend:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 1
+          memory: 500Mi
+        limits:
+          memory: 3Gi
+
+  storeGateway:
+    enabled: true
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    storage:
+      size: 20Gi
+      storageClass: gp3
+
+  compactor:
+    enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+    retentionResolutionRaw: 90d
+    retentionResolution5m: 180d
+    retentionResolution1h: 365d
+    storage:
+      size: 50Gi
+      storageClass: gp3
+
+  ruler:
+    enabled: true
+    replicas: 2
+    evaluationInterval: 1m
+    retention: 48h
+    alertmanagerURL: "http://monitoring-alertmanager.monitoring:9093"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
+    storage:
+      size: 10Gi
+      storageClass: gp3

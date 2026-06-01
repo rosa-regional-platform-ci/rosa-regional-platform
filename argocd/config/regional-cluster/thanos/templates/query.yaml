@@ -1,4 +1,4 @@
-{{- if .Values.query.enabled }}
+{{- if .Values.thanos.query.enabled }}
 apiVersion: monitoring.thanos.io/v1alpha1
 kind: ThanosQuery
 metadata:
@@ -9,26 +9,26 @@ metadata:
   annotations:
     {{- include "thanos-operator.annotations" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.query.replicas | default 2 }}
+  replicas: {{ .Values.thanos.query.replicas | default 2 }}
   replicaLabels:
     - prometheus_replica
     - replica
     - rule_replica
   resourceRequirements:
     requests:
-      cpu: {{ .Values.query.resources.requests.cpu }}
-      memory: {{ .Values.query.resources.requests.memory }}
+      cpu: {{ .Values.thanos.query.resources.requests.cpu }}
+      memory: {{ .Values.thanos.query.resources.requests.memory }}
     limits:
-      memory: {{ .Values.query.resources.limits.memory }}
+      memory: {{ .Values.thanos.query.resources.limits.memory }}
   # Query will auto-discover stores via operator labels
   queryFrontend:
-    replicas: {{ .Values.query.frontend.replicas | default 1 }}
+    replicas: {{ .Values.thanos.query.frontend.replicas | default 1 }}
     resourceRequirements:
       requests:
-        cpu: {{ .Values.query.frontend.resources.requests.cpu }}
-        memory: {{ .Values.query.frontend.resources.requests.memory }}
+        cpu: {{ .Values.thanos.query.frontend.resources.requests.cpu }}
+        memory: {{ .Values.thanos.query.frontend.resources.requests.memory }}
       limits:
-        memory: {{ .Values.query.frontend.resources.limits.memory }}
+        memory: {{ .Values.thanos.query.frontend.resources.limits.memory }}
     additionalArgs:
       - "--tracing.config="
 {{- end }}

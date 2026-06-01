@@ -1,4 +1,4 @@
-{{- if .Values.receive.enabled }}
+{{- if .Values.thanos.receive.enabled }}
 apiVersion: monitoring.thanos.io/v1alpha1
 kind: ThanosReceive
 metadata:
@@ -15,29 +15,29 @@ spec:
       key: objstore.yml
     hashrings:
       - name: default
-        replicas: {{ .Values.receive.replicas }}
+        replicas: {{ .Values.thanos.receive.replicas }}
         tsdbConfig:
-          retention: {{ .Values.receive.retention }}
+          retention: {{ .Values.thanos.receive.retention }}
         resourceRequirements:
           requests:
-            cpu: {{ .Values.receive.resources.requests.cpu }}
-            memory: {{ .Values.receive.resources.requests.memory }}
+            cpu: {{ .Values.thanos.receive.resources.requests.cpu }}
+            memory: {{ .Values.thanos.receive.resources.requests.memory }}
           limits:
-            memory: {{ .Values.receive.resources.limits.memory }}
+            memory: {{ .Values.thanos.receive.resources.limits.memory }}
         storage:
-          size: {{ .Values.receive.storage.size }}
-          {{- if .Values.receive.storage.storageClass }}
-          storageClass: {{ .Values.receive.storage.storageClass }}
+          size: {{ .Values.thanos.receive.storage.size }}
+          {{- if .Values.thanos.receive.storage.storageClass }}
+          storageClass: {{ .Values.thanos.receive.storage.storageClass }}
           {{- end }}
   routerSpec:
-    replicas: {{ .Values.receive.router.replicas | default 1 }}
-    replicationFactor: {{ .Values.receive.replicationFactor }}
+    replicas: {{ .Values.thanos.receive.router.replicas | default 1 }}
+    replicationFactor: {{ .Values.thanos.receive.replicationFactor }}
     resourceRequirements:
       requests:
-        cpu: {{ .Values.receive.router.resources.requests.cpu }}
-        memory: {{ .Values.receive.router.resources.requests.memory }}
+        cpu: {{ .Values.thanos.receive.router.resources.requests.cpu }}
+        memory: {{ .Values.thanos.receive.router.resources.requests.memory }}
       limits:
-        memory: {{ .Values.receive.router.resources.limits.memory }}
+        memory: {{ .Values.thanos.receive.router.resources.limits.memory }}
     additionalArgs:
       - "--receive.default-tenant-id=default-tenant"
     externalLabels:

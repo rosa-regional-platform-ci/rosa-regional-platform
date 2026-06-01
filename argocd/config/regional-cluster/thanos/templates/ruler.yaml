@@ -1,4 +1,4 @@
-{{- if .Values.ruler.enabled }}
+{{- if .Values.thanos.ruler.enabled }}
 apiVersion: monitoring.thanos.io/v1alpha1
 kind: ThanosRuler
 metadata:
@@ -9,33 +9,33 @@ metadata:
   annotations:
     {{- include "thanos-operator.annotations" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.ruler.replicas | default 2 }}
+  replicas: {{ .Values.thanos.ruler.replicas | default 2 }}
   queryLabelSelector:
     matchLabels:
       app.kubernetes.io/name: thanos-query
   ruleConfigSelector:
     matchLabels:
       app.kubernetes.io/name: alerting-rules
-  alertmanagerURL: {{ .Values.ruler.alertmanagerURL | quote }}
+  alertmanagerURL: {{ .Values.thanos.ruler.alertmanagerURL | quote }}
   alertLabelDrop:
     - rule_replica
   objectStorageConfig:
     name: {{ .Values.objectStore.secretName }}
     key: objstore.yml
-  evaluationInterval: {{ .Values.ruler.evaluationInterval | default "1m" }}
-  retention: {{ .Values.ruler.retention | default "48h" }}
+  evaluationInterval: {{ .Values.thanos.ruler.evaluationInterval | default "1m" }}
+  retention: {{ .Values.thanos.ruler.retention | default "48h" }}
   externalLabels:
     rule_replica: "$(NAME)"
     region: {{ .Values.global.aws_region | quote }}
   resourceRequirements:
     requests:
-      cpu: {{ .Values.ruler.resources.requests.cpu }}
-      memory: {{ .Values.ruler.resources.requests.memory }}
+      cpu: {{ .Values.thanos.ruler.resources.requests.cpu }}
+      memory: {{ .Values.thanos.ruler.resources.requests.memory }}
     limits:
-      memory: {{ .Values.ruler.resources.limits.memory }}
+      memory: {{ .Values.thanos.ruler.resources.limits.memory }}
   storage:
-    size: {{ .Values.ruler.storage.size }}
-    {{- if .Values.ruler.storage.storageClass }}
-    storageClass: {{ .Values.ruler.storage.storageClass }}
+    size: {{ .Values.thanos.ruler.storage.size }}
+    {{- if .Values.thanos.ruler.storage.storageClass }}
+    storageClass: {{ .Values.thanos.ruler.storage.storageClass }}
     {{- end }}
 {{- end }}

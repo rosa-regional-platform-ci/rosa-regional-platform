@@ -1,4 +1,4 @@
-{{- if .Values.compactor.enabled }}
+{{- if .Values.thanos.compactor.enabled }}
 apiVersion: monitoring.thanos.io/v1alpha1
 kind: ThanosCompact
 metadata:
@@ -11,20 +11,20 @@ metadata:
 spec:
   resourceRequirements:
     requests:
-      cpu: {{ .Values.compactor.resources.requests.cpu }}
-      memory: {{ .Values.compactor.resources.requests.memory }}
+      cpu: {{ .Values.thanos.compactor.resources.requests.cpu }}
+      memory: {{ .Values.thanos.compactor.resources.requests.memory }}
     limits:
-      memory: {{ .Values.compactor.resources.limits.memory }}
+      memory: {{ .Values.thanos.compactor.resources.limits.memory }}
   objectStorageConfig:
     name: {{ .Values.objectStore.secretName }}
     key: objstore.yml
   retentionConfig:
-    raw: {{ .Values.compactor.retentionResolutionRaw }}
-    fiveMinutes: {{ .Values.compactor.retentionResolution5m }}
-    oneHour: {{ .Values.compactor.retentionResolution1h }}
+    raw: {{ .Values.thanos.compactor.retentionResolutionRaw }}
+    fiveMinutes: {{ .Values.thanos.compactor.retentionResolution5m }}
+    oneHour: {{ .Values.thanos.compactor.retentionResolution1h }}
   storage:
-    size: {{ .Values.compactor.storage.size }}
-    {{- if .Values.compactor.storage.storageClass }}
-    storageClass: {{ .Values.compactor.storage.storageClass }}
+    size: {{ .Values.thanos.compactor.storage.size }}
+    {{- if .Values.thanos.compactor.storage.storageClass }}
+    storageClass: {{ .Values.thanos.compactor.storage.storageClass }}
     {{- end }}
 {{- end }}
