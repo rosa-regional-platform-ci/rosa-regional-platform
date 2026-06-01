@@ -57,8 +57,8 @@ export AWS_PROFILE="rrp-rc"
 export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-E2E_REF="${E2E_REF:-main}"
-E2E_REPO="${E2E_REPO:-https://github.com/openshift-online/rosa-regional-platform-api.git}"
+E2E_REF="ROSAENG-195/kas-availability-e2e"
+E2E_REPO="https://github.com/iamkirkbater/rosa-regional-platform-api.git"
 CLI_REF="${CLI_REF:-main}"
 CLI_REPO="${CLI_REPO:-https://github.com/openshift-online/rosa-regional-platform-cli.git}"
 WORK_DIR="$(mktemp -d)"
@@ -90,15 +90,19 @@ if [[ -z "${E2E_ACCOUNT_ID:-}" ]]; then
 fi
 
 # --- HCP Creation E2E Tests ---
-# Customer credentials are supplied via the rrp-customer AWS profile (CUSTOMER_AWS_PROFILE).
-# Subprocesses use credential_process auto-refresh, avoiding the 15-minute STS TTL cliff.
+# Customer credentials come from the rrp-customer AWS profile.
 # Only run if the platform API tests passed.
 _have_customer_creds=false
 if [[ $platform_rc -ne 0 ]]; then
   echo "Skipping HCP creation & Platform Monitoring tests — platform API tests failed (exit code: $platform_rc)"
 elif aws configure export-credentials --profile rrp-customer --format process &>/dev/null; then
-  export CUSTOMER_AWS_PROFILE="rrp-customer"
-  echo "Customer profile rrp-customer is available"
+  _cust_creds=$(aws configure export-credentials --profile rrp-customer --format process)
+  export CUSTOMER_AWS_ACCESS_KEY_ID=$(echo "$_cust_creds" | jq -r '.AccessKeyId')
+  export CUSTOMER_AWS_SECRET_ACCESS_KEY=$(echo "$_cust_creds" | jq -r '.SecretAccessKey')
+  _cust_st=$(echo "$_cust_creds" | jq -r '.SessionToken // empty')
+  [[ -n "$_cust_st" ]] && export CUSTOMER_AWS_SESSION_TOKEN="$_cust_st"
+  unset _cust_creds _cust_st
+  echo "Customer credentials loaded from rrp-customer profile"
 
   if [[ -z "${E2E_CUSTOMER_ACCOUNT_ID:-}" ]]; then
     export E2E_CUSTOMER_ACCOUNT_ID="$(aws sts get-caller-identity --profile rrp-customer --query Account --output text)"
