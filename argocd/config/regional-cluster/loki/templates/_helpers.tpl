@@ -47,5 +47,4 @@ Helm release annotations - required for Helm to recognize ownership
 {{- define "loki.annotations" -}}
 meta.helm.sh/release-name: {{ .Release.Name }}
 meta.helm.sh/release-namespace: {{ .Release.Namespace }}
-argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 {{- end }}

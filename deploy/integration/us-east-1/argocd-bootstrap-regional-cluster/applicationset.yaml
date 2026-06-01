@@ -44,14 +44,15 @@ spec:
           prune: true
           selfHeal: true
         retry:
-          limit: 5
+          limit: 10
           backoff:
             duration: 5s
             factor: 2
-            maxDuration: 3m
+            maxDuration: 2m
         syncOptions:
         - ServerSideApply=true
         - CreateNamespace=true
+        - SkipDryRunOnMissingResource=true
       sources:
       - helm:
           valueFiles:
