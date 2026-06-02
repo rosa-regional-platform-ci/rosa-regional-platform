@@ -68,11 +68,6 @@ resource "aws_iam_role_policy" "hypershift_operator_kms" {
         "kms:DescribeKey",
       ]
       Resource = var.oidc_kms_key_arn
-      Condition = {
-        StringEquals = {
-          "kms:ViaService" = "s3.${var.oidc_bucket_region}.amazonaws.com"
-        }
-      }
     }]
   })
 }
