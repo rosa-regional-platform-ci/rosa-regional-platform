@@ -37,16 +37,21 @@ spec:
                 key: OIDC_BUCKET_REGION
           - name: DNS_ZONE_OPERATOR_ROLE_ARN
             value: "{{ .Values.global.dns_zone_operator_role_arn }}"
+          - name: OIDC_BUCKET_WRITER_ROLE_ARN
+            valueFrom:
+              secretKeyRef:
+                name: hypershift-config-env
+                key: OIDC_BUCKET_WRITER_ROLE_ARN
         command:
         - /bin/sh
         - -c
         - |
-          # Hack(typeid):
-          # The operator validates AWS_SHARED_CREDENTIALS_FILE is set for private
-          # clusters, but actual auth is handled by EKS Pod Identity. Create a
-          # placeholder file to satisfy the check.
+          # The operator assumes the RC-side oidc-bucket-writer role for cross-
+          # account S3/KMS access. Pod Identity provides the initial credentials;
+          # the SDK chains them via role_arn + web_identity_token_file.
           mkdir -p /tmp/aws
-          echo -e "[default]\n# pod identity handles auth" > /tmp/aws/credentials
+          printf '[default]\nrole_arn = %s\nweb_identity_token_file = /var/run/secrets/eks.amazonaws.com/serviceaccount/token\n' \
+            "${OIDC_BUCKET_WRITER_ROLE_ARN}" > /tmp/aws/credentials
           hypershift install \
             --namespace hypershift \
             --enable-conversion-webhook=false \

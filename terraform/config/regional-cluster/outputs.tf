@@ -411,6 +411,11 @@ output "oidc_bucket_region" {
   value       = module.regional_oidc.bucket_region
 }
 
+output "oidc_bucket_writer_role_arn" {
+  description = "ARN of the OIDC bucket writer IAM role — MC hypershift operators assume this for S3/KMS access"
+  value       = module.regional_oidc.bucket_writer_role_arn
+}
+
 # =============================================================================
 # Thanos Infrastructure Outputs
 # =============================================================================

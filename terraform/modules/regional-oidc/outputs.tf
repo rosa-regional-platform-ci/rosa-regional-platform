@@ -21,3 +21,8 @@ output "bucket_region" {
   description = "AWS region where the OIDC S3 bucket is deployed"
   value       = data.aws_region.current.name
 }
+
+output "bucket_writer_role_arn" {
+  description = "ARN of the OIDC bucket writer IAM role — MC hypershift operators assume this role for S3/KMS access"
+  value       = aws_iam_role.oidc_bucket_writer.arn
+}

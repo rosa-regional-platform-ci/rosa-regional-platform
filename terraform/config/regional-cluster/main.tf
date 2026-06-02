@@ -330,7 +330,6 @@ resource "aws_route53_record" "zone_shard_delegation" {
 # =============================================================================
 
 data "aws_ssm_parameter" "region_ou_path" {
-  count           = var.environment_domain != null ? 1 : 0
   name            = "/infra/region-ou-path"
   with_decryption = true
 
@@ -349,7 +348,7 @@ module "dns_zone_operator" {
   regional_id                = var.regional_id
   regional_hosted_zone_id    = aws_route53_zone.regional[0].zone_id
   zone_shard_hosted_zone_ids = aws_route53_zone.zone_shard[*].zone_id
-  region_ou_path             = data.aws_ssm_parameter.region_ou_path[0].value
+  region_ou_path             = data.aws_ssm_parameter.region_ou_path.value
 }
 
 # =============================================================================
@@ -445,8 +444,8 @@ module "cloudwatch_exporter" {
 module "regional_oidc" {
   source = "../../modules/regional-oidc"
 
-  regional_id = var.regional_id
-  mc_ou_path  = var.mc_ou_path
+  regional_id    = var.regional_id
+  region_ou_path = data.aws_ssm_parameter.region_ou_path.value
 }
 
 # =============================================================================

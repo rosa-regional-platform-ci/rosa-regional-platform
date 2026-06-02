@@ -106,23 +106,6 @@ export TF_VAR_enable_api_custom_domain=$(parseBool '.enable_api_custom_domain' f
 export TF_VAR_zone_shard_count=$(jq -r '.zone_shard_count // 1' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_enable_sns_alerting=$(parseBool '.enable_sns_alerting' false "$DEPLOY_CONFIG_FILE")
 
-# Read the MC OU path from SSM. This parameter is provisioned by account-minter
-# in the RC account and is required for the regional OIDC S3 bucket policy.
-# See config/README.md for the expected SSM parameter path.
-TF_VAR_mc_ou_path=$(aws ssm get-parameter \
-    --name "/infra/region-ou-path" \
-    --with-decryption \
-    --query 'Parameter.Value' \
-    --output text \
-    --region "${TARGET_REGION}" 2>/dev/null || true)
-if [ -z "${TF_VAR_mc_ou_path}" ]; then
-    echo "ERROR: SSM parameter /infra/region-ou-path not found in account ${TARGET_ACCOUNT_ID} region ${TARGET_REGION}." >&2
-    echo "  Create this parameter with the AWS Organizations OU path for MC accounts before provisioning the RC." >&2
-    echo "  Example: aws ssm put-parameter --name /infra/region-ou-path --value 'o-*/r-*/ou-*/*'" >&2
-    exit 1
-fi
-export TF_VAR_mc_ou_path
-
 # Set DNS variables (optional — when ENVIRONMENT_DOMAIN is set, creates regional
 # DNS zone and custom API domain)
 if [ -n "${ENVIRONMENT_DOMAIN:-}" ]; then
@@ -152,7 +135,6 @@ echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
 echo "  Regional ID: $TF_VAR_regional_id"
 echo "  Environment: $TF_VAR_environment"
-echo "  MC OU Path: $TF_VAR_mc_ou_path"
 echo "$PD_ENABLED"
 echo ""
 

@@ -27,13 +27,13 @@ variable "oidc_bucket_name" {
   }
 }
 
-variable "oidc_bucket_arn" {
-  description = "S3 bucket ARN for OIDC discovery documents (owned by the Regional Cluster)"
+variable "oidc_bucket_writer_role_arn" {
+  description = "ARN of the RC-side OIDC bucket writer IAM role that the hypershift operator assumes for cross-account S3/KMS access"
   type        = string
 
   validation {
-    condition     = length(trimspace(var.oidc_bucket_arn)) > 0
-    error_message = "oidc_bucket_arn must be provided from RC Terraform state."
+    condition     = length(trimspace(var.oidc_bucket_writer_role_arn)) > 0
+    error_message = "oidc_bucket_writer_role_arn must be provided from RC Terraform state."
   }
 }
 
