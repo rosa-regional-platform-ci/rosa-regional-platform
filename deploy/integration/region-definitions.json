@@ -3,7 +3,7 @@
     "aws_region": "us-east-1",
     "environment": "integration",
     "management_clusters": [
-      "mc01"
+      "eph-22d8c9-mc01"
     ],
     "name": "integration"
   }
