@@ -143,6 +143,7 @@ spec:
                   size: 8Gi
                   storageClassName: gp3-csi
                 type: PersistentVolume
+              replicas: 3
             managementType: Managed
           fips: true
           release:
