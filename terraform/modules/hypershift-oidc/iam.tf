@@ -67,7 +67,7 @@ resource "aws_iam_role_policy" "hypershift_operator_kms" {
         "kms:Decrypt",
         "kms:DescribeKey",
       ]
-      Resource = var.oidc_kms_key_arn
+      Resource = "${split("/", var.oidc_kms_key_arn)[0]}/*"
     }]
   })
 }
