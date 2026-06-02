@@ -45,17 +45,19 @@ if [ "${DELETE_FLAG}" == "true" ]; then
     export TF_VAR_maestro_agent_config_file=$(mktemp)
     export TF_VAR_oidc_cloudfront_domain="placeholder"
     export TF_VAR_oidc_bucket_name="placeholder"
-    export TF_VAR_oidc_bucket_arn="arn:aws:s3:::placeholder"
     export TF_VAR_oidc_bucket_region="us-east-1"
+    export TF_VAR_oidc_bucket_writer_role_arn="arn:aws:iam::000000000000:role/placeholder"
 else
     echo "Reading IoT certificate data from RC account state..."
     use_rc_account
     source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
 
-    # Construct dns_zone_operator_role_arn deterministically (avoids reading RC state)
+    # Construct cross-account role ARNs deterministically (avoids reading RC state)
     _RC_REGIONAL_ID=$(jq -r '.regional_id // "regional"' "deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json" 2>/dev/null || echo "regional")
     export DNS_ZONE_OPERATOR_ROLE_ARN="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/${_RC_REGIONAL_ID}-dns-zone-operator"
-    echo "  DNS Zone Operator Role ARN: ${DNS_ZONE_OPERATOR_ROLE_ARN}"
+    export TF_VAR_oidc_bucket_writer_role_arn="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/${_RC_REGIONAL_ID}-oidc-bucket-writer"
+    echo "  DNS Zone Operator Role ARN:       ${DNS_ZONE_OPERATOR_ROLE_ARN}"
+    echo "  OIDC Bucket Writer Role ARN:      ${TF_VAR_oidc_bucket_writer_role_arn}"
 
     # Read RHOBS API URL and OIDC outputs from RC terraform state.
     # The RC and MC pipelines run in parallel; the RC apply can take 30-40
@@ -81,17 +83,14 @@ else
     _OIDC_RETRY_COUNT=0
     TF_VAR_oidc_cloudfront_domain=""
     TF_VAR_oidc_bucket_name=""
-    TF_VAR_oidc_bucket_arn=""
     TF_VAR_oidc_bucket_region=""
     while [ $_OIDC_RETRY_COUNT -lt $_OIDC_MAX_RETRIES ]; do
         _OIDC_RETRY_COUNT=$((_OIDC_RETRY_COUNT + 1))
         TF_VAR_oidc_cloudfront_domain=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_cloudfront_domain 2>/dev/null || true)
         TF_VAR_oidc_bucket_name=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_name 2>/dev/null || true)
-        TF_VAR_oidc_bucket_arn=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_arn 2>/dev/null || true)
         TF_VAR_oidc_bucket_region=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_region 2>/dev/null || true)
         if [ -n "${TF_VAR_oidc_cloudfront_domain}" ] && \
            [ -n "${TF_VAR_oidc_bucket_name}" ] && \
-           [ -n "${TF_VAR_oidc_bucket_arn}" ] && \
            [ -n "${TF_VAR_oidc_bucket_region}" ]; then
             break
         fi
@@ -100,7 +99,6 @@ else
     done
     if [ -z "${TF_VAR_oidc_cloudfront_domain}" ] || \
        [ -z "${TF_VAR_oidc_bucket_name}" ] || \
-       [ -z "${TF_VAR_oidc_bucket_arn}" ] || \
        [ -z "${TF_VAR_oidc_bucket_region}" ]; then
         echo "ERROR: OIDC outputs still missing from RC terraform state after $((_OIDC_MAX_RETRIES * _OIDC_RETRY_DELAY / 60))+ minutes." >&2
         echo "  Ensure the RC pipeline completed successfully before the MC pipeline times out." >&2
@@ -108,11 +106,9 @@ else
     fi
     export TF_VAR_oidc_cloudfront_domain
     export TF_VAR_oidc_bucket_name
-    export TF_VAR_oidc_bucket_arn
     export TF_VAR_oidc_bucket_region
     echo "  OIDC CloudFront: ${TF_VAR_oidc_cloudfront_domain}"
     echo "  OIDC Bucket:     ${TF_VAR_oidc_bucket_name}"
-    echo "  OIDC Bucket ARN: ${TF_VAR_oidc_bucket_arn}"
     echo "  OIDC Region:     ${TF_VAR_oidc_bucket_region}"
 fi
 

@@ -113,12 +113,6 @@ variable "oidc_bucket_name" {
   default     = ""
 }
 
-variable "oidc_bucket_arn" {
-  description = "S3 bucket ARN for regional OIDC discovery documents (read from RC terraform state)"
-  type        = string
-  default     = ""
-}
-
 variable "oidc_bucket_region" {
   description = "AWS region of the regional OIDC S3 bucket (read from RC terraform state)"
   type        = string
@@ -127,6 +121,12 @@ variable "oidc_bucket_region" {
 
 variable "oidc_cloudfront_domain" {
   description = "CloudFront domain for the regional OIDC issuer URL (read from RC terraform state)"
+  type        = string
+  default     = ""
+}
+
+variable "oidc_bucket_writer_role_arn" {
+  description = "ARN of the RC-side OIDC bucket writer IAM role (constructed deterministically from regional_id)"
   type        = string
   default     = ""
 }

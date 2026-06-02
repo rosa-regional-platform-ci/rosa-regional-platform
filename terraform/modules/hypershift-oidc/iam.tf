@@ -1,9 +1,9 @@
 # =============================================================================
 # IAM Role and Pod Identity for HyperShift Operator
 #
-# Grants the HyperShift operator write access to the OIDC S3 bucket via
-# EKS Pod Identity. The operator uploads OIDC discovery documents and
-# signing keys when a HostedCluster is created.
+# The operator assumes the RC-side oidc-bucket-writer role to upload OIDC
+# discovery documents cross-account. This avoids S3/KMS resource policy
+# issues with cross-account Pod Identity via VPC endpoints.
 # =============================================================================
 
 resource "aws_iam_role" "hypershift_operator" {
@@ -32,8 +32,8 @@ resource "aws_iam_role" "hypershift_operator" {
   )
 }
 
-resource "aws_iam_role_policy" "hypershift_operator_s3" {
-  name = "${var.cluster_id}-hypershift-operator-s3"
+resource "aws_iam_role_policy" "hypershift_operator_assume_oidc_writer" {
+  name = "${var.cluster_id}-hypershift-operator-assume-oidc-writer"
   role = aws_iam_role.hypershift_operator.id
 
   policy = jsonencode({
@@ -41,15 +41,10 @@ resource "aws_iam_role_policy" "hypershift_operator_s3" {
     Statement = [{
       Effect = "Allow"
       Action = [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject",
-        "s3:ListBucket",
+        "sts:AssumeRole",
+        "sts:TagSession"
       ]
-      Resource = [
-        var.oidc_bucket_arn,
-        "${var.oidc_bucket_arn}/*",
-      ]
+      Resource = var.oidc_bucket_writer_role_arn
     }]
   })
 }
