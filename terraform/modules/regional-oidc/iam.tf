@@ -1,0 +1,73 @@
+# =============================================================================
+# OIDC Writer IAM Role
+#
+# RC-side role that MC operators (hypershift-operator) assume via
+# cross-account Pod Identity to write OIDC documents to the regional S3
+# bucket. Trust is OU-based so new MC accounts get access automatically.
+# Same pattern as dns-zone-operator.
+# =============================================================================
+
+resource "aws_iam_role" "oidc_writer" {
+  name        = "${var.regional_id}-oidc-writer"
+  description = "Cross-account role for MC hypershift-operator to write OIDC documents to the regional S3 bucket"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        AWS = "*"
+      }
+      Action = [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+      Condition = {
+        StringEquals = {
+          "aws:PrincipalOrgID" = split("/", var.mc_ou_path)[0]
+        }
+        "ForAnyValue:StringLike" = {
+          "aws:PrincipalOrgPaths" = "${var.mc_ou_path}*"
+        }
+      }
+    }]
+  })
+
+  tags = {
+    Name = "${var.regional_id}-oidc-writer"
+  }
+}
+
+resource "aws_iam_role_policy" "oidc_writer" {
+  name = "${var.regional_id}-oidc-writer-s3-kms"
+  role = aws_iam_role.oidc_writer.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+        ]
+        Resource = [
+          aws_s3_bucket.oidc.arn,
+          "${aws_s3_bucket.oidc.arn}/*",
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+        ]
+        Resource = aws_kms_key.oidc.arn
+      },
+    ]
+  })
+}

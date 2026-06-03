@@ -125,8 +125,8 @@ variable "oidc_bucket_region" {
   default     = ""
 }
 
-variable "oidc_kms_key_arn" {
-  description = "KMS key ARN for regional OIDC S3 bucket encryption (read from RC terraform state)"
+variable "oidc_writer_role_arn" {
+  description = "ARN of the RC-side oidc-writer IAM role (MC operators assume this for OIDC S3+KMS access)"
   type        = string
   default     = ""
 }

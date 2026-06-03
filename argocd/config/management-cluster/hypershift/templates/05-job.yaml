@@ -35,29 +35,44 @@ spec:
               secretKeyRef:
                 name: hypershift-config-env
                 key: OIDC_BUCKET_REGION
+          - name: OIDC_WRITER_ROLE_ARN
+            valueFrom:
+              secretKeyRef:
+                name: hypershift-config-env
+                key: OIDC_WRITER_ROLE_ARN
           - name: DNS_ZONE_OPERATOR_ROLE_ARN
             value: "{{ .Values.global.dns_zone_operator_role_arn }}"
         command:
         - /bin/sh
         - -c
         - |
-          # Hack(typeid):
-          # The operator validates AWS_SHARED_CREDENTIALS_FILE is set for private
-          # clusters, but actual auth is handled by EKS Pod Identity. Create a
-          # placeholder file to satisfy the check.
           mkdir -p /tmp/aws
-          echo -e "[default]\n# pod identity handles auth" > /tmp/aws/credentials
+
+          # Private platform creds — Pod Identity provides MC-account credentials
+          echo -e "[default]\n# pod identity handles auth" > /tmp/aws/private-creds
+
+          # OIDC S3 creds — assume into the RC oidc-writer role for cross-account S3+KMS
+          if [ -n "${OIDC_WRITER_ROLE_ARN:-}" ]; then
+            cat > /tmp/aws/oidc-creds <<CREDS
+          [default]
+          role_arn = ${OIDC_WRITER_ROLE_ARN}
+          credential_source = EcsContainer
+          CREDS
+          else
+            cp /tmp/aws/private-creds /tmp/aws/oidc-creds
+          fi
+
           hypershift install \
             --namespace hypershift \
             --enable-conversion-webhook=false \
             --hypershift-image {{ .Values.hypershift.hypershift.image }} \
             --limit-crd-install AWS \
             --private-platform AWS \
-            --aws-private-creds /tmp/aws/credentials \
+            --aws-private-creds /tmp/aws/private-creds \
             --aws-private-region {{ .Values.hypershift.region }} \
             --oidc-storage-provider-s3-bucket-name $(OIDC_BUCKET_NAME) \
             --oidc-storage-provider-s3-region $(OIDC_BUCKET_REGION) \
-            --oidc-storage-provider-s3-credentials /tmp/aws/credentials \
+            --oidc-storage-provider-s3-credentials /tmp/aws/oidc-creds \
             --external-dns-provider aws \
             --external-dns-domain-filter {{ .Values.hypershift.externalDns.domain }} \
             --external-dns-secret external-dns \

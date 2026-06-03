@@ -22,7 +22,7 @@ output "bucket_region" {
   value       = data.aws_region.current.name
 }
 
-output "kms_key_arn" {
-  description = "KMS key ARN used for S3 bucket encryption — MC roles need this for identity-based KMS grants"
-  value       = aws_kms_key.oidc.arn
+output "oidc_writer_role_arn" {
+  description = "ARN of the oidc-writer IAM role — MC operators assume this for S3+KMS access"
+  value       = aws_iam_role.oidc_writer.arn
 }

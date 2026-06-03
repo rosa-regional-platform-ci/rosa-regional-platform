@@ -411,9 +411,9 @@ output "oidc_bucket_region" {
   value       = module.regional_oidc.bucket_region
 }
 
-output "oidc_kms_key_arn" {
-  description = "KMS key ARN for regional OIDC S3 bucket encryption"
-  value       = module.regional_oidc.kms_key_arn
+output "oidc_writer_role_arn" {
+  description = "ARN of the RC-side oidc-writer IAM role (MC operators assume this for OIDC S3+KMS access)"
+  value       = module.regional_oidc.oidc_writer_role_arn
 }
 
 # =============================================================================

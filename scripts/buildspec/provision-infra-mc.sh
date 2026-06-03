@@ -47,7 +47,6 @@ if [ "${DELETE_FLAG}" == "true" ]; then
     export TF_VAR_oidc_bucket_name="placeholder"
     export TF_VAR_oidc_bucket_arn="arn:aws:s3:::placeholder"
     export TF_VAR_oidc_bucket_region="us-east-1"
-    export TF_VAR_oidc_kms_key_arn=""
 else
     echo "Reading IoT certificate data from RC account state..."
     use_rc_account
@@ -56,7 +55,9 @@ else
     # Construct dns_zone_operator_role_arn deterministically (avoids reading RC state)
     _RC_REGIONAL_ID=$(jq -r '.regional_id // "regional"' "deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json" 2>/dev/null || echo "regional")
     export DNS_ZONE_OPERATOR_ROLE_ARN="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/${_RC_REGIONAL_ID}-dns-zone-operator"
+    export OIDC_WRITER_ROLE_ARN="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/${_RC_REGIONAL_ID}-oidc-writer"
     echo "  DNS Zone Operator Role ARN: ${DNS_ZONE_OPERATOR_ROLE_ARN}"
+    echo "  OIDC Writer Role ARN:       ${OIDC_WRITER_ROLE_ARN}"
 
     # Read RHOBS API URL and OIDC outputs from RC terraform state.
     # The RC and MC pipelines run in parallel; the RC apply can take 30-40
@@ -84,14 +85,12 @@ else
     TF_VAR_oidc_bucket_name=""
     TF_VAR_oidc_bucket_arn=""
     TF_VAR_oidc_bucket_region=""
-    TF_VAR_oidc_kms_key_arn=""
     while [ $_OIDC_RETRY_COUNT -lt $_OIDC_MAX_RETRIES ]; do
         _OIDC_RETRY_COUNT=$((_OIDC_RETRY_COUNT + 1))
         TF_VAR_oidc_cloudfront_domain=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_cloudfront_domain 2>/dev/null || true)
         TF_VAR_oidc_bucket_name=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_name 2>/dev/null || true)
         TF_VAR_oidc_bucket_arn=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_arn 2>/dev/null || true)
         TF_VAR_oidc_bucket_region=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_region 2>/dev/null || true)
-        TF_VAR_oidc_kms_key_arn=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_kms_key_arn 2>/dev/null || true)
         if [ -n "${TF_VAR_oidc_cloudfront_domain}" ] && \
            [ -n "${TF_VAR_oidc_bucket_name}" ] && \
            [ -n "${TF_VAR_oidc_bucket_arn}" ] && \
@@ -113,12 +112,10 @@ else
     export TF_VAR_oidc_bucket_name
     export TF_VAR_oidc_bucket_arn
     export TF_VAR_oidc_bucket_region
-    export TF_VAR_oidc_kms_key_arn
     echo "  OIDC CloudFront: ${TF_VAR_oidc_cloudfront_domain}"
     echo "  OIDC Bucket:     ${TF_VAR_oidc_bucket_name}"
     echo "  OIDC Bucket ARN: ${TF_VAR_oidc_bucket_arn}"
     echo "  OIDC Region:     ${TF_VAR_oidc_bucket_region}"
-    echo "  OIDC KMS Key:    ${TF_VAR_oidc_kms_key_arn:-<not available>}"
 fi
 
 # =====================================================================
@@ -165,6 +162,9 @@ export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
 if [ -n "${DNS_ZONE_OPERATOR_ROLE_ARN:-}" ]; then
     export TF_VAR_dns_zone_operator_role_arn="${DNS_ZONE_OPERATOR_ROLE_ARN}"
+fi
+if [ -n "${OIDC_WRITER_ROLE_ARN:-}" ]; then
+    export TF_VAR_oidc_writer_role_arn="${OIDC_WRITER_ROLE_ARN}"
 fi
 
 echo "Terraform variables:"

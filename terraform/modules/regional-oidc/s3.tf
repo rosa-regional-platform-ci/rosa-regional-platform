@@ -75,31 +75,6 @@ resource "aws_s3_bucket_policy" "oidc" {
           }
         }
       },
-      {
-        Sid    = "AllowManagementClusterWrite"
-        Effect = "Allow"
-        Principal = {
-          AWS = "*"
-        }
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:DeleteObject",
-          "s3:ListBucket",
-        ]
-        Resource = [
-          aws_s3_bucket.oidc.arn,
-          "${aws_s3_bucket.oidc.arn}/*",
-        ]
-        Condition = {
-          "ForAnyValue:StringLike" = {
-            "aws:PrincipalOrgPaths" = "${var.mc_ou_path}*"
-          }
-          StringLike = {
-            "aws:PrincipalArn" = "arn:*:iam::*:role/*-hypershift-operator"
-          }
-        }
-      },
     ]
   })
 }

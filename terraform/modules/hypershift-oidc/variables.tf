@@ -47,8 +47,8 @@ variable "oidc_bucket_region" {
   }
 }
 
-variable "oidc_kms_key_arn" {
-  description = "KMS key ARN used for OIDC S3 bucket encryption (owned by the Regional Cluster)"
+variable "oidc_writer_role_arn" {
+  description = "ARN of the RC-side oidc-writer IAM role (MC operator assumes this for OIDC S3+KMS access)"
   type        = string
   default     = ""
 }
