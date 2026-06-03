@@ -47,10 +47,11 @@ spec:
         - -c
         - |
           # The operator assumes the RC-side oidc-bucket-writer role for cross-
-          # account S3/KMS access. Pod Identity provides the initial credentials;
-          # the SDK chains them via role_arn + web_identity_token_file.
+          # account S3/KMS access. Pod Identity injects container credentials via
+          # env vars; credential_source=Environment tells the SDK to chain them
+          # into the AssumeRole call.
           mkdir -p /tmp/aws
-          printf '[default]\nrole_arn = %s\nweb_identity_token_file = /var/run/secrets/eks.amazonaws.com/serviceaccount/token\n' \
+          printf '[default]\nrole_arn = %s\ncredential_source = Environment\n' \
             "${OIDC_BUCKET_WRITER_ROLE_ARN}" > /tmp/aws/credentials
           hypershift install \
             --namespace hypershift \
