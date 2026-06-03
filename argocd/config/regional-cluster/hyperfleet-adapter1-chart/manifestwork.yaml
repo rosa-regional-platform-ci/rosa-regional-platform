@@ -218,7 +218,7 @@ spec:
             - service: Ignition
               servicePublishingStrategy:
                 type: Route
-          infrastructureAvailabilityPolicy: SingleReplica
+          infrastructureAvailabilityPolicy: HighlyAvailable
           controllerAvailabilityPolicy: HighlyAvailable
       - apiVersion: hypershift.openshift.io/v1beta1
         kind: NodePool
