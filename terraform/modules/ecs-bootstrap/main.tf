@@ -110,9 +110,13 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Once ArgoCD is running, the eks-nodepool chart adopts these
           # resources via Server-Side Apply.
           echo "Applying FIPS NodeClass and workloads NodePool from chart..."
+          _NODEPOOL_VALUES="$REPO_DIR/deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-values-$CLUSTER_TYPE.yaml"
+          _VALUES_FLAG=""
+          [ -f "$_NODEPOOL_VALUES" ] && _VALUES_FLAG="-f $_NODEPOOL_VALUES"
           helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
             --set global.cluster_name="$CLUSTER_NAME" \
-            | kubectl apply --server-side -f -
+            $_VALUES_FLAG \
+            | kubectl apply --server-side --force-conflicts -f -
           echo "✓ FIPS NodePool applied"
 
           # Wait for coredns and metrics-server (managed by the built-in system pool)
