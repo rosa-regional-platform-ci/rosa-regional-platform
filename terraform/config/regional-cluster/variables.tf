@@ -388,8 +388,8 @@ variable "eph_prefix" {
 # Cross-Account MC Identity
 # =============================================================================
 
-variable "mc_accounts" {
-  description = "Comma-separated MC ID:AccountID pairs (e.g. mc01:123456789012,mc02:987654321098)"
+variable "management_clusters" {
+  description = "Comma-separated colon-delimited MC entries (e.g. mc01:123456789012,mc02:987654321098)"
   type        = string
   default     = ""
 }

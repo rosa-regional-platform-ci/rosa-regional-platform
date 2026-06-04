@@ -73,24 +73,25 @@ _REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
 export TF_VAR_repository_url="${REPOSITORY_URL}"
 export TF_VAR_repository_branch="${_REPO_BRANCH}"
 
-# Resolve MC accounts: "mc01:123456789012,mc02:987654321098"
+# Build colon-delimited management clusters string: "mc01:123456789012,mc02:987654321098"
 # Single source of truth for MC identity — Terraform derives API allowed accounts from this.
-_MC_ACCOUNTS=""
+_MC_PARTS=()
 _MC_INFO=$(jq -c '.management_clusters_info // []' "$DEPLOY_CONFIG_FILE")
-for _ENTRY in $(echo "$_MC_INFO" | jq -r '.[] | @base64'); do
-    _ID=$(echo "$_ENTRY" | base64 -d | jq -r '.id')
-    _ACCT=$(echo "$_ENTRY" | base64 -d | jq -r '.account_id')
-    if [[ "$_ACCT" =~ ^ssm:// ]]; then
-        _SSM_PARAM="${_ACCT#ssm://}"
-        _ACCT=$(aws ssm get-parameter --name "$_SSM_PARAM" --with-decryption \
-            --query 'Parameter.Value' --output text --region "${TARGET_REGION}" 2>/dev/null || true)
-    fi
-    if [[ -n "$_ACCT" && -n "$_ID" ]]; then
-        [ -n "$_MC_ACCOUNTS" ] && _MC_ACCOUNTS="${_MC_ACCOUNTS},"
-        _MC_ACCOUNTS="${_MC_ACCOUNTS}${_ID}:${_ACCT}"
-    fi
-done
-export TF_VAR_mc_accounts="${_MC_ACCOUNTS}"
+if [[ "$_MC_INFO" != "[]" ]]; then
+    for _ENTRY in $(echo "$_MC_INFO" | jq -r '.[] | @base64'); do
+        _ID=$(echo "$_ENTRY" | base64 -d | jq -r '.id')
+        _ACCT=$(echo "$_ENTRY" | base64 -d | jq -r '.account_id')
+        if [[ "$_ACCT" =~ ^ssm:// ]]; then
+            _SSM_PARAM="${_ACCT#ssm://}"
+            _ACCT=$(aws ssm get-parameter --name "$_SSM_PARAM" --with-decryption \
+                --query 'Parameter.Value' --output text --region "${TARGET_REGION}" 2>/dev/null || true)
+        fi
+        if [[ -n "$_ACCT" && -n "$_ID" ]]; then
+            _MC_PARTS+=("${_ID}:${_ACCT}")
+        fi
+    done
+fi
+export TF_VAR_management_clusters=$(IFS=,; echo "${_MC_PARTS[*]}")
 
 # Set container image for ECS tasks (bastion and bootstrap)
 if [ -z "${PLATFORM_IMAGE:-}" ]; then
@@ -144,7 +145,7 @@ echo "  Service Phase: $TF_VAR_service_phase"
 echo "  Cost Center: $TF_VAR_cost_center"
 echo "  Repository URL: $TF_VAR_repository_url"
 echo "  Repository Branch: $TF_VAR_repository_branch"
-echo "  MC Accounts: ${TF_VAR_mc_accounts:-<none>}"
+echo "  Management Clusters: ${TF_VAR_management_clusters}"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
 echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
 echo "  Enable SNS Alerting: $TF_VAR_enable_sns_alerting"

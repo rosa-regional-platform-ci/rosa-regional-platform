@@ -1,3 +1,8 @@
+# Injected by ApplicationSet at runtime — defaults here for helm lint only
+global:
+  aws_region: ""
+  management_clusters: ""
+
 grafana:
   image:
     registry: docker.io

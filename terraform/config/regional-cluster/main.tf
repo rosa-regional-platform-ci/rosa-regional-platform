@@ -53,7 +53,8 @@ provider "pagerduty" {
 data "aws_caller_identity" "current" {}
 
 locals {
-  mc_account_ids = [for entry in split(",", var.mc_accounts) : split(":", entry)[1] if entry != ""]
+  mc_entries = var.management_clusters != "" ? split(",", var.management_clusters) : []
+  mc_account_ids = [for entry in local.mc_entries : element(split(":", entry), 1)]
   api_allowed_accounts = distinct(compact(concat(
     [data.aws_caller_identity.current.account_id],
     local.mc_account_ids,
@@ -188,7 +189,7 @@ module "ecs_bootstrap" {
   thanos_kms_key_arn = module.thanos_infrastructure.kms_key_arn
   loki_kms_key_arn   = module.loki_infrastructure.kms_key_arn
 
-  mc_accounts = var.mc_accounts
+  management_clusters = var.management_clusters
 }
 
 # =============================================================================

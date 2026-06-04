@@ -59,8 +59,8 @@ variable "loki_kms_key_arn" {
   default     = ""
 }
 
-variable "mc_accounts" {
-  description = "Comma-separated mc_id:account_id pairs for cross-account features (e.g. mc01:123456789012,mc02:987654321098)"
+variable "management_clusters" {
+  description = "Comma-separated colon-delimited MC entries (e.g. mc01:123456789012,mc02:987654321098)"
   type        = string
   default     = ""
 }
