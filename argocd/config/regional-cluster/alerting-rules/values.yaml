@@ -3,6 +3,7 @@ global:
   cluster_name: ""
   aws_region: ""
   cluster_type: ""
+  management_clusters: ""
 
 sla:
   hcpAvailability:
