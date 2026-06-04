@@ -12,6 +12,7 @@ metadata:
   labels:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/managed-by: {{ .Release.Service }}
+    grafana_datasource: "1"
 data:
   mc-datasources.yaml: |
     apiVersion: 1
