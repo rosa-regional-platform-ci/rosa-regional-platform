@@ -52,13 +52,13 @@ manifests:
           restartPolicy: Never
           containers:
             - name: ta
-              image: amazon/aws-cli:latest
+              image: bitnami/kubectl:latest
               command:
                 - sh
                 - -c
                 - |
                   kubectl get nodes -o json > /tmp/output.json &&
-                  aws s3 cp /tmp/output.json "s3://{{ .OutputBucket }}/{{ .ExecID }}/output.json"
+                  cat /tmp/output.json
               env:
                 - name: EXEC_ID
                   value: "{{ .ExecID }}"
