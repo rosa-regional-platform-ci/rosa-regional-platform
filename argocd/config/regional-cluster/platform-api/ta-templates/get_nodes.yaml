@@ -3,6 +3,12 @@ scope: kube-api
 description: List all nodes in the target cluster
 manifests:
   - apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: {{ .Namespace }}
+      labels:
+        zoa.rosa.io/managed: "true"
+  - apiVersion: v1
     kind: ServiceAccount
     metadata:
       name: zoa-get-nodes-{{ .ExecID }}
