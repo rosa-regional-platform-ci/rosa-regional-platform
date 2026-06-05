@@ -65,6 +65,10 @@ spec:
             mountPath: /mnt/secrets-store
             readOnly: true
 
+        podAnnotations:
+          checksum/adapter-task-config: {{ .Files.Get "adapter-task-config.yaml" | sha256sum }}
+          checksum/manifestwork: {{ .Files.Get "manifestwork.yaml" | sha256sum }}
+
         # AdapterConfig loaded from adapter-config.yaml file
         adapterConfig:
           log:
