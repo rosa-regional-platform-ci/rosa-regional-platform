@@ -296,3 +296,16 @@ spec:
               path: ".status.controlPlaneEndpoint.host"
             - name: "version"
               path: ".status.version.history[0].version"
+
+    - resourceIdentifier:
+        group: "hypershift.openshift.io"
+        resource: "nodepools"
+        namespace: "clusters-{{ .clusterId }}"
+        name: "{{ .clusterName }}-workers"
+      updateStrategy:
+        type: "ServerSideApply"
+      feedbackRules:
+        - type: "JSONPaths"
+          jsonPaths:
+            - name: "readyCondition"
+              path: ".status.conditions[?(@.type==\"Ready\")].status"
