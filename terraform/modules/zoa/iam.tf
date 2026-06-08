@@ -49,6 +49,11 @@ resource "aws_iam_role_policy" "platform_api_zoa_s3" {
         ]
         Resource = "${aws_s3_bucket.outputs.arn}/*"
       },
+      {
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = aws_s3_bucket.outputs.arn
+      },
     ]
   })
 }
