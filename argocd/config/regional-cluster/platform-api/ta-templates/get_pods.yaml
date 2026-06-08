@@ -3,6 +3,7 @@ profile: kube
 scope: kube-api
 type: read
 description: List pods in a namespace with optional label selector and status details
+timeout_seconds: 300
 params:
   - name: namespace
     required: true

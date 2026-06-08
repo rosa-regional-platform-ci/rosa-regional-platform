@@ -83,6 +83,7 @@ platformApi:
     jobRoleArn: ""
     jobImage: "quay.io/slopezz/zoa-tools:latest"
     ttlSeconds: "3600"
+    executionTimeoutSeconds: "1800"
     jobResources:
       requests:
         cpu: "100m"

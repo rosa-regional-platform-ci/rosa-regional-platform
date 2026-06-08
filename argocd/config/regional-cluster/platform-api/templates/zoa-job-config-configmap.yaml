@@ -15,6 +15,7 @@ data:
   cpu_limit: {{ .Values.platformApi.zoa.jobResources.limits.cpu | quote }}
   memory_limit: {{ .Values.platformApi.zoa.jobResources.limits.memory | quote }}
   ttl_seconds: {{ .Values.platformApi.zoa.ttlSeconds | quote }}
+  execution_timeout_seconds: {{ .Values.platformApi.zoa.executionTimeoutSeconds | default "1800" | quote }}
   entrypoint.sh: |
     #!/bin/bash
     set -uo pipefail

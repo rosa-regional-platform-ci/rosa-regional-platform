@@ -3,6 +3,7 @@ profile: kube
 scope: kube-api
 type: read
 description: List all nodes in the target cluster with status and resource information
+timeout_seconds: 300
 params:
   - name: node_selector
     required: false
