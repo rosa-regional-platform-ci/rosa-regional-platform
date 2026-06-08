@@ -33,7 +33,7 @@ variable "job_namespace" {
 variable "job_service_account" {
   description = "Kubernetes service account for ZOA jobs on MCs"
   type        = string
-  default     = "zoa-job-runner"
+  default     = "zoa-kube-sa"
 }
 
 variable "billing_mode" {
