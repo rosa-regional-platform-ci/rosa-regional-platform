@@ -2,132 +2,26 @@ name: get_nodes
 profile: kube
 scope: kube-api
 type: read
-description: List all nodes in the target cluster
+description: List all nodes in the target cluster with status and resource information
 params:
   - name: node_selector
     required: false
     default: ""
-manifests:
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRole
-    metadata:
-      name: zoa-get-nodes-{{ .ExecID }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/action: "{{ .ActionName }}"
-        zoa.rosa.io/managed: "true"
-    rules:
-      - apiGroups: [""]
-        resources: ["nodes"]
-        verbs: ["get", "list"]
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRoleBinding
-    metadata:
-      name: zoa-get-nodes-{{ .ExecID }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/action: "{{ .ActionName }}"
-        zoa.rosa.io/managed: "true"
-    roleRef:
-      apiGroup: rbac.authorization.k8s.io
-      kind: ClusterRole
-      name: zoa-get-nodes-{{ .ExecID }}
-    subjects:
-      - kind: ServiceAccount
-        name: zoa-kube-sa
-        namespace: {{ .Namespace }}
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      name: zoa-{{ .ExecID }}
-      namespace: {{ .Namespace }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/action: "{{ .ActionName }}"
-        zoa.rosa.io/profile: "kube"
-        zoa.rosa.io/type: "read"
-        zoa.rosa.io/managed: "true"
-    spec:
-      ttlSecondsAfterFinished: 3600
-      backoffLimit: 0
-      template:
-        metadata:
-          labels:
-            zoa.rosa.io/execution-id: "{{ .ExecID }}"
-            zoa.rosa.io/action: "{{ .ActionName }}"
-            zoa.rosa.io/profile: "kube"
-        spec:
-          serviceAccountName: zoa-kube-sa
-          restartPolicy: Never
-          containers:
-            - name: ta
-              image: "{{ .Image }}"
-              command: ["/bin/bash", "/zoa/entrypoint.sh"]
-              env:
-                - name: RUN_ID
-                  value: "{{ .ExecID }}"
-                - name: CLUSTER_ID
-                  value: "{{ .TargetCluster }}"
-                - name: ARTIFACT_BUCKET
-                  value: "{{ .OutputBucket }}"
-                - name: ACTION_NAME
-                  value: "{{ .ActionName }}"
-              volumeMounts:
-                - name: artifacts
-                  mountPath: /artifacts
-                - name: zoa-scripts
-                  mountPath: /zoa
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-                limits:
-                  cpu: 500m
-                  memory: 512Mi
-          volumes:
-            - name: artifacts
-              emptyDir: {}
-            - name: zoa-scripts
-              configMap:
-                name: zoa-scripts-{{ .ExecID }}
-                defaultMode: 0755
-  - apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: zoa-scripts-{{ .ExecID }}
-      namespace: {{ .Namespace }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/managed: "true"
-    data:
-      entrypoint.sh: |
-        #!/bin/bash
-        set -uo pipefail
+    description: "Label selector to filter nodes (e.g. node-role.kubernetes.io/worker=)"
+rbac:
+  cluster_scoped: true
+  rules:
+    - apiGroups: [""]
+      resources: ["nodes"]
+      verbs: ["get", "list"]
+script: |
+  ARGS=""
+  if [ -n "${PARAM_NODE_SELECTOR}" ]; then
+    ARGS="-l ${PARAM_NODE_SELECTOR}"
+  fi
 
-        echo "[zoa] Starting execution: ${RUN_ID}"
-        echo "[zoa] Action: ${ACTION_NAME}"
-        echo "[zoa] Target: ${CLUSTER_ID}"
-        echo "[zoa] Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-        echo "---"
+  echo "Retrieving nodes..."
+  kubectl get nodes ${ARGS} -o wide
 
-        /zoa/run.sh > /artifacts/stdout.log 2> /artifacts/stderr.log
-        EXIT_CODE=$?
-
-        echo "[zoa] Script exited with code: ${EXIT_CODE}"
-
-        if [ -n "${ARTIFACT_BUCKET}" ]; then
-          echo "[zoa] Uploading artifacts to s3://${ARTIFACT_BUCKET}/${RUN_ID}/"
-          aws s3 cp /artifacts/stdout.log "s3://${ARTIFACT_BUCKET}/${RUN_ID}/stdout.log" --quiet 2>/dev/null || true
-          aws s3 cp /artifacts/stderr.log "s3://${ARTIFACT_BUCKET}/${RUN_ID}/stderr.log" --quiet 2>/dev/null || true
-          if [ -f /artifacts/output.json ]; then
-            aws s3 cp /artifacts/output.json "s3://${ARTIFACT_BUCKET}/${RUN_ID}/output.json" --quiet 2>/dev/null || true
-          fi
-          echo "[zoa] Upload complete"
-        fi
-
-        exit $EXIT_CODE
-      run.sh: |
-        #!/bin/bash
-        set -euo pipefail
-        kubectl get nodes -o json > /artifacts/output.json
-        echo "Nodes retrieved successfully"
+  kubectl get nodes ${ARGS} -o json > /artifacts/output.json
+  echo "Nodes retrieved successfully"

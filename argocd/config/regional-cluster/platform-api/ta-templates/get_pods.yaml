@@ -2,152 +2,33 @@ name: get_pods
 profile: kube
 scope: kube-api
 type: read
-description: List pods in a namespace with optional label selector
+description: List pods in a namespace with optional label selector and status details
 params:
   - name: namespace
     required: true
+    description: "Target namespace to list pods from"
   - name: label_selector
     required: false
     default: ""
-manifests:
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: Role
-    metadata:
-      name: zoa-get-pods-{{ .ExecID }}
-      namespace: {{ index .Params "namespace" }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/action: "{{ .ActionName }}"
-        zoa.rosa.io/managed: "true"
-    rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "list"]
-      - apiGroups: [""]
-        resources: ["events"]
-        verbs: ["get", "list"]
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: RoleBinding
-    metadata:
-      name: zoa-get-pods-{{ .ExecID }}
-      namespace: {{ index .Params "namespace" }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/action: "{{ .ActionName }}"
-        zoa.rosa.io/managed: "true"
-    roleRef:
-      apiGroup: rbac.authorization.k8s.io
-      kind: Role
-      name: zoa-get-pods-{{ .ExecID }}
-    subjects:
-      - kind: ServiceAccount
-        name: zoa-kube-sa
-        namespace: {{ .Namespace }}
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      name: zoa-{{ .ExecID }}
-      namespace: {{ .Namespace }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/action: "{{ .ActionName }}"
-        zoa.rosa.io/profile: "kube"
-        zoa.rosa.io/type: "read"
-        zoa.rosa.io/managed: "true"
-    spec:
-      ttlSecondsAfterFinished: 3600
-      backoffLimit: 0
-      template:
-        metadata:
-          labels:
-            zoa.rosa.io/execution-id: "{{ .ExecID }}"
-            zoa.rosa.io/action: "{{ .ActionName }}"
-            zoa.rosa.io/profile: "kube"
-        spec:
-          serviceAccountName: zoa-kube-sa
-          restartPolicy: Never
-          containers:
-            - name: ta
-              image: "{{ .Image }}"
-              command: ["/bin/bash", "/zoa/entrypoint.sh"]
-              env:
-                - name: RUN_ID
-                  value: "{{ .ExecID }}"
-                - name: CLUSTER_ID
-                  value: "{{ .TargetCluster }}"
-                - name: ARTIFACT_BUCKET
-                  value: "{{ .OutputBucket }}"
-                - name: ACTION_NAME
-                  value: "{{ .ActionName }}"
-                - name: TARGET_NAMESPACE
-                  value: "{{ index .Params "namespace" }}"
-                - name: LABEL_SELECTOR
-                  value: "{{ index .Params "label_selector" }}"
-              volumeMounts:
-                - name: artifacts
-                  mountPath: /artifacts
-                - name: zoa-scripts
-                  mountPath: /zoa
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-                limits:
-                  cpu: 500m
-                  memory: 512Mi
-          volumes:
-            - name: artifacts
-              emptyDir: {}
-            - name: zoa-scripts
-              configMap:
-                name: zoa-scripts-{{ .ExecID }}
-                defaultMode: 0755
-  - apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: zoa-scripts-{{ .ExecID }}
-      namespace: {{ .Namespace }}
-      labels:
-        zoa.rosa.io/execution-id: "{{ .ExecID }}"
-        zoa.rosa.io/managed: "true"
-    data:
-      entrypoint.sh: |
-        #!/bin/bash
-        set -uo pipefail
+    description: "Label selector to filter pods (e.g. app=maestro)"
+rbac:
+  cluster_scoped: false
+  namespace_param: namespace
+  rules:
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "list"]
+    - apiGroups: [""]
+      resources: ["events"]
+      verbs: ["get", "list"]
+script: |
+  ARGS="-n ${PARAM_NAMESPACE}"
+  if [ -n "${PARAM_LABEL_SELECTOR}" ]; then
+    ARGS="${ARGS} -l ${PARAM_LABEL_SELECTOR}"
+  fi
 
-        echo "[zoa] Starting execution: ${RUN_ID}"
-        echo "[zoa] Action: ${ACTION_NAME}"
-        echo "[zoa] Target: ${CLUSTER_ID}"
-        echo "[zoa] Timestamp: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-        echo "---"
+  echo "Retrieving pods in namespace: ${PARAM_NAMESPACE}"
+  kubectl get pods ${ARGS} -o wide
 
-        /zoa/run.sh > /artifacts/stdout.log 2> /artifacts/stderr.log
-        EXIT_CODE=$?
-
-        echo "[zoa] Script exited with code: ${EXIT_CODE}"
-
-        if [ -n "${ARTIFACT_BUCKET}" ]; then
-          echo "[zoa] Uploading artifacts to s3://${ARTIFACT_BUCKET}/${RUN_ID}/"
-          aws s3 cp /artifacts/stdout.log "s3://${ARTIFACT_BUCKET}/${RUN_ID}/stdout.log" --quiet 2>/dev/null || true
-          aws s3 cp /artifacts/stderr.log "s3://${ARTIFACT_BUCKET}/${RUN_ID}/stderr.log" --quiet 2>/dev/null || true
-          if [ -f /artifacts/output.json ]; then
-            aws s3 cp /artifacts/output.json "s3://${ARTIFACT_BUCKET}/${RUN_ID}/output.json" --quiet 2>/dev/null || true
-          fi
-          echo "[zoa] Upload complete"
-        fi
-
-        exit $EXIT_CODE
-      run.sh: |
-        #!/bin/bash
-        set -euo pipefail
-
-        ARGS=""
-        if [ -n "${TARGET_NAMESPACE}" ]; then
-          ARGS="-n ${TARGET_NAMESPACE}"
-        fi
-        if [ -n "${LABEL_SELECTOR}" ]; then
-          ARGS="${ARGS} -l ${LABEL_SELECTOR}"
-        fi
-
-        kubectl get pods ${ARGS} -o json > /artifacts/output.json
-        echo "Pods retrieved successfully"
+  kubectl get pods ${ARGS} -o json > /artifacts/output.json
+  echo "Pods retrieved successfully"

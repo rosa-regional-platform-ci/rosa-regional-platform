@@ -79,6 +79,14 @@ platformApi:
     bucketName: ""
     jobRoleArn: ""
     jobImage: "quay.io/redhat-rosa/zoa-tools:latest"
+    ttlSeconds: "3600"
+    jobResources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
 
   # Health probe configuration
   probes:
