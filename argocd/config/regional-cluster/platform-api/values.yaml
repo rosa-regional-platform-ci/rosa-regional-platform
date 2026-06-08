@@ -18,7 +18,7 @@ platformApi:
     name: platform-api
     image:
       repository: quay.io/slopezz/rosa-regional-platform-api
-      tag: zoa-poc
+      tag: latest
       pullPolicy: Always
 
     # Application arguments
