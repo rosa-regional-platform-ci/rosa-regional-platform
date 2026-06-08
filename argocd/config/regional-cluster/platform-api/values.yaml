@@ -78,7 +78,7 @@ platformApi:
     tableName: ""
     bucketName: ""
     jobRoleArn: ""
-    jobImage: "quay.io/redhat-rosa/zoa-tools:latest"
+    jobImage: "quay.io/slopezz/zoa-tools:latest"
     ttlSeconds: "3600"
     jobResources:
       requests:
