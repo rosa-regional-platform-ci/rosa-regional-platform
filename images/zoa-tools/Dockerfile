@@ -4,7 +4,7 @@ ARG OC_VERSION="stable-4.17"
 ARG AWS_CLI_VERSION="awscli-exe-linux-x86_64.zip"
 ARG YQ_VERSION="v4.44.3"
 
-# System packages
+# System packages (curl-minimal already in ubi-minimal, don't install full curl)
 RUN microdnf install -y \
         bash \
         jq \
@@ -12,7 +12,6 @@ RUN microdnf install -y \
         tar \
         gzip \
         unzip \
-        curl \
         ca-certificates \
         shadow-utils \
     && microdnf clean all
