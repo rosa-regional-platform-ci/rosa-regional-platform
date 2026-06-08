@@ -98,6 +98,19 @@ module "maestro_agent" {
 }
 
 # =============================================================================
+# ZOA Job Pod Identity (cross-account S3 access for TA artifact uploads)
+# =============================================================================
+
+module "zoa_job_pod_identity" {
+  count  = var.zoa_outputs_bucket_arn != "" ? 1 : 0
+  source = "../../modules/zoa-job-pod-identity"
+
+  management_id          = var.management_id
+  eks_cluster_name       = module.management_cluster.cluster_name
+  zoa_outputs_bucket_arn = var.zoa_outputs_bucket_arn
+}
+
+# =============================================================================
 # DNS Pod Identity (cross-account Route53 access for external-dns + cert-manager)
 # =============================================================================
 

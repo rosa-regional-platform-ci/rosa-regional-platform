@@ -138,17 +138,6 @@ resource "aws_iam_role_policy" "job_kms" {
   })
 }
 
-# Pod Identity associations for Jobs on MCs
-resource "aws_eks_pod_identity_association" "job" {
-  for_each = toset(var.mc_eks_cluster_names)
-
-  cluster_name    = each.value
-  namespace       = var.job_namespace
-  service_account = var.job_service_account
-  role_arn        = aws_iam_role.job.arn
-
-  tags = merge(local.common_tags, {
-    Name      = "${var.regional_id}-zoa-job-pod-identity-${each.value}"
-    Component = "zoa-job"
-  })
-}
+# NOTE: Pod Identity associations for ZOA jobs on MCs are created by the
+# zoa-job-pod-identity module in the management-cluster Terraform config,
+# because associations must be in the same AWS account as the EKS cluster.

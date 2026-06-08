@@ -461,3 +461,8 @@ output "zoa_job_role_arn" {
   description = "IAM role ARN for ZOA jobs"
   value       = var.enable_zoa ? module.zoa[0].job_role_arn : ""
 }
+
+output "zoa_bucket_arn" {
+  description = "S3 bucket ARN for ZOA outputs (used by MC Pod Identity)"
+  value       = var.enable_zoa ? module.zoa[0].bucket_arn : ""
+}

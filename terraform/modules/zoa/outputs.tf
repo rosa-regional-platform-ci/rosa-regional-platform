@@ -8,6 +8,11 @@ output "bucket_name" {
   value       = aws_s3_bucket.outputs.id
 }
 
+output "bucket_arn" {
+  description = "S3 bucket ARN for ZOA outputs"
+  value       = aws_s3_bucket.outputs.arn
+}
+
 output "job_role_arn" {
   description = "IAM role ARN for ZOA jobs on MCs"
   value       = aws_iam_role.job.arn

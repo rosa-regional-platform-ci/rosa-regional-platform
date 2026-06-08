@@ -8,11 +8,11 @@ variable "eks_cluster_name" {
   type        = string
 }
 
-variable "mc_eks_cluster_names" {
-  description = "Names of management cluster EKS clusters for Pod Identity associations"
-  type        = list(string)
-  default     = []
+variable "mc_ou_path" {
+  description = "AWS Organizations OU path for MC accounts (for cross-account S3 bucket policy)"
+  type        = string
 }
+
 
 variable "platform_api_role_id" {
   description = "ID of the existing IAM role for Platform API (from authz module), used for policy attachment"
@@ -24,17 +24,6 @@ variable "platform_api_role_arn" {
   type        = string
 }
 
-variable "job_namespace" {
-  description = "Kubernetes namespace where ZOA jobs run on MCs"
-  type        = string
-  default     = "zoa-jobs"
-}
-
-variable "job_service_account" {
-  description = "Kubernetes service account for ZOA jobs on MCs"
-  type        = string
-  default     = "zoa-kube-sa"
-}
 
 variable "billing_mode" {
   description = "DynamoDB billing mode"
