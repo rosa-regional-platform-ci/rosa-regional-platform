@@ -111,9 +111,19 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [var.cluster_security_group_id]
   }
 
+  compute_config {
+    enabled = false
+  }
+
   kubernetes_network_config {
     elastic_load_balancing {
-      enabled = true
+      enabled = false
+    }
+  }
+
+  storage_config {
+    block_storage {
+      enabled = false
     }
   }
 
