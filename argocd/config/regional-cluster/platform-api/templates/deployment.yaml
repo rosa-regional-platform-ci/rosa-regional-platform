@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         app: {{ .Values.platformApi.app.name }}
+      annotations:
+        checksum/zoa-job-config: {{ include (print $.Template.BasePath "/zoa-job-config-configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ .Values.platformApi.serviceAccount.name }}
       topologySpreadConstraints:
