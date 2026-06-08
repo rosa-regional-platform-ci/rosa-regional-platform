@@ -70,3 +70,140 @@ resource "aws_iam_role_policy_attachment" "auto_node_managed" {
   policy_arn = each.value
   role       = aws_iam_role.eks_auto_mode_node.name
 }
+
+# -----------------------------------------------------------------------------
+# Karpenter Controller IRSA
+# -----------------------------------------------------------------------------
+data "aws_iam_openid_connect_provider" "eks" {
+  url = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_role" "karpenter_controller" {
+  name = "${local.cluster_id}-karpenter-controller"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = data.aws_iam_openid_connect_provider.eks.arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${replace(data.aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub" = "system:serviceaccount:kube-system:karpenter"
+          "${replace(data.aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "karpenter_controller" {
+  name = "karpenter-controller"
+  role = aws_iam_role.karpenter_controller.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowEC2NodeProvisioning"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateFleet", "ec2:CreateLaunchTemplate", "ec2:CreateTags",
+          "ec2:DeleteLaunchTemplate", "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeImages", "ec2:DescribeInstances",
+          "ec2:DescribeInstanceTypeOfferings", "ec2:DescribeInstanceTypes",
+          "ec2:DescribeLaunchTemplates", "ec2:DescribeSecurityGroups",
+          "ec2:DescribeSpotPriceHistory", "ec2:DescribeSubnets",
+          "ec2:RunInstances", "ec2:TerminateInstances"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid      = "AllowPassRoleToNodes"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = aws_iam_role.eks_auto_mode_node.arn
+      },
+      {
+        Sid    = "AllowInterruptionQueue"
+        Effect = "Allow"
+        Action = [
+          "sqs:DeleteMessage", "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl", "sqs:ReceiveMessage"
+        ]
+        Resource = aws_sqs_queue.karpenter_interruption.arn
+      },
+      {
+        Sid      = "AllowEKSAccess"
+        Effect   = "Allow"
+        Action   = ["eks:DescribeCluster"]
+        Resource = aws_eks_cluster.main.arn
+      },
+      {
+        Sid    = "AllowInstanceProfileAccess"
+        Effect = "Allow"
+        Action = [
+          "iam:AddRoleToInstanceProfile", "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile", "iam:GetInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile", "iam:TagInstanceProfile"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# -----------------------------------------------------------------------------
+# SQS Interruption Queue
+# -----------------------------------------------------------------------------
+resource "aws_sqs_queue" "karpenter_interruption" {
+  name                      = "${local.cluster_id}-karpenter"
+  message_retention_seconds = 300
+  sqs_managed_sse_enabled   = true
+}
+
+resource "aws_sqs_queue_policy" "karpenter_interruption" {
+  queue_url = aws_sqs_queue.karpenter_interruption.url
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = ["events.amazonaws.com", "sqs.amazonaws.com"] }
+      Action    = "sqs:SendMessage"
+      Resource  = aws_sqs_queue.karpenter_interruption.arn
+    }]
+  })
+}
+
+# -----------------------------------------------------------------------------
+# Node Instance Profile
+#
+# Auto Mode creates the instance profile implicitly; open-source Karpenter
+# requires it to exist as an explicit resource.
+# -----------------------------------------------------------------------------
+resource "aws_iam_instance_profile" "karpenter_node" {
+  name = "${local.cluster_id}-karpenter-node"
+  role = aws_iam_role.eks_auto_mode_node.name
+}
+
+# -----------------------------------------------------------------------------
+# KMS Grant for Node Role
+#
+# RHEL AMI EBS volumes are encrypted with a CMK in the build account.
+# Each target account's node role must be allowed to use that key.
+# -----------------------------------------------------------------------------
+resource "aws_iam_role_policy" "karpenter_node_kms" {
+  name = "karpenter-node-kms-cross-account"
+  role = aws_iam_role.eks_auto_mode_node.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["kms:CreateGrant", "kms:DescribeKey"]
+      Resource = "arn:aws:kms:us-east-1:660777614061:key/7588d98c-8973-43d8-ab87-af54fa057d64"
+    }]
+  })
+}

@@ -111,26 +111,8 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [var.cluster_security_group_id]
   }
 
-  compute_config {
-    enabled       = true
-    node_pools    = ["system"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
-  }
-
   kubernetes_network_config {
     elastic_load_balancing {
-      enabled = true
-    }
-  }
-
-  storage_config {
-    block_storage {
       enabled = true
     }
   }
@@ -142,6 +124,89 @@ resource "aws_eks_cluster" "main" {
     aws_cloudwatch_log_group.eks_cluster,
     aws_kms_key.eks_secrets
   ]
+}
+
+# -----------------------------------------------------------------------------
+# Bootstrap node group — runs only the Karpenter controller.
+# Uses AL2023 (not RHEL) intentionally: this group exists only to provide
+# capacity for the Karpenter controller pod before Karpenter can provision
+# RHEL workload nodes.
+# -----------------------------------------------------------------------------
+resource "aws_eks_node_group" "karpenter_bootstrap" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${local.cluster_id}-karpenter-bootstrap"
+  node_role_arn   = aws_iam_role.eks_auto_mode_node.arn
+  subnet_ids      = var.private_subnet_ids
+
+  ami_type       = "AL2023_x86_64_STANDARD"
+  instance_types = ["t3.small"]
+
+  scaling_config {
+    desired_size = 2
+    min_size     = 2
+    max_size     = 3
+  }
+
+  labels = {
+    "karpenter.sh/controller" = "true"
+  }
+
+  taint {
+    key    = "karpenter.sh/controller"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
+
+  depends_on = [aws_eks_cluster.main]
+}
+
+# -----------------------------------------------------------------------------
+# Karpenter — installed via Helm after the bootstrap node group is ready.
+# ECR Public is always in us-east-1; the default provider is used directly
+# since this cluster is in us-east-1.
+# -----------------------------------------------------------------------------
+data "aws_ecrpublic_authorization_token" "karpenter" {}
+
+resource "helm_release" "karpenter" {
+  namespace        = "kube-system"
+  name             = "karpenter"
+  repository       = "oci://public.ecr.aws/karpenter"
+  chart            = "karpenter"
+  version          = "1.4.0"
+  create_namespace = false
+
+  repository_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
+  repository_password = data.aws_ecrpublic_authorization_token.karpenter.password
+
+  set {
+    name  = "settings.clusterName"
+    value = aws_eks_cluster.main.name
+  }
+
+  set {
+    name  = "settings.interruptionQueue"
+    value = aws_sqs_queue.karpenter_interruption.name
+  }
+
+  set {
+    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+    value = aws_iam_role.karpenter_controller.arn
+  }
+
+  set {
+    name  = "tolerations[0].key"
+    value = "karpenter.sh/controller"
+  }
+  set {
+    name  = "tolerations[0].operator"
+    value = "Exists"
+  }
+  set {
+    name  = "tolerations[0].effect"
+    value = "NoSchedule"
+  }
+
+  depends_on = [aws_eks_node_group.karpenter_bootstrap]
 }
 
 # -----------------------------------------------------------------------------

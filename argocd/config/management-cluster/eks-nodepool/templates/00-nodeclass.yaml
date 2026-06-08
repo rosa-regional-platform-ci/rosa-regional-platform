@@ -1,5 +1,5 @@
-apiVersion: eks.amazonaws.com/v1
-kind: NodeClass
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
 metadata:
   name: fips
 spec:
@@ -10,6 +10,37 @@ spec:
   securityGroupSelectorTerms:
     - tags:
         aws:eks:cluster-name: "{{ .Values.global.cluster_name }}"
-  advancedSecurity:
-    fips: true
-    kernelLockdown: Integrity
+  amiFamily: Custom
+  amiSelectorTerms:
+    {{- range .Values.eksNodeClass.amiIds }}
+    - id: {{ . }}
+    {{- end }}
+  userData: |
+    #!/bin/bash
+    set -euo pipefail
+
+    cat > /tmp/nodeconfig.json << 'NODECONFIG'
+    {
+      "apiVersion": "node.eks.aws/v1alpha1",
+      "kind": "NodeConfig",
+      "spec": {
+        "cluster": {
+          "name": "{{ .Values.global.cluster_name }}",
+          "region": "{{ .Values.global.region }}"
+        }
+      }
+    }
+    NODECONFIG
+
+    nodeadm init --config-source file:///tmp/nodeconfig.json
+
+    # EC2-type access entries authenticate nodes as system:node:<instance-id>.
+    # nodeadm sets --hostname-override to the EC2 private DNS name, which causes
+    # the Node Authorizer to reject all kubelet API calls. Override to match.
+    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    CURRENT=$(grep -o -- '--hostname-override=[^ ]*' /etc/eks/kubelet/environment | cut -d= -f2)
+    sed -i "s/--hostname-override=${CURRENT}/--hostname-override=${INSTANCE_ID}/" \
+      /etc/eks/kubelet/environment
+
+    systemctl daemon-reload
+    systemctl restart kubelet
