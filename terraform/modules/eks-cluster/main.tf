@@ -165,7 +165,11 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
     "karpenter.sh/controller" = "true"
   }
 
-  depends_on = [aws_eks_cluster.main]
+  depends_on = [
+    aws_eks_cluster.main,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.kube_proxy,
+  ]
 }
 
 # -----------------------------------------------------------------------------
@@ -232,6 +236,22 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "metrics_server" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "metrics-server"
+}
+
+# bootstrap_self_managed_addons = false prevents EKS from auto-installing VPC
+# CNI and kube-proxy. Auto Mode manages both on the regional cluster, so that
+# is correct there. On the management cluster (Karpenter, no Auto Mode) they
+# must be installed explicitly or nodes join but cannot get pod IPs.
+resource "aws_eks_addon" "vpc_cni" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "vpc-cni"
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "kube-proxy"
 }
 
 resource "aws_eks_addon" "pod_identity" {
