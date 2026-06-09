@@ -74,9 +74,16 @@ resource "aws_iam_role_policy_attachment" "auto_node_managed" {
 # -----------------------------------------------------------------------------
 # Karpenter Controller IRSA
 # -----------------------------------------------------------------------------
-data "aws_iam_openid_connect_provider" "eks" {
+data "tls_certificate" "eks_oidc" {
   count = var.enable_karpenter ? 1 : 0
   url   = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  count           = var.enable_karpenter ? 1 : 0
+  url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks_oidc[0].certificates[0].sha1_fingerprint]
 }
 
 resource "aws_iam_role" "karpenter_controller" {
@@ -88,13 +95,13 @@ resource "aws_iam_role" "karpenter_controller" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = data.aws_iam_openid_connect_provider.eks[0].arn
+        Federated = aws_iam_openid_connect_provider.eks[0].arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${replace(data.aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:sub" = "system:serviceaccount:kube-system:karpenter"
-          "${replace(data.aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:aud" = "sts.amazonaws.com"
+          "${replace(aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:sub" = "system:serviceaccount:kube-system:karpenter"
+          "${replace(aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:aud" = "sts.amazonaws.com"
         }
       }
     }]
