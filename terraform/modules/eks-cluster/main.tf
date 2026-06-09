@@ -112,18 +112,20 @@ resource "aws_eks_cluster" "main" {
   }
 
   compute_config {
-    enabled = false
+    enabled       = !var.enable_karpenter
+    node_pools    = ["system"]
+    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
   }
 
   kubernetes_network_config {
     elastic_load_balancing {
-      enabled = false
+      enabled = !var.enable_karpenter
     }
   }
 
   storage_config {
     block_storage {
-      enabled = false
+      enabled = !var.enable_karpenter
     }
   }
 
