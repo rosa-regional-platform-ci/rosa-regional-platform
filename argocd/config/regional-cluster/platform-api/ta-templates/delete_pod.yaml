@@ -17,7 +17,7 @@ rbac:
   rules:
     - apiGroups: [""]
       resources: ["pods"]
-      verbs: ["get", "delete"]
+      verbs: ["get", "list", "watch", "delete"]
 script: |
   set -euo pipefail
 
