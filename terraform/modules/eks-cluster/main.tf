@@ -153,7 +153,7 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
   subnet_ids      = var.private_subnet_ids
 
   ami_type       = "AL2023_x86_64_STANDARD"
-  instance_types = ["t3.small"]
+  instance_types = ["t3.medium"]
 
   scaling_config {
     desired_size = 2
@@ -163,12 +163,6 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
 
   labels = {
     "karpenter.sh/controller" = "true"
-  }
-
-  taint {
-    key    = "karpenter.sh/controller"
-    value  = "true"
-    effect = "NO_SCHEDULE"
   }
 
   depends_on = [aws_eks_cluster.main]
@@ -209,19 +203,6 @@ resource "helm_release" "karpenter" {
   set {
     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
     value = aws_iam_role.karpenter_controller[0].arn
-  }
-
-  set {
-    name  = "tolerations[0].key"
-    value = "karpenter.sh/controller"
-  }
-  set {
-    name  = "tolerations[0].operator"
-    value = "Exists"
-  }
-  set {
-    name  = "tolerations[0].effect"
-    value = "NoSchedule"
   }
 
   depends_on = [aws_eks_node_group.karpenter_bootstrap]
