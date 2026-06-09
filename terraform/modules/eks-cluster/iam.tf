@@ -73,10 +73,14 @@ resource "aws_iam_role_policy_attachment" "auto_node_managed" {
 
 # AmazonEKSWorkerNodeMinimalPolicy is Auto Mode-specific and insufficient for
 # standard managed node groups. The bootstrap node group (AL2023) needs the
-# full worker node policy so kubelet can register with the control plane.
-resource "aws_iam_role_policy_attachment" "karpenter_bootstrap_node_policy" {
-  count      = var.enable_karpenter ? 1 : 0
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+# full worker node policy and CNI policy so kubelet can register and the VPC
+# CNI can manage ENIs for pod networking.
+resource "aws_iam_role_policy_attachment" "karpenter_bootstrap_node_policies" {
+  for_each = var.enable_karpenter ? toset([
+    "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+    "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+  ]) : toset([])
+  policy_arn = each.value
   role       = aws_iam_role.eks_auto_mode_node.name
 }
 
