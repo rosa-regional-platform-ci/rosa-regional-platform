@@ -67,7 +67,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "outputs" {
 }
 
 resource "aws_s3_bucket_policy" "outputs" {
-  bucket = aws_s3_bucket.outputs.id
+  bucket     = aws_s3_bucket.outputs.id
+  depends_on = [aws_s3_bucket_public_access_block.outputs]
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -84,20 +85,6 @@ resource "aws_s3_bucket_policy" "outputs" {
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
-          }
-        }
-      },
-      {
-        Sid    = "AllowCrossAccountJobUpload"
-        Effect = "Allow"
-        Principal = {
-          AWS = "*"
-        }
-        Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.outputs.arn}/*"
-        Condition = {
-          StringLike = {
-            "aws:PrincipalArn" = "arn:*:iam::*:role/*-zoa-job"
           }
         }
       },

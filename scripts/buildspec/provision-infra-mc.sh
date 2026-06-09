@@ -123,6 +123,10 @@ else
     # ZOA outputs bucket ARN (optional — only present when enable_zoa=true on RC)
     export TF_VAR_zoa_outputs_bucket_arn=$(cd "$_RC_TF_DIR" && terraform output -raw zoa_bucket_arn 2>/dev/null || echo "")
     echo "  ZOA Bucket ARN:  ${TF_VAR_zoa_outputs_bucket_arn:-<not available>}"
+
+    # ZOA KMS key ARN (optional — for S3 SSE-KMS cross-account access)
+    export TF_VAR_zoa_kms_key_arn=$(cd "$_RC_TF_DIR" && terraform output -raw zoa_kms_key_arn 2>/dev/null || echo "")
+    echo "  ZOA KMS Key ARN: ${TF_VAR_zoa_kms_key_arn:-<not available>}"
 fi
 
 # =====================================================================

@@ -35,11 +35,18 @@ resource "aws_iam_role_policy" "zoa_job_s3" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = "s3:PutObject"
-      Resource = "${var.zoa_outputs_bucket_arn}/*"
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "s3:PutObject"
+        Resource = "${var.zoa_outputs_bucket_arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "kms:GenerateDataKey"
+        Resource = var.zoa_kms_key_arn
+      },
+    ]
   })
 }
 

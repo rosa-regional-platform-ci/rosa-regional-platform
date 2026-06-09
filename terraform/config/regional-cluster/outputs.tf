@@ -466,3 +466,8 @@ output "zoa_bucket_arn" {
   description = "S3 bucket ARN for ZOA outputs (used by MC Pod Identity)"
   value       = var.enable_zoa ? module.zoa[0].bucket_arn : ""
 }
+
+output "zoa_kms_key_arn" {
+  description = "KMS key ARN for ZOA encryption (used by MC Pod Identity for S3 SSE-KMS)"
+  value       = var.enable_zoa ? module.zoa[0].kms_key_arn : ""
+}

@@ -60,6 +60,22 @@ resource "aws_kms_key_policy" "zoa" {
         ]
         Resource = "*"
       },
+      {
+        Sid    = "AllowCrossAccountJobKMS"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "kms:GenerateDataKey",
+        ]
+        Resource = "*"
+        Condition = {
+          StringLike = {
+            "aws:PrincipalArn" = "arn:aws:iam::*:role/*-zoa-job"
+          }
+        }
+      },
     ]
   })
 }

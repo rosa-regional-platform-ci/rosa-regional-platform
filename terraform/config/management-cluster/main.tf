@@ -108,6 +108,7 @@ module "zoa_job_pod_identity" {
   management_id          = var.management_id
   eks_cluster_name       = module.management_cluster.cluster_name
   zoa_outputs_bucket_arn = var.zoa_outputs_bucket_arn
+  zoa_kms_key_arn        = var.zoa_kms_key_arn
 }
 
 # =============================================================================
