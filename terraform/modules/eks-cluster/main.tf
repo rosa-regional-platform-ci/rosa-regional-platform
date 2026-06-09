@@ -113,8 +113,8 @@ resource "aws_eks_cluster" "main" {
 
   compute_config {
     enabled       = !var.enable_karpenter
-    node_pools    = ["system"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
+    node_pools    = var.enable_karpenter ? null : ["system"]
+    node_role_arn = var.enable_karpenter ? null : aws_iam_role.eks_auto_mode_node.arn
   }
 
   kubernetes_network_config {
