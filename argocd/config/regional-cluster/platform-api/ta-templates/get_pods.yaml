@@ -17,6 +17,10 @@ params:
     required: false
     default: ""
     description: "Label selector to filter pods (e.g. app=maestro)"
+  - name: verbose
+    required: false
+    default: "false"
+    description: "Return full JSON output instead of compact summary"
 rbac:
   cluster_scoped: true
   rules:
@@ -49,5 +53,22 @@ script: |
     SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
   fi
 
-  kubectl get pods "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /artifacts/output.json
+  kubectl get pods "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+
+  if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
+    cp /tmp/raw.json /artifacts/output.json
+  else
+    jq '{
+      summary: (.items | length | tostring) + " pods, " + ([.items[] | select(.status.phase=="Running")] | length | tostring) + " Running, " + ([.items[] | select(.status.phase!="Running" and .status.phase!="Succeeded")] | length | tostring) + " unhealthy",
+      pods: [.items[] | {
+        name: .metadata.name,
+        namespace: .metadata.namespace,
+        status: .status.phase,
+        ready: (if .status.containerStatuses then ([.status.containerStatuses[] | select(.ready==true)] | length | tostring) + "/" + (.status.containerStatuses | length | tostring) else "0/0" end),
+        restarts: (if .status.containerStatuses then [.status.containerStatuses[].restartCount] | add else 0 end),
+        node: .spec.nodeName,
+        created: .metadata.creationTimestamp
+      }]
+    }' /tmp/raw.json > /artifacts/output.json
+  fi
   echo "Pods retrieved successfully"

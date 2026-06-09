@@ -9,6 +9,10 @@ params:
     required: false
     default: ""
     description: "Label selector to filter namespaces (e.g. kubernetes.io/metadata.name=openshift-monitoring)"
+  - name: verbose
+    required: false
+    default: "false"
+    description: "Return full JSON output instead of compact summary"
 rbac:
   cluster_scoped: true
   rules:
@@ -24,5 +28,18 @@ script: |
   fi
 
   echo "Retrieving namespaces..."
-  kubectl get namespaces "${SELECTOR_ARGS[@]}" -o json > /artifacts/output.json
+  kubectl get namespaces "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+
+  if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
+    cp /tmp/raw.json /artifacts/output.json
+  else
+    jq '{
+      summary: (.items | length | tostring) + " namespaces, " + ([.items[] | select(.status.phase=="Active")] | length | tostring) + " Active",
+      namespaces: [.items[] | {
+        name: .metadata.name,
+        status: .status.phase,
+        created: .metadata.creationTimestamp
+      }]
+    }' /tmp/raw.json > /artifacts/output.json
+  fi
   echo "Namespaces retrieved successfully"

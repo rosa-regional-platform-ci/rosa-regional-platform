@@ -9,6 +9,10 @@ params:
     required: false
     default: ""
     description: "Label selector to filter nodes (e.g. node-role.kubernetes.io/worker=)"
+  - name: verbose
+    required: false
+    default: "false"
+    description: "Return full JSON output instead of compact summary"
 rbac:
   cluster_scoped: true
   rules:
@@ -24,5 +28,22 @@ script: |
   fi
 
   echo "Retrieving nodes..."
-  kubectl get nodes "${SELECTOR_ARGS[@]}" -o json > /artifacts/output.json
+  kubectl get nodes "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+
+  if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
+    cp /tmp/raw.json /artifacts/output.json
+  else
+    jq '{
+      summary: (.items | length | tostring) + " nodes, " + ([.items[] | select(.status.conditions[] | select(.type=="Ready" and .status=="True"))] | length | tostring) + " Ready",
+      nodes: [.items[] | {
+        name: .metadata.name,
+        status: (if (.status.conditions[] | select(.type=="Ready") | .status) == "True" then "Ready" else "NotReady" end),
+        instance_type: .metadata.labels["node.kubernetes.io/instance-type"],
+        zone: .metadata.labels["topology.kubernetes.io/zone"],
+        capacity_cpu: .status.capacity.cpu,
+        capacity_memory: .status.capacity.memory,
+        created: .metadata.creationTimestamp
+      }]
+    }' /tmp/raw.json > /artifacts/output.json
+  fi
   echo "Nodes retrieved successfully"
