@@ -2,19 +2,23 @@ name: get_pods
 profile: kube
 scope: kube-api
 type: read
-description: List pods in a namespace with optional label selector and status details
+description: List pods in a namespace or across all namespaces with optional label selector
 timeout_seconds: 300
 params:
   - name: namespace
-    required: true
+    required: false
+    default: ""
     description: "Target namespace to list pods from"
+  - name: all_namespaces
+    required: false
+    default: "false"
+    description: "List pods across all namespaces (overrides namespace)"
   - name: label_selector
     required: false
     default: ""
     description: "Label selector to filter pods (e.g. app=maestro)"
 rbac:
-  cluster_scoped: false
-  namespace_param: namespace
+  cluster_scoped: true
   rules:
     - apiGroups: [""]
       resources: ["pods"]
@@ -25,11 +29,25 @@ rbac:
 script: |
   set -euo pipefail
 
+  NAMESPACE_ARGS=()
+  if [ "${PARAM_ALL_NAMESPACES:-false}" = "true" ]; then
+    if [ -n "${PARAM_NAMESPACE:-}" ]; then
+      echo "WARNING: all_namespaces=true overrides namespace=${PARAM_NAMESPACE}"
+    fi
+    NAMESPACE_ARGS=(--all-namespaces)
+    echo "Retrieving pods across all namespaces"
+  elif [ -n "${PARAM_NAMESPACE:-}" ]; then
+    NAMESPACE_ARGS=(-n "${PARAM_NAMESPACE}")
+    echo "Retrieving pods in namespace: ${PARAM_NAMESPACE}"
+  else
+    echo "ERROR: Specify namespace or set all_namespaces=true"
+    exit 1
+  fi
+
   SELECTOR_ARGS=()
   if [ -n "${PARAM_LABEL_SELECTOR:-}" ]; then
     SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
   fi
 
-  echo "Retrieving pods in namespace: ${PARAM_NAMESPACE}"
-  kubectl get pods -n "${PARAM_NAMESPACE}" "${SELECTOR_ARGS[@]}" -o json > /artifacts/output.json
+  kubectl get pods "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /artifacts/output.json
   echo "Pods retrieved successfully"

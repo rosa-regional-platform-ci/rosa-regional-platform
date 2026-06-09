@@ -12,6 +12,10 @@ params:
     required: false
     default: ""
     description: "Namespace for namespace-scoped resources (omit for cluster-scoped)"
+  - name: all_namespaces
+    required: false
+    default: "false"
+    description: "List resources across all namespaces (overrides namespace)"
   - name: name
     required: false
     default: ""
@@ -33,6 +37,7 @@ script: |
   NAMESPACE="${PARAM_NAMESPACE:-}"
   NAME="${PARAM_NAME:-}"
   LABEL_SELECTOR="${PARAM_LABEL_SELECTOR:-}"
+  ALL_NS="${PARAM_ALL_NAMESPACES:-false}"
 
   BLOCKED_PREFIXES="clusters-"
 
@@ -41,6 +46,15 @@ script: |
       echo "ERROR: Access to secrets in HCP namespaces (${NAMESPACE}) is denied"
       exit 1
     fi
+    if [ "${ALL_NS}" = "true" ]; then
+      echo "ERROR: Listing secrets across all namespaces is denied"
+      exit 1
+    fi
+  fi
+
+  if [ "${ALL_NS}" = "true" ] && [ -n "${NAME}" ]; then
+    echo "ERROR: Cannot use all_namespaces with a specific resource name"
+    exit 1
   fi
 
   ARGS=("${RESOURCE}")
@@ -49,7 +63,12 @@ script: |
     ARGS+=("${NAME}")
   fi
 
-  if [ -n "${NAMESPACE}" ]; then
+  if [ "${ALL_NS}" = "true" ]; then
+    if [ -n "${NAMESPACE}" ]; then
+      echo "WARNING: all_namespaces=true overrides namespace=${NAMESPACE}"
+    fi
+    ARGS+=(--all-namespaces)
+  elif [ -n "${NAMESPACE}" ]; then
     ARGS+=(-n "${NAMESPACE}")
   fi
 
