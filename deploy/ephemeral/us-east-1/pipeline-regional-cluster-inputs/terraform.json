@@ -19,5 +19,6 @@
   "eph_prefix": "eph-d35ada",
   "node_instance_types": ["m5.large", "m5a.large"],
   "iot_log_level": "WARN",
-  "management_clusters_info": [{"account_id": "129678139271", "id": "eph-d35ada-mc01"}]
+  "management_clusters_info": [{"account_id": "129678139271", "id": "eph-d35ada-mc01"}],
+  "delete": true
 }
