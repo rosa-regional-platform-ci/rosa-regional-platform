@@ -1,22 +1,22 @@
-name: get_pods
+name: get_statefulsets
 profile: kube
 scope: kube-api
 type: read
-description: List pods in a namespace or across all namespaces with optional label selector
+description: List statefulsets with replica status and storage class information
 timeout_seconds: 300
 params:
   - name: namespace
     required: false
     default: ""
-    description: "Target namespace to list pods from"
+    description: "Target namespace"
   - name: all_namespaces
     required: false
     default: "false"
-    description: "List pods across all namespaces (overrides namespace)"
+    description: "List across all namespaces (overrides namespace)"
   - name: label_selector
     required: false
     default: ""
-    description: "Label selector to filter pods (e.g. app=maestro)"
+    description: "Label selector to filter (e.g. app=etcd)"
   - name: verbose
     required: false
     default: "false"
@@ -24,8 +24,8 @@ params:
 rbac:
   cluster_scoped: true
   rules:
-    - apiGroups: [""]
-      resources: ["pods"]
+    - apiGroups: ["apps"]
+      resources: ["statefulsets"]
       verbs: ["get", "list"]
 script: |
   set -euo pipefail
@@ -36,10 +36,8 @@ script: |
       echo "WARNING: all_namespaces=true overrides namespace=${PARAM_NAMESPACE}"
     fi
     NAMESPACE_ARGS=(--all-namespaces)
-    echo "Retrieving pods across all namespaces"
   elif [ -n "${PARAM_NAMESPACE:-}" ]; then
     NAMESPACE_ARGS=(-n "${PARAM_NAMESPACE}")
-    echo "Retrieving pods in namespace: ${PARAM_NAMESPACE}"
   else
     echo "ERROR: Specify namespace or set all_namespaces=true"
     exit 1
@@ -50,7 +48,7 @@ script: |
     SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
   fi
 
-  kubectl get pods "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+  kubectl get statefulsets "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
 
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
     cp /tmp/raw.json /artifacts/output.json
@@ -58,12 +56,12 @@ script: |
     jq '[.items[] | {
       name: .metadata.name,
       namespace: .metadata.namespace,
-      ready: (if .status.containerStatuses then ([.status.containerStatuses[] | select(.ready==true)] | length | tostring) + "/" + (.status.containerStatuses | length | tostring) else "0/0" end),
-      status: .status.phase,
-      restarts: (if .status.containerStatuses then [.status.containerStatuses[].restartCount] | add else 0 end),
+      ready: ((.status.readyReplicas // 0 | tostring) + "/" + (.spec.replicas | tostring)),
       age: ((now - (.metadata.creationTimestamp | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d" elif . >= 3600 then (. / 3600 | floor | tostring) + "h" elif . >= 60 then (. / 60 | floor | tostring) + "m" else (. | floor | tostring) + "s" end),
-      ip: .status.podIP,
-      node: .spec.nodeName
+      update_strategy: .spec.updateStrategy.type,
+      service_name: .spec.serviceName,
+      storage_class: (if .spec.volumeClaimTemplates then [.spec.volumeClaimTemplates[].spec.storageClassName] | unique | join(",") else "none" end),
+      storage_size: (if .spec.volumeClaimTemplates then [.spec.volumeClaimTemplates[].spec.resources.requests.storage] | join(",") else "none" end)
     }]' /tmp/raw.json > /artifacts/output.json
   fi
-  echo "Pods retrieved successfully"
+  echo "StatefulSets retrieved successfully"

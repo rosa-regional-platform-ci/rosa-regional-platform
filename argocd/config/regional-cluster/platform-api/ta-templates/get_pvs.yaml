@@ -1,0 +1,49 @@
+name: get_pvs
+profile: kube
+scope: kube-api
+type: read
+description: List persistent volumes with status, capacity, reclaim policy, and claim binding
+timeout_seconds: 300
+params:
+  - name: label_selector
+    required: false
+    default: ""
+    description: "Label selector to filter PVs"
+  - name: verbose
+    required: false
+    default: "false"
+    description: "Return full JSON output instead of compact summary"
+rbac:
+  cluster_scoped: true
+  rules:
+    - apiGroups: [""]
+      resources: ["persistentvolumes"]
+      verbs: ["get", "list"]
+script: |
+  set -euo pipefail
+
+  SELECTOR_ARGS=()
+  if [ -n "${PARAM_LABEL_SELECTOR:-}" ]; then
+    SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
+  fi
+
+  echo "Retrieving persistent volumes..."
+  kubectl get pv "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+
+  if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
+    cp /tmp/raw.json /artifacts/output.json
+  else
+    jq '[.items[] | {
+      name: .metadata.name,
+      capacity: .spec.capacity.storage,
+      access_modes: (.spec.accessModes | join(",")),
+      reclaim_policy: .spec.persistentVolumeReclaimPolicy,
+      status: .status.phase,
+      claim: (if .spec.claimRef then (.spec.claimRef.namespace + "/" + .spec.claimRef.name) else "<available>" end),
+      storage_class: (.spec.storageClassName // "<none>"),
+      reason: (.status.reason // ""),
+      age: ((now - (.metadata.creationTimestamp | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d" elif . >= 3600 then (. / 3600 | floor | tostring) + "h" elif . >= 60 then (. / 60 | floor | tostring) + "m" else (. | floor | tostring) + "s" end),
+      volume_type: (if .spec.csi then .spec.csi.driver elif .spec.awsElasticBlockStore then "aws-ebs" elif .spec.hostPath then "hostPath" else "unknown" end)
+    }]' /tmp/raw.json > /artifacts/output.json
+  fi
+  echo "PVs retrieved successfully"

@@ -1,22 +1,22 @@
-name: get_pods
+name: get_services
 profile: kube
 scope: kube-api
 type: read
-description: List pods in a namespace or across all namespaces with optional label selector
+description: List services with type, cluster IP, ports, and selector
 timeout_seconds: 300
 params:
   - name: namespace
     required: false
     default: ""
-    description: "Target namespace to list pods from"
+    description: "Target namespace"
   - name: all_namespaces
     required: false
     default: "false"
-    description: "List pods across all namespaces (overrides namespace)"
+    description: "List across all namespaces (overrides namespace)"
   - name: label_selector
     required: false
     default: ""
-    description: "Label selector to filter pods (e.g. app=maestro)"
+    description: "Label selector to filter"
   - name: verbose
     required: false
     default: "false"
@@ -25,7 +25,7 @@ rbac:
   cluster_scoped: true
   rules:
     - apiGroups: [""]
-      resources: ["pods"]
+      resources: ["services"]
       verbs: ["get", "list"]
 script: |
   set -euo pipefail
@@ -36,10 +36,8 @@ script: |
       echo "WARNING: all_namespaces=true overrides namespace=${PARAM_NAMESPACE}"
     fi
     NAMESPACE_ARGS=(--all-namespaces)
-    echo "Retrieving pods across all namespaces"
   elif [ -n "${PARAM_NAMESPACE:-}" ]; then
     NAMESPACE_ARGS=(-n "${PARAM_NAMESPACE}")
-    echo "Retrieving pods in namespace: ${PARAM_NAMESPACE}"
   else
     echo "ERROR: Specify namespace or set all_namespaces=true"
     exit 1
@@ -50,7 +48,7 @@ script: |
     SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
   fi
 
-  kubectl get pods "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+  kubectl get services "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
 
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
     cp /tmp/raw.json /artifacts/output.json
@@ -58,12 +56,12 @@ script: |
     jq '[.items[] | {
       name: .metadata.name,
       namespace: .metadata.namespace,
-      ready: (if .status.containerStatuses then ([.status.containerStatuses[] | select(.ready==true)] | length | tostring) + "/" + (.status.containerStatuses | length | tostring) else "0/0" end),
-      status: .status.phase,
-      restarts: (if .status.containerStatuses then [.status.containerStatuses[].restartCount] | add else 0 end),
+      type: .spec.type,
+      cluster_ip: .spec.clusterIP,
+      external_ip: (if .status.loadBalancer.ingress then [.status.loadBalancer.ingress[] | (.ip // .hostname)] | join(",") elif .spec.externalIPs then .spec.externalIPs | join(",") else "<none>" end),
+      ports: ([.spec.ports[] | ((.port | tostring) + "/" + .protocol + (if .nodePort then ":" + (.nodePort | tostring) else "" end))] | join(",")),
       age: ((now - (.metadata.creationTimestamp | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d" elif . >= 3600 then (. / 3600 | floor | tostring) + "h" elif . >= 60 then (. / 60 | floor | tostring) + "m" else (. | floor | tostring) + "s" end),
-      ip: .status.podIP,
-      node: .spec.nodeName
+      selector: (if .spec.selector then (.spec.selector | to_entries | map(.key + "=" + .value) | join(",")) else "<none>" end)
     }]' /tmp/raw.json > /artifacts/output.json
   fi
-  echo "Pods retrieved successfully"
+  echo "Services retrieved successfully"

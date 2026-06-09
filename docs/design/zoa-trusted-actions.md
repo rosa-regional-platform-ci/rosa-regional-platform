@@ -354,31 +354,140 @@ The API proxies S3 content directly — no presigned URLs exposed to consumers.
   "profile": "kube",
   "scope": "kube-api",
   "type": "read",
-  "description": "List all nodes in the target cluster",
+  "description": "List all nodes in the target cluster with status and resource information",
   "params": [
-    {"name": "node_selector", "required": false, "default": "", "description": "Label selector to filter nodes"}
+    {"name": "label_selector", "required": false, "default": "", "description": "Label selector to filter nodes (e.g. node-role.kubernetes.io/worker=)"},
+    {"name": "verbose", "required": false, "default": "false", "description": "Return full JSON output instead of compact summary"}
   ]
 }
 ```
 
 ### CLI Design
 
-Maps to kubectl/oc patterns for SRE muscle memory:
+Designed around SRE muscle memory — mirrors `kubectl`/`oc` patterns with familiar flags.
+Implementation: `hack/zoa.sh` (source in `.zshrc`).
 
-| CLI Command | API Call | Description |
-|-------------|----------|-------------|
-| `zoa run <action> --target <cluster>` | `POST /trusted-actions/{action}/run` | Execute a TA |
-| `zoa get <id>` | `GET /runs/{id}` | Metadata + output (default) |
-| `zoa get <id> --output` | `GET /runs/{id}?fields=output` | Output only |
-| `zoa logs <id>` | `GET /runs/{id}?fields=logs` | Execution log (all output) |
-| `zoa list` | `GET /runs` | Last 20 executions |
-| `zoa list --limit 50 --status failed` | `GET /runs?limit=50&status=failed` | Filtered list |
-| `zoa describe <action>` | `GET /trusted-actions/{action}` | Show TA info, params |
+#### Setup
 
-**Key principles:**
-- `get` retrieves the result (metadata + output.json); `logs` retrieves the execution trace — separate concepts, like kubectl
-- Output is always JSON — no format flags needed
-- `describe` shows what a TA does before running it (params, description, profile)
+```bash
+# Add to .zshrc
+source /path/to/rosa-regional-platform/hack/zoa.sh
+export ZOA_API="https://<api-gateway-id>.execute-api.<region>.amazonaws.com/prod"
+```
+
+#### Command Structure
+
+```
+zoa <verb> [resource] [flags]
+```
+
+#### Commands
+
+| Command | API Call | Behavior |
+|---------|----------|----------|
+| `zoa run <action> -t <cluster>` | POST + poll + GET output | **Synchronous** — waits, prints result |
+| `zoa run <action> --no-wait` | POST only | Async — prints ID immediately |
+| `zoa get <id>` | `GET /runs/{id}?fields=output` | Retrieve output from a past run |
+| `zoa get <id> --logs` | `GET /runs/{id}?fields=logs` | Logs from a past run |
+| `zoa get <id> --all` | `GET /runs/{id}?fields=output,logs` | Full result (output + logs) |
+| `zoa get <id> --info` | `GET /runs/{id}` | Metadata only (status, timing, target) |
+| `zoa logs <id>` | `GET /runs/{id}?fields=logs` | Shortcut for `get --logs` |
+| `zoa runs` | `GET /runs` | List recent executions |
+| `zoa runs -t <cluster>` | `GET /runs?target=<cluster>` | Filter by target |
+| `zoa runs --status failed` | `GET /runs?status=failed` | Filter by status |
+| `zoa runs --action get_pods` | `GET /runs?action=get_pods` | Filter by action |
+| `zoa runs --since 1h` | `GET /runs?since=1h` | Filter by time |
+| `zoa actions` | `GET /trusted-actions` | List available TAs |
+| `zoa describe <action>` | `GET /trusted-actions/{action}` | Show TA params, type, profile |
+
+Short IDs: the first 8 characters of the UUID are accepted anywhere a full ID is
+(e.g., `zoa get 8d8ced24`). The API resolves to the unique match or errors if ambiguous.
+
+#### Run Flags (mirrors kubectl)
+
+| Flag | Param | Description |
+|------|-------|-------------|
+| `-t, --target <cluster>` | `target_cluster` | Target cluster (**required**) |
+| `-n <namespace>` | `namespace` | Namespace |
+| `-A` | `all_namespaces=true` | All namespaces |
+| `-l <selector>` | `label_selector` | Label selector (kubectl `-l` syntax) |
+| `-v, --verbose` | `verbose=true` | Full JSON output (no compact) |
+| `--resource <type>` | `resource` | Resource type (for `get_resource`) |
+| `--name <name>` | `name` | Resource name |
+| `--deployment <name>` | `deployment_name` | Deployment name |
+| `--pod <name>` | `pod_name` | Pod name |
+| `--no-wait` | — | Don't poll; return ID immediately |
+| `--param key=value` | arbitrary | Pass any param not covered by flags |
+
+#### Output Contract
+
+- **stderr**: Progress/status messages (`✓`, `✗`, spinners) — human feedback
+- **stdout**: Pure JSON — pipeable to `jq`, scripts, or files
+
+This means `zoa run ... | jq '...'` always works cleanly.
+
+#### Typical SRE Session
+
+```bash
+# 1. What can I do?
+$ zoa actions
+$ zoa describe get_pods
+
+# 2. Run and see result immediately (synchronous — polls until done)
+$ zoa run get_nodes -t eph-bc5fee45-mc01
+✓ 8d8ced24                                    # short ID shown (stderr)
+✓ completed (12s)                             # status (stderr)
+[                                             # output (stdout)
+  {"name": "ip-10-0-1-15.ec2.internal", "status": "Ready", "roles": "worker", "age": "45d", ...},
+  {"name": "ip-10-0-2-88.ec2.internal", "status": "Ready", "roles": "worker", "age": "45d", ...}
+]
+
+# 3. Pipe to jq for further filtering
+$ zoa run get_pods -t eph-bc5fee45-mc01 -A | jq '.[] | select(.restarts > 5)'
+$ zoa run get_pods -t eph-bc5fee45-mc01 -A | jq '.[] | select(.status != "Running")'
+
+# 4. Filters
+$ zoa run get_pods -t eph-bc5fee45-mc01 -n maestro -l app=maestro
+$ zoa run get_pods -t eph-bc5fee45-mc01 -A
+$ zoa run get_resource -t eph-bc5fee45-mc01 --resource hostedclusters -A
+
+# 5. Write operations
+$ zoa run rollout_restart -t eph-bc5fee45-mc01 -n maestro --deployment maestro
+$ zoa run delete_pod -t eph-bc5fee45-mc01 -n maestro --pod maestro-xyz
+
+# 6. On failure, logs are shown automatically (stderr)
+$ zoa run get_pods -t eph-bc5fee45-mc01 -n invalid
+✓ abc12345
+✗ failed (3s)
+ERROR: Specify namespace or set all_namespaces=true
+
+# 7. Go back and check a past run (short ID works)
+$ zoa get 8d8ced24                            # output
+$ zoa logs 8d8ced24                           # execution trace
+$ zoa get 8d8ced24 --all                      # output + logs + metadata
+$ zoa get 8d8ced24 --info                     # just metadata (status, timing)
+
+# 8. History — scoped to incident context
+$ zoa runs -t eph-bc5fee45-mc01 --since 1h
+$ zoa runs --status failed --since 24h
+$ zoa runs --action rollout_restart
+```
+
+#### Design Principles
+
+- **`run` is synchronous**: Submit → poll → print output. Like `kubectl exec`, not `kubectl apply`.
+  On failure, logs are printed automatically — no second command needed to see the error.
+- **`--no-wait` for background**: Long tasks (must-gather) can run async; check later with `zoa get`.
+- **`get` = output, `logs` = trace**: Separate concepts like `kubectl get` vs `kubectl logs`.
+- **`-t` is always required**: No hidden defaults — explicit target prevents wrong-cluster mistakes.
+- **Flags match kubectl**: `-n`, `-A`, `-l` behave identically to muscle-memory expectations.
+- **stdout/stderr contract**: JSON on stdout (pipeable), status/progress on stderr (human-only).
+- **Short IDs**: First 8 chars of UUID accepted everywhere — typing full UUIDs during incidents is hostile.
+- **Compact by default**: Read TAs return kubectl-wide-equivalent fields; pass `-v` for full objects.
+- **Time-scoped history**: `--since` prevents information overload during incidents.
+- **`ZOA_API` env var**: No hardcoded URLs. Set once per session/profile.
+- **Bare verbs for TAs, prefixed for breakglass**: TAs are the hot path; `breakglass` is the escalation
+  path and deliberately requires more typing (see breakglass section).
 
 ### Dispatch Flow
 

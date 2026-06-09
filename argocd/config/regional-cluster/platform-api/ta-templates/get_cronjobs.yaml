@@ -1,0 +1,67 @@
+name: get_cronjobs
+profile: kube
+scope: kube-api
+type: read
+description: List cronjobs with schedule, last run, and suspend status
+timeout_seconds: 300
+params:
+  - name: namespace
+    required: false
+    default: ""
+    description: "Target namespace"
+  - name: all_namespaces
+    required: false
+    default: "false"
+    description: "List across all namespaces (overrides namespace)"
+  - name: label_selector
+    required: false
+    default: ""
+    description: "Label selector to filter"
+  - name: verbose
+    required: false
+    default: "false"
+    description: "Return full JSON output instead of compact summary"
+rbac:
+  cluster_scoped: true
+  rules:
+    - apiGroups: ["batch"]
+      resources: ["cronjobs"]
+      verbs: ["get", "list"]
+script: |
+  set -euo pipefail
+
+  NAMESPACE_ARGS=()
+  if [ "${PARAM_ALL_NAMESPACES:-false}" = "true" ]; then
+    if [ -n "${PARAM_NAMESPACE:-}" ]; then
+      echo "WARNING: all_namespaces=true overrides namespace=${PARAM_NAMESPACE}"
+    fi
+    NAMESPACE_ARGS=(--all-namespaces)
+  elif [ -n "${PARAM_NAMESPACE:-}" ]; then
+    NAMESPACE_ARGS=(-n "${PARAM_NAMESPACE}")
+  else
+    echo "ERROR: Specify namespace or set all_namespaces=true"
+    exit 1
+  fi
+
+  SELECTOR_ARGS=()
+  if [ -n "${PARAM_LABEL_SELECTOR:-}" ]; then
+    SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
+  fi
+
+  kubectl get cronjobs "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+
+  if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
+    cp /tmp/raw.json /artifacts/output.json
+  else
+    jq '[.items[] | {
+      name: .metadata.name,
+      namespace: .metadata.namespace,
+      schedule: .spec.schedule,
+      suspend: .spec.suspend,
+      active: (.status.active | length // 0),
+      last_schedule: (if .status.lastScheduleTime then ((now - (.status.lastScheduleTime | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d ago" elif . >= 3600 then (. / 3600 | floor | tostring) + "h ago" elif . >= 60 then (. / 60 | floor | tostring) + "m ago" else (. | floor | tostring) + "s ago" end) else "<never>" end),
+      last_successful: (if .status.lastSuccessfulTime then ((now - (.status.lastSuccessfulTime | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d ago" elif . >= 3600 then (. / 3600 | floor | tostring) + "h ago" elif . >= 60 then (. / 60 | floor | tostring) + "m ago" else (. | floor | tostring) + "s ago" end) else "<never>" end),
+      age: ((now - (.metadata.creationTimestamp | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d" elif . >= 3600 then (. / 3600 | floor | tostring) + "h" elif . >= 60 then (. / 60 | floor | tostring) + "m" else (. | floor | tostring) + "s" end)
+    }]' /tmp/raw.json > /artifacts/output.json
+  fi
+  echo "CronJobs retrieved successfully"
