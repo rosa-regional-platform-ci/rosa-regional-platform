@@ -58,17 +58,15 @@ script: |
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
     cp /tmp/raw.json /artifacts/output.json
   else
-    jq '{
-      summary: (.items | length | tostring) + " pods, " + ([.items[] | select(.status.phase=="Running")] | length | tostring) + " Running, " + ([.items[] | select(.status.phase!="Running" and .status.phase!="Succeeded")] | length | tostring) + " unhealthy",
-      pods: [.items[] | {
-        name: .metadata.name,
-        namespace: .metadata.namespace,
-        status: .status.phase,
-        ready: (if .status.containerStatuses then ([.status.containerStatuses[] | select(.ready==true)] | length | tostring) + "/" + (.status.containerStatuses | length | tostring) else "0/0" end),
-        restarts: (if .status.containerStatuses then [.status.containerStatuses[].restartCount] | add else 0 end),
-        node: .spec.nodeName,
-        created: .metadata.creationTimestamp
-      }]
-    }' /tmp/raw.json > /artifacts/output.json
+    jq '[.items[] | {
+      name: .metadata.name,
+      namespace: .metadata.namespace,
+      ready: (if .status.containerStatuses then ([.status.containerStatuses[] | select(.ready==true)] | length | tostring) + "/" + (.status.containerStatuses | length | tostring) else "0/0" end),
+      status: .status.phase,
+      restarts: (if .status.containerStatuses then [.status.containerStatuses[].restartCount] | add else 0 end),
+      age: .metadata.creationTimestamp,
+      ip: .status.podIP,
+      node: .spec.nodeName
+    }]' /tmp/raw.json > /artifacts/output.json
   fi
   echo "Pods retrieved successfully"

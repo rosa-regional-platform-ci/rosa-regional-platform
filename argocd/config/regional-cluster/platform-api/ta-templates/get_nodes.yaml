@@ -33,17 +33,16 @@ script: |
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
     cp /tmp/raw.json /artifacts/output.json
   else
-    jq '{
-      summary: (.items | length | tostring) + " nodes, " + ([.items[] | select(.status.conditions[] | select(.type=="Ready" and .status=="True"))] | length | tostring) + " Ready",
-      nodes: [.items[] | {
-        name: .metadata.name,
-        status: (if (.status.conditions[] | select(.type=="Ready") | .status) == "True" then "Ready" else "NotReady" end),
-        instance_type: .metadata.labels["node.kubernetes.io/instance-type"],
-        zone: .metadata.labels["topology.kubernetes.io/zone"],
-        capacity_cpu: .status.capacity.cpu,
-        capacity_memory: .status.capacity.memory,
-        created: .metadata.creationTimestamp
-      }]
-    }' /tmp/raw.json > /artifacts/output.json
+    jq '[.items[] | {
+      name: .metadata.name,
+      status: (if (.status.conditions[] | select(.type=="Ready") | .status) == "True" then "Ready" else "NotReady" end),
+      roles: (.metadata.labels | with_entries(select(.key | startswith("node-role.kubernetes.io/"))) | keys | map(ltrimstr("node-role.kubernetes.io/")) | if length == 0 then "<none>" else join(",") end),
+      age: .metadata.creationTimestamp,
+      version: .status.nodeInfo.kubeletVersion,
+      internal_ip: (.status.addresses[] | select(.type=="InternalIP") | .address),
+      os_image: .status.nodeInfo.osImage,
+      instance_type: .metadata.labels["node.kubernetes.io/instance-type"],
+      zone: .metadata.labels["topology.kubernetes.io/zone"]
+    }]' /tmp/raw.json > /artifacts/output.json
   fi
   echo "Nodes retrieved successfully"

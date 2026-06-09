@@ -24,10 +24,6 @@ params:
     required: false
     default: ""
     description: "Label selector to filter resources (e.g. app=maestro)"
-  - name: verbose
-    required: false
-    default: "false"
-    description: "Return full JSON output instead of compact summary"
 rbac:
   cluster_scoped: true
   rules:
@@ -81,14 +77,5 @@ script: |
   fi
 
   echo "Running: kubectl get ${ARGS[*]} -o json"
-  kubectl get "${ARGS[@]}" -o json > /tmp/raw.json
-
-  if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
-    cp /tmp/raw.json /artifacts/output.json
-  else
-    jq 'if .items then {
-      summary: (.items | length | tostring) + " " + (if (.items | length) > 0 then .items[0].kind else "resources" end) + "(s)",
-      items: [.items[] | {kind, name: .metadata.name, namespace: .metadata.namespace, created: .metadata.creationTimestamp} + (if .status.phase then {status: .status.phase} elif .status.conditions then {status: ([.status.conditions[] | select(.status=="True")] | last | .type) // "Unknown"} else {} end)]
-    } else {kind, name: .metadata.name, namespace: .metadata.namespace, created: .metadata.creationTimestamp} + (if .status.phase then {status: .status.phase} elif .status.conditions then {status: ([.status.conditions[] | select(.status=="True")] | last | .type) // "Unknown"} else {} end) end' /tmp/raw.json > /artifacts/output.json
-  fi
+  kubectl get "${ARGS[@]}" -o json > /artifacts/output.json
   echo "Done"

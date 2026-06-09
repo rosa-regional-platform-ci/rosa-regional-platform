@@ -33,13 +33,11 @@ script: |
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
     cp /tmp/raw.json /artifacts/output.json
   else
-    jq '{
-      summary: (.items | length | tostring) + " namespaces, " + ([.items[] | select(.status.phase=="Active")] | length | tostring) + " Active",
-      namespaces: [.items[] | {
-        name: .metadata.name,
-        status: .status.phase,
-        created: .metadata.creationTimestamp
-      }]
-    }' /tmp/raw.json > /artifacts/output.json
+    jq '[.items[] | {
+      name: .metadata.name,
+      status: .status.phase,
+      age: .metadata.creationTimestamp,
+      labels: .metadata.labels
+    }]' /tmp/raw.json > /artifacts/output.json
   fi
   echo "Namespaces retrieved successfully"
