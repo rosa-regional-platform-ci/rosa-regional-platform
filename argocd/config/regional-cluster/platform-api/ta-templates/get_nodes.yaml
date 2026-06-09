@@ -5,7 +5,7 @@ type: read
 description: List all nodes in the target cluster with status and resource information
 timeout_seconds: 300
 params:
-  - name: node_selector
+  - name: label_selector
     required: false
     default: ""
     description: "Label selector to filter nodes (e.g. node-role.kubernetes.io/worker=)"
@@ -23,8 +23,8 @@ script: |
   set -euo pipefail
 
   SELECTOR_ARGS=()
-  if [ -n "${PARAM_NODE_SELECTOR:-}" ]; then
-    SELECTOR_ARGS=(-l "${PARAM_NODE_SELECTOR}")
+  if [ -n "${PARAM_LABEL_SELECTOR:-}" ]; then
+    SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
   fi
 
   echo "Retrieving nodes..."
