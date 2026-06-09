@@ -49,8 +49,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "outputs" {
   bucket = aws_s3_bucket.outputs.id
 
   rule {
-    id     = "expire-old-outputs"
+    id     = "tiering-and-expiration"
     status = "Enabled"
+
+    transition {
+      days          = 30
+      storage_class = "INTELLIGENT_TIERING"
+    }
 
     expiration {
       days = var.output_retention_days

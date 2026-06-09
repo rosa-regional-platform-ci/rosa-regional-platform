@@ -1,20 +1,41 @@
 #!/usr/bin/env bash
+# Compatible with both bash and zsh (meant to be sourced, not executed)
 # ZOA CLI — Zero Operator Access shell wrapper
 #
-# Source this file in your .zshrc / .bashrc:
-#   source /path/to/rosa-regional-platform/hack/zoa.sh
+# Dependencies: curl, jq
 #
-# Required environment:
-#   ZOA_API   — API Gateway base URL (e.g. https://<id>.execute-api.<region>.amazonaws.com/prod)
-#   AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN)
+# Setup:
+#   1. Source this file:
+#        source /path/to/rosa-regional-platform/hack/zoa.sh
+#
+#   2. Export AWS credentials (SigV4 auth):
+#        eval "$(aws configure export-credentials --format env --profile rrp-dev-eph-rc)"
+#
+#   3. Export the API Gateway URL:
+#        export ZOA_API="https://<api-id>.execute-api.<region>.amazonaws.com/prod"
+#
+#      The region is extracted automatically from the ZOA_API URL
+#      (e.g. us-east-1 from https://xyz.execute-api.us-east-1.amazonaws.com/prod)
 #
 # All commands require -t <cluster> to specify the target.
+
+# Resolve binary paths at source time (avoids zsh command lookup issues in functions)
+_ZOA_CURL="${commands[curl]:-$(whence -p curl 2>/dev/null || echo curl)}"
+_ZOA_JQ="${commands[jq]:-$(whence -p jq 2>/dev/null || echo jq)}"
+
+if [[ ! -x "$_ZOA_CURL" ]]; then
+  echo "zoa: error: curl not found in PATH" >&2
+fi
+if [[ ! -x "$_ZOA_JQ" ]]; then
+  echo "zoa: error: jq not found in PATH" >&2
+fi
 
 _zoa_request() {
   local method="$1" path="$2" body="${3:-}"
   local url="${ZOA_API}/api/v0${path}"
-  local region
-  region=$(echo "$ZOA_API" | grep -oP '(?<=\.execute-api\.)[^.]+')
+  local region temp
+  temp="${ZOA_API#*.execute-api.}"
+  region="${temp%%.*}"
 
   local args=(
     -s
@@ -27,7 +48,7 @@ _zoa_request() {
   [[ -n "$body" ]] && args+=(-d "$body")
   args+=("$url")
 
-  curl "${args[@]}"
+  "$_ZOA_CURL" "${args[@]}"
 }
 
 _zoa_poll() {
@@ -37,7 +58,7 @@ _zoa_poll() {
   while (( elapsed < timeout )); do
     local result
     result=$(_zoa_request GET "/trusted-actions/runs/${id}")
-    status=$(echo "$result" | jq -r '.status')
+    status=$(echo "$result" | "$_ZOA_JQ" -r '.status')
 
     case "$status" in
       succeeded|failed|error)
@@ -117,38 +138,38 @@ _zoa_run() {
   fi
 
   local params="{}"
-  [[ -n "$namespace" ]]  && params=$(echo "$params" | jq --arg v "$namespace" '. + {namespace: $v}')
-  [[ "$all_ns" == "true" ]] && params=$(echo "$params" | jq '. + {all_namespaces: "true"}')
-  [[ -n "$selector" ]]   && params=$(echo "$params" | jq --arg v "$selector" '. + {label_selector: $v}')
-  [[ "$verbose" == "true" ]] && params=$(echo "$params" | jq '. + {verbose: "true"}')
-  [[ -n "$resource" ]]   && params=$(echo "$params" | jq --arg v "$resource" '. + {resource: $v}')
-  [[ -n "$name" ]]       && params=$(echo "$params" | jq --arg v "$name" '. + {name: $v}')
-  [[ -n "$deployment" ]] && params=$(echo "$params" | jq --arg v "$deployment" '. + {deployment_name: $v}')
-  [[ -n "$pod" ]]        && params=$(echo "$params" | jq --arg v "$pod" '. + {pod_name: $v}')
+  [[ -n "$namespace" ]]  && params=$(echo "$params" | "$_ZOA_JQ" --arg v "$namespace" '. + {namespace: $v}')
+  [[ "$all_ns" == "true" ]] && params=$(echo "$params" | "$_ZOA_JQ" '. + {all_namespaces: "true"}')
+  [[ -n "$selector" ]]   && params=$(echo "$params" | "$_ZOA_JQ" --arg v "$selector" '. + {label_selector: $v}')
+  [[ "$verbose" == "true" ]] && params=$(echo "$params" | "$_ZOA_JQ" '. + {verbose: "true"}')
+  [[ -n "$resource" ]]   && params=$(echo "$params" | "$_ZOA_JQ" --arg v "$resource" '. + {resource: $v}')
+  [[ -n "$name" ]]       && params=$(echo "$params" | "$_ZOA_JQ" --arg v "$name" '. + {name: $v}')
+  [[ -n "$deployment" ]] && params=$(echo "$params" | "$_ZOA_JQ" --arg v "$deployment" '. + {deployment_name: $v}')
+  [[ -n "$pod" ]]        && params=$(echo "$params" | "$_ZOA_JQ" --arg v "$pod" '. + {pod_name: $v}')
 
   for p in "${extra_params[@]+"${extra_params[@]}"}"; do
     local key="${p%%=*}" val="${p#*=}"
-    params=$(echo "$params" | jq --arg k "$key" --arg v "$val" '. + {($k): $v}')
+    params=$(echo "$params" | "$_ZOA_JQ" --arg k "$key" --arg v "$val" '. + {($k): $v}')
   done
 
   local body
-  body=$(jq -n --arg target "$target" --argjson params "$params" \
+  body=$("$_ZOA_JQ" -n --arg target "$target" --argjson params "$params" \
     '{target_cluster: $target} + $params')
 
   local submit
   submit=$(_zoa_request POST "/trusted-actions/${action}/run" "$body")
 
   local id
-  id=$(echo "$submit" | jq -r '.id // empty')
+  id=$(echo "$submit" | "$_ZOA_JQ" -r '.id // empty')
   if [[ -z "$id" ]]; then
-    echo "$submit" | jq .
+    echo "$submit" | "$_ZOA_JQ" .
     return 1
   fi
 
   echo "✓ ${id}" >&2
 
   if $no_wait; then
-    echo "$submit" | jq .
+    echo "$submit" | "$_ZOA_JQ" .
     return 0
   fi
 
@@ -158,22 +179,22 @@ _zoa_run() {
   printf "\r\033[K" >&2
 
   local status
-  status=$(echo "$result" | jq -r '.status')
+  status=$(echo "$result" | "$_ZOA_JQ" -r '.status')
   local duration
-  duration=$(echo "$result" | jq -r '.duration_seconds // "?"')
+  duration=$(echo "$result" | "$_ZOA_JQ" -r '.duration_seconds // "?"')
 
   if [[ "$status" == "succeeded" ]]; then
     echo "✓ completed (${duration}s)" >&2
     # Fetch output
     local output
     output=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=output")
-    echo "$output" | jq -r '.output // empty'
+    echo "$output" | "$_ZOA_JQ" -r '.output // empty'
   else
     echo "✗ ${status} (${duration}s)" >&2
     # Show logs on failure
     local logs
     logs=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=logs")
-    echo "$logs" | jq -r '.logs // .output // empty'
+    echo "$logs" | "$_ZOA_JQ" -r '.logs // .output // empty'
     return 1
   fi
 }
@@ -196,14 +217,14 @@ _zoa_get() {
   local path="/trusted-actions/runs/${id}"
   [[ -n "$fields" ]] && path="${path}?fields=${fields}"
 
-  _zoa_request GET "$path" | jq .
+  _zoa_request GET "$path" | "$_ZOA_JQ" .
 }
 
 _zoa_logs() {
   local id="${1:-}"
   [[ -z "$id" ]] && { echo "error: usage: zoa logs <id>" >&2; return 1; }
 
-  _zoa_request GET "/trusted-actions/runs/${id}?fields=logs" | jq -r '.logs // empty'
+  _zoa_request GET "/trusted-actions/runs/${id}?fields=logs" | "$_ZOA_JQ" -r '.logs // empty'
 }
 
 _zoa_runs() {
@@ -226,18 +247,18 @@ _zoa_runs() {
   local path="/trusted-actions/runs"
   [[ -n "$query" ]] && path="${path}?${query}"
 
-  _zoa_request GET "$path" | jq .
+  _zoa_request GET "$path" | "$_ZOA_JQ" .
 }
 
 _zoa_actions() {
-  _zoa_request GET "/trusted-actions" | jq .
+  _zoa_request GET "/trusted-actions" | "$_ZOA_JQ" .
 }
 
 _zoa_describe() {
   local action="${1:-}"
   [[ -z "$action" ]] && { echo "error: usage: zoa describe <action>" >&2; return 1; }
 
-  _zoa_request GET "/trusted-actions/${action}" | jq .
+  _zoa_request GET "/trusted-actions/${action}" | "$_ZOA_JQ" .
 }
 
 _zoa_help() {
@@ -289,15 +310,37 @@ Environment:
   AWS_SESSION_TOKEN        AWS session token (required for assumed roles)
 
 Examples:
+  # Run actions
   zoa run get_nodes -t mc-useast1-1
   zoa run get_pods -t mc-useast1-1 -n maestro -l app=maestro
   zoa run get_pods -t mc-useast1-1 -A | jq '.[] | select(.status != "Running")'
+  zoa run get_deployments -t mc-useast1-1 -n openshift-monitoring -v
+  zoa run get_events -t mc-useast1-1 -n maestro --param field_selector=reason=BackOff
   zoa run get_resource -t mc-useast1-1 --resource deployments -A
   zoa run rollout_restart -t mc-useast1-1 -n maestro --deployment maestro
-  zoa get 8d8ced24
-  zoa logs 8d8ced24
+  zoa run delete_pod -t mc-useast1-1 -n maestro --pod maestro-agent-xyz
+
+  # Retrieve results
+  zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d
+  zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d --logs
+  zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d --all
+  zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d --info
+
+  # View logs
+  zoa logs fa65418c-f4eb-4f5c-8314-baaeb695ba7d
+
+  # History with filters (all combinable)
+  zoa runs -t mc-useast1-1
   zoa runs -t mc-useast1-1 --since 1h
   zoa runs --status failed --since 24h
-  zoa runs --action rollout_restart --operator slopezma
+  zoa runs --action get_pods --operator slopezma --since 7d
+  zoa runs --type write --since 12h
+  zoa runs --scope kube-api --status succeeded --limit 50
+
+  # Discover available actions
+  zoa actions
+  zoa describe get_pods
+  zoa describe get_deployments
+  zoa describe rollout_restart
 EOF
 }

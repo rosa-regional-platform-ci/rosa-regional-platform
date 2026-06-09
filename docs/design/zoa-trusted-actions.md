@@ -400,8 +400,9 @@ zoa <verb> [resource] [flags]
 | `zoa actions` | `GET /trusted-actions` | List available TAs |
 | `zoa describe <action>` | `GET /trusted-actions/{action}` | Show TA params, type, profile |
 
-Short IDs: the first 8 characters of the UUID are accepted anywhere a full ID is
-(e.g., `zoa get 8d8ced24`). The API resolves to the unique match or errors if ambiguous.
+**ID Format**: Execution IDs are standard UUID v4 (e.g., `fa65418c-f4eb-4f5c-8314-baaeb695ba7d`).
+Full UUIDs are required for `get`, `logs`, and other ID-based operations. The `✓ <id>`
+confirmation on stderr shows the full UUID — copy-paste from `zoa runs` output.
 
 #### Run Flags (mirrors kubectl)
 
@@ -435,7 +436,7 @@ $ zoa describe get_pods
 
 # 2. Run and see result immediately (synchronous — polls until done)
 $ zoa run get_nodes -t eph-bc5fee45-mc01
-✓ 8d8ced24                                    # short ID shown (stderr)
+✓ fa65418c-f4eb-4f5c-8314-baaeb695ba7d        # full UUID (stderr)
 ✓ completed (12s)                             # status (stderr)
 [                                             # output (stdout)
   {"name": "ip-10-0-1-15.ec2.internal", "status": "Ready", "roles": "worker", "age": "45d", ...},
@@ -457,20 +458,29 @@ $ zoa run delete_pod -t eph-bc5fee45-mc01 -n maestro --pod maestro-xyz
 
 # 6. On failure, logs are shown automatically (stderr)
 $ zoa run get_pods -t eph-bc5fee45-mc01 -n invalid
-✓ abc12345
+✓ 3b7f9e21-a4c8-4d12-b567-89abcdef0123
 ✗ failed (3s)
 ERROR: Specify namespace or set all_namespaces=true
 
-# 7. Go back and check a past run (short ID works)
-$ zoa get 8d8ced24                            # output
-$ zoa logs 8d8ced24                           # execution trace
-$ zoa get 8d8ced24 --all                      # output + logs + metadata
-$ zoa get 8d8ced24 --info                     # just metadata (status, timing)
+# 7. Discover available actions and their params
+$ zoa actions
+$ zoa describe get_pods
+$ zoa describe get_deployments
+$ zoa describe rollout_restart
 
-# 8. History — scoped to incident context
+# 8. Go back and check a past run
+$ zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d            # output
+$ zoa logs fa65418c-f4eb-4f5c-8314-baaeb695ba7d           # execution trace
+$ zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d --all      # output + logs + metadata
+$ zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d --info     # just metadata (status, timing)
+
+# 9. History — scoped to incident context (all filters combinable)
 $ zoa runs -t eph-bc5fee45-mc01 --since 1h
 $ zoa runs --status failed --since 24h
-$ zoa runs --action rollout_restart
+$ zoa runs --action get_pods --operator slopezma --since 7d
+$ zoa runs --type write --since 12h
+$ zoa runs --scope kube-api --status succeeded --limit 50
+$ zoa runs --action rollout_restart --target eph-bc5fee45-mc01
 ```
 
 #### Design Principles
@@ -482,7 +492,8 @@ $ zoa runs --action rollout_restart
 - **`-t` is always required**: No hidden defaults — explicit target prevents wrong-cluster mistakes.
 - **Flags match kubectl**: `-n`, `-A`, `-l` behave identically to muscle-memory expectations.
 - **stdout/stderr contract**: JSON on stdout (pipeable), status/progress on stderr (human-only).
-- **Short IDs**: First 8 chars of UUID accepted everywhere — typing full UUIDs during incidents is hostile.
+- **UUID v4**: IDs are standard UUID v4 (`google/uuid`). Full IDs required for lookups —
+  copy-paste from `zoa runs` output.
 - **Compact by default**: Read TAs return kubectl-wide-equivalent fields; pass `-v` for full objects.
 - **Time-scoped history**: `--since` prevents information overload during incidents.
 - **`ZOA_API` env var**: No hardcoded URLs. Set once per session/profile.
