@@ -16,6 +16,24 @@ kube-prometheus-stack:
     enabled: false
 
   prometheusOperator:
+    admissionWebhooks:
+      # Drop "hook-succeeded" from the upstream hook-delete-policy.
+      # If the ArgoCD application controller restarts while a hook Job
+      # is in flight (bootstrap, chart upgrades, node rotation, OOM),
+      # "hook-succeeded" deletes the completed Job before the new
+      # controller can observe it, leaving the sync stuck indefinitely.
+      # Keeping only "before-hook-creation" lets the completed Job
+      # persist until the next sync cleans it up.
+      # Ref: https://github.com/argoproj/argo-cd/issues/21055
+      #      https://github.com/argoproj/argo-cd/issues/4979
+      #
+      # "annotations" targets the PreSync create Job (generates TLS cert),
+      # "patch.annotations" targets the PostSync patch Job (patches webhooks).
+      annotations:
+        helm.sh/hook-delete-policy: before-hook-creation
+      patch:
+        annotations:
+          helm.sh/hook-delete-policy: before-hook-creation
     resources:
       requests:
         cpu: 50m
