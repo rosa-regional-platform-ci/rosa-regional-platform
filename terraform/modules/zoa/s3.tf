@@ -96,9 +96,6 @@ resource "aws_s3_bucket_policy" "outputs" {
         Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.outputs.arn}/*"
         Condition = {
-          "ForAnyValue:StringLike" = {
-            "aws:PrincipalOrgPaths" = "${var.mc_ou_path}*"
-          }
           StringLike = {
             "aws:PrincipalArn" = "arn:*:iam::*:role/*-zoa-job"
           }

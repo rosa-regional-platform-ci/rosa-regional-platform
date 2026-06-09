@@ -43,15 +43,25 @@ data:
     fi
 
     echo "[zoa] Uploading artifacts to s3://${ARTIFACT_BUCKET}/${RUN_ID}/"
+    UPLOAD_FAILED=0
 
-    aws s3 cp "$EXEC_LOG" "s3://${ARTIFACT_BUCKET}/${RUN_ID}/execution.log" --quiet || \
+    if ! aws s3 cp "$EXEC_LOG" "s3://${ARTIFACT_BUCKET}/${RUN_ID}/execution.log" 2>&1; then
       echo "[zoa] ERROR: failed to upload execution.log"
-
-    if [ -f /artifacts/output.json ]; then
-      aws s3 cp /artifacts/output.json "s3://${ARTIFACT_BUCKET}/${RUN_ID}/output.json" --quiet || \
-        echo "[zoa] ERROR: failed to upload output.json"
+      UPLOAD_FAILED=1
     fi
 
-    echo "[zoa] Upload complete"
+    if [ -f /artifacts/output.json ]; then
+      if ! aws s3 cp /artifacts/output.json "s3://${ARTIFACT_BUCKET}/${RUN_ID}/output.json" 2>&1; then
+        echo "[zoa] ERROR: failed to upload output.json"
+        UPLOAD_FAILED=1
+      fi
+    fi
+
+    if [ $UPLOAD_FAILED -eq 0 ]; then
+      echo "[zoa] Upload complete"
+    else
+      echo "[zoa] Upload FAILED — check errors above"
+    fi
+
     exit ${EXIT_CODE}
 {{- end }}

@@ -8,10 +8,6 @@ variable "eks_cluster_name" {
   type        = string
 }
 
-variable "mc_ou_path" {
-  description = "AWS Organizations OU path for MC accounts (for cross-account S3 bucket policy)"
-  type        = string
-}
 
 
 variable "platform_api_role_id" {
