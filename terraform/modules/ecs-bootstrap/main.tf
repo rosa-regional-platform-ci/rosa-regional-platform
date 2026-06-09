@@ -124,8 +124,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
             echo "✓ FIPS NodePool already exists, skipping (managed by ArgoCD)"
           fi
 
-          # Wait for coredns and metrics-server (managed by the built-in system pool)
-          # to be active before installing ArgoCD.
+          # Wait for coredns and metrics-server to be active before installing ArgoCD.
           for ADDON in coredns metrics-server; do
             echo "Waiting for $ADDON to be active..."
             aws eks wait addon-active \
