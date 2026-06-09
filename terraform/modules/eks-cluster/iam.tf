@@ -75,24 +75,26 @@ resource "aws_iam_role_policy_attachment" "auto_node_managed" {
 # Karpenter Controller IRSA
 # -----------------------------------------------------------------------------
 data "aws_iam_openid_connect_provider" "eks" {
-  url = aws_eks_cluster.main.identity[0].oidc[0].issuer
+  count = var.enable_karpenter ? 1 : 0
+  url   = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
 resource "aws_iam_role" "karpenter_controller" {
-  name = "${local.cluster_id}-karpenter-controller"
+  count = var.enable_karpenter ? 1 : 0
+  name  = "${local.cluster_id}-karpenter-controller"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = data.aws_iam_openid_connect_provider.eks.arn
+        Federated = data.aws_iam_openid_connect_provider.eks[0].arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${replace(data.aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub" = "system:serviceaccount:kube-system:karpenter"
-          "${replace(data.aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud" = "sts.amazonaws.com"
+          "${replace(data.aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:sub" = "system:serviceaccount:kube-system:karpenter"
+          "${replace(data.aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:aud" = "sts.amazonaws.com"
         }
       }
     }]
@@ -100,8 +102,9 @@ resource "aws_iam_role" "karpenter_controller" {
 }
 
 resource "aws_iam_role_policy" "karpenter_controller" {
-  name = "karpenter-controller"
-  role = aws_iam_role.karpenter_controller.id
+  count = var.enable_karpenter ? 1 : 0
+  name  = "karpenter-controller"
+  role  = aws_iam_role.karpenter_controller[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -133,7 +136,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
           "sqs:DeleteMessage", "sqs:GetQueueAttributes",
           "sqs:GetQueueUrl", "sqs:ReceiveMessage"
         ]
-        Resource = aws_sqs_queue.karpenter_interruption.arn
+        Resource = aws_sqs_queue.karpenter_interruption[0].arn
       },
       {
         Sid      = "AllowEKSAccess"
@@ -159,20 +162,22 @@ resource "aws_iam_role_policy" "karpenter_controller" {
 # SQS Interruption Queue
 # -----------------------------------------------------------------------------
 resource "aws_sqs_queue" "karpenter_interruption" {
+  count = var.enable_karpenter ? 1 : 0
   name                      = "${local.cluster_id}-karpenter"
   message_retention_seconds = 300
   sqs_managed_sse_enabled   = true
 }
 
 resource "aws_sqs_queue_policy" "karpenter_interruption" {
-  queue_url = aws_sqs_queue.karpenter_interruption.url
+  count     = var.enable_karpenter ? 1 : 0
+  queue_url = aws_sqs_queue.karpenter_interruption[0].url
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
       Principal = { Service = ["events.amazonaws.com", "sqs.amazonaws.com"] }
       Action    = "sqs:SendMessage"
-      Resource  = aws_sqs_queue.karpenter_interruption.arn
+      Resource  = aws_sqs_queue.karpenter_interruption[0].arn
     }]
   })
 }
@@ -184,7 +189,8 @@ resource "aws_sqs_queue_policy" "karpenter_interruption" {
 # requires it to exist as an explicit resource.
 # -----------------------------------------------------------------------------
 resource "aws_iam_instance_profile" "karpenter_node" {
-  name = "${local.cluster_id}-karpenter-node"
+  count = var.enable_karpenter ? 1 : 0
+  name  = "${local.cluster_id}-karpenter-node"
   role = aws_iam_role.eks_auto_mode_node.name
 }
 
@@ -195,8 +201,9 @@ resource "aws_iam_instance_profile" "karpenter_node" {
 # Each target account's node role must be allowed to use that key.
 # -----------------------------------------------------------------------------
 resource "aws_iam_role_policy" "karpenter_node_kms" {
-  name = "karpenter-node-kms-cross-account"
-  role = aws_iam_role.eks_auto_mode_node.id
+  count = var.enable_karpenter ? 1 : 0
+  name  = "karpenter-node-kms-cross-account"
+  role  = aws_iam_role.eks_auto_mode_node.id
 
   policy = jsonencode({
     Version = "2012-10-17"

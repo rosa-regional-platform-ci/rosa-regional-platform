@@ -143,6 +143,8 @@ resource "aws_eks_cluster" "main" {
 # RHEL workload nodes.
 # -----------------------------------------------------------------------------
 resource "aws_eks_node_group" "karpenter_bootstrap" {
+  count = var.enable_karpenter ? 1 : 0
+
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${local.cluster_id}-karpenter-bootstrap"
   node_role_arn   = aws_iam_role.eks_auto_mode_node.arn
@@ -175,9 +177,13 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
 # ECR Public is always in us-east-1; the default provider is used directly
 # since this cluster is in us-east-1.
 # -----------------------------------------------------------------------------
-data "aws_ecrpublic_authorization_token" "karpenter" {}
+data "aws_ecrpublic_authorization_token" "karpenter" {
+  count = var.enable_karpenter ? 1 : 0
+}
 
 resource "helm_release" "karpenter" {
+  count = var.enable_karpenter ? 1 : 0
+
   namespace        = "kube-system"
   name             = "karpenter"
   repository       = "oci://public.ecr.aws/karpenter"
@@ -185,8 +191,8 @@ resource "helm_release" "karpenter" {
   version          = "1.4.0"
   create_namespace = false
 
-  repository_username = data.aws_ecrpublic_authorization_token.karpenter.user_name
-  repository_password = data.aws_ecrpublic_authorization_token.karpenter.password
+  repository_username = data.aws_ecrpublic_authorization_token.karpenter[0].user_name
+  repository_password = data.aws_ecrpublic_authorization_token.karpenter[0].password
 
   set {
     name  = "settings.clusterName"
@@ -195,12 +201,12 @@ resource "helm_release" "karpenter" {
 
   set {
     name  = "settings.interruptionQueue"
-    value = aws_sqs_queue.karpenter_interruption.name
+    value = aws_sqs_queue.karpenter_interruption[0].name
   }
 
   set {
     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = aws_iam_role.karpenter_controller.arn
+    value = aws_iam_role.karpenter_controller[0].arn
   }
 
   set {
