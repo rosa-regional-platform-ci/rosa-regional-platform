@@ -27,5 +27,7 @@ script: |
   echo "Waiting for pod to be fully removed..."
   kubectl wait --for=delete pod/"${PARAM_POD_NAME}" -n "${PARAM_NAMESPACE}" --timeout=120s 2>/dev/null || true
 
-  echo "{\"pod\":\"${PARAM_POD_NAME}\",\"namespace\":\"${PARAM_NAMESPACE}\",\"status\":\"deleted\"}" > /artifacts/output.json
+  jq -n --arg ns "${PARAM_NAMESPACE}" --arg pod "${PARAM_POD_NAME}" \
+    '{affected_resources: [{kind: "Pod", namespace: $ns, name: $pod, action: "deleted"}], summary: "Pod deleted successfully"}' \
+    > /artifacts/output.json
   echo "Pod ${PARAM_POD_NAME} deleted successfully"
