@@ -1,2 +1,7 @@
+regional_cluster:
+  # State drift: log groups exist in AWS from a prior failed apply but are not in state.
+  # Remove after the next successful apply adopts them.
+  hyperfleet_mq_broker_id_override: "b-0a196a93-d0bc-4f95-a6e1-cecb5d29e46d"
+
 provision_mcs:
   mc01: {}

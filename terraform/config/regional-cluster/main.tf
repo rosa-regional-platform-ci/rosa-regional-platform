@@ -435,6 +435,22 @@ module "hyperfleet_infrastructure" {
   mq_deployment_mode = var.hyperfleet_mq_deployment_mode
 }
 
+# State drift repair: adopt existing AmazonMQ log groups into state when they
+# were created by a prior apply whose state write failed. Set
+# hyperfleet_mq_broker_id_override to the broker ID in the environment config
+# to trigger the import; leave empty for normal operation and new environments.
+import {
+  for_each = var.hyperfleet_mq_broker_id_override != "" ? toset(["run"]) : toset([])
+  to       = module.hyperfleet_infrastructure.aws_cloudwatch_log_group.mq_general
+  id       = "/aws/amazonmq/broker/${var.hyperfleet_mq_broker_id_override}/general"
+}
+
+import {
+  for_each = var.hyperfleet_mq_broker_id_override != "" ? toset(["run"]) : toset([])
+  to       = module.hyperfleet_infrastructure.aws_cloudwatch_log_group.mq_connection
+  id       = "/aws/amazonmq/broker/${var.hyperfleet_mq_broker_id_override}/connection"
+}
+
 # =============================================================================
 # CloudWatch Exporter (Pod Identity for YACE)
 # =============================================================================

@@ -393,3 +393,9 @@ variable "management_clusters" {
   type        = string
   default     = ""
 }
+
+variable "hyperfleet_mq_broker_id_override" {
+  description = "AmazonMQ broker ID for one-time state drift repair of log groups. Set to the broker ID (e.g. b-xxxx) when the log groups exist in AWS but not in Terraform state. Leave empty for normal operation and new environments."
+  type        = string
+  default     = ""
+}
