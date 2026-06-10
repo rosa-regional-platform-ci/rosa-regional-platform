@@ -50,22 +50,23 @@ resource "aws_iam_role_policy" "zoa_job_s3" {
   })
 }
 
-# One Pod Identity association per ZOA service account
-resource "aws_eks_pod_identity_association" "zoa_kube" {
+# Pod Identity association for the uploader SA (the only SA that uploads to S3)
+resource "aws_eks_pod_identity_association" "zoa_uploader" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-kube-sa"
+  service_account = "zoa-uploader"
   role_arn        = aws_iam_role.zoa_job.arn
 
   tags = {
-    Name = "${var.management_id}-zoa-kube-pod-identity"
+    Name = "${var.management_id}-zoa-uploader-pod-identity"
   }
 }
 
+# AWS-scoped TAs use static SAs that need direct AWS access
 resource "aws_eks_pod_identity_association" "zoa_aws_read" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-aws-read-sa"
+  service_account = "zoa-aws-read"
   role_arn        = aws_iam_role.zoa_job.arn
 
   tags = {
@@ -76,7 +77,7 @@ resource "aws_eks_pod_identity_association" "zoa_aws_read" {
 resource "aws_eks_pod_identity_association" "zoa_aws_write" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-aws-write-sa"
+  service_account = "zoa-aws-write"
   role_arn        = aws_iam_role.zoa_job.arn
 
   tags = {
@@ -87,7 +88,7 @@ resource "aws_eks_pod_identity_association" "zoa_aws_write" {
 resource "aws_eks_pod_identity_association" "zoa_breakglass_read" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-breakglass-read-sa"
+  service_account = "zoa-breakglass-read"
   role_arn        = aws_iam_role.zoa_job.arn
 
   tags = {
@@ -98,7 +99,7 @@ resource "aws_eks_pod_identity_association" "zoa_breakglass_read" {
 resource "aws_eks_pod_identity_association" "zoa_breakglass_write" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-breakglass-write-sa"
+  service_account = "zoa-breakglass-write"
   role_arn        = aws_iam_role.zoa_job.arn
 
   tags = {
