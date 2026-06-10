@@ -17,7 +17,7 @@ hyperfleet-api-chart:
     repoURL: https://github.com/openshift-hyperfleet/hyperfleet-api.git
     # Target revision (branch, tag, or commit)
     # targetRevision: cdoan/ROSAENG-130-v0.1.1
-    targetRevision: v0.2.1
+    targetRevision: v0.3.0
     # Path to the chart within the repository
     path: charts
 
