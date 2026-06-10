@@ -231,7 +231,7 @@ _zoa_get() {
   done
 
   if [[ "$fields" == "" ]]; then
-    _zoa_request GET "/trusted-actions/runs/${id}" | "$_ZOA_JQ" .
+    _zoa_request GET "/trusted-actions/runs/${id}?fields=none" | "$_ZOA_JQ" .
     return
   fi
 
