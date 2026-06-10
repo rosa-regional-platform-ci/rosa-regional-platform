@@ -123,6 +123,11 @@ preconditions:
           has(spec.ebscsiRoleArn) && spec.ebscsiRoleArn != ""
             ? spec.ebscsiRoleArn
             : ""
+      - name: "creatorARN"
+        expression: |
+          has(spec.creatorARN) && spec.creatorARN != ""
+            ? spec.creatorARN
+            : ""
       - name: "cloudUrl"
         expression: "spec.cloudUrl"
 
