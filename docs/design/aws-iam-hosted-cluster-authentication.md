@@ -1,4 +1,9 @@
-# AWS IAM Authentication for Hosted Clusters
+# AWS IAM Authentication for Hosted Clusters (Experimental)
+
+> **Status: Experimental** — This design reflects an early proof-of-concept.
+> Implementation details (image references, flag names, exact flow) may have
+> diverged from the current codebase. Refer to the code and PR descriptions
+> as the source of truth.
 
 **Last Updated Date**: 2026-06-10
 
@@ -17,11 +22,10 @@ Hosted clusters authenticate users via AWS IAM using `aws-iam-authenticator` as 
 
 - **Assumptions**:
   - Customers have `sts:GetCallerIdentity` permissions (universally available to all IAM principals)
-  - `aws-iam-authenticator` is installed on the user's machine (or referenced via `--authenticator-path`)
 
 ## Design Rationale
 
-See [aws-identity-center-hosted-cluster-authentication.md](aws-identity-center-hosted-cluster-authentication.md) for the full alternatives analysis. The `aws-iam-authenticator` sidecar approach was chosen because it has no central failure point, no signing keys, no OIDC infrastructure, and mirrors EKS authentication exactly.
+The `aws-iam-authenticator` sidecar approach was chosen because it has no central failure point, no signing keys, no OIDC infrastructure, and mirrors EKS authentication exactly.
 
 ## Architecture
 
@@ -34,7 +38,7 @@ sequenceDiagram
     participant IAM as aws-iam-authenticator<br/>(KAS sidecar)
     participant STS as AWS STS
 
-    CLI->>CLI: aws-iam-authenticator token -i <cluster-id><br/>Presigns sts:GetCallerIdentity URL
+    CLI->>CLI: rosactl cluster get-token --cluster-id <id><br/>Presigns sts:GetCallerIdentity URL
     CLI->>KAS: Authorization: Bearer k8s-aws-v1.<base64-presigned-url>
     KAS->>IAM: TokenReview webhook (localhost:21362)
     IAM->>STS: HTTP GET presigned URL
@@ -101,15 +105,15 @@ If `creatorARN` is not set (e.g. API change not deployed), the ConfigMap is stil
 
 ### Changes by Repository
 
-| Repository | Files | Change |
-| --- | --- | --- |
-| `rosa-regional-platform` | `manifestwork.yaml` | `aws-iam-auth-config` ConfigMap, HC annotation |
-| `rosa-regional-platform` | `adapter-task-config.yaml` | `creatorARN` CEL capture |
-| `rosa-regional-platform-api` | `pkg/handlers/cluster.go` | Inject `creatorARN` from SigV4 caller identity |
-| `rosa-regional-platform-cli` | `internal/commands/cluster/kubeconfig.go` | `rosactl cluster kubeconfig` command |
-| `hypershift` | `hostedcluster_controller.go` | ConfigMap sync HC->HCP, annotation in `mirroredAnnotations` |
-| `hypershift` | `kas/deployment.go` | `aws-iam-authenticator` sidecar injection |
-| `hypershift` | `kas/oauth.go` | Webhook redirect to localhost:21362 |
+| Repository                   | Files                                     | Change                                                      |
+| ---------------------------- | ----------------------------------------- | ----------------------------------------------------------- |
+| `rosa-regional-platform`     | `manifestwork.yaml`                       | `aws-iam-auth-config` ConfigMap, HC annotation              |
+| `rosa-regional-platform`     | `adapter-task-config.yaml`                | `creatorARN` CEL capture                                    |
+| `rosa-regional-platform-api` | `pkg/handlers/cluster.go`                 | Inject `creatorARN` from SigV4 caller identity              |
+| `rosa-regional-platform-cli` | `internal/commands/cluster/kubeconfig.go` | `rosactl cluster kubeconfig` command                        |
+| `hypershift`                 | `hostedcluster_controller.go`             | ConfigMap sync HC->HCP, annotation in `mirroredAnnotations` |
+| `hypershift`                 | `kas/deployment.go`                       | `aws-iam-authenticator` sidecar injection                   |
+| `hypershift`                 | `kas/oauth.go`                            | Webhook redirect to localhost:21362                         |
 
 ### Key Configuration
 
@@ -133,27 +137,11 @@ users:
     user:
       exec:
         apiVersion: client.authentication.k8s.io/v1beta1
-        command: aws-iam-authenticator
-        args: [token, -i, <cluster-id>]
+        command: /path/to/rosactl
+        args: [cluster, get-token, --cluster-id, <cluster-id>]
 ```
-
-## Consequences
-
-### Positive
-
-- **No central failure point** — each cluster authenticates independently via its own sidecar
-- **No secrets or signing material** — the sidecar validates presigned URLs by calling STS
-- **Zero-friction CLI** — `kubectl` works immediately, token generation is entirely client-side
-- **EKS-compatible** — identical token format (`k8s-aws-v1.`), same tooling works
-
-### Negative
-
-- **No browser/console login** — presigned URL tokens require CLI tooling, not a browser flow
-- **15-minute token lifetime** — STS presigned URL maximum; `kubectl` exec caching handles this transparently
-- **Custom HyperShift build required** — sidecar injection and ConfigMap sync are not upstream
 
 ## Related Documentation
 
-- [Full Alternatives Analysis](aws-identity-center-hosted-cluster-authentication.md)
 - [aws-iam-authenticator](https://github.com/kubernetes-sigs/aws-iam-authenticator)
 - [Maestro MQTT Resource Distribution](maestro-mqtt-resource-distribution.md)
