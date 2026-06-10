@@ -182,7 +182,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
 # SQS Interruption Queue
 # -----------------------------------------------------------------------------
 resource "aws_sqs_queue" "karpenter_interruption" {
-  count = var.enable_karpenter ? 1 : 0
+  count                     = var.enable_karpenter ? 1 : 0
   name                      = "${local.cluster_id}-karpenter"
   message_retention_seconds = 300
   sqs_managed_sse_enabled   = true
@@ -211,7 +211,7 @@ resource "aws_sqs_queue_policy" "karpenter_interruption" {
 resource "aws_iam_instance_profile" "karpenter_node" {
   count = var.enable_karpenter ? 1 : 0
   name  = "${local.cluster_id}-karpenter-node"
-  role = aws_iam_role.eks_auto_mode_node.name
+  role  = aws_iam_role.eks_auto_mode_node.name
 }
 
 # -----------------------------------------------------------------------------

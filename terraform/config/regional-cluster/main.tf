@@ -256,6 +256,11 @@ module "rhobs_api_gateway" {
 
   # Method-level observability
   metrics_enabled = var.rhobs_apigw_metrics_enabled
+
+  # aws_api_gateway_account (the account-level CloudWatch Logs role) is a
+  # singleton managed by module.api_gateway. The RHOBS stage also writes
+  # access logs, so it must not update before that account setting is applied.
+  depends_on = [module.api_gateway]
 }
 
 # =============================================================================
