@@ -435,6 +435,18 @@ module "hyperfleet_infrastructure" {
   mq_deployment_mode = var.hyperfleet_mq_deployment_mode
 }
 
+# State drift: AmazonMQ broker log groups were created outside Terraform
+# (prior failed apply). Import blocks adopt them into state declaratively.
+import {
+  to = module.hyperfleet_infrastructure.aws_cloudwatch_log_group.mq_general
+  id = "/aws/amazonmq/broker/${module.hyperfleet_infrastructure.mq_broker_id}/general"
+}
+
+import {
+  to = module.hyperfleet_infrastructure.aws_cloudwatch_log_group.mq_connection
+  id = "/aws/amazonmq/broker/${module.hyperfleet_infrastructure.mq_broker_id}/connection"
+}
+
 # =============================================================================
 # CloudWatch Exporter (Pod Identity for YACE)
 # =============================================================================
