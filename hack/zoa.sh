@@ -307,7 +307,20 @@ _zoa_runs() {
 }
 
 _zoa_actions() {
-  _zoa_request GET "/trusted-actions" | "$_ZOA_JQ" .
+  local action="${1:-}"
+  if [[ -n "$action" ]]; then
+    _zoa_request GET "/trusted-actions/${action}" | "$_ZOA_JQ" .
+    return
+  fi
+
+  local resp
+  resp=$(_zoa_request GET "/trusted-actions")
+
+  printf "%-25s %-10s %-10s %s\n" "NAME" "SCOPE" "TYPE" "DESCRIPTION"
+  printf '%s' "$resp" | "$_ZOA_JQ" -r '.items[] | [.name, .scope, .type, .description] | @tsv' | \
+    while IFS=$'\t' read -r name scope type desc; do
+      printf "%-25s %-10s %-10s %s\n" "$name" "$scope" "$type" "$desc"
+    done
 }
 
 _zoa_describe() {
@@ -328,7 +341,7 @@ Commands:
   get <id> [--logs|--all|--info]      Retrieve execution output
   logs <id>                           Show execution log
   runs [filters]                      List recent executions
-  actions                             List available trusted actions
+  actions [<action>]                  List TAs, or describe one (alias for describe)
   describe <action>                   Show TA parameters and metadata
 
 Run flags:
