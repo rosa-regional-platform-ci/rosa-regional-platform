@@ -230,7 +230,7 @@ resource "aws_iam_role_policy" "karpenter_node_kms" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["kms:CreateGrant", "kms:DescribeKey"]
-      Resource = "arn:aws:kms:us-east-1:660777614061:key/7588d98c-8973-43d8-ab87-af54fa057d64"
+      Resource = "arn:aws:kms:us-east-1:791666871613:key/734853e0-77b5-482b-89c9-55db3fa4515c"
     }]
   })
 }
