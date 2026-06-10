@@ -46,15 +46,17 @@ data:
 
     echo "[zoa] Writing output to ConfigMap ${OUTPUT_CM}"
 
-    PATCH_DATA="{\"data\":{\"execution.log\":$(cat "$EXEC_LOG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')"
+    LOG_B64=$(base64 -w0 "$EXEC_LOG")
+    PATCH="{\"binaryData\":{\"execution.log\":\"${LOG_B64}\""
 
     if [ -f /artifacts/output.json ]; then
-      PATCH_DATA="${PATCH_DATA},\"output.json\":$(cat /artifacts/output.json | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')"
+      OUTPUT_B64=$(base64 -w0 /artifacts/output.json)
+      PATCH="${PATCH},\"output.json\":\"${OUTPUT_B64}\""
     fi
 
-    PATCH_DATA="${PATCH_DATA},\"exit-code\":\"${EXIT_CODE}\"}}"
+    PATCH="${PATCH}},\"data\":{\"exit-code\":\"${EXIT_CODE}\"}}"
 
-    if kubectl patch configmap "${OUTPUT_CM}" -n "${JOB_NAMESPACE}" --type=merge -p "${PATCH_DATA}" 2>&1; then
+    if kubectl patch configmap "${OUTPUT_CM}" -n "${JOB_NAMESPACE}" --type=merge -p "${PATCH}" 2>&1; then
       echo "[zoa] Output written to ConfigMap"
     else
       echo "[zoa] ERROR: failed to patch ConfigMap"
@@ -79,34 +81,27 @@ data:
 
     echo "[zoa-upload] Runner job finished, reading output from ConfigMap ${OUTPUT_CM}"
 
-    CM_JSON=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o json 2>&1)
-    if [ $? -ne 0 ]; then
-      echo "[zoa-upload] ERROR: failed to read ConfigMap"
-      exit 1
-    fi
+    LOG_B64=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o jsonpath='{.binaryData.execution\.log}' 2>/dev/null)
+    OUTPUT_B64=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o jsonpath='{.binaryData.output\.json}' 2>/dev/null)
+    EXIT_CODE=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o jsonpath='{.data.exit-code}' 2>/dev/null)
 
-    EXIT_CODE=$(printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('exit-code','1'))")
-
-    HAS_OUTPUT=$(printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'output.json' in d.get('data',{}) else 'no')")
-    HAS_LOG=$(printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'execution.log' in d.get('data',{}) else 'no')")
-
-    if [ "${HAS_LOG}" = "no" ] && [ "${HAS_OUTPUT}" = "no" ]; then
+    if [ -z "${LOG_B64}" ] && [ -z "${OUTPUT_B64}" ]; then
       echo "[zoa-upload] ERROR: ConfigMap has no data — runner likely crashed before writing output"
       exit 1
     fi
 
     UPLOAD_FAILED=0
 
-    if [ "${HAS_LOG}" = "yes" ]; then
-      printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['execution.log'], end='')" > /tmp/execution.log
+    if [ -n "${LOG_B64}" ]; then
+      printf '%s' "${LOG_B64}" | base64 -d > /tmp/execution.log
       if ! aws s3 cp /tmp/execution.log "s3://${BUCKET}/${RUN_ID}/execution.log" 2>&1; then
         echo "[zoa-upload] ERROR: failed to upload execution.log"
         UPLOAD_FAILED=1
       fi
     fi
 
-    if [ "${HAS_OUTPUT}" = "yes" ]; then
-      printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['output.json'], end='')" > /tmp/output.json
+    if [ -n "${OUTPUT_B64}" ]; then
+      printf '%s' "${OUTPUT_B64}" | base64 -d > /tmp/output.json
       if ! aws s3 cp /tmp/output.json "s3://${BUCKET}/${RUN_ID}/output.json" 2>&1; then
         echo "[zoa-upload] ERROR: failed to upload output.json"
         UPLOAD_FAILED=1
@@ -114,7 +109,7 @@ data:
     fi
 
     if [ $UPLOAD_FAILED -eq 0 ]; then
-      echo "[zoa-upload] Upload complete"
+      echo "[zoa-upload] Upload complete (exit_code=${EXIT_CODE})"
     else
       echo "[zoa-upload] Upload FAILED"
       exit 1
