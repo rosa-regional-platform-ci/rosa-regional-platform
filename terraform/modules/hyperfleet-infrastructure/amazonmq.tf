@@ -66,6 +66,11 @@ resource "aws_kms_alias" "mq_logs" {
   target_key_id = aws_kms_key.mq_logs.key_id
 }
 
+import {
+  to = aws_cloudwatch_log_group.mq_general
+  id = "/aws/amazonmq/broker/${aws_mq_broker.hyperfleet.id}/general"
+}
+
 resource "aws_cloudwatch_log_group" "mq_general" {
   name              = "/aws/amazonmq/broker/${aws_mq_broker.hyperfleet.id}/general"
   retention_in_days = 365
@@ -77,6 +82,11 @@ resource "aws_cloudwatch_log_group" "mq_general" {
     Name      = "${var.regional_id}-hyperfleet-mq-general-logs"
     Component = "hyperfleet-sentinel"
   })
+}
+
+import {
+  to = aws_cloudwatch_log_group.mq_connection
+  id = "/aws/amazonmq/broker/${aws_mq_broker.hyperfleet.id}/connection"
 }
 
 resource "aws_cloudwatch_log_group" "mq_connection" {
