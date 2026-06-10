@@ -303,8 +303,8 @@ _zoa_runs() {
         fmt_age(.created_at)
       ] | @tsv)
     end
-  ' | while IFS=$'\t' read -r id action target status ta total output age; do
-    printf "%-10s %-14s %-22s %-10s %-6s %-6s %-10s %s\n" "$id" "$action" "$target" "$status" "$ta" "$total" "$output" "$age"
+  ' | while IFS=$'\t' read -r _id _action _target _status _ta _total _output _age; do
+    printf "%-10s %-14s %-22s %-10s %-6s %-6s %-10s %s\n" "$_id" "$_action" "$_target" "$_status" "$_ta" "$_total" "$_output" "$_age"
   done
 }
 
