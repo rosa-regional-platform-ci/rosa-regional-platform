@@ -286,12 +286,12 @@ _zoa_runs() {
     return
   fi
 
+  printf "%-10s %-14s %-22s %-10s %-6s %-6s %-10s %s\n" "ID" "ACTION" "TARGET" "STATUS" "TA" "TOTAL" "OUTPUT" "AGE"
   printf '%s' "$result" | "$_ZOA_JQ" -r '
     def fmt_dur(s): if s == null or s == 0 then "-" elif s < 60 then "\(s)s" elif s < 3600 then "\(s/60|floor)m\(s%60)s" else "\(s/3600|floor)h\(s%3600/60|floor)m" end;
     def fmt_age(iso): if iso == null or iso == "" then "-" else ((now - (iso | fromdateiso8601)) | floor) as $s | if $s < 60 then "\($s)s" elif $s < 3600 then "\($s/60|floor)m" elif $s < 86400 then "\($s/3600|floor)h" else "\($s/86400|floor)d" end end;
     def trunc(n): if length > n then .[:n-1] + "…" else . end;
     (.items // []) | if length == 0 then "No executions found" else
-      (["ID","ACTION","TARGET","STATUS","TA","TOTAL","OUTPUT","AGE"] | @tsv),
       (.[] | [
         (.id | .[:8]),
         (.action | trunc(12)),
@@ -303,7 +303,9 @@ _zoa_runs() {
         fmt_age(.created_at)
       ] | @tsv)
     end
-  ' | column -t -s $'\t'
+  ' | while IFS=$'\t' read -r id action target status ta total output age; do
+    printf "%-10s %-14s %-22s %-10s %-6s %-6s %-10s %s\n" "$id" "$action" "$target" "$status" "$ta" "$total" "$output" "$age"
+  done
 }
 
 _zoa_actions() {
