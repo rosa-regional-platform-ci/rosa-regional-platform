@@ -124,7 +124,7 @@ spec:
             hypershift.openshift.io/pod-security-admission-label-override: privileged
             # Self-built CPO from 5.0.0-ec.2 + aws-iam-authenticator sidecar injection and webhook redirect.
             # Branch: https://github.com/typeid/hypershift/tree/aws-iam-authenticator-poc
-            hypershift.openshift.io/control-plane-operator-image: quay.io/cbusse_openshift/control-plane-operator:aws-iam-auth
+            hypershift.openshift.io/control-plane-operator-image: quay.io/cbusse_openshift/control-plane-operator:4.23-iam-auth
             hypershift.openshift.io/aws-iam-authenticator: "true"
         spec:
           infraID: "{{ .clusterId }}"
