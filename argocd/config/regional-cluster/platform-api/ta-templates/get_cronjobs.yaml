@@ -1,5 +1,4 @@
 name: get_cronjobs
-profile: kube
 scope: kube-api
 type: read
 description: List cronjobs with schedule, last run, and suspend status

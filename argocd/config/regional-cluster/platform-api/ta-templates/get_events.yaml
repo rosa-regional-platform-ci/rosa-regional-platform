@@ -1,5 +1,4 @@
 name: get_events
-profile: kube
 scope: kube-api
 type: read
 description: List recent events sorted by time, with optional filtering by involved object

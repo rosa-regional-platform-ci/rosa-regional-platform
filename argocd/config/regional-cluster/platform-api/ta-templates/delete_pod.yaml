@@ -1,5 +1,4 @@
 name: delete_pod
-profile: kube
 scope: kube-api
 type: write
 description: Delete a specific pod and wait until it is fully terminated

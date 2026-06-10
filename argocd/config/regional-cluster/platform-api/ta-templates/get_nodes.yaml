@@ -1,5 +1,4 @@
 name: get_nodes
-profile: kube
 scope: kube-api
 type: read
 description: List all nodes in the target cluster with status and resource information

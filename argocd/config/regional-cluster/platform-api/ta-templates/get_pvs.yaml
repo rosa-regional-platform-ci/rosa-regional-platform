@@ -1,5 +1,4 @@
 name: get_pvs
-profile: kube
 scope: kube-api
 type: read
 description: List persistent volumes with status, capacity, reclaim policy, and claim binding

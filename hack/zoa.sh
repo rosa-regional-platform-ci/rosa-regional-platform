@@ -182,21 +182,35 @@ _zoa_run() {
   local rc=$?
   printf "\r\033[K" >&2
 
-  local exec_status
+  local exec_status output_status ta_dur total_dur
   exec_status=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.status // empty')
-  local duration
-  duration=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.duration_seconds // "?"')
+  output_status=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.output_status // "pending"')
+  ta_dur=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.ta_duration_seconds // 0')
+  total_dur=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.duration_seconds // 0')
+  local upload_dur=$((total_dur - ta_dur))
 
   if [[ "$exec_status" == "succeeded" ]]; then
-    echo "✓ completed (${duration}s)" >&2
-    local output
-    output=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=output")
-    printf '%s' "$output" | "$_ZOA_JQ" -r '.output // empty'
+    if [[ "$output_status" == "uploaded" ]]; then
+      echo "✓ completed (${ta_dur}s, upload +${upload_dur}s)" >&2
+      local output
+      output=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=output")
+      printf '%s' "$output" | "$_ZOA_JQ" -r '.output // empty'
+    elif [[ "$output_status" == "failed" ]]; then
+      echo "✓ completed (${ta_dur}s) ⚠ output upload failed" >&2
+      return 0
+    else
+      echo "✓ completed (${ta_dur}s)" >&2
+      return 0
+    fi
   else
-    echo "✗ ${exec_status} (${duration}s)" >&2
-    local logs
-    logs=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=logs")
-    printf '%s' "$logs" | "$_ZOA_JQ" -r '.logs // .output // empty'
+    if [[ "$output_status" == "uploaded" ]]; then
+      echo "✗ ${exec_status} (${ta_dur}s, upload +${upload_dur}s)" >&2
+      local logs
+      logs=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=logs")
+      printf '%s' "$logs" | "$_ZOA_JQ" -r '.logs // .output // empty'
+    else
+      echo "✗ ${exec_status} (${ta_dur}s) ⚠ output upload failed" >&2
+    fi
     return 1
   fi
 }
@@ -216,9 +230,23 @@ _zoa_get() {
     esac
   done
 
-  local path="/trusted-actions/runs/${id}"
-  [[ -n "$fields" ]] && path="${path}?fields=${fields}"
+  if [[ "$fields" == "" ]]; then
+    _zoa_request GET "/trusted-actions/runs/${id}" | "$_ZOA_JQ" .
+    return
+  fi
 
+  local info
+  info=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=none")
+  local output_status
+  output_status=$(printf '%s' "$info" | "$_ZOA_JQ" -r '.output_status // "pending"')
+
+  if [[ "$output_status" == "failed" ]]; then
+    echo "⚠ output upload failed — no artifacts available" >&2
+    printf '%s' "$info" | "$_ZOA_JQ" .
+    return 0
+  fi
+
+  local path="/trusted-actions/runs/${id}?fields=${fields}"
   _zoa_request GET "$path" | "$_ZOA_JQ" .
 }
 
@@ -230,7 +258,7 @@ _zoa_logs() {
 }
 
 _zoa_runs() {
-  local query=""
+  local query="" raw=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -242,6 +270,7 @@ _zoa_runs() {
       --type)        query="${query:+${query}&}type=$2"; shift 2 ;;
       --since)       query="${query:+${query}&}since=$2"; shift 2 ;;
       --limit)       query="${query:+${query}&}limit=$2"; shift 2 ;;
+      --json)        raw=true; shift ;;
       *) echo "error: unknown flag '$1'" >&2; return 1 ;;
     esac
   done
@@ -249,7 +278,32 @@ _zoa_runs() {
   local path="/trusted-actions/runs"
   [[ -n "$query" ]] && path="${path}?${query}"
 
-  _zoa_request GET "$path" | "$_ZOA_JQ" .
+  local result
+  result=$(_zoa_request GET "$path")
+
+  if $raw; then
+    printf '%s' "$result" | "$_ZOA_JQ" .
+    return
+  fi
+
+  printf '%s' "$result" | "$_ZOA_JQ" -r '
+    def fmt_dur(s): if s == null or s == 0 then "-" elif s < 60 then "\(s)s" elif s < 3600 then "\(s/60|floor)m\(s%60)s" else "\(s/3600|floor)h\(s%3600/60|floor)m" end;
+    def fmt_age(iso): if iso == null or iso == "" then "-" else ((now - (iso | fromdateiso8601)) | floor) as $s | if $s < 60 then "\($s)s" elif $s < 3600 then "\($s/60|floor)m" elif $s < 86400 then "\($s/3600|floor)h" else "\($s/86400|floor)d" end end;
+    def trunc(n): if length > n then .[:n-1] + "…" else . end;
+    (.items // []) | if length == 0 then "No executions found" else
+      (["ID","ACTION","TARGET","STATUS","TA","TOTAL","OUTPUT","AGE"] | @tsv),
+      (.[] | [
+        (.id | .[:8]),
+        (.action | trunc(12)),
+        (.target_cluster | trunc(20)),
+        .status,
+        fmt_dur(.ta_duration_seconds),
+        fmt_dur(.duration_seconds),
+        (.output_status // "pending"),
+        fmt_age(.created_at)
+      ] | @tsv)
+    end
+  ' | column -t -s $'\t'
 }
 
 _zoa_actions() {

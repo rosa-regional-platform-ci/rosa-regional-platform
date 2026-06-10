@@ -1,5 +1,4 @@
 name: get_resource
-profile: kube
 scope: kube-api
 type: read
 description: Generic kubectl get for any resource type, with namespace support and secrets protection for HCP namespaces

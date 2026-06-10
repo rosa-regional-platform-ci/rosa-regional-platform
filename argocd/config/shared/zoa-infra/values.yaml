@@ -1,20 +1,20 @@
 namespace: zoa-jobs
 
 serviceAccounts:
-  kube:
-    name: zoa-kube-sa
-    description: "Kube-API read/write TAs — kubectl commands against local cluster"
+  uploader:
+    name: zoa-uploader
+    description: "S3 uploader — reads output ConfigMap and uploads artifacts to S3"
   awsRead:
-    name: zoa-aws-read-sa
+    name: zoa-aws-read
     description: "AWS read TAs — describe, list, get against AWS APIs"
   awsWrite:
-    name: zoa-aws-write-sa
+    name: zoa-aws-write
     description: "AWS write TAs — modify, restart, scale via AWS APIs"
   breakglassRead:
-    name: zoa-breakglass-read-sa
+    name: zoa-breakglass-read
     description: "Breakglass read operations — broad read AWS access"
   breakglassWrite:
-    name: zoa-breakglass-write-sa
+    name: zoa-breakglass-write
     description: "Breakglass write operations — broad write AWS access"
 
 labels:

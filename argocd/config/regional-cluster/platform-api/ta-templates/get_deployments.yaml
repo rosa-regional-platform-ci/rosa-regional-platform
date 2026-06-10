@@ -1,5 +1,4 @@
 name: get_deployments
-profile: kube
 scope: kube-api
 type: read
 description: List deployments with replica status, strategy, and container images

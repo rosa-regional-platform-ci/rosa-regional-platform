@@ -1,5 +1,4 @@
 name: get_pvcs
-profile: kube
 scope: kube-api
 type: read
 description: List persistent volume claims with status, capacity, storage class, and bound volume

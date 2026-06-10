@@ -1,5 +1,4 @@
 name: get_configmaps
-profile: kube
 scope: kube-api
 type: read
 description: List configmaps with data key count and size (content not shown for safety)

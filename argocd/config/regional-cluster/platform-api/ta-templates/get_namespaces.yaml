@@ -1,5 +1,4 @@
 name: get_namespaces
-profile: kube
 scope: kube-api
 type: read
 description: List all namespaces in the target cluster

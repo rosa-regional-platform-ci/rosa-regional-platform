@@ -1,5 +1,4 @@
 name: get_statefulsets
-profile: kube
 scope: kube-api
 type: read
 description: List statefulsets with replica status and storage class information

@@ -16,26 +16,16 @@ data:
   memory_limit: {{ .Values.platformApi.zoa.jobResources.limits.memory | quote }}
   ttl_seconds: {{ .Values.platformApi.zoa.ttlSeconds | quote }}
   execution_timeout_seconds: {{ .Values.platformApi.zoa.executionTimeoutSeconds | default "1800" | quote }}
+  upload_timeout_seconds: {{ .Values.platformApi.zoa.uploadTimeoutSeconds | default "120" | quote }}
   entrypoint.sh: |
     #!/bin/bash
     set -uo pipefail
 
     EXEC_LOG="/artifacts/execution.log"
 
-    annotate_job() {
-      local upload_ok="$1"
-      local action_exit="$2"
-      if [ -n "${JOB_NAME:-}" ] && [ -n "${JOB_NAMESPACE:-}" ]; then
-        kubectl annotate job "${JOB_NAME}" -n "${JOB_NAMESPACE}" --overwrite \
-          "zoa.rosa.io/upload-ok=${upload_ok}" \
-          "zoa.rosa.io/action-exit-code=${action_exit}" 2>&1 || \
-          echo "[zoa] WARNING: failed to annotate job"
-      fi
-    }
-
     run_action() {
       echo "[zoa] execution_id=${RUN_ID} action=${ACTION_NAME} target=${CLUSTER_ID}"
-      echo "[zoa] operator=${OPERATOR} profile=${PROFILE} type=${TYPE}"
+      echo "[zoa] operator=${OPERATOR} scope=${SCOPE} type=${TYPE}"
       echo "[zoa] revision=${REVISION}"
       echo "[zoa] started_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
       echo "---"
@@ -48,34 +38,85 @@ data:
     echo "[zoa] exit_code=${EXIT_CODE}"
     echo "[zoa] completed_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
-    if [ -z "${ARTIFACT_BUCKET:-}" ]; then
-      echo "[zoa] ERROR: ARTIFACT_BUCKET not set, skipping upload"
-      annotate_job "false" "${EXIT_CODE}"
+    OUTPUT_CM="${OUTPUT_CONFIGMAP:-}"
+    if [ -z "${OUTPUT_CM}" ]; then
+      echo "[zoa] ERROR: OUTPUT_CONFIGMAP not set, cannot store output"
       exit ${EXIT_CODE}
     fi
 
-    echo "[zoa] Uploading artifacts to s3://${ARTIFACT_BUCKET}/${RUN_ID}/"
-    UPLOAD_FAILED=0
+    echo "[zoa] Writing output to ConfigMap ${OUTPUT_CM}"
 
-    if ! aws s3 cp "$EXEC_LOG" "s3://${ARTIFACT_BUCKET}/${RUN_ID}/execution.log" 2>&1; then
-      echo "[zoa] ERROR: failed to upload execution.log"
-      UPLOAD_FAILED=1
-    fi
+    PATCH_DATA="{\"data\":{\"execution.log\":$(cat "$EXEC_LOG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')"
 
     if [ -f /artifacts/output.json ]; then
-      if ! aws s3 cp /artifacts/output.json "s3://${ARTIFACT_BUCKET}/${RUN_ID}/output.json" 2>&1; then
-        echo "[zoa] ERROR: failed to upload output.json"
+      PATCH_DATA="${PATCH_DATA},\"output.json\":$(cat /artifacts/output.json | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')"
+    fi
+
+    PATCH_DATA="${PATCH_DATA},\"exit-code\":\"${EXIT_CODE}\"}}"
+
+    if kubectl patch configmap "${OUTPUT_CM}" -n "${JOB_NAMESPACE}" --type=merge -p "${PATCH_DATA}" 2>&1; then
+      echo "[zoa] Output written to ConfigMap"
+    else
+      echo "[zoa] ERROR: failed to patch ConfigMap"
+    fi
+
+    exit ${EXIT_CODE}
+  upload_entrypoint.sh: |
+    #!/bin/bash
+    set -uo pipefail
+
+    TIMEOUT="${UPLOAD_TIMEOUT:-120}"
+    RUNNER_JOB="${RUNNER_JOB_NAME}"
+    OUTPUT_CM="${OUTPUT_CONFIGMAP}"
+    BUCKET="${ARTIFACT_BUCKET}"
+    NS="${JOB_NAMESPACE}"
+
+    echo "[zoa-upload] Waiting for runner job ${RUNNER_JOB} to complete (timeout=${TIMEOUT}s)"
+
+    if ! kubectl wait --for=condition=complete --timeout="${TIMEOUT}s" "job/${RUNNER_JOB}" -n "${NS}" 2>/dev/null; then
+      kubectl wait --for=condition=failed --timeout=10s "job/${RUNNER_JOB}" -n "${NS}" 2>/dev/null || true
+    fi
+
+    echo "[zoa-upload] Runner job finished, reading output from ConfigMap ${OUTPUT_CM}"
+
+    CM_JSON=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o json 2>&1)
+    if [ $? -ne 0 ]; then
+      echo "[zoa-upload] ERROR: failed to read ConfigMap"
+      exit 1
+    fi
+
+    EXIT_CODE=$(printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',{}).get('exit-code','1'))")
+
+    HAS_OUTPUT=$(printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'output.json' in d.get('data',{}) else 'no')")
+    HAS_LOG=$(printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'execution.log' in d.get('data',{}) else 'no')")
+
+    if [ "${HAS_LOG}" = "no" ] && [ "${HAS_OUTPUT}" = "no" ]; then
+      echo "[zoa-upload] ERROR: ConfigMap has no data — runner likely crashed before writing output"
+      exit 1
+    fi
+
+    UPLOAD_FAILED=0
+
+    if [ "${HAS_LOG}" = "yes" ]; then
+      printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['execution.log'], end='')" > /tmp/execution.log
+      if ! aws s3 cp /tmp/execution.log "s3://${BUCKET}/${RUN_ID}/execution.log" 2>&1; then
+        echo "[zoa-upload] ERROR: failed to upload execution.log"
+        UPLOAD_FAILED=1
+      fi
+    fi
+
+    if [ "${HAS_OUTPUT}" = "yes" ]; then
+      printf '%s' "${CM_JSON}" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['output.json'], end='')" > /tmp/output.json
+      if ! aws s3 cp /tmp/output.json "s3://${BUCKET}/${RUN_ID}/output.json" 2>&1; then
+        echo "[zoa-upload] ERROR: failed to upload output.json"
         UPLOAD_FAILED=1
       fi
     fi
 
     if [ $UPLOAD_FAILED -eq 0 ]; then
-      echo "[zoa] Upload complete"
-      annotate_job "true" "${EXIT_CODE}"
+      echo "[zoa-upload] Upload complete"
     else
-      echo "[zoa] Upload FAILED — check errors above"
-      annotate_job "false" "${EXIT_CODE}"
+      echo "[zoa-upload] Upload FAILED"
+      exit 1
     fi
-
-    exit ${EXIT_CODE}
 {{- end }}

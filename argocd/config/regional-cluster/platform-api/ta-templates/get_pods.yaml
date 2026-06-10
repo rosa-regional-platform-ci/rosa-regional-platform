@@ -1,5 +1,4 @@
 name: get_pods
-profile: kube
 scope: kube-api
 type: read
 description: List pods in a namespace or across all namespaces with optional label selector

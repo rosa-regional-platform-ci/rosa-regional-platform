@@ -1,5 +1,4 @@
 name: get_endpoints
-profile: kube
 scope: kube-api
 type: read
 description: List endpoints with addresses and ports (useful for debugging service connectivity)

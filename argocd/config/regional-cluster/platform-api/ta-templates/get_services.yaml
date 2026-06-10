@@ -1,5 +1,4 @@
 name: get_services
-profile: kube
 scope: kube-api
 type: read
 description: List services with type, cluster IP, ports, and selector

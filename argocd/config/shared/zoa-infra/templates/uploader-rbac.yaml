@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zoa-uploader
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "zoa-infra.labels" $ | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zoa-uploader
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "zoa-infra.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: zoa-uploader
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccounts.uploader.name }}
+    namespace: {{ .Values.namespace }}

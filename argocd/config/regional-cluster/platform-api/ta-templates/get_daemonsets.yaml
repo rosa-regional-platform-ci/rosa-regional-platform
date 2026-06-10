@@ -1,5 +1,4 @@
 name: get_daemonsets
-profile: kube
 scope: kube-api
 type: read
 description: List daemonsets with scheduling status and node selector
