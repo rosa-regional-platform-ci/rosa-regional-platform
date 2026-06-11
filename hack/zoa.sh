@@ -396,19 +396,31 @@ _zoa_audit() {
   local resp
   resp=$(_zoa_request GET "$path")
 
+  local err_code
+  err_code=$(printf '%s' "$resp" | "$_ZOA_JQ" -r '.code // empty')
+  if [[ -n "$err_code" ]]; then
+    printf '%s' "$resp" | "$_ZOA_JQ" -r '"error: \(.reason // .code)"'
+    return 1
+  fi
+
   if [[ "$mode" == "json" ]]; then
     printf '%s' "$resp" | "$_ZOA_JQ" .
     return
   fi
 
+  local count
+  count=$(printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // []) | length')
+  if [[ "$count" == "0" ]]; then
+    echo "No audit entries found"
+    return
+  fi
+
   printf "%-20s %-8s %-35s %-20s %-15s %s\n" "TIMESTAMP" "METHOD" "PATH" "OPERATOR" "TARGET" "STATUS"
-  {
-    printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // [])[] | [.timestamp, .method, .path, .operator, (.target_cluster // "-"), (.status_code | tostring)] | @tsv' | \
-    while IFS=$'\t' read -r ts method path op target scode; do
-      local short_ts="${ts:11:8}"
-      printf "%-20s %-8s %-35s %-20s %-15s %s\n" "$short_ts" "$method" "$path" "$op" "$target" "$scode"
-    done
-  } || echo "No audit entries found"
+  printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // [])[] | [.timestamp, .method, .path, .operator, (.target_cluster // "-"), (.status_code | tostring)] | @tsv' | \
+  while IFS=$'\t' read -r ts method apath op target scode; do
+    local short_ts="${ts:11:8}"
+    printf "%-20s %-8s %-35s %-20s %-15s %s\n" "$short_ts" "$method" "$apath" "$op" "$target" "$scode"
+  done
 }
 
 _zoa_actions() {
