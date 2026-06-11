@@ -319,7 +319,7 @@ _zoa_actions() {
   resp=$(_zoa_request GET "/trusted-actions")
 
   printf "%-25s %-10s %-10s %s\n" "NAME" "SCOPE" "TYPE" "DESCRIPTION"
-  printf '%s' "$resp" | "$_ZOA_JQ" -r '.items[] | [.name, .scope, .type, .description] | @tsv' | \
+  printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // [])[] | [.name, .scope, .type, .description] | @tsv' | \
     while IFS=$'\t' read -r name scope type desc; do
       printf "%-25s %-10s %-10s %s\n" "$name" "$scope" "$type" "$desc"
     done
