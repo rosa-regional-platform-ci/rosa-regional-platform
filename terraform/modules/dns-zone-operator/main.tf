@@ -28,6 +28,9 @@ resource "aws_iam_role" "dns_zone_operator" {
         "ForAnyValue:StringLike" = {
           "aws:PrincipalOrgPaths" = "${var.region_ou_path}*"
         }
+        StringLike = {
+          "aws:PrincipalArn" = "arn:aws:iam::*:role/*-dns-operator"
+        }
       }
     }]
   })

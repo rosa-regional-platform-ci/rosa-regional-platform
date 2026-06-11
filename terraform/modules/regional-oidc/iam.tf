@@ -29,6 +29,9 @@ resource "aws_iam_role" "oidc_writer" {
         "ForAnyValue:StringLike" = {
           "aws:PrincipalOrgPaths" = "${var.mc_ou_path}*"
         }
+        StringLike = {
+          "aws:PrincipalArn" = "arn:aws:iam::*:role/*-hypershift-operator"
+        }
       }
     }]
   })
