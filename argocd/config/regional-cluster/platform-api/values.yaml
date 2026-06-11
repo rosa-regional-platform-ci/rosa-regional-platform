@@ -79,6 +79,7 @@ platformApi:
   zoa:
     enabled: true
     tableName: ""
+    auditTableName: ""
     bucketName: ""
     jobRoleArn: ""
     jobImage: "quay.io/slopezz/zoa-tools:latest"

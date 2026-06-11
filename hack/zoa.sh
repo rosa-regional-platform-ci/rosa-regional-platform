@@ -98,6 +98,7 @@ zoa() {
     get)      _zoa_get "$@" ;;
     logs)     _zoa_logs "$@" ;;
     runs)     _zoa_runs "$@" ;;
+    audit)    _zoa_audit "$@" ;;
     actions)  _zoa_actions "$@" ;;
     describe) _zoa_describe "$@" ;;
     help|--help|-h) _zoa_help ;;
@@ -366,6 +367,43 @@ _zoa_runs() {
   } || echo "No executions found"
 }
 
+_zoa_audit() {
+  local query="" mode="human"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -t|--target)   query="${query:+${query}&}target=$2"; shift 2 ;;
+      --action)      query="${query:+${query}&}action=$2"; shift 2 ;;
+      --operator)    query="${query:+${query}&}operator=$2"; shift 2 ;;
+      --method)      query="${query:+${query}&}method=$2"; shift 2 ;;
+      --since)       query="${query:+${query}&}since=$2"; shift 2 ;;
+      --limit)       query="${query:+${query}&}limit=$2"; shift 2 ;;
+      --json)        mode="json"; shift ;;
+      *) echo "error: unknown flag '$1'" >&2; return 1 ;;
+    esac
+  done
+
+  local path="/trusted-actions/audit"
+  [[ -n "$query" ]] && path="${path}?${query}"
+
+  local resp
+  resp=$(_zoa_request GET "$path")
+
+  if [[ "$mode" == "json" ]]; then
+    printf '%s' "$resp" | "$_ZOA_JQ" .
+    return
+  fi
+
+  printf "%-20s %-8s %-35s %-20s %-15s %s\n" "TIMESTAMP" "METHOD" "PATH" "OPERATOR" "TARGET" "STATUS"
+  {
+    printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // [])[] | [.timestamp, .method, .path, .operator, (.target_cluster // "-"), (.status_code | tostring)] | @tsv' | \
+    while IFS=$'\t' read -r ts method path op target status; do
+      local short_ts="${ts:11:8}"
+      printf "%-20s %-8s %-35s %-20s %-15s %s\n" "$short_ts" "$method" "$path" "$op" "$target" "$status"
+    done
+  } || echo "No audit entries found"
+}
+
 _zoa_actions() {
   local action="" raw=false
   while [[ $# -gt 0 ]]; do
@@ -439,6 +477,7 @@ Commands:
   get <id> [--logs|--all|--info]      Retrieve execution output
   logs <id>                           Show execution log
   runs [filters]                      List recent executions
+  audit [filters]                     View audit log of API calls
   actions [<action>]                  List TAs, or describe one (alias for describe)
   describe <action>                   Show TA parameters and metadata
 
@@ -472,6 +511,15 @@ Get flags:
   --all                    Show output + logs + metadata
   --info                   Show metadata only (status, timing)
   -o, --output             Output only (no metadata envelope, pipeable)
+  --json                   Raw JSON output
+
+Audit filters (all combinable):
+  -t, --target <cluster>   Filter by target cluster
+  --action <name>          Filter by action name
+  --operator <name>        Filter by operator
+  --method <method>        Filter by HTTP method (GET|POST)
+  --since <duration>       Filter by time (e.g. 1h, 24h, 7d)
+  --limit <n>              Max results (default 50, max 200)
   --json                   Raw JSON output
 
 Environment:
@@ -509,6 +557,13 @@ Examples:
   zoa runs --type write --since 12h
   zoa runs --scope kube-api --status succeeded --limit 50
   zoa runs --json | jq '.items[] | select(.runner_seconds > 10)'
+
+  # Audit log
+  zoa audit --since 24h
+  zoa audit --operator slopezma --since 7d
+  zoa audit --action rollout_restart -t mc-useast1-1
+  zoa audit --method POST --since 1h
+  zoa audit --json | jq '.items[] | select(.status_code != 202)'
 
   # Discover available actions
   zoa actions
