@@ -83,9 +83,10 @@ data:
 
     echo "[$(ts)] runner done, reading configmap"
 
-    LOG_B64=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o jsonpath='{.binaryData.execution\.log}' 2>/dev/null)
-    OUTPUT_B64=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o jsonpath='{.binaryData.output\.json}' 2>/dev/null)
-    EXIT_CODE=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o jsonpath='{.data.exit-code}' 2>/dev/null)
+    CM_JSON=$(kubectl get configmap "${OUTPUT_CM}" -n "${NS}" -o json 2>/dev/null)
+    LOG_B64=$(printf '%s' "$CM_JSON" | jq -r '.binaryData["execution.log"] // empty')
+    OUTPUT_B64=$(printf '%s' "$CM_JSON" | jq -r '.binaryData["output.json"] // empty')
+    EXIT_CODE=$(printf '%s' "$CM_JSON" | jq -r '.data["exit-code"] // "1"')
 
     echo "[$(ts)] configmap read done"
 
@@ -94,27 +95,16 @@ data:
       exit 1
     fi
 
-    UPLOAD_FAILED=0
+    mkdir -p /tmp/upload
+    [ -n "${LOG_B64}" ] && printf '%s' "${LOG_B64}" | base64 -d > /tmp/upload/execution.log
+    [ -n "${OUTPUT_B64}" ] && printf '%s' "${OUTPUT_B64}" | base64 -d > /tmp/upload/output.json
 
-    if [ -n "${LOG_B64}" ]; then
-      printf '%s' "${LOG_B64}" | base64 -d > /tmp/execution.log
-      echo "[$(ts)] uploading execution.log"
-      if ! aws s3 cp /tmp/execution.log "s3://${BUCKET}/${RUN_ID}/execution.log" 2>&1; then
-        echo "[$(ts)] ERROR: failed to upload execution.log"
-        UPLOAD_FAILED=1
-      fi
+    echo "[$(ts)] uploading to s3://${BUCKET}/${RUN_ID}/"
+    if aws s3 sync /tmp/upload/ "s3://${BUCKET}/${RUN_ID}/" 2>&1; then
+      echo "[$(ts)] done (exit_code=${EXIT_CODE})"
+      exit 0
+    else
+      echo "[$(ts)] ERROR: s3 sync failed"
+      exit 1
     fi
-
-    if [ -n "${OUTPUT_B64}" ]; then
-      printf '%s' "${OUTPUT_B64}" | base64 -d > /tmp/output.json
-      echo "[$(ts)] uploading output.json"
-      if ! aws s3 cp /tmp/output.json "s3://${BUCKET}/${RUN_ID}/output.json" 2>&1; then
-        echo "[$(ts)] ERROR: failed to upload output.json"
-        UPLOAD_FAILED=1
-      fi
-    fi
-
-    echo "[$(ts)] done (exit_code=${EXIT_CODE}, failed=${UPLOAD_FAILED})"
-    if [ $UPLOAD_FAILED -ne 0 ]; then exit 1; fi
-    exit 0
 {{- end }}
