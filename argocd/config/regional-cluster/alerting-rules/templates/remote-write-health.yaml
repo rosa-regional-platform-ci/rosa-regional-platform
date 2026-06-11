@@ -15,7 +15,7 @@ spec:
           expr: absent(up{job="kubelet", cluster="{{ .Values.global.cluster_name }}"})
           for: 5m
           labels:
-            severity: critical
+            severity: warning
             cluster: "{{ .Values.global.cluster_name }}"
             cluster_type: regional
           annotations:
@@ -31,7 +31,7 @@ spec:
           expr: absent(up{job="kubelet", cluster="{{ $mcName }}"})
           for: 5m
           labels:
-            severity: critical
+            severity: warning
             cluster: "{{ $mcName }}"
             cluster_type: management
           annotations:

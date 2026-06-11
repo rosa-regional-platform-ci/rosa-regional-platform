@@ -22,6 +22,10 @@ kube-prometheus-stack:
         routes:
           - receiver: sns-alerts
             continue: true
+          - receiver: pagerduty
+            match_re:
+              severity: "warning|critical"
+            continue: true
       receivers:
         - name: "null"
         - name: sns-alerts
@@ -30,7 +34,13 @@ kube-prometheus-stack:
               sigv4:
                 region: '{{ .Values.global.aws_region }}'
               send_resolved: true
+        - name: pagerduty
+          pagerduty_configs:
+            - service_key_file: /etc/alertmanager/secrets/pagerduty-integration-key/integration_key
+              send_resolved: true
     alertmanagerSpec:
+      secrets:
+        - pagerduty-integration-key
       replicas: 2
       resources:
         requests:

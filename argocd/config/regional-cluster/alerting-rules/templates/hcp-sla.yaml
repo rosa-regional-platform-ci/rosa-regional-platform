@@ -24,7 +24,7 @@ spec:
             unless on(namespace, name, cluster) (hcp:lifecycle_installing or hcp:lifecycle_deleting)
           for: 1m
           labels:
-            severity: critical
+            severity: warning
             long_window: 5m
             short_window: 2m
           annotations:
@@ -48,7 +48,7 @@ spec:
             unless on(namespace, name, cluster) (hcp:lifecycle_installing or hcp:lifecycle_deleting)
           for: 2m
           labels:
-            severity: critical
+            severity: warning
             long_window: 30m
             short_window: 5m
           annotations:
