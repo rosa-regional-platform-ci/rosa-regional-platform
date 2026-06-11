@@ -286,26 +286,33 @@ _zoa_runs() {
     return
   fi
 
-  printf "%-10s %-14s %-22s %-10s %-6s %-6s %-10s %s\n" "ID" "ACTION" "TARGET" "STATUS" "TA" "TOTAL" "OUTPUT" "AGE"
   printf '%s' "$result" | "$_ZOA_JQ" -r '
     def fmt_dur(s): if s == null or s == 0 then "-" elif s < 60 then "\(s)s" elif s < 3600 then "\(s/60|floor)m\(s%60)s" else "\(s/3600|floor)h\(s%3600/60|floor)m" end;
-    def fmt_age(iso): if iso == null or iso == "" then "-" else ((now - (iso | fromdateiso8601)) | floor) as $s | if $s < 60 then "\($s)s" elif $s < 3600 then "\($s/60|floor)m" elif $s < 86400 then "\($s/3600|floor)h" else "\($s/86400|floor)d" end end;
-    def trunc(n): if length > n then .[:n-1] + "…" else . end;
-    (.items // []) | if length == 0 then "No executions found" else
-      (.[] | [
-        (.id | .[:8]),
-        (.action | trunc(12)),
-        (.target_cluster | trunc(20)),
+    def fmt_ts(iso): if iso == null or iso == "" then "-" else (iso | split("T") | .[0][5:] + " " + .[1][:5]) end;
+    def fmt_params(p): if p == null or p == {} then "-" else [p | to_entries[] | "\(.key)=\(.value)"] | join(",") | if length > 30 then .[:29] + "…" else . end end;
+    (.items // []) | if length == 0 then empty else
+      .[] | [
+        .id,
+        .action,
+        .scope,
+        (.target_cluster | split("-") | .[-1]),
         .status,
+        (.output_status // "-"),
         fmt_dur(.ta_duration_seconds),
         fmt_dur(.duration_seconds),
-        (.output_status // "pending"),
-        fmt_age(.created_at)
-      ] | @tsv)
+        fmt_params(.params),
+        (.operator // "-"),
+        fmt_ts(.created_at)
+      ] | @tsv
     end
-  ' | while IFS=$'\t' read -r _id _action _target _status _ta _total _output _age; do
-    printf "%-10s %-14s %-22s %-10s %-6s %-6s %-10s %s\n" "$_id" "$_action" "$_target" "$_status" "$_ta" "$_total" "$_output" "$_age"
-  done
+  ' | {
+    printf "%-38s %-16s %-9s %-8s %-10s %-9s %-5s %-5s %-30s %-12s %s\n" \
+      "ID" "ACTION" "SCOPE" "TARGET" "STATUS" "OUTPUT" "TA" "TOT" "PARAMS" "OPERATOR" "CREATED"
+    while IFS=$'\t' read -r _id _action _scope _target _status _output _ta _total _params _operator _created; do
+      printf "%-38s %-16s %-9s %-8s %-10s %-9s %-5s %-5s %-30s %-12s %s\n" \
+        "$_id" "$_action" "$_scope" "$_target" "$_status" "$_output" "$_ta" "$_total" "$_params" "$_operator" "$_created"
+    done
+  } || echo "No executions found"
 }
 
 _zoa_actions() {
