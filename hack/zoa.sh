@@ -111,12 +111,12 @@ zoa() {
 
 _zoa_run() {
   local action="" target="" namespace="" all_ns="false" selector=""
-  local verbose="false" resource="" name="" deployment="" pod=""
-  local no_wait=false
+  local verbose="false" resource="" name="" jira=""
+  local no_wait=false force=false dry_run=false
   local -a extra_params=()
 
   action="${1:-}"
-  [[ -z "$action" ]] && { echo "error: usage: zoa run <action> -t <cluster> [flags]" >&2; return 1; }
+  [[ -z "$action" ]] && { echo "error: usage: zoa run <action> -t <cluster> --jira <ticket> [flags]" >&2; return 1; }
   shift
 
   while [[ $# -gt 0 ]]; do
@@ -128,8 +128,9 @@ _zoa_run() {
       -v|--verbose)    verbose="true"; shift ;;
       --resource)      resource="$2"; shift 2 ;;
       --name)          name="$2"; shift 2 ;;
-      --deployment)    deployment="$2"; shift 2 ;;
-      --pod)           pod="$2"; shift 2 ;;
+      --jira)          jira="$2"; shift 2 ;;
+      --force)         force=true; shift ;;
+      --dry-run)       dry_run=true; shift ;;
       --no-wait)       no_wait=true; shift ;;
       --param)         extra_params+=("$2"); shift 2 ;;
       *) echo "error: unknown flag '$1'" >&2; return 1 ;;
@@ -141,6 +142,11 @@ _zoa_run() {
     return 1
   fi
 
+  if [[ -z "$jira" ]]; then
+    echo "error: --jira <ticket> is required (e.g. ROSAENG-1234)" >&2
+    return 1
+  fi
+
   local params="{}"
   [[ -n "$namespace" ]]  && params=$(printf '%s' "$params" | "$_ZOA_JQ" --arg v "$namespace" '. + {namespace: $v}')
   [[ "$all_ns" == "true" ]] && params=$(printf '%s' "$params" | "$_ZOA_JQ" '. + {all_namespaces: "true"}')
@@ -148,8 +154,6 @@ _zoa_run() {
   [[ "$verbose" == "true" ]] && params=$(printf '%s' "$params" | "$_ZOA_JQ" '. + {verbose: "true"}')
   [[ -n "$resource" ]]   && params=$(printf '%s' "$params" | "$_ZOA_JQ" --arg v "$resource" '. + {resource: $v}')
   [[ -n "$name" ]]       && params=$(printf '%s' "$params" | "$_ZOA_JQ" --arg v "$name" '. + {name: $v}')
-  [[ -n "$deployment" ]] && params=$(printf '%s' "$params" | "$_ZOA_JQ" --arg v "$deployment" '. + {deployment_name: $v}')
-  [[ -n "$pod" ]]        && params=$(printf '%s' "$params" | "$_ZOA_JQ" --arg v "$pod" '. + {pod_name: $v}')
 
   for p in "${extra_params[@]+"${extra_params[@]}"}"; do
     local key="${p%%=*}" val="${p#*=}"
@@ -157,8 +161,9 @@ _zoa_run() {
   done
 
   local body
-  body=$("$_ZOA_JQ" -n --arg target "$target" --argjson params "$params" \
-    '{target_cluster: $target, params: $params}')
+  body=$("$_ZOA_JQ" -n --arg target "$target" --arg jira "$jira" --argjson params "$params" \
+    --argjson force "$force" --argjson dry_run "$dry_run" \
+    '{target_cluster: $target, jira: $jira, params: $params, force: $force, dry_run: $dry_run}')
 
   local submit
   submit=$(_zoa_request POST "/trusted-actions/${action}/run" "$body")
@@ -190,7 +195,7 @@ _zoa_run() {
   total_s=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.duration_seconds // 0')
   local dispatch_s=$((total_s - runner_s - upload_s))
 
-  local timing="runner=${runner_s}s upload=${upload_s}s total=${total_s}s dispatch=${dispatch_s}s"
+  local timing="total=${total_s}s (runner=${runner_s}s upload=${upload_s}s dispatch=${dispatch_s}s)"
 
   if [[ "$exec_status" == "succeeded" ]]; then
     if [[ "$output_status" == "uploaded" ]]; then
@@ -220,22 +225,42 @@ _zoa_run() {
 
 _zoa_get() {
   local id="${1:-}"
-  [[ -z "$id" ]] && { echo "error: usage: zoa get <id> [-o|--logs|--all|--info]" >&2; return 1; }
+  [[ -z "$id" ]] && { echo "error: usage: zoa get <id> [-o|--logs|--all|--info|--json]" >&2; return 1; }
   shift
 
-  local fields="output" raw=false
+  local fields="output" mode="human"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --logs)  fields="logs"; shift ;;
       --all)   fields="output,logs"; shift ;;
       --info)  fields=""; shift ;;
-      -o|--output) raw=true; shift ;;
+      -o|--output) mode="output-only"; shift ;;
+      --json)  mode="json"; shift ;;
       *) echo "error: unknown flag '$1'" >&2; return 1 ;;
     esac
   done
 
   if [[ "$fields" == "" ]]; then
-    _zoa_request GET "/trusted-actions/runs/${id}?fields=none" | "$_ZOA_JQ" .
+    local info
+    info=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=none")
+    if [[ "$mode" == "json" ]]; then
+      printf '%s' "$info" | "$_ZOA_JQ" .
+    else
+      printf '%s' "$info" | "$_ZOA_JQ" -r '
+        "ID:        \(.id)",
+        "ACTION:    \(.action)",
+        "TARGET:    \(.target_cluster)",
+        "STATUS:    \(.status)",
+        "OUTPUT:    \(.output_status // "pending")",
+        "JIRA:      \(.jira // "-")",
+        "OPERATOR:  \(.operator // "-")",
+        "PARAMS:    \(.params // {} | to_entries | map(.key + "=" + .value) | join(" ") | if . == "" then "-" else . end)",
+        "CREATED:   \(.created_at)",
+        "UPDATED:   \(.updated_at // "-")",
+        "COMPLETED: \(.completed_at // "-")",
+        "DURATION:  \(if .duration_seconds then "\(.duration_seconds)s (runner=\(.runner_seconds // 0)s upload=\(.upload_seconds // 0)s)" else "-" end)"
+      '
+    fi
     return
   fi
 
@@ -246,7 +271,11 @@ _zoa_get() {
 
   if [[ "$output_status" == "failed" ]]; then
     echo "⚠ output upload failed — no artifacts available" >&2
-    printf '%s' "$info" | "$_ZOA_JQ" .
+    if [[ "$mode" == "json" ]]; then
+      printf '%s' "$info" | "$_ZOA_JQ" .
+    else
+      printf '%s' "$info" | "$_ZOA_JQ" -r '"STATUS: \(.status)  OUTPUT: \(.output_status)"'
+    fi
     return 0
   fi
 
@@ -254,10 +283,18 @@ _zoa_get() {
   local resp
   resp=$(_zoa_request GET "$path")
 
-  if [[ "$raw" == "true" ]]; then
+  if [[ "$mode" == "output-only" ]]; then
     printf '%s' "$resp" | "$_ZOA_JQ" '.output // empty'
-  else
+  elif [[ "$mode" == "json" ]]; then
     printf '%s' "$resp" | "$_ZOA_JQ" .
+  else
+    printf '%s' "$info" | "$_ZOA_JQ" -r '
+      "ID:        \(.id)",
+      "ACTION:    \(.action)  TARGET: \(.target_cluster)  STATUS: \(.status)",
+      "DURATION:  \(if .duration_seconds then "\(.duration_seconds)s" else "-" end)  OPERATOR: \(.operator // "-")  JIRA: \(.jira // "-")",
+      "---"
+    '
+    printf '%s' "$resp" | "$_ZOA_JQ" '.output // empty'
   fi
 }
 
@@ -359,10 +396,36 @@ _zoa_actions() {
 }
 
 _zoa_describe() {
-  local action="${1:-}"
-  [[ -z "$action" ]] && { echo "error: usage: zoa describe <action>" >&2; return 1; }
+  local action="${1:-}" mode="human"
+  [[ -z "$action" ]] && { echo "error: usage: zoa describe <action> [--json]" >&2; return 1; }
+  shift 2>/dev/null || true
 
-  _zoa_request GET "/trusted-actions/${action}" | "$_ZOA_JQ" .
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) mode="json"; shift ;;
+      *) echo "error: unknown flag '$1'" >&2; return 1 ;;
+    esac
+  done
+
+  local resp
+  resp=$(_zoa_request GET "/trusted-actions/${action}")
+
+  if [[ "$mode" == "json" ]]; then
+    printf '%s' "$resp" | "$_ZOA_JQ" .
+  else
+    printf '%s' "$resp" | "$_ZOA_JQ" -r '
+      "NAME:        \(.name)",
+      "SCOPE:       \(.scope)",
+      "TYPE:        \(.type)",
+      "DESCRIPTION: \(.description)",
+      (if .approval_required then "APPROVAL:    required" else empty end),
+      (if .write_cooldown_seconds > 0 then "COOLDOWN:    \(.write_cooldown_seconds)s" else empty end),
+      (if .dry_run_action then "DRY-RUN:     \(.dry_run_action)" else empty end),
+      "",
+      "PARAMETERS:",
+      (if (.params | length) == 0 then "  (none)" else (.params[] | "  \(.name)\(if .required then " *" else "" end)\t\(.description // "")\(if .default and .default != "" then " [default: \(.default)]" else "" end)") end)
+    '
+  fi
 }
 
 _zoa_help() {
@@ -381,14 +444,14 @@ Commands:
 
 Run flags:
   -t, --target <cluster>   Target cluster (required)
+  --jira <ticket>          Jira ticket (required, e.g. ROSAENG-1234)
   -n <namespace>           Namespace
   -A                       All namespaces
   -l <selector>            Label selector
   -v, --verbose            Full JSON output (no compact)
-  --resource <type>        Resource type (get_resource)
-  --name <name>            Resource name (get_resource)
-  --deployment <name>      Deployment name (rollout_restart)
-  --pod <name>             Pod name (delete_pod)
+  --name <name>            Resource name
+  --force                  Bypass write cooldown
+  --dry-run                Execute dry_run_action instead (preview)
   --no-wait                Don't wait for completion (print ID only)
   --param key=value        Pass arbitrary param
 
@@ -409,6 +472,7 @@ Get flags:
   --all                    Show output + logs + metadata
   --info                   Show metadata only (status, timing)
   -o, --output             Output only (no metadata envelope, pipeable)
+  --json                   Raw JSON output
 
 Environment:
   ZOA_API                  API Gateway URL (required)

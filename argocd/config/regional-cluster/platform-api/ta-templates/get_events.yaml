@@ -1,7 +1,7 @@
 name: get_events
 scope: kube-api
 type: read
-description: List recent events sorted by time, with optional filtering by involved object
+description: List or get recent events sorted by time, with optional filtering by involved object
 timeout_seconds: 300
 params:
   - name: namespace
@@ -12,6 +12,10 @@ params:
     required: false
     default: "false"
     description: "List across all namespaces (overrides namespace)"
+  - name: name
+    required: false
+    default: ""
+    description: "Specific event name (omit to list all)"
   - name: field_selector
     required: false
     default: ""
@@ -31,6 +35,10 @@ script: |
 
   NAMESPACE_ARGS=()
   if [ "${PARAM_ALL_NAMESPACES:-false}" = "true" ]; then
+    if [ -n "${PARAM_NAME:-}" ]; then
+      echo "ERROR: Cannot use all_namespaces with a specific resource name"
+      exit 1
+    fi
     if [ -n "${PARAM_NAMESPACE:-}" ]; then
       echo "WARNING: all_namespaces=true overrides namespace=${PARAM_NAMESPACE}"
     fi
@@ -42,15 +50,26 @@ script: |
     exit 1
   fi
 
+  NAME_ARGS=()
+  if [ -n "${PARAM_NAME:-}" ]; then
+    NAME_ARGS=("${PARAM_NAME}")
+  fi
+
   FIELD_ARGS=()
   if [ -n "${PARAM_FIELD_SELECTOR:-}" ]; then
     FIELD_ARGS=(--field-selector "${PARAM_FIELD_SELECTOR}")
   fi
 
-  kubectl get events "${NAMESPACE_ARGS[@]}" "${FIELD_ARGS[@]}" --sort-by='.lastTimestamp' -o json > /tmp/raw.json
+  kubectl get events ${NAME_ARGS[@]+"${NAME_ARGS[@]}"} "${NAMESPACE_ARGS[@]}" ${FIELD_ARGS[@]+"${FIELD_ARGS[@]}"} --sort-by='.lastTimestamp' -o json > /tmp/raw.json
+
+  if jq -e '.kind | endswith("List")' /tmp/raw.json > /dev/null 2>&1; then
+    cp /tmp/raw.json /tmp/list.json
+  else
+    jq '{items: [.]}' /tmp/raw.json > /tmp/list.json
+  fi
 
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
-    cp /tmp/raw.json /artifacts/output.json
+    cp /tmp/list.json /artifacts/output.json
   else
     jq '[.items[-50:] | .[] | {
       last_seen: ((now - (.lastTimestamp // .metadata.creationTimestamp | fromdateiso8601)) | if . >= 86400 then (. / 86400 | floor | tostring) + "d" elif . >= 3600 then (. / 3600 | floor | tostring) + "h" elif . >= 60 then (. / 60 | floor | tostring) + "m" else (. | floor | tostring) + "s" end),
@@ -61,6 +80,6 @@ script: |
       message: (.message | if length > 120 then .[:120] + "..." else . end),
       count: (.count // 1),
       source: ((.source.component // "") + (if .source.host then "/" + .source.host else "" end))
-    }]' /tmp/raw.json > /artifacts/output.json
+    }]' /tmp/list.json > /artifacts/output.json
   fi
   echo "Events retrieved successfully"

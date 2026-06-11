@@ -14,8 +14,10 @@ This document details the security architecture for ZOA Trusted Actions: how pri
 |--------|-----------|
 | Operator runs arbitrary commands on MC | Only pre-defined TAs can be executed — no shell access, no kubectl proxy |
 | Operator accesses secrets/data beyond their need | Per-execution RBAC limits access to exactly what the TA declares |
-| Operator acts without attribution | Every execution records caller identity (ARN, account, operator name) |
+| Operator acts without attribution | Every execution records caller identity (ARN, account, operator name) and required Jira ticket |
 | Compromised TA escalates privileges | TA script runs with scoped Role, cannot self-modify SA or create privileged resources |
+| Rapid repeated write actions | Write cooldown (global 300s default, per-TA override) with `force` bypass |
+| Target cluster overload | Max concurrent per target (default 10 running + pending; dry-run excluded) |
 | Stale credentials persist | No long-lived kubeconfigs — all access is ephemeral (Job exits → resources deleted) |
 | S3 output exfiltrated | Bucket is encrypted (SSE-KMS), no presigned URLs exposed, API proxies content |
 | Log tampering | S3 versioning enabled, lifecycle prevents deletion before 365 days |
@@ -121,7 +123,7 @@ ZOA uses a split SA model for privilege separation:
 | SA | Lifecycle | Kubernetes Access | AWS Access |
 |----|-----------|------------------|------------|
 | `zoa-runner-<exec-id>` | Per-execution (dynamic) | Per-execution Role only | **None** |
-| `zoa-uploader` | Static (infra) | ConfigMap read in `zoa-jobs` | `s3:PutObject` + `kms:Encrypt` |
+| `zoa-uploader` | Static (infra) | Per-execution Role (dynamic, `resourceNames`-scoped) | `s3:PutObject` + `kms:Encrypt` |
 | `zoa-aws-read` | Static (infra) | Per-execution Role | AWS read-only APIs (no S3 on ZOA bucket) |
 | `zoa-aws-write` | Static (infra) | Per-execution Role | AWS read-write APIs (no S3 on ZOA bucket) |
 
@@ -129,7 +131,7 @@ ZOA uses a split SA model for privilege separation:
 
 1. **Per-execution SA for kube TAs**: `zoa-runner-<exec-id>` is created dynamically as part of the ManifestWork. It has no Pod Identity (no AWS IAM role). This gives perfect K8s audit-log attribution.
 2. **Static SAs for AWS TAs**: `zoa-aws-read` and `zoa-aws-write` require pre-provisioned Pod Identity associations. These are static but still have **no access to the ZOA S3 bucket**.
-3. **Dedicated uploader SA**: Only `zoa-uploader` can write to S3. This completely separates operational permissions from output transport.
+3. **Dedicated uploader SA**: Only `zoa-uploader` can write to S3. Kubernetes RBAC for the uploader is generated dynamically per execution (not a static Helm template), scoped with `resourceNames` to the specific output ConfigMap and runner Job.
 4. **No SA has both**: No single SA has both operational permissions AND S3 write access.
 
 ## Secrets Protection
@@ -227,9 +229,10 @@ x-amz-meta-target: mc-useast1-1
 
 | Event | Storage | Retention | Query |
 |-------|---------|-----------|-------|
-| TA execution requested | DynamoDB | Indefinite | `zoa runs` |
+| TA execution requested | DynamoDB | 365 days (TTL) | `zoa runs` |
 | Full execution log | S3 | 365 days | `zoa logs <id>` |
 | Structured output | S3 | 365 days | `zoa get <id>` |
+| Jira ticket correlation | DynamoDB (`jira` field) | 365 days (TTL) | `zoa get <id> --info` |
 | API Gateway access | CloudTrail | 90 days (configurable) | AWS Console |
 | Kubernetes API calls from Job | MC audit log | Cluster-dependent | kubectl audit |
 | ResourceBundle lifecycle | Maestro server logs | Log retention | kubectl logs |
@@ -248,7 +251,7 @@ MC audit logs → SA + pod labels map to execution-id
 
 ### Immutability
 
-- DynamoDB: No `DeleteItem` permissions for Platform API role (update-only)
+- DynamoDB: No `DeleteItem` permissions for Platform API role (update-only); records auto-expire via TTL after 365 days
 - S3: Versioning enabled, lifecycle prevents deletion before 365 days
 - K8s audit logs: Cluster-level, not modifiable by workloads
 
@@ -275,6 +278,9 @@ ManifestWork contains:
   ├── RoleBinding → zoa-runner-<exec-id>
   ├── ConfigMap: zoa-scripts-<exec-id> (entrypoint.sh + run.sh)
   │
+  ├── Role: zoa-uploader-<exec-id> (dynamic, resourceNames-scoped)
+  ├── RoleBinding → zoa-uploader (static SA)
+  │
   ├── Runner Job: zoa-<exec-id>
   │     ServiceAccount: zoa-runner-<exec-id> (dynamic, no Pod Identity)
   │     Volumes: scripts ConfigMap, EmptyDir (/artifacts)
@@ -290,10 +296,10 @@ ManifestWork contains:
 | Aspect | Value |
 |--------|-------|
 | **SA for TA script** | `zoa-runner-<exec-id>` (per-execution, no AWS creds) |
-| **SA for S3 upload** | `zoa-uploader` (static, Pod Identity, no kube RBAC beyond CM read) |
+| **SA for S3 upload** | `zoa-uploader` (static, Pod Identity, per-execution K8s RBAC via `resourceNames`) |
 | **AWS creds in TA Job** | No — dynamic SA has no Pod Identity |
 | **K8s audit attribution** | Per-execution (e.g., `zoa-runner-fa65418c`) |
-| **Resource count per execution** | ~9 (SA, RBAC, output CM, output RBAC, scripts CM, runner Job, upload Job) |
+| **Resource count per execution** | ~11 (SA, TA RBAC, output CM, output RBAC, uploader RBAC, scripts CM, runner Job, upload Job) |
 | **Output size limit** | 1MB (ConfigMap limit for inter-job transfer) |
 | **Latency overhead** | +3-10s (uploader waits for runner completion + S3 upload) |
 | **IAM associations** | 1 uploader SA per MC (static, pre-provisioned via Terraform) |
@@ -304,6 +310,13 @@ ManifestWork contains:
 
 - Shared PVC between Jobs (eliminates size limit but adds provisioning)
 - Runner direct S3 upload for specific large-output TAs (breaks isolation but pragmatic)
+
+**Uploader RBAC is dynamic per execution**: The static `uploader-rbac.yaml` Helm template was removed. Platform API now generates a `Role`/`RoleBinding` pair (`zoa-uploader-<exec-id>`) in each ManifestWork, scoped with `resourceNames` to:
+
+- The specific output ConfigMap (`zoa-output-<exec-id>`)
+- The specific runner Job (`zoa-<exec-id>`)
+
+The `zoa-uploader` ServiceAccount remains static (required for Pod Identity/IRSA), but its Kubernetes permissions are least-privilege per execution.
 
 **Uploader SA is static**: All upload operations share one SA (`zoa-uploader`). This is acceptable because:
 
@@ -370,8 +383,8 @@ spec:
 | AC-3 (Access Enforcement) | Per-execution RBAC, per-execution SA, SigV4 auth |
 | AC-6 (Least Privilege) | RBAC scoped to declared resources only |
 | AU-2 (Audit Events) | DynamoDB records all executions with full identity |
-| AU-3 (Content of Audit Records) | operator, action, target, timestamp, duration, status |
-| AU-9 (Protection of Audit Info) | S3 versioning, no-delete lifecycle, KMS encryption |
+| AU-3 (Content of Audit Records) | operator, jira, action, target, timestamp, updated_at, duration, status |
+| AU-9 (Protection of Audit Info) | S3 versioning, no-delete lifecycle, KMS encryption, DynamoDB TTL (365d) |
 | AU-12 (Audit Generation) | Automatic — Platform API records before/after every execution |
 | CM-7 (Least Functionality) | No shell access, no arbitrary commands — only pre-approved TAs |
 | IA-2 (Identification and Authentication) | SigV4 + STS, caller ARN extracted per request |

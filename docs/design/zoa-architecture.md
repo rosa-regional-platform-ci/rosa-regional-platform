@@ -119,7 +119,7 @@ sequenceDiagram
     GW->>GW: Validate SigV4, extract caller identity
     GW->>API: Forward request + X-Amz headers
     API->>API: Validate params, build ManifestWork
-    API->>DB: Create execution record (status=pending)
+    API->>DB: Create execution record (status=pending, jira, ttl)
     API->>MS: gRPC CreateManifestWork
     API-->>Op: 202 {id, status: "pending"}
 
@@ -258,12 +258,14 @@ Operator: zoa run get_pods -t mc-useast1-1 -n maestro
          ▼
 Platform API receives POST /api/v0/trusted-actions/get_pods/run
   - Validates SigV4 identity
+  - Validates required `jira` field (e.g. ROSAENG-1234)
   - Loads TA template from registry (ConfigMap)
   - Validates params (namespace required for get_pods)
+  - Enforces write cooldown and max-concurrent limits (write TAs; skipped for dry-run)
   - Derives runner SA from scope + type (kube-api → per-exec SA)
   - Generates execution UUID
-  - Creates DynamoDB record (status: pending, output_status: pending)
-  - Builds ManifestWork (SA, RBAC, output CM, scripts CM, runner Job, upload Job)
+  - Creates DynamoDB record (status: pending, output_status: pending, jira, ttl=365d)
+  - Builds ManifestWork (SA, RBAC, output CM, scripts CM, uploader RBAC, runner Job, upload Job)
   - Dispatches via Maestro gRPC CreateManifestWork
   - Returns {id, status: "pending"} to caller
 ```
@@ -286,8 +288,9 @@ Maestro Agent (on MC)
     4. ConfigMap: zoa-output-<exec-id> (empty, for output transfer)
     5. Role/RoleBinding: output CM patch permission for runner SA
     6. ConfigMap: zoa-scripts-<exec-id> (entrypoint.sh + run.sh)
-    7. Runner Job: zoa-<exec-id> (executes TA, writes to output CM)
-    8. Uploader Job: zoa-<exec-id>-upload (reads CM, uploads to S3)
+    7. Role/RoleBinding: zoa-uploader-<exec-id> (dynamic, scoped to output CM + runner Job)
+    8. Runner Job: zoa-<exec-id> (executes TA, writes to output CM)
+    9. Uploader Job: zoa-<exec-id>-upload (reads CM, uploads to S3)
   - Reports status back via MQTT (Applied, Available)
 ```
 
@@ -339,7 +342,7 @@ Platform API Reconciler (5-second loop on RC)
   │     │     Uploader: .status.succeeded, .status.failed, .status.completionTime
   │     │
   │     ├── On Applied condition (pending → running):
-  │     │     └── UpdateStatus in DynamoDB
+  │     │     └── UpdateStatus in DynamoDB (updated_at)
   │     │
   │     ├── On full completion (both Jobs done):
   │     │     ├── Compute durations from Job timestamps:
@@ -348,8 +351,8 @@ Platform API Reconciler (5-second loop on RC)
   │     │     │     duration_seconds = now - created_at (total wall-clock)
   │     │     ├── Delete ResourceBundle from Maestro (gRPC)
   │     │     │     └── Cascades: Agent removes ManifestWork → all resources on MC
-  │     │     └── Update DynamoDB: status, completed_at, runner_seconds, upload_seconds,
-  │     │                          duration_seconds, output_status (uploaded|failed)
+  │     │     └── Update DynamoDB: status, completed_at, updated_at, runner_seconds,
+  │     │                          upload_seconds, duration_seconds, output_status (uploaded|failed)
   │     │
   │     └── On timeout (exceeded per-TA or global timeout):
   │           ├── Delete ResourceBundle from Maestro (cleanup first)
@@ -391,6 +394,8 @@ GSI: status-index
   PK: status (String)
   SK: createdAt (String, RFC3339)
   Projection: ALL
+
+TTL: ttl attribute (epoch seconds) — records auto-expire after 365 days
 ```
 
 ### S3 Bucket
@@ -468,6 +473,7 @@ What Platform API generates (full ManifestWork with ~200 lines of K8s manifests)
 - RoleBinding/ClusterRoleBinding (SA → Role)
 - Output ConfigMap (`zoa-output-<exec-id>`)
 - RBAC for runner SA to patch the output ConfigMap
+- Dynamic uploader Role/RoleBinding (`zoa-uploader-<exec-id>`, scoped via `resourceNames`)
 - Script ConfigMap (entrypoint.sh wrapper + run.sh from `script`)
 - Runner Job (executes TA script, writes output to ConfigMap)
 - Uploader Job (reads ConfigMap, uploads to S3)
@@ -481,13 +487,15 @@ The Job "frame" is NOT defined by TA authors. It comes from `zoa-job-config` Con
 | Config | Default | Purpose |
 |--------|---------|---------|
 | `image` | `quay.io/slopezz/zoa-tools:latest` | Container image |
-| `cpu_request` | `100m` | Pod CPU request |
-| `memory_request` | `128Mi` | Pod memory request |
-| `cpu_limit` | `500m` | Pod CPU limit |
-| `memory_limit` | `512Mi` | Pod memory limit |
+| `cpu_request` | `25m` | Pod CPU request |
+| `memory_request` | `64Mi` | Pod memory request |
+| `cpu_limit` | `250m` | Pod CPU limit |
+| `memory_limit` | `256Mi` | Pod memory limit |
 | `ttl_seconds` | `3600` | K8s TTL after job completion (safety GC) |
 | `execution_timeout_seconds` | `1800` | Global timeout for reconciler |
-| `entrypoint.sh` | (wrapper script) | Logging, S3 upload, exit handling |
+| `write_cooldown_seconds` | `300` | Global write cooldown (seconds) between same action on same target |
+| `max_concurrent_per_target` | `10` | Max running + pending executions per target cluster |
+| `entrypoint.sh` | (wrapper script) | Logging, ConfigMap output patch, exit handling |
 
 Changing any of these updates ALL future TA executions — no per-TA changes needed.
 
@@ -519,7 +527,7 @@ Jobs have `ttlSecondsAfterFinished: 3600`. If reconciler cleanup fails, Kubernet
 
 | What | Where | Retention |
 |------|-------|-----------|
-| Execution metadata | DynamoDB | Indefinite (audit) |
+| Execution metadata | DynamoDB | 365 days (TTL auto-expiry) |
 | output.json | S3 | 365 days |
 | execution.log | S3 | 365 days |
 | K8s resources (Job, RBAC, CM) | MC | Deleted on completion |
@@ -530,7 +538,7 @@ Every execution produces audit data at multiple layers:
 
 | Layer | What's Recorded | Query Method |
 |-------|----------------|--------------|
-| Platform API (DynamoDB) | execution_id, operator, caller_arn, action, target, status, duration, revision | `zoa runs` CLI or direct API |
+| Platform API (DynamoDB) | execution_id, operator, caller_arn, jira, action, target, status, duration, revision, updated_at | `zoa runs` CLI or direct API |
 | S3 (artifacts) | Full execution log, structured output | `zoa logs <id>` or `zoa get <id>` |
 | Kubernetes (labels on all resources) | execution-id, operator, action, scope, type, revision, target | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
 | AWS CloudTrail | SigV4 caller identity on API Gateway invocation | CloudTrail console |
@@ -576,7 +584,7 @@ A future `/api/v0/breakglass/` endpoint will provide escalated access patterns:
 Currently any authenticated caller can execute any TA. Future work:
 
 - Permission model: which operators can run which TAs on which targets
-- Approval workflow: write TAs require peer approval before dispatch
+- Approval workflow: write TAs with `approval_required: true` will require peer approval before dispatch (field exposed in TA templates and Describe API; not enforced yet)
 - Time-limited grants: temporary elevation with auto-expiry
 
 ---

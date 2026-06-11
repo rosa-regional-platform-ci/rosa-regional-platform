@@ -1,7 +1,7 @@
 name: get_deployments
 scope: kube-api
 type: read
-description: List deployments with replica status, strategy, and container images
+description: List or get deployments with replica status, strategy, and container images
 timeout_seconds: 300
 params:
   - name: namespace
@@ -12,6 +12,10 @@ params:
     required: false
     default: "false"
     description: "List across all namespaces (overrides namespace)"
+  - name: name
+    required: false
+    default: ""
+    description: "Specific deployment name (omit to list all)"
   - name: label_selector
     required: false
     default: ""
@@ -31,6 +35,10 @@ script: |
 
   NAMESPACE_ARGS=()
   if [ "${PARAM_ALL_NAMESPACES:-false}" = "true" ]; then
+    if [ -n "${PARAM_NAME:-}" ]; then
+      echo "ERROR: Cannot use all_namespaces with a specific resource name"
+      exit 1
+    fi
     if [ -n "${PARAM_NAMESPACE:-}" ]; then
       echo "WARNING: all_namespaces=true overrides namespace=${PARAM_NAMESPACE}"
     fi
@@ -42,15 +50,26 @@ script: |
     exit 1
   fi
 
+  NAME_ARGS=()
+  if [ -n "${PARAM_NAME:-}" ]; then
+    NAME_ARGS=("${PARAM_NAME}")
+  fi
+
   SELECTOR_ARGS=()
   if [ -n "${PARAM_LABEL_SELECTOR:-}" ]; then
     SELECTOR_ARGS=(-l "${PARAM_LABEL_SELECTOR}")
   fi
 
-  kubectl get deployments "${NAMESPACE_ARGS[@]}" "${SELECTOR_ARGS[@]}" -o json > /tmp/raw.json
+  kubectl get deployments ${NAME_ARGS[@]+"${NAME_ARGS[@]}"} "${NAMESPACE_ARGS[@]}" ${SELECTOR_ARGS[@]+"${SELECTOR_ARGS[@]}"} -o json > /tmp/raw.json
+
+  if jq -e '.kind | endswith("List")' /tmp/raw.json > /dev/null 2>&1; then
+    cp /tmp/raw.json /tmp/list.json
+  else
+    jq '{items: [.]}' /tmp/raw.json > /tmp/list.json
+  fi
 
   if [ "${PARAM_VERBOSE:-false}" = "true" ]; then
-    cp /tmp/raw.json /artifacts/output.json
+    cp /tmp/list.json /artifacts/output.json
   else
     jq '[.items[] | {
       name: .metadata.name,
@@ -62,6 +81,6 @@ script: |
       strategy: .spec.strategy.type,
       containers: [.spec.template.spec.containers[] | .image] | join(","),
       conditions: [.status.conditions[] | select(.status != "True") | .type] | if length == 0 then "OK" else join(",") end
-    }]' /tmp/raw.json > /artifacts/output.json
+    }]' /tmp/list.json > /artifacts/output.json
   fi
   echo "Deployments retrieved successfully"
