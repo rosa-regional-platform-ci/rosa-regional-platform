@@ -279,6 +279,7 @@ _zoa_runs() {
       --operator)    query="${query:+${query}&}operator=$2"; shift 2 ;;
       --scope)       query="${query:+${query}&}scope=$2"; shift 2 ;;
       --type)        query="${query:+${query}&}type=$2"; shift 2 ;;
+      --output-status) query="${query:+${query}&}output_status=$2"; shift 2 ;;
       --since)       query="${query:+${query}&}since=$2"; shift 2 ;;
       --limit)       query="${query:+${query}&}limit=$2"; shift 2 ;;
       --json)        raw=true; shift ;;
@@ -307,7 +308,7 @@ _zoa_runs() {
         .action,
         .scope,
         (.type // "-"),
-        (.target_cluster | split("-") | .[-1]),
+        (.target_cluster // "-"),
         .status,
         (.output_status // "-"),
         fmt_dur(.runner_seconds),
@@ -319,10 +320,10 @@ _zoa_runs() {
       ] | @tsv
     end
   ' | {
-    printf "%-38s %-18s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
+    printf "%-38s %-18s %-9s %-6s %-22s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
       "ID" "ACTION" "SCOPE" "TYPE" "TARGET" "STATUS" "OUTPUT" "RUN" "UPL" "TOT" "PARAMS" "OPERATOR" "CREATED"
     while IFS=$'\t' read -r _id _action _scope _type _target _status _output _run _upl _total _params _operator _created; do
-      printf "%-38s %-18s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
+      printf "%-38s %-18s %-9s %-6s %-22s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
         "$_id" "$_action" "$_scope" "$_type" "$_target" "$_status" "$_output" "$_run" "$_upl" "$_total" "$_params" "$_operator" "$_created"
     done
   } || echo "No executions found"
@@ -394,6 +395,7 @@ Run flags:
 Runs filters (all combinable):
   -t, --target <cluster>   Filter by target cluster
   --status <status>        Filter by status (pending|running|succeeded|failed|timed_out)
+  --output-status <s>      Filter by output status (pending|uploaded|failed)
   --action <name>          Filter by action name
   --operator <name>        Filter by operator
   --scope <scope>          Filter by scope (kube-api|aws)
@@ -435,9 +437,10 @@ Examples:
   zoa logs fa65418c-f4eb-4f5c-8314-baaeb695ba7d
 
   # History with filters (all combinable)
-  zoa runs -t mc-useast1-1
-  zoa runs -t mc-useast1-1 --since 1h
+  zoa runs -t eph-bc5fee45-mc01
+  zoa runs -t eph-bc5fee45-mc01 --since 1h
   zoa runs --status failed --since 24h
+  zoa runs --output-status failed --since 7d
   zoa runs --action get_pods --operator slopezma --since 7d
   zoa runs --type write --since 12h
   zoa runs --scope kube-api --status succeeded --limit 50
