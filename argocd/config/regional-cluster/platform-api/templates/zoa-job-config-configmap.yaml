@@ -107,14 +107,14 @@ data:
 
     UL=/tmp/upload/execution.log
     echo "--- upload ---" >> "$UL"
-    echo "[$(ts)] wait=${WAIT_S}s configmap=${CM_S}s" >> "$UL"
-    echo "[$(ts)] uploading to s3://${BUCKET}/${RUN_ID}/" | tee -a "$UL"
+    echo "[$(ts)] wait=${WAIT_S}s configmap=${CM_S}s exit_code=${EXIT_CODE}" >> "$UL"
 
+    echo "[$(ts)] uploading to s3://${BUCKET}/${RUN_ID}/"
     if aws s3 cp /tmp/upload/ "s3://${BUCKET}/${RUN_ID}/" --recursive 2>&1; then
-      echo "[$(ts)] done (exit_code=${EXIT_CODE})" | tee -a "$UL"
+      echo "[$(ts)] upload done"
       exit 0
     else
-      echo "[$(ts)] ERROR: s3 upload failed" | tee -a "$UL"
+      echo "[$(ts)] ERROR: s3 upload failed"
       exit 1
     fi
 {{- end }}
