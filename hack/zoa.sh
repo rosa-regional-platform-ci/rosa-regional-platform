@@ -169,14 +169,19 @@ _zoa_run() {
   local submit
   submit=$(_zoa_request POST "/trusted-actions/${action}/run" "$body")
 
-  local id
+  local id executed_action
   id=$(printf '%s' "$submit" | "$_ZOA_JQ" -r '.id // empty')
   if [[ -z "$id" ]]; then
     printf '%s' "$submit" | "$_ZOA_JQ" .
     return 1
   fi
 
-  echo "✓ ${id}" >&2
+  executed_action=$(printf '%s' "$submit" | "$_ZOA_JQ" -r '.executed_action // empty')
+  if [[ -n "$executed_action" ]]; then
+    echo "✓ ${id} (DRY-RUN: ${action} → ${executed_action})" >&2
+  else
+    echo "✓ ${id}" >&2
+  fi
 
   if $no_wait; then
     printf '%s' "$submit" | "$_ZOA_JQ" .
@@ -249,10 +254,11 @@ _zoa_get() {
     else
       printf '%s' "$info" | "$_ZOA_JQ" -r '
         "ID:        \(.id)",
-        "ACTION:    \(.action)",
+        "ACTION:    \(.action)\(if .dry_run then " (dry-run → \(.executed_action))" else "" end)",
         "TARGET:    \(.target_cluster)",
         "STATUS:    \(.status)",
         "OUTPUT:    \(.output_status // "pending")",
+        "DRY-RUN:   \(if .dry_run then "yes" else "no" end)",
         "JIRA:      \(.jira // "-")",
         "OPERATOR:  \(.operator // "-")",
         "PARAMS:    \(.params // {} | to_entries | map(.key + "=" + .value) | join(" ") | if . == "" then "-" else . end)",
@@ -291,7 +297,7 @@ _zoa_get() {
   else
     printf '%s' "$info" | "$_ZOA_JQ" -r '
       "ID:        \(.id)",
-      "ACTION:    \(.action)  TARGET: \(.target_cluster)  STATUS: \(.status)",
+      "ACTION:    \(.action)\(if .dry_run then " [DRY-RUN → \(.executed_action)]" else "" end)  TARGET: \(.target_cluster)  STATUS: \(.status)",
       "DURATION:  \(if .duration_seconds then "\(.duration_seconds)s" else "-" end)  OPERATOR: \(.operator // "-")  JIRA: \(.jira // "-")",
       "---"
     '
@@ -340,10 +346,11 @@ _zoa_runs() {
     def fmt_dur(s): if s == null or s == 0 then "-" elif s < 60 then "\(s)s" elif s < 3600 then "\(s/60|floor)m\(s%60)s" else "\(s/3600|floor)h\(s%3600/60|floor)m" end;
     def fmt_ts(iso): if iso == null or iso == "" then "-" else (iso | split("T") | .[0] + " " + .[1][:8]) end;
     def fmt_params(p): if p == null or p == {} then "-" else [p | to_entries[] | "\(.key)=\(.value)"] | join(",") | if length > 30 then .[:29] + "…" else . end end;
+    def fmt_action: if .dry_run then "\(.action) [DRY]" else .action end;
     (.items // []) | if length == 0 then empty else
       .[] | [
         .id,
-        .action,
+        fmt_action,
         .scope,
         (.type // "-"),
         (.target_cluster // "-"),
