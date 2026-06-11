@@ -460,6 +460,9 @@ _zoa_describe() {
       (if .write_cooldown_seconds > 0 then "COOLDOWN:    \(.write_cooldown_seconds)s" else empty end),
       (if .dry_run_action then "DRY-RUN:     \(.dry_run_action)" else empty end),
       "",
+      "REQUIRED FIELDS:",
+      (if (.required_fields | length) > 0 then (.required_fields[] | "  \(.)") else "  target_cluster, jira" end),
+      "",
       "PARAMETERS:",
       (if (.params | length) == 0 then "  (none)" else (.params[] | "  \(.name)\(if .required then " *" else "" end)\t\(.description // "")\(if .default and .default != "" then " [default: \(.default)]" else "" end)") end)
     '
