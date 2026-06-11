@@ -1,0 +1,3 @@
+region                    = "us-east-1"
+trusted_principal_arn     = "arn:aws:iam::791666871613:role/<your-role>"
+ami_consumer_account_ids  = ["855246887846", "599476212575"]

@@ -48,6 +48,7 @@ module "management_cluster" {
   private_subnet_ids              = module.vpc.private_subnet_ids
   cluster_security_group_id       = module.vpc.cluster_security_group_id
   vpc_endpoints_security_group_id = module.vpc.vpc_endpoints_security_group_id
+  enable_karpenter                = true
 }
 
 # =============================================================================
@@ -67,6 +68,8 @@ module "ecs_bootstrap" {
 
   repository_url    = var.repository_url
   repository_branch = var.repository_branch
+
+  karpenter_controller_role_arn = module.management_cluster.karpenter_controller_role_arn
 }
 
 # =============================================================================

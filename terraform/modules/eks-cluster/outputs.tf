@@ -90,3 +90,8 @@ output "node_iam_role_arn" {
   description = "IAM role ARN of the EKS Auto Mode nodes"
   value       = aws_iam_role.eks_auto_mode_node.arn
 }
+
+output "karpenter_controller_role_arn" {
+  description = "ARN of the Karpenter controller IAM role (empty string when Karpenter is disabled)"
+  value       = var.enable_karpenter ? aws_iam_role.karpenter_controller[0].arn : ""
+}
