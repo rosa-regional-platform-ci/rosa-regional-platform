@@ -319,10 +319,10 @@ _zoa_runs() {
       ] | @tsv
     end
   ' | {
-    printf "%-38s %-14s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-25s %-12s %s\n" \
+    printf "%-38s %-18s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
       "ID" "ACTION" "SCOPE" "TYPE" "TARGET" "STATUS" "OUTPUT" "RUN" "UPL" "TOT" "PARAMS" "OPERATOR" "CREATED"
     while IFS=$'\t' read -r _id _action _scope _type _target _status _output _run _upl _total _params _operator _created; do
-      printf "%-38s %-14s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-25s %-12s %s\n" \
+      printf "%-38s %-18s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
         "$_id" "$_action" "$_scope" "$_type" "$_target" "$_status" "$_output" "$_run" "$_upl" "$_total" "$_params" "$_operator" "$_created"
     done
   } || echo "No executions found"
