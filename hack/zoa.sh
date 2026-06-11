@@ -182,34 +182,37 @@ _zoa_run() {
   local rc=$?
   printf "\r\033[K" >&2
 
-  local exec_status output_status ta_dur total_dur
+  local exec_status output_status runner_s upload_s total_s
   exec_status=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.status // empty')
   output_status=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.output_status // "pending"')
-  ta_dur=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.ta_duration_seconds // 0')
-  total_dur=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.duration_seconds // 0')
-  local upload_dur=$((total_dur - ta_dur))
+  runner_s=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.runner_seconds // 0')
+  upload_s=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.upload_seconds // 0')
+  total_s=$(printf '%s' "$result" | "$_ZOA_JQ" -r '.duration_seconds // 0')
+  local dispatch_s=$((total_s - runner_s - upload_s))
+
+  local timing="runner=${runner_s}s upload=${upload_s}s total=${total_s}s dispatch=${dispatch_s}s"
 
   if [[ "$exec_status" == "succeeded" ]]; then
     if [[ "$output_status" == "uploaded" ]]; then
-      echo "✓ completed (${ta_dur}s, upload +${upload_dur}s)" >&2
+      echo "✓ completed (${timing})" >&2
       local output
       output=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=output")
       printf '%s' "$output" | "$_ZOA_JQ" -r '.output // empty'
     elif [[ "$output_status" == "failed" ]]; then
-      echo "✓ completed (${ta_dur}s) ⚠ output upload failed" >&2
+      echo "✓ completed (${timing}) ⚠ output upload failed" >&2
       return 0
     else
-      echo "✓ completed (${ta_dur}s)" >&2
+      echo "✓ completed (${total_s}s)" >&2
       return 0
     fi
   else
     if [[ "$output_status" == "uploaded" ]]; then
-      echo "✗ ${exec_status} (${ta_dur}s, upload +${upload_dur}s)" >&2
+      echo "✗ ${exec_status} (${timing})" >&2
       local logs
       logs=$(_zoa_request GET "/trusted-actions/runs/${id}?fields=logs")
       printf '%s' "$logs" | "$_ZOA_JQ" -r '.logs // .output // empty'
     else
-      echo "✗ ${exec_status} (${ta_dur}s) ⚠ output upload failed" >&2
+      echo "✗ ${exec_status} (${total_s}s) ⚠ output upload failed" >&2
     fi
     return 1
   fi
@@ -299,7 +302,8 @@ _zoa_runs() {
         (.target_cluster | split("-") | .[-1]),
         .status,
         (.output_status // "-"),
-        fmt_dur(.ta_duration_seconds),
+        fmt_dur(.runner_seconds),
+        fmt_dur(.upload_seconds),
         fmt_dur(.duration_seconds),
         fmt_params(.params),
         (.operator // "-"),
@@ -307,11 +311,11 @@ _zoa_runs() {
       ] | @tsv
     end
   ' | {
-    printf "%-38s %-16s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-30s %-12s %s\n" \
-      "ID" "ACTION" "SCOPE" "TYPE" "TARGET" "STATUS" "OUTPUT" "TA" "TOT" "PARAMS" "OPERATOR" "CREATED"
-    while IFS=$'\t' read -r _id _action _scope _type _target _status _output _ta _total _params _operator _created; do
-      printf "%-38s %-16s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-30s %-12s %s\n" \
-        "$_id" "$_action" "$_scope" "$_type" "$_target" "$_status" "$_output" "$_ta" "$_total" "$_params" "$_operator" "$_created"
+    printf "%-38s %-14s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-25s %-12s %s\n" \
+      "ID" "ACTION" "SCOPE" "TYPE" "TARGET" "STATUS" "OUTPUT" "RUN" "UPL" "TOT" "PARAMS" "OPERATOR" "CREATED"
+    while IFS=$'\t' read -r _id _action _scope _type _target _status _output _run _upl _total _params _operator _created; do
+      printf "%-38s %-14s %-9s %-6s %-8s %-10s %-9s %-5s %-5s %-5s %-25s %-12s %s\n" \
+        "$_id" "$_action" "$_scope" "$_type" "$_target" "$_status" "$_output" "$_run" "$_upl" "$_total" "$_params" "$_operator" "$_created"
     done
   } || echo "No executions found"
 }
