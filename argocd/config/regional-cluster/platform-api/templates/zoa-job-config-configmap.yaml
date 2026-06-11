@@ -76,7 +76,7 @@ data:
     BUCKET="${ARTIFACT_BUCKET}"
     NS="${JOB_NAMESPACE}"
 
-    echo "[$(ts)] waiting for runner ${RUNNER_JOB}"
+    echo "[$(ts)] upload starting, waiting for runner ${RUNNER_JOB}"
     T0=$(date +%s)
 
     if ! kubectl wait --for=condition=complete --timeout="${TIMEOUT}s" "job/${RUNNER_JOB}" -n "${NS}" 2>/dev/null; then
@@ -94,7 +94,7 @@ data:
 
     T2=$(date +%s)
     CM_S=$((T2 - T1))
-    echo "[$(ts)] configmap read done (${CM_S}s)"
+    echo "[$(ts)] configmap read (${CM_S}s), decoding"
 
     if [ -z "${LOG_B64}" ] && [ -z "${OUTPUT_B64}" ]; then
       echo "[$(ts)] ERROR: ConfigMap has no data — runner crashed before writing"
@@ -107,6 +107,7 @@ data:
 
     UL=/tmp/upload/execution.log
     echo "--- upload ---" >> "$UL"
+    echo "[$(ts)] upload starting" >> "$UL"
     echo "[$(ts)] wait=${WAIT_S}s configmap=${CM_S}s exit_code=${EXIT_CODE}" >> "$UL"
 
     echo "[$(ts)] uploading to s3://${BUCKET}/${RUN_ID}/"
