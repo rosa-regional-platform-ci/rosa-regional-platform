@@ -532,15 +532,16 @@ Environment:
   AWS_SESSION_TOKEN        AWS session token (required for assumed roles)
 
 Examples:
-  # Run actions
-  zoa run get_nodes -t mc-useast1-1
-  zoa run get_pods -t mc-useast1-1 -n maestro -l app=maestro
-  zoa run get_pods -t mc-useast1-1 -A | jq '.[] | select(.status != "Running")'
-  zoa run get_deployments -t mc-useast1-1 -n openshift-monitoring -v
-  zoa run get_events -t mc-useast1-1 -n maestro --param field_selector=reason=BackOff
-  zoa run get_resource -t mc-useast1-1 --resource deployments -A
-  zoa run rollout_restart -t mc-useast1-1 -n maestro --deployment maestro
-  zoa run delete_pod -t mc-useast1-1 -n maestro --pod maestro-agent-xyz
+  # Run actions (--jira is required for all TAs)
+  zoa run get_nodes -t mc-useast1-1 --jira ROSAENG-1234
+  zoa run get_pods -t mc-useast1-1 -n maestro -l app=maestro --jira ROSAENG-1234
+  zoa run get_pods -t mc-useast1-1 -A --jira ROSAENG-1234 | jq '.[] | select(.status != "Running")'
+  zoa run get_deployments -t mc-useast1-1 -n openshift-monitoring -v --jira ROSAENG-1234
+  zoa run get_events -t mc-useast1-1 -n maestro --param field_selector=reason=BackOff --jira ROSAENG-1234
+  zoa run get_resource -t mc-useast1-1 --resource deployments -A --jira ROSAENG-1234
+  zoa run rollout_restart -t mc-useast1-1 -n maestro --name maestro --jira ROSAENG-1234
+  zoa run delete_pod -t mc-useast1-1 -n maestro --name maestro-agent-xyz --jira ROSAENG-1234
+  zoa run delete_pod -t mc-useast1-1 -n maestro --name maestro-agent-xyz --jira ROSAENG-1234 --dry-run
 
   # Retrieve results
   zoa get fa65418c-f4eb-4f5c-8314-baaeb695ba7d
