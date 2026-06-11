@@ -188,7 +188,7 @@ This means:
 ```
 Operator Terminal
   │
-  │ eval "$(aws configure export-credentials --format env --profile rrp-dev-eph-rc)"
+  │ eval "$(aws configure export-credentials --format env --profile rrp-regional-dev)"
   │
   ▼
 curl/zoa CLI

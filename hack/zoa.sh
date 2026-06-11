@@ -9,7 +9,7 @@
 #        source /path/to/rosa-regional-platform/hack/zoa.sh
 #
 #   2. Export AWS credentials (SigV4 auth):
-#        eval "$(aws configure export-credentials --format env --profile rrp-dev-eph-rc)"
+#        eval "$(aws configure export-credentials --format env --profile rrp-regional-dev)"
 #
 #   3. Export the API Gateway URL:
 #        export ZOA_API="https://<api-id>.execute-api.<region>.amazonaws.com/prod"
