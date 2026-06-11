@@ -20,10 +20,18 @@ spec:
     httpTokens: required
     httpPutResponseHopLimit: 2
   userData: |
-    #!/bin/bash
-    cat > /etc/eks/bootstrap-config.env << 'EOF'
-    CLUSTER_NAME={{ .Values.global.cluster_name }}
-    APISERVER_ENDPOINT={{ .Values.global.apiserver_endpoint }}
-    B64_CLUSTER_CA={{ .Values.global.cluster_ca }}
-    CLUSTER_DNS=172.20.0.10
-    EOF
+    {
+      "apiVersion": "node.eks.aws/v1alpha1",
+      "kind": "NodeConfig",
+      "spec": {
+        "cluster": {
+          "name": "{{ .Values.global.cluster_name }}",
+          "apiServerEndpoint": "{{ .Values.global.apiserver_endpoint }}",
+          "certificateAuthority": "{{ .Values.global.cluster_ca }}",
+          "cidr": "{{ .Values.global.service_cidr }}"
+        },
+        "featureGates": {
+          "InstanceIdNodeName": true
+        }
+      }
+    }

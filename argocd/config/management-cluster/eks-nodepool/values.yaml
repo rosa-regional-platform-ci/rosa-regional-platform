@@ -5,6 +5,8 @@ global:
   apiserver_endpoint: https://placeholder.example.com
   # Base64-encoded cluster CA cert; injected by ApplicationSet from cluster secret annotation
   cluster_ca: ""
+  # EKS service CIDR; nodeadm derives the CoreDNS address from this
+  service_cidr: "172.20.0.0/16"
 
 eksNodeClass:
   amiIds:
