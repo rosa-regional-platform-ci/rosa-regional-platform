@@ -265,6 +265,7 @@ _zoa_get() {
       "ACTION:    \(.action)\(if .dry_run then " (dry-run → \(.executed_action))" else "" end)",
       "TARGET:    \(.target_cluster)",
       "STATUS:    \(.status)",
+      "APPROVAL:  \(.approval_state // "not_required")",
       "OUTPUT:    \(.output_status // "pending")",
       "DRY-RUN:   \(if .dry_run then "yes" else "no" end)",
       "FORCE:     \(if .force then "yes" else "no" end)",
@@ -414,19 +415,19 @@ _zoa_audit() {
     return
   fi
 
-  printf "%-9s %-5s %-5s %-12s %-20s %-14s %-10s %s\n" \
-    "TIME" "METH" "CODE" "OPERATOR" "TARGET" "JIRA" "EXEC_ID" "PATH"
+  printf "%-9s %-5s %-5s %-12s %-18s %-20s %-14s %-10s %s\n" \
+    "TIME" "METH" "CODE" "OPERATOR" "ACTION" "TARGET" "JIRA" "EXEC_ID" "PATH"
   printf '%s' "$resp" | "$_ZOA_JQ" -r '
     def dash(v): if v == "" or v == null then "-" else v end;
-    (.items // [])[] | [.timestamp, .method, (.status_code | tostring), .operator, dash(.target_cluster), dash(.jira), dash(.execution_id), .path] | @tsv
+    (.items // [])[] | [.timestamp, .method, (.status_code | tostring), .operator, dash(.action), dash(.target_cluster), dash(.jira), dash(.execution_id), .path] | @tsv
   ' | \
-  while IFS=$'\t' read -r ts method scode op target jira execid apath; do
+  while IFS=$'\t' read -r ts method scode op action target jira execid apath; do
     local short_ts="${ts:11:8}"
     local short_exec="${execid:0:8}"
     [[ "$short_exec" == "-" ]] && short_exec=""
     local short_path="${apath#/api/v0/trusted-actions/}"
-    printf "%-9s %-5s %-5s %-12s %-20s %-14s %-10s %s\n" \
-      "$short_ts" "$method" "$scode" "$op" "$target" "$jira" "$short_exec" "$short_path"
+    printf "%-9s %-5s %-5s %-12s %-18s %-20s %-14s %-10s %s\n" \
+      "$short_ts" "$method" "$scode" "$op" "$action" "$target" "$jira" "$short_exec" "$short_path"
   done
 }
 
