@@ -215,6 +215,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               rhobs_api_url: "$RHOBS_API_URL"
               dns_zone_operator_role_arn: "$DNS_ZONE_OPERATOR_ROLE_ARN"
               zoa_table_name: "$ZOA_TABLE_NAME"
+              zoa_audit_table_name: "$ZOA_AUDIT_TABLE_NAME"
               zoa_bucket_name: "$ZOA_BUCKET_NAME"
               zoa_job_role_arn: "$ZOA_JOB_ROLE_ARN"
           type: Opaque

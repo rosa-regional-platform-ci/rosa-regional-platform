@@ -452,6 +452,11 @@ output "zoa_table_name" {
   value       = var.enable_zoa ? module.zoa[0].table_name : ""
 }
 
+output "zoa_audit_table_name" {
+  description = "DynamoDB table name for ZOA audit log"
+  value       = var.enable_zoa ? module.zoa[0].audit_table_name : ""
+}
+
 output "zoa_bucket_name" {
   description = "S3 bucket name for ZOA outputs"
   value       = var.enable_zoa ? module.zoa[0].bucket_name : ""

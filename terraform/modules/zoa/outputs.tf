@@ -3,6 +3,11 @@ output "table_name" {
   value       = aws_dynamodb_table.executions.name
 }
 
+output "audit_table_name" {
+  description = "DynamoDB table name for ZOA audit log"
+  value       = aws_dynamodb_table.audit_log.name
+}
+
 output "bucket_name" {
   description = "S3 bucket name for ZOA outputs"
   value       = aws_s3_bucket.outputs.id

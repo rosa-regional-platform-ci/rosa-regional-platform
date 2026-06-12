@@ -27,6 +27,8 @@ resource "aws_iam_role_policy" "platform_api_zoa_dynamodb" {
         Resource = [
           aws_dynamodb_table.executions.arn,
           "${aws_dynamodb_table.executions.arn}/index/*",
+          aws_dynamodb_table.audit_log.arn,
+          "${aws_dynamodb_table.audit_log.arn}/index/*",
         ]
       },
     ]
