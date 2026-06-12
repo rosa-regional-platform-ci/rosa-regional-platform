@@ -5,6 +5,9 @@ metadata:
 spec:
   weight: 100
   template:
+    metadata:
+      labels:
+        eks.amazonaws.com/compute-type: ec2
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws
