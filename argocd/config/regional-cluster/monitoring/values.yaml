@@ -36,7 +36,8 @@ kube-prometheus-stack:
               send_resolved: true
         - name: pagerduty
           pagerduty_configs:
-            - service_key_file: /etc/alertmanager/secrets/pagerduty-integration-key/integration_key
+            - routing_key_file: /etc/alertmanager/secrets/pagerduty-integration-key/integration_key
+              severity: '{{ "{{" }} if .CommonLabels.severity {{ "}}" }}{{ "{{" }} .CommonLabels.severity {{ "}}" }}{{ "{{" }} else {{ "}}" }}critical{{ "{{" }} end {{ "}}" }}'
               send_resolved: true
     alertmanagerSpec:
       secrets:
