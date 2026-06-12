@@ -140,6 +140,26 @@ resource "aws_iam_role_policy" "job_kms" {
   })
 }
 
+resource "aws_iam_role_policy" "job_aws_api_read" {
+  name = "${var.regional_id}-zoa-job-aws-api-read"
+  role = aws_iam_role.job.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:ListClusters",
+          "eks:DescribeCluster",
+          "ec2:DescribeVpcEndpoints",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 # Pod Identity association for ZOA jobs running on the RC itself.
 # The RC is in the same account as this module so we can create it directly.
 resource "aws_eks_pod_identity_association" "job_rc" {
@@ -156,7 +176,7 @@ resource "aws_eks_pod_identity_association" "job_rc" {
 resource "aws_eks_pod_identity_association" "job_rc_aws_read" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-aws-read-sa"
+  service_account = "zoa-aws-read"
   role_arn        = aws_iam_role.job.arn
 
   tags = merge(local.common_tags, {
@@ -167,7 +187,7 @@ resource "aws_eks_pod_identity_association" "job_rc_aws_read" {
 resource "aws_eks_pod_identity_association" "job_rc_aws_write" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-aws-write-sa"
+  service_account = "zoa-aws-write"
   role_arn        = aws_iam_role.job.arn
 
   tags = merge(local.common_tags, {
@@ -178,7 +198,7 @@ resource "aws_eks_pod_identity_association" "job_rc_aws_write" {
 resource "aws_eks_pod_identity_association" "job_rc_breakglass_read" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-breakglass-read-sa"
+  service_account = "zoa-breakglass-read"
   role_arn        = aws_iam_role.job.arn
 
   tags = merge(local.common_tags, {
@@ -189,7 +209,7 @@ resource "aws_eks_pod_identity_association" "job_rc_breakglass_read" {
 resource "aws_eks_pod_identity_association" "job_rc_breakglass_write" {
   cluster_name    = var.eks_cluster_name
   namespace       = "zoa-jobs"
-  service_account = "zoa-breakglass-write-sa"
+  service_account = "zoa-breakglass-write"
   role_arn        = aws_iam_role.job.arn
 
   tags = merge(local.common_tags, {

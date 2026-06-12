@@ -41,8 +41,9 @@ name: get_nodes
 scope: kube-api
 type: read
 description: List or get nodes in the target cluster
+authorization:
+  approval: none
 timeout_seconds: 300
-approval_required: false
 params:
   - name: name
     required: false
@@ -85,11 +86,29 @@ script: |
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `approval_required` | `false` | Exposed in Describe API; future approval workflow integration (not enforced yet) |
+| `authorization` | `{approval: none}` | Authorization policy; `approval: none` means no approval needed. Future: structured approval requirements (min_count, ttl, approver rules) |
 | `write_cooldown_seconds` | `0` (uses global default) | Per-TA write cooldown override |
 | `dry_run_action` | `""` | Read TA to execute when `dry_run: true` is set (write TAs only) |
 
 **No Job, no ConfigMap, no volumes, no image** — Platform API generates all of that.
+
+**AWS-scoped TA example** (no `rbac:` section — uses Pod Identity for AWS access):
+
+```yaml
+name: list_eks_clusters
+scope: aws-api
+type: read
+description: List all EKS clusters in the target account region
+authorization:
+  approval: none
+timeout_seconds: 300
+script: |
+  set -euo pipefail
+  aws eks list-clusters --output json > /artifacts/output.json
+  echo "EKS clusters listed successfully"
+```
+
+AWS-scoped TAs use static ServiceAccounts (`zoa-aws-read`, `zoa-aws-write`) with Pod Identity. The scope value `aws-api` routes to the appropriate static SA — no per-execution SA is created.
 
 **Parameter handling:**
 
@@ -428,7 +447,7 @@ The API proxies S3 content directly — no presigned URLs exposed to consumers.
   "scope": "kube-api",
   "type": "read",
   "description": "List or get nodes in the target cluster with status and resource information",
-  "approval_required": false,
+  "authorization": {"approval": "none"},
   "write_cooldown_seconds": 0,
   "dry_run_action": "",
   "params": [
@@ -447,12 +466,29 @@ Example write TA with dry-run and cooldown:
   "scope": "kube-api",
   "type": "write",
   "description": "Perform a rolling restart of a deployment",
-  "approval_required": false,
+  "authorization": {"approval": "none"},
   "write_cooldown_seconds": 300,
   "dry_run_action": "get_deployments",
   "params": [
     {"name": "namespace", "required": true, "description": "Namespace of the deployment"},
     {"name": "name", "required": true, "description": "Name of the deployment to restart"}
+  ]
+}
+```
+
+Example AWS-scoped TA:
+
+```json
+{
+  "name": "describe_eks_cluster",
+  "scope": "aws-api",
+  "type": "read",
+  "description": "Describe an EKS cluster by name in the target account region",
+  "authorization": {"approval": "none"},
+  "write_cooldown_seconds": 0,
+  "dry_run_action": "",
+  "params": [
+    {"name": "name", "required": true, "description": "EKS cluster name"}
   ]
 }
 ```

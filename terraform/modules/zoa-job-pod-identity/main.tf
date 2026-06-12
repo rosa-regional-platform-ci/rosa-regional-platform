@@ -50,6 +50,26 @@ resource "aws_iam_role_policy" "zoa_job_s3" {
   })
 }
 
+resource "aws_iam_role_policy" "zoa_job_aws_api_read" {
+  name = "${var.management_id}-zoa-job-aws-api-read"
+  role = aws_iam_role.zoa_job.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:ListClusters",
+          "eks:DescribeCluster",
+          "ec2:DescribeVpcEndpoints",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
+}
+
 # Pod Identity association for the uploader SA (the only SA that uploads to S3)
 resource "aws_eks_pod_identity_association" "zoa_uploader" {
   cluster_name    = var.eks_cluster_name
