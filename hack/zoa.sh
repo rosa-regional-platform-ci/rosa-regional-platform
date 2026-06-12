@@ -421,11 +421,13 @@ _zoa_audit() {
     return
   fi
 
-  printf "%-20s %-8s %-35s %-20s %-15s %s\n" "TIMESTAMP" "METHOD" "PATH" "OPERATOR" "TARGET" "STATUS"
-  printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // [])[] | [.timestamp, .method, .path, .operator, (.target_cluster // "-"), (.status_code | tostring)] | @tsv' | \
-  while IFS=$'\t' read -r ts method apath op target scode; do
+  printf "%-10s %-6s %-35s %-12s %-18s %-14s %-8s %s\n" "TIMESTAMP" "METHOD" "PATH" "OPERATOR" "TARGET" "JIRA" "STATUS" "EXEC_ID"
+  printf '%s' "$resp" | "$_ZOA_JQ" -r '(.items // [])[] | [.timestamp, .method, .path, .operator, (.target_cluster // "-"), (.jira // "-"), (.status_code | tostring), (.execution_id // "-")] | @tsv' | \
+  while IFS=$'\t' read -r ts method apath op target jira scode execid; do
     local short_ts="${ts:11:8}"
-    printf "%-20s %-8s %-35s %-20s %-15s %s\n" "$short_ts" "$method" "$apath" "$op" "$target" "$scode"
+    local short_exec="${execid:0:8}"
+    [[ "$short_exec" == "-" ]] && short_exec="-"
+    printf "%-10s %-6s %-35s %-12s %-18s %-14s %-8s %s\n" "$short_ts" "$method" "$apath" "$op" "$target" "$jira" "$scode" "$short_exec"
   done
 }
 
