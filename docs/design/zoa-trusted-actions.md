@@ -499,6 +499,12 @@ zoa <verb> [resource] [flags]
 | `zoa actions` | `GET /trusted-actions` | List available TAs (formatted table) |
 | `zoa describe <action>` | `GET /trusted-actions/{action}` | Formatted TA metadata + params table |
 | `zoa describe <action> --json` | `GET /trusted-actions/{action}` | Raw JSON describe response |
+| `zoa audit` | `GET /audit` | List API call audit log (formatted table) |
+| `zoa audit --json` | `GET /audit` | Raw JSON audit log |
+| `zoa audit --operator slopezma` | `GET /audit?operator=slopezma` | Filter audit by operator |
+| `zoa audit --action rollout_restart` | `GET /audit?action=rollout_restart` | Filter audit by action |
+| `zoa audit --method POST` | `GET /audit?method=POST` | Filter audit by HTTP method |
+| `zoa audit --since 24h` | `GET /audit?since=24h` | Filter audit by time |
 
 **ID Format**: Execution IDs are standard UUID v4 (e.g., `fa65418c-f4eb-4f5c-8314-baaeb695ba7d`).
 Full UUIDs are required for `get`, `logs`, and other ID-based operations. The `✓ <id>`
@@ -601,6 +607,13 @@ $ zoa runs --scope kube-api --status succeeded --limit 50
 $ zoa runs --dry-run --since 24h
 $ zoa runs --force --since 7d
 $ zoa runs --action rollout_restart --target eph-bc5fee45-mc01 --json
+
+# 13. Audit log — compliance trail of all API calls
+$ zoa audit --since 24h
+$ zoa audit --operator slopezma --since 7d
+$ zoa audit --action rollout_restart -t mc-useast1-1
+$ zoa audit --method POST --since 1h
+$ zoa audit --json | jq '.items[] | select(.status_code != 202)'
 ```
 
 #### Design Principles

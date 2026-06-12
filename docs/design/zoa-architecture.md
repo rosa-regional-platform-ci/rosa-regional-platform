@@ -166,6 +166,7 @@ sequenceDiagram
 | `GET /runs` | API Gateway → Platform API → DynamoDB |
 | `GET /` (catalog) | API Gateway → Platform API (in-memory registry) |
 | `GET /{action}` (describe) | API Gateway → Platform API (in-memory registry) |
+| `GET /audit` | API Gateway → Platform API → DynamoDB (audit table) |
 
 ## Network Architecture
 
@@ -398,6 +399,18 @@ GSI: status-index
 TTL: ttl attribute (epoch seconds) — records auto-expire after 365 days
 ```
 
+### DynamoDB Audit Table
+
+```
+Table: <env>-regional-zoa-audit-log
+  PK: accountId (String)
+  SK: timestamp (String, RFC3339)
+
+TTL: ttl attribute (epoch seconds) — entries auto-expire after 365 days
+```
+
+Records every API call (POST executions, GET queries) with caller identity, HTTP method, path, action, target, and response status code. Enables compliance queries via `zoa audit` CLI command.
+
 ### S3 Bucket
 
 ```
@@ -426,12 +439,12 @@ Bucket: <env>-regional-zoa-outputs-<account-id>
 
 ```
 terraform/modules/zoa/
-  ├── dynamodb.tf       # Executions table + GSIs
+  ├── dynamodb.tf       # Executions table + GSIs + Audit log table (both with TTL)
   ├── s3.tf             # Output bucket + lifecycle + encryption
   ├── kms.tf            # Dedicated KMS key
-  ├── iam.tf            # Job role + Platform API policy attachments
+  ├── iam.tf            # Job role + Platform API policy attachments (incl. audit table)
   ├── variables.tf      # Environment prefix, retention, billing mode
-  └── outputs.tf        # Table name, bucket name, KMS ARN (consumed by bootstrap)
+  └── outputs.tf        # Table name, audit table name, bucket name, KMS ARN (consumed by bootstrap)
 ```
 
 ## TA Template System
@@ -530,6 +543,7 @@ Jobs have `ttlSecondsAfterFinished: 3600`. If reconciler cleanup fails, Kubernet
 | Execution metadata | DynamoDB | 365 days (TTL auto-expiry) |
 | output.json | S3 | 365 days |
 | execution.log | S3 | 365 days |
+| API call audit log | DynamoDB (audit table) | 365 days (TTL auto-expiry) |
 | K8s resources (Job, RBAC, CM) | MC | Deleted on completion |
 
 ## Audit Trail
@@ -541,6 +555,7 @@ Every execution produces audit data at multiple layers:
 | Platform API (DynamoDB) | execution_id, operator, caller_arn, jira, action, target, status, duration, revision, updated_at, dry_run, force | `zoa runs` CLI or direct API |
 | S3 (artifacts) | Full execution log, structured output | `zoa logs <id>` or `zoa get <id>` |
 | Kubernetes (labels on all resources) | execution-id, operator, action, scope, type, revision, target | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
+| Platform API (DynamoDB audit table) | Every API call: method, path, action, target, operator, status_code, timestamp | `zoa audit` CLI |
 | AWS CloudTrail | SigV4 caller identity on API Gateway invocation | CloudTrail console |
 | Maestro (MQTT events) | ManifestWork create/delete events with metadata | Maestro server logs |
 
