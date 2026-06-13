@@ -3,50 +3,23 @@
 # Called from: terraform/config/pipeline-management-cluster/buildspec-bootstrap-argocd.yml
 set -euo pipefail
 
-echo "=========================================="
-echo "ArgoCD Bootstrap for Management Cluster"
-echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-echo "=========================================="
+source scripts/pipeline-common/lib.sh
 
-# Pre-flight setup (validates env vars, inits account helpers)
-source scripts/pipeline-common/setup-apply-preflight.sh
-
-# Read delete flag from config (GitOps-driven deletion)
-ENVIRONMENT="${ENVIRONMENT:-staging}"
-MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-management-cluster-${MANAGEMENT_ID}-inputs/terraform.json"
-if [ ! -f "$MC_CONFIG_FILE" ]; then
-    echo "ERROR: Config file not found: $MC_CONFIG_FILE" >&2
-    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION MANAGEMENT_ID=$MANAGEMENT_ID" >&2
-    exit 1
-fi
-DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
-
-# Manual override: IS_DESTROY pipeline variable takes precedence
-[ "${IS_DESTROY:-false}" == "true" ] && DELETE_FLAG="true"
-
-echo ""
-if [ "${DELETE_FLAG}" == "true" ]; then
-    echo ">>> MODE: TEARDOWN <<<"
-else
-    echo ">>> MODE: PROVISION <<<"
-fi
-echo ""
-
-if [ "${DELETE_FLAG}" == "true" ]; then
-    echo "delete=true in config — skipping ArgoCD bootstrap (cluster is being destroyed)"
-    exit 0
-fi
-
-# Load deploy config to get REGIONAL_AWS_ACCOUNT_ID
-source scripts/pipeline-common/load-deploy-config.sh management
+preflight_check
+config_load management
 
 RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
 
-# =====================================================================
+DELETE_FLAG=$(jq -r '.delete // false' "$DEPLOY_CONFIG_FILE")
+[ "${IS_DESTROY:-false}" == "true" ] && DELETE_FLAG="true"
+
+if [ "${DELETE_FLAG}" == "true" ]; then
+    echo "delete=true — skipping ArgoCD bootstrap"
+    exit 0
+fi
+
 # Read RHOBS API URL from RC terraform state.
-# The RC pipeline runs in parallel; wait for the output to be available.
-# =====================================================================
-echo "Reading RHOBS API URL from RC terraform state..."
+# The RC pipeline runs in parallel — wait for the output to appear.
 _RC_STATE_BUCKET="terraform-state-${RESOLVED_REGIONAL_ACCOUNT_ID}-${TARGET_REGION}"
 _RC_REGIONAL_ID=$(jq -r '.regional_id // "regional"' "deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json" 2>/dev/null || echo "regional")
 _RC_STATE_KEY="regional-cluster/${_RC_REGIONAL_ID}.tfstate"
@@ -69,33 +42,15 @@ while [ -z "$RHOBS_API_URL" ]; do
     fi
     _ELAPSED=$(( $(date +%s) - _RC_START ))
     if [ "$_ELAPSED" -ge "$_RC_TIMEOUT" ]; then
-        echo "ERROR: rhobs_api_url not available after $((_ELAPSED / 60))m. RC pipeline may have failed." >&2
+        echo "ERROR: rhobs_api_url not available after $((_ELAPSED / 60))m" >&2
         exit 1
     fi
-    echo "  Waiting for RC terraform to publish rhobs_api_url (${_ELAPSED}s elapsed)..."
+    echo "Waiting for RC rhobs_api_url (${_ELAPSED}s elapsed)..."
     sleep 30
 done
-echo "  RHOBS API URL: ${RHOBS_API_URL}"
 
-# Construct dns_zone_operator_role_arn deterministically (same pattern as provision-infra-mc.sh)
 export DNS_ZONE_OPERATOR_ROLE_ARN="arn:aws:iam::${RESOLVED_REGIONAL_ACCOUNT_ID}:role/${_RC_REGIONAL_ID}-dns-zone-operator"
-echo "  DNS Zone Operator Role ARN: ${DNS_ZONE_OPERATOR_ROLE_ARN}"
-echo ""
 
-# =====================================================================
-# Bootstrap ArgoCD on Management Cluster
-# =====================================================================
 use_mc_account
-echo ""
-
-echo "Bootstrapping ArgoCD: ${MANAGEMENT_ID} (${TARGET_ACCOUNT_ID}) in ${TARGET_REGION}"
-echo ""
-
-# Initialize Terraform backend and verify outputs
-./scripts/pipeline-common/init-terraform-backend.sh management-cluster "${TARGET_REGION}" "${MANAGEMENT_ID}"
-
-# Bootstrap ArgoCD (already in target account, no cross-account assume needed)
-./scripts/pipeline-common/bootstrap-argocd-wrapper.sh management-cluster "${TARGET_ACCOUNT_ID}"
-
-echo "ArgoCD bootstrap complete."
-echo "Management cluster is now fully provisioned and ready for use."
+terraform_init_backend management-cluster "${TARGET_REGION}" "${MANAGEMENT_ID}"
+bootstrap_argocd management-cluster "${TARGET_ACCOUNT_ID}"

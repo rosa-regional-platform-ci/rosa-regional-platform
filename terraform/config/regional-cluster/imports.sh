@@ -15,9 +15,9 @@
 # Once all environments have been migrated, this file can be removed.
 set -uo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/../../../scripts/pipeline-common/terraform-import.sh"
+# import_if_needed, tf_state_value, tf_import_summary provided by lib.sh
+# (sourced by the parent buildspec script)
 
-echo ""
 echo "--- Importing existing CloudWatch log groups (Regional Cluster) ---"
 
 # =============================================================================

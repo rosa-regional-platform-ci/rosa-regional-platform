@@ -3,17 +3,10 @@
 # Called from: terraform/config/pipeline-management-cluster/buildspec-iot-mint.yml
 set -euo pipefail
 
-echo "=========================================="
-echo "Minting IoT Certificate in RC Account"
-echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-echo "=========================================="
+source scripts/pipeline-common/lib.sh
 
-# Initialize account helpers and switch to RC account
-source scripts/pipeline-common/account-helpers.sh
-init_account_helpers
-
-# Load terraform variables from deploy/ JSON
-source scripts/pipeline-common/load-deploy-config.sh management
+preflight_check
+config_load management
 
 echo "Cluster ID: ${CLUSTER_ID}"
 echo "Regional Account: ${REGIONAL_AWS_ACCOUNT_ID}"

@@ -3,16 +3,10 @@
 # Called from: terraform/config/pipeline-regional-cluster/buildspec-provision-infra.yml
 set -euo pipefail
 
-echo "=========================================="
-echo "Provisioning Regional Cluster Infrastructure"
-echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-echo "=========================================="
+source scripts/pipeline-common/lib.sh
 
-# Pre-flight setup (validates env vars, inits account helpers)
-source scripts/pipeline-common/setup-apply-preflight.sh
-
-# Load terraform variables from deploy/ JSON
-source scripts/pipeline-common/load-deploy-config.sh regional
+preflight_check
+config_load regional
 
 # Save central credentials as a named AWS profile so Terraform's aws.central
 # provider can access the central account after use_mc_account switches

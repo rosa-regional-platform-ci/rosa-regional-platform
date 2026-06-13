@@ -3,16 +3,10 @@
 # Called from: terraform/config/pipeline-management-cluster/buildspec-provision-infra.yml
 set -euo pipefail
 
-echo "=========================================="
-echo "Provisioning Management Cluster Infrastructure"
-echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-echo "=========================================="
+source scripts/pipeline-common/lib.sh
 
-# Pre-flight setup (validates env vars, inits account helpers)
-source scripts/pipeline-common/setup-apply-preflight.sh
-
-# Load terraform variables from deploy/ JSON
-source scripts/pipeline-common/load-deploy-config.sh management
+preflight_check
+config_load management
 
 RESOLVED_REGIONAL_ACCOUNT_ID="${REGIONAL_AWS_ACCOUNT_ID}"
 
@@ -48,9 +42,8 @@ if [ "${DELETE_FLAG}" == "true" ]; then
     export TF_VAR_oidc_bucket_arn="arn:aws:s3:::placeholder"
     export TF_VAR_oidc_bucket_region="us-east-1"
 else
-    echo "Reading IoT certificate data from RC account state..."
     use_rc_account
-    source scripts/read-iot-state.sh "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
+    read_iot_state "$RESOLVED_REGIONAL_ACCOUNT_ID" "$CLUSTER_ID" "$TARGET_REGION"
 
     # Construct dns_zone_operator_role_arn deterministically (avoids reading RC state)
     _RC_REGIONAL_ID=$(jq -r '.regional_id // "regional"' "deploy/${ENVIRONMENT}/${TARGET_REGION}/pipeline-regional-cluster-inputs/terraform.json" 2>/dev/null || echo "regional")
@@ -144,7 +137,7 @@ export TF_VAR_environment="${ENVIRONMENT:-staging}"
 export TF_VAR_regional_aws_account_id="${RESOLVED_REGIONAL_ACCOUNT_ID}"
 
 # TF_VAR_maestro_agent_cert_file and TF_VAR_maestro_agent_config_file
-# are already exported by read-iot-state.sh
+# are already exported by read_iot_state()
 
 # Set repository URL and branch
 _REPO_BRANCH="${REPOSITORY_BRANCH:-main}"

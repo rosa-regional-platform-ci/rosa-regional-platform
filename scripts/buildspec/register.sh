@@ -3,16 +3,10 @@
 # Called from: terraform/config/pipeline-management-cluster/buildspec-register.yml
 set -euo pipefail
 
-echo "=========================================="
-echo "Register MC with Regional Cluster API"
-echo "Build #${CODEBUILD_BUILD_NUMBER:-?} | ${CODEBUILD_BUILD_ID:-unknown}"
-echo "=========================================="
+source scripts/pipeline-common/lib.sh
 
-# Pre-flight setup (validates env vars, inits account helpers)
-source scripts/pipeline-common/setup-apply-preflight.sh
-
-# Load terraform variables from deploy/ JSON
-source scripts/pipeline-common/load-deploy-config.sh management
+preflight_check
+config_load management
 
 # Read delete flag from config (GitOps-driven deletion)
 ENVIRONMENT="${ENVIRONMENT:-staging}"
