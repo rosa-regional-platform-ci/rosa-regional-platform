@@ -43,11 +43,26 @@ RC_STATE_KEY="regional-cluster/${RC_REGIONAL_ID}.tfstate"
         -backend-config="use_lockfile=true"
 )
 
-API_GATEWAY_URL=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url)
-CLOUDFRONT_DOMAIN=$(cd terraform/config/regional-cluster && terraform output -raw oidc_cloudfront_domain)
+# RC and MC pipelines run in parallel — retry until outputs appear (up to 45 min)
+_REG_MAX_RETRIES=90
+_REG_RETRY_DELAY=30
+_REG_RETRY_COUNT=0
+API_GATEWAY_URL=""
+CLOUDFRONT_DOMAIN=""
+
+while [ $_REG_RETRY_COUNT -lt $_REG_MAX_RETRIES ]; do
+    _REG_RETRY_COUNT=$((_REG_RETRY_COUNT + 1))
+    API_GATEWAY_URL=$(cd terraform/config/regional-cluster && terraform output -raw api_gateway_invoke_url 2>/dev/null || true)
+    CLOUDFRONT_DOMAIN=$(cd terraform/config/regional-cluster && terraform output -raw oidc_cloudfront_domain 2>/dev/null || true)
+    if [ -n "$API_GATEWAY_URL" ] && [ -n "$CLOUDFRONT_DOMAIN" ]; then
+        break
+    fi
+    echo "RC outputs not ready (attempt ${_REG_RETRY_COUNT}/${_REG_MAX_RETRIES}), retrying in ${_REG_RETRY_DELAY}s..."
+    sleep "$_REG_RETRY_DELAY"
+done
 
 if [ -z "$API_GATEWAY_URL" ] || [ -z "$CLOUDFRONT_DOMAIN" ]; then
-    echo "ERROR: Failed to read API Gateway URL or CloudFront domain from RC state" >&2
+    echo "ERROR: RC outputs missing after $((_REG_MAX_RETRIES * _REG_RETRY_DELAY / 60))+ minutes" >&2
     exit 1
 fi
 
@@ -128,8 +143,13 @@ while [ $REG_RETRY_COUNT -lt $REG_MAX_RETRIES ]; do
         -H "Content-Type: application/json" \
         -d "$PAYLOAD")
 
-    # 201 = created, 409/502 = already exists
-    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "409" ] || [ "$HTTP_CODE" = "502" ]; then
+    # 201 = created, 409 = already exists
+    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "409" ]; then
+        REG_OK=true
+        break
+    fi
+    # 502 may indicate "already exists" behind a gateway error — check response body
+    if [ "$HTTP_CODE" = "502" ] && grep -qi "already exists" /tmp/register-response.json 2>/dev/null; then
         REG_OK=true
         break
     fi

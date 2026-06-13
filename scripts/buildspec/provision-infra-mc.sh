@@ -46,8 +46,8 @@ else
         -backend-config="key=${_RC_STATE_KEY}" \
         -backend-config="region=${TARGET_REGION}" \
         -backend-config="use_lockfile=true" >/dev/null 2>&1)
-    export TF_VAR_rhobs_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw rhobs_api_url 2>/dev/null || echo "")
 
+    # RC and MC pipelines run in parallel — retry until all outputs appear (up to 45 min)
     _OIDC_MAX_RETRIES=90
     _OIDC_RETRY_DELAY=30
     _OIDC_RETRY_COUNT=0
@@ -55,29 +55,33 @@ else
     TF_VAR_oidc_bucket_name=""
     TF_VAR_oidc_bucket_arn=""
     TF_VAR_oidc_bucket_region=""
+    TF_VAR_rhobs_api_url=""
     while [ $_OIDC_RETRY_COUNT -lt $_OIDC_MAX_RETRIES ]; do
         _OIDC_RETRY_COUNT=$((_OIDC_RETRY_COUNT + 1))
         TF_VAR_oidc_cloudfront_domain=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_cloudfront_domain 2>/dev/null || true)
         TF_VAR_oidc_bucket_name=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_name 2>/dev/null || true)
         TF_VAR_oidc_bucket_arn=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_arn 2>/dev/null || true)
         TF_VAR_oidc_bucket_region=$(cd "$_RC_TF_DIR" && terraform output -raw oidc_bucket_region 2>/dev/null || true)
+        TF_VAR_rhobs_api_url=$(cd "$_RC_TF_DIR" && terraform output -raw rhobs_api_url 2>/dev/null || true)
         if [ -n "${TF_VAR_oidc_cloudfront_domain}" ] && \
            [ -n "${TF_VAR_oidc_bucket_name}" ] && \
            [ -n "${TF_VAR_oidc_bucket_arn}" ] && \
-           [ -n "${TF_VAR_oidc_bucket_region}" ]; then
+           [ -n "${TF_VAR_oidc_bucket_region}" ] && \
+           [ -n "${TF_VAR_rhobs_api_url}" ]; then
             break
         fi
-        echo "OIDC outputs not ready (attempt ${_OIDC_RETRY_COUNT}/${_OIDC_MAX_RETRIES}), retrying in ${_OIDC_RETRY_DELAY}s..."
+        echo "RC outputs not ready (attempt ${_OIDC_RETRY_COUNT}/${_OIDC_MAX_RETRIES}), retrying in ${_OIDC_RETRY_DELAY}s..."
         sleep "$_OIDC_RETRY_DELAY"
     done
     if [ -z "${TF_VAR_oidc_cloudfront_domain}" ] || \
        [ -z "${TF_VAR_oidc_bucket_name}" ] || \
        [ -z "${TF_VAR_oidc_bucket_arn}" ] || \
-       [ -z "${TF_VAR_oidc_bucket_region}" ]; then
-        echo "ERROR: OIDC outputs missing from RC state after $((_OIDC_MAX_RETRIES * _OIDC_RETRY_DELAY / 60))+ minutes" >&2
+       [ -z "${TF_VAR_oidc_bucket_region}" ] || \
+       [ -z "${TF_VAR_rhobs_api_url}" ]; then
+        echo "ERROR: RC outputs missing after $((_OIDC_MAX_RETRIES * _OIDC_RETRY_DELAY / 60))+ minutes" >&2
         exit 1
     fi
-    export TF_VAR_oidc_cloudfront_domain TF_VAR_oidc_bucket_name TF_VAR_oidc_bucket_arn TF_VAR_oidc_bucket_region
+    export TF_VAR_oidc_cloudfront_domain TF_VAR_oidc_bucket_name TF_VAR_oidc_bucket_arn TF_VAR_oidc_bucket_region TF_VAR_rhobs_api_url
 fi
 
 # ── Phase 2: Apply/Destroy MC infrastructure ─────────────────────────────────

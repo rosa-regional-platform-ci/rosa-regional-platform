@@ -199,6 +199,9 @@ config_load() {
 
     if [[ "$mode" == "management" ]]; then
         CLUSTER_ID=$(jq -r '.management_id // ""' "$DEPLOY_CONFIG_FILE")
+        if [[ -z "$CLUSTER_ID" ]]; then
+            CLUSTER_ID="${MANAGEMENT_ID}"
+        fi
         REGIONAL_AWS_ACCOUNT_ID=$(jq -r '.regional_aws_account_id // ""' "$DEPLOY_CONFIG_FILE")
 
         if [[ "$REGIONAL_AWS_ACCOUNT_ID" =~ ^ssm:// ]]; then

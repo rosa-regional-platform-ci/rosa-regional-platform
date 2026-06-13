@@ -10,8 +10,8 @@ ENVIRONMENT="${ENVIRONMENT:-integration}"
 AWS_CLI_REGION=$(aws configure get region 2>/dev/null || true)
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
-if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "ERROR: cluster-type argument required (management-cluster or regional-cluster)" >&2
+if [[ "$CLUSTER_TYPE" != "management-cluster" && "$CLUSTER_TYPE" != "regional-cluster" ]]; then
+    echo "ERROR: cluster-type must be 'management-cluster' or 'regional-cluster', got '${CLUSTER_TYPE}'" >&2
     exit 1
 fi
 
@@ -43,9 +43,13 @@ if [[ -n "${ASSUME_ROLE_ARN:-}" ]]; then
         exit 1
     fi
 
-    export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -er '.Credentials.AccessKeyId')
-    export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -er '.Credentials.SecretAccessKey')
-    export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -er '.Credentials.SessionToken')
+    local _ak _sk _st
+    _ak=$(echo "$CREDS" | jq -er '.Credentials.AccessKeyId') || { echo "ERROR: Failed to extract AccessKeyId" >&2; exit 1; }
+    _sk=$(echo "$CREDS" | jq -er '.Credentials.SecretAccessKey') || { echo "ERROR: Failed to extract SecretAccessKey" >&2; exit 1; }
+    _st=$(echo "$CREDS" | jq -er '.Credentials.SessionToken') || { echo "ERROR: Failed to extract SessionToken" >&2; exit 1; }
+    export AWS_ACCESS_KEY_ID="$_ak"
+    export AWS_SECRET_ACCESS_KEY="$_sk"
+    export AWS_SESSION_TOKEN="$_st"
 fi
 
 ECS_CLUSTER_ARN=$(echo "$OUTPUTS" | jq -r '.ecs_cluster_arn.value')
@@ -168,7 +172,7 @@ while true; do
             exit 0
         fi
 
-        STOP_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].stopReason // "unknown"')
+        STOP_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].stoppedReason // "unknown"')
         CONTAINER_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].containers[0].reason // "unknown"')
         echo "ERROR: Bootstrap failed (exit=$EXIT_CODE, stop=$STOP_REASON, container=$CONTAINER_REASON)" >&2
         if [[ "$EXIT_CODE" == "null" || -z "$EXIT_CODE" ]]; then
