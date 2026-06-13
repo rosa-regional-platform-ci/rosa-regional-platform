@@ -44,23 +44,14 @@ The tools are installed at container startup and may take ~60 seconds to become 
 
 ## Usage
 
-### Prerequisites
-
-Initialize the Terraform backend against remote state (from the repo root):
-
-```bash
-# Authenticate to the target AWS account, then:
-scripts/dev/init-remote-backend.sh regional <environment> [region]
-
-# Region is optional — defaults to the AWS CLI configured region.
-# e.g. scripts/dev/init-remote-backend.sh regional integration
-# e.g. scripts/dev/init-remote-backend.sh regional integration us-east-1
-```
-
 ### Connect to the bastion
 
+Use the Makefile targets from the repo root:
+
 ```bash
-scripts/dev/bastion-connect.sh regional    # or: management
+make int-bastion-rc    # or: make int-bastion-mc
+# For ephemeral environments:
+make ephemeral-bastion-rc ID=<id>    # or: make ephemeral-bastion-mc ID=<id>
 ```
 
 This starts a bastion ECS task (if not already running), waits for it to be ready, and opens an interactive shell. The bastion is pre-configured with kubectl access to the EKS cluster:
@@ -78,16 +69,12 @@ NOTE: If `kubectl: command not found`, wait a minute for tool installation to co
 ### Port-forward to Kubernetes services
 
 ```bash
-# Interactive mode (requires fzf)
-scripts/dev/bastion-port-forward.sh
-
-# Or specify service and cluster type directly:
-scripts/dev/bastion-port-forward.sh argocd regional
-scripts/dev/bastion-port-forward.sh maestro regional
-scripts/dev/bastion-port-forward.sh argocd management
+make int-port-forward-rc    # or: make int-port-forward-mc
+# For ephemeral environments:
+make ephemeral-port-forward-rc ID=<id>    # or: make ephemeral-port-forward-mc ID=<id>
 ```
 
-The script handles the full two-hop chain automatically:
+Select a service when prompted (e.g. `argocd`, `maestro`). The script handles the full two-hop chain automatically:
 
 1. Starts/reuses a bastion ECS task
 2. Runs `kubectl port-forward` inside the bastion (bastion -> K8s service)
@@ -97,15 +84,9 @@ For ArgoCD, it also fetches and displays the admin password.
 
 ### Stop when done
 
-Stop the task when finished to avoid ongoing costs.
+Bastion ECS tasks have a configured stop timeout and will terminate automatically.
 
 > **Cost note**: Fargate tasks are billed per-second while running (~$0.02/hour for this config).
-
-```bash
-CLUSTER=$(cd terraform/config/regional-cluster && terraform output -raw bastion_ecs_cluster_name)
-TASK_ID=$(aws ecs list-tasks --cluster $CLUSTER --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
-aws ecs stop-task --cluster $CLUSTER --task $TASK_ID
-```
 
 ## Troubleshooting
 
