@@ -69,16 +69,8 @@ bootstrap_target_state_bucket() {
 ENVIRONMENT="${ENVIRONMENT:-${TARGET_ENVIRONMENT:-staging}}"
 
 # Validate and sanitize ENVIRONMENT to prevent path traversal and injection
-if [[ -z "$ENVIRONMENT" ]]; then
-    echo "ERROR: ENVIRONMENT is empty" >&2
-    exit 1
-fi
-if [[ "$ENVIRONMENT" == *"/"* || "$ENVIRONMENT" == *".."* || "$ENVIRONMENT" =~ [[:space:]] ]]; then
-    echo "ERROR: ENVIRONMENT contains invalid characters: $ENVIRONMENT" >&2
-    exit 1
-fi
-if [[ ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
-    echo "ERROR: ENVIRONMENT contains invalid characters: $ENVIRONMENT" >&2
+if [[ -z "$ENVIRONMENT" || ! "$ENVIRONMENT" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "ERROR: ENVIRONMENT is empty or contains invalid characters: '${ENVIRONMENT}'" >&2
     exit 1
 fi
 
