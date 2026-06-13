@@ -11,17 +11,7 @@ AWS_CLI_REGION=$(aws configure get region 2>/dev/null || true)
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 if [[ -z "$CLUSTER_TYPE" ]]; then
-    echo "Usage: ENVIRONMENT=<env> REGION_DEPLOYMENT=<alias> AWS_REGION=<region> $0 <cluster-type>"
-    echo ""
-    echo "Arguments:"
-    echo "  cluster-type: management-cluster or regional-cluster"
-    echo ""
-    echo "Required environment variables:"
-    echo "  ENVIRONMENT - Environment name (integration, staging, production)"
-    echo "  REGION_DEPLOYMENT - Region directory identifier"
-    echo "  AWS_REGION - AWS region for operations"
-    echo ""
-    echo "All environment variables have defaults if not specified."
+    echo "ERROR: cluster-type argument required (management-cluster or regional-cluster)" >&2
     exit 1
 fi
 
@@ -39,50 +29,23 @@ OUTPUTS=$(terraform output -json)
 # - Terraform state is in central account S3, needs central account creds
 # - ECS cluster/logs are in target account, need target account creds
 if [[ -n "${ASSUME_ROLE_ARN:-}" ]]; then
-    echo "Assuming role for AWS resource access: $ASSUME_ROLE_ARN"
-
-    # Attempt role assumption and capture output
     if ! CREDS=$(aws sts assume-role \
         --role-arn "$ASSUME_ROLE_ARN" \
         --role-session-name "bootstrap-argocd" \
         --output json 2>&1); then
-        echo "Failed to assume role: $ASSUME_ROLE_ARN"
-        echo "AWS CLI error output:"
-        echo "$CREDS"
+        echo "ERROR: Failed to assume role: $ASSUME_ROLE_ARN" >&2
+        echo "$CREDS" >&2
         exit 1
     fi
 
-    # Validate credentials were returned
     if ! echo "$CREDS" | jq -e '.Credentials' >/dev/null 2>&1; then
-        echo "Role assumption succeeded but credentials not found in response"
-        echo "Role ARN: $ASSUME_ROLE_ARN"
-        echo "Response:"
-        echo "$CREDS"
+        echo "ERROR: No credentials in assume-role response for $ASSUME_ROLE_ARN" >&2
         exit 1
     fi
 
-    # Extract credentials using -er to fail on null/missing values
-    if ! AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -er '.Credentials.AccessKeyId'); then
-        echo "Failed to extract AccessKeyId from assume-role response"
-        exit 1
-    fi
-
-    if ! AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -er '.Credentials.SecretAccessKey'); then
-        echo "Failed to extract SecretAccessKey from assume-role response"
-        exit 1
-    fi
-
-    if ! AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -er '.Credentials.SessionToken'); then
-        echo "Failed to extract SessionToken from assume-role response"
-        exit 1
-    fi
-
-    export AWS_ACCESS_KEY_ID
-    export AWS_SECRET_ACCESS_KEY
-    export AWS_SESSION_TOKEN
-
-    echo "Role assumed successfully"
-    echo "   Account: $(aws sts get-caller-identity --query Account --output text)"
+    export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -er '.Credentials.AccessKeyId')
+    export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -er '.Credentials.SecretAccessKey')
+    export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -er '.Credentials.SessionToken')
 fi
 
 ECS_CLUSTER_ARN=$(echo "$OUTPUTS" | jq -r '.ecs_cluster_arn.value')
@@ -117,11 +80,7 @@ fi
 RHOBS_API_URL="${RHOBS_API_URL:-}"
 DNS_ZONE_OPERATOR_ROLE_ARN="${DNS_ZONE_OPERATOR_ROLE_ARN:-}"
 
-echo "Bootstrapping ArgoCD on cluster: $CLUSTER_NAME"
-
-# Run ECS task
-echo "Starting ECS task..."
-# Capture output and exit code separately to handle errors properly with set -e
+echo "Bootstrapping ArgoCD on $CLUSTER_NAME"
 set +e
 RUN_TASK_OUTPUT=$(aws ecs run-task \
   --cluster "$ECS_CLUSTER_ARN" \
@@ -157,30 +116,18 @@ set -e
 
 # Check if run-task succeeded
 if [[ $RUN_TASK_EXIT_CODE -eq 0 ]] && echo "$RUN_TASK_OUTPUT" | grep -q '"failures":\s*\[\]'; then
-  echo "ECS task created successfully."
   TASK_ARN=$(echo "$RUN_TASK_OUTPUT" | jq -r '.task.taskArn // .tasks[0].taskArn // empty')
   if [[ -z "$TASK_ARN" || "$TASK_ARN" == "null" ]]; then
-    echo "Could not extract task ARN from response"
+    echo "ERROR: Could not extract task ARN from response" >&2
     exit 1
   fi
-  echo "Bootstrap task started: $TASK_ARN"
 else
-  echo "Failed to start ECS task. Error details:"
-  echo "$RUN_TASK_OUTPUT"
+  echo "ERROR: Failed to start ECS task" >&2
+  echo "$RUN_TASK_OUTPUT" >&2
   exit 1
 fi
 
-echo "Starting log monitoring..."
-
-# Use filter-log-events for compatibility with older AWS CLI versions (no tail command)
-# Track the last seen event timestamp to avoid duplicate logs
 LAST_EVENT_TIME=0
-
-# Clean up on script exit or interrupt
-cleanup() {
-    echo "" # Newline after log output
-}
-trap cleanup EXIT INT TERM
 
 # Monitor task status
 while true; do
@@ -214,36 +161,20 @@ while true; do
             --start-time "$LAST_EVENT_TIME" \
             --output json 2>/dev/null || echo '{"events":[]}')
         echo "$FINAL_LOGS" | jq -r '.events[] | .message' 2>/dev/null || true
-        echo ""
-        echo "Task stopped. Getting task details..."
-
-        # Get full task details for debugging
         TASK_DETAILS=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER_ARN" --tasks "$TASK_ARN")
-
-        # Extract exit code and stop reason
         EXIT_CODE=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].containers[0].exitCode // "null"')
-        STOP_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].stopReason // "unknown"')
-        CONTAINER_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].containers[0].reason // "unknown"')
 
         if [[ "$EXIT_CODE" == "0" ]]; then
-            echo "Bootstrap completed successfully!"
             exit 0
-        elif [[ "$EXIT_CODE" == "null" || -z "$EXIT_CODE" ]]; then
-            echo "Bootstrap failed - no exit code available"
-            echo ""
-            echo "Task Stop Reason: $STOP_REASON"
-            echo "Container Reason: $CONTAINER_REASON"
-            echo ""
-            echo "Full task details:"
-            echo "$TASK_DETAILS" | jq '.tasks[0] | {lastStatus, stoppedReason: .stoppedReason, stopCode: .stopCode, containers: [.containers[] | {name, exitCode, reason, lastStatus}]}'
-            exit 1
-        else
-            echo "Bootstrap failed with exit code: $EXIT_CODE"
-            echo ""
-            echo "Task Stop Reason: $STOP_REASON"
-            echo "Container Reason: $CONTAINER_REASON"
-            exit 1
         fi
+
+        STOP_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].stopReason // "unknown"')
+        CONTAINER_REASON=$(echo "$TASK_DETAILS" | jq -r '.tasks[0].containers[0].reason // "unknown"')
+        echo "ERROR: Bootstrap failed (exit=$EXIT_CODE, stop=$STOP_REASON, container=$CONTAINER_REASON)" >&2
+        if [[ "$EXIT_CODE" == "null" || -z "$EXIT_CODE" ]]; then
+            echo "$TASK_DETAILS" | jq '.tasks[0] | {lastStatus, stoppedReason, stopCode, containers: [.containers[] | {name, exitCode, reason, lastStatus}]}' >&2
+        fi
+        exit 1
     fi
 
     # Poll every 5 seconds for log updates

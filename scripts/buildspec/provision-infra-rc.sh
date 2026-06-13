@@ -17,9 +17,7 @@ aws configure set aws_session_token     "$_CENTRAL_AWS_SESSION_TOKEN"     --prof
 aws configure set region                "${TARGET_REGION}"                --profile central
 export TF_VAR_central_aws_profile="central"
 
-# Fetch PagerDuty API token from Secrets Manager (central account, us-east-1)
-# But only if we are enabling PD - no need to fetch the secret otherwise
-PD_ENABLED="  PagerDuty Enabled: false"
+# Fetch PagerDuty config if enabled
 _RAW_PD=$(jq -r '.enable_pagerduty // false' "$DEPLOY_CONFIG_FILE")
 if [ "$_RAW_PD" == "true" ] || [ "$_RAW_PD" == "1" ]; then
     export TF_VAR_enable_pagerduty="true"
@@ -30,30 +28,16 @@ if [ "$_RAW_PD" == "true" ] || [ "$_RAW_PD" == "1" ]; then
         --query SecretString \
         --output text)
     export PAGERDUTY_TOKEN
-    PD_ENABLED=$(printf "  PagerDuty Enabled: true\n    - PagerDuty token loaded from Secrets Manager\n  Escalation Policy ID: %s" "$TF_VAR_pagerduty_escalation_policy_id")
 fi
 
-# Assume target account role for both state and resource operations
 use_mc_account
-echo ""
-
-echo "Deploying to account: ${TARGET_ACCOUNT_ID}"
-echo "  Region: ${TARGET_REGION}"
-echo "  Regional ID: ${REGIONAL_ID}"
-echo ""
 
 # Configure Terraform backend (state in target account)
 export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}-${TARGET_REGION}"
 export TF_STATE_KEY="regional-cluster/${REGIONAL_ID}.tfstate"
 export TF_STATE_REGION="${TARGET_REGION}"
 
-echo "Terraform backend:"
-echo "  Bucket: $TF_STATE_BUCKET (target account: $TARGET_ACCOUNT_ID)"
-echo "  Key: $TF_STATE_KEY"
-echo "  Region: $TF_STATE_REGION"
-echo ""
-
-# Set Terraform variables from deploy config and CodeBuild env vars
+# Set Terraform variables
 export TF_VAR_region="${TARGET_REGION}"
 TF_VAR_deployment_name=$(jq -r '.deployment_name' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_deployment_name
@@ -61,14 +45,11 @@ export TF_VAR_app_code="${APP_CODE}"
 export TF_VAR_service_phase="${SERVICE_PHASE}"
 export TF_VAR_cost_center="${COST_CENTER}"
 
-# Set repository URL and branch with proper fallback handling for set -u
-# Note: CODEBUILD_SOURCE_VERSION contains S3 artifact location, not git branch
 _REPO_BRANCH="${REPOSITORY_BRANCH:-main}"
 export TF_VAR_repository_url="${REPOSITORY_URL}"
 export TF_VAR_repository_branch="${_REPO_BRANCH}"
 
 # Build colon-delimited management clusters string: "mc01:123456789012,mc02:987654321098"
-# Single source of truth for MC identity — Terraform derives API allowed accounts from this.
 _MC_PARTS=()
 _MC_INFO=$(jq -c '.management_clusters_info // []' "$DEPLOY_CONFIG_FILE")
 if [[ "$_MC_INFO" != "[]" ]]; then
@@ -87,23 +68,19 @@ if [[ "$_MC_INFO" != "[]" ]]; then
 fi
 export TF_VAR_management_clusters=$(IFS=,; echo "${_MC_PARTS[*]}")
 
-# Set container image for ECS tasks (bastion and bootstrap)
 if [ -z "${PLATFORM_IMAGE:-}" ]; then
-    echo "ERROR: PLATFORM_IMAGE is not set or empty; cannot set TF_VAR_container_image" >&2
+    echo "ERROR: PLATFORM_IMAGE is not set" >&2
     exit 1
 fi
 export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
-
 export TF_VAR_enable_cloudtrail=$(parseBool '.enable_cloudtrail' false "$DEPLOY_CONFIG_FILE")
 export TF_VAR_enable_api_custom_domain=$(parseBool '.enable_api_custom_domain' false "$DEPLOY_CONFIG_FILE")
 export TF_VAR_zone_shard_count=$(jq -r '.zone_shard_count // 1' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_enable_sns_alerting=$(parseBool '.enable_sns_alerting' false "$DEPLOY_CONFIG_FILE")
 
-# Read the MC OU path from SSM. This parameter is provisioned by account-minter
-# in the RC account and is required for the regional OIDC S3 bucket policy.
-# See config/README.md for the expected SSM parameter path.
+# MC OU path from SSM (provisioned by account-minter, required for OIDC bucket policy)
 TF_VAR_mc_ou_path=$(aws ssm get-parameter \
     --name "/infra/region-ou-path" \
     --with-decryption \
@@ -111,15 +88,11 @@ TF_VAR_mc_ou_path=$(aws ssm get-parameter \
     --output text \
     --region "${TARGET_REGION}" 2>/dev/null || true)
 if [ -z "${TF_VAR_mc_ou_path}" ]; then
-    echo "ERROR: SSM parameter /infra/region-ou-path not found in account ${TARGET_ACCOUNT_ID} region ${TARGET_REGION}." >&2
-    echo "  Create this parameter with the AWS Organizations OU path for MC accounts before provisioning the RC." >&2
-    echo "  Example: aws ssm put-parameter --name /infra/region-ou-path --value 'o-*/r-*/ou-*/*'" >&2
+    echo "ERROR: SSM parameter /infra/region-ou-path not found in account ${TARGET_ACCOUNT_ID} region ${TARGET_REGION}" >&2
     exit 1
 fi
 export TF_VAR_mc_ou_path
 
-# Set DNS variables (optional — when ENVIRONMENT_DOMAIN is set, creates regional
-# DNS zone and custom API domain)
 if [ -n "${ENVIRONMENT_DOMAIN:-}" ]; then
     export TF_VAR_environment_domain="${ENVIRONMENT_DOMAIN}"
 fi
@@ -127,47 +100,19 @@ if [ -n "${ENVIRONMENT_HOSTED_ZONE_ID:-}" ]; then
     export TF_VAR_environment_hosted_zone_id="${ENVIRONMENT_HOSTED_ZONE_ID}"
 fi
 
-# Extract regional_id and environment from rendered config
 export TF_VAR_regional_id=$(jq -r '.regional_id' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_environment=$(jq -r '.environment' "$DEPLOY_CONFIG_FILE")
 export TF_VAR_eph_prefix=$(jq -r '.eph_prefix // ""' "$DEPLOY_CONFIG_FILE")
-
-echo "Terraform variables:"
-echo "  Region: $TF_VAR_region"
-echo "  App Code: $TF_VAR_app_code"
-echo "  Service Phase: $TF_VAR_service_phase"
-echo "  Cost Center: $TF_VAR_cost_center"
-echo "  Repository URL: $TF_VAR_repository_url"
-echo "  Repository Branch: $TF_VAR_repository_branch"
-echo "  Management Clusters: ${TF_VAR_management_clusters}"
-echo "  Enable Bastion: $TF_VAR_enable_bastion"
-echo "  Enable CloudTrail: $TF_VAR_enable_cloudtrail"
-echo "  Enable SNS Alerting: $TF_VAR_enable_sns_alerting"
-echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
-echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
-echo "  Regional ID: $TF_VAR_regional_id"
-echo "  Environment: $TF_VAR_environment"
-echo "  MC OU Path: $TF_VAR_mc_ou_path"
-echo "$PD_ENABLED"
-echo ""
-
 export ENVIRONMENT="${ENVIRONMENT:-staging}"
 
-# Read delete flag from config (GitOps-driven deletion)
+# Determine terraform action
 DELETE_FLAG=$(jq -r '.delete // false' "$DEPLOY_CONFIG_FILE")
-# Manual override: IS_DESTROY pipeline variable takes precedence
 [ "${IS_DESTROY:-false}" == "true" ] && DELETE_FLAG="true"
-
-echo ""
-if [ "${DELETE_FLAG}" == "true" ]; then
-    echo ">>> MODE: TEARDOWN <<<"
-else
-    echo ">>> MODE: PROVISION <<<"
-fi
-echo ""
 
 TERRAFORM_ACTION="apply"
 [ "${DELETE_FLAG}" == "true" ] && TERRAFORM_ACTION="destroy"
+
+echo "RC ${REGIONAL_ID}: terraform ${TERRAFORM_ACTION} in ${TARGET_ACCOUNT_ID}/${TARGET_REGION}"
 
 cd terraform/config/regional-cluster
 terraform init -reconfigure \
@@ -176,7 +121,6 @@ terraform init -reconfigure \
     -backend-config="region=${TF_STATE_REGION}" \
     -backend-config="use_lockfile=true"
 
-# Idempotent state imports (adopt pre-existing AWS resources into TF state)
 if [ "${TERRAFORM_ACTION}" == "apply" ] && [ -f imports.sh ]; then
     source imports.sh
 fi
