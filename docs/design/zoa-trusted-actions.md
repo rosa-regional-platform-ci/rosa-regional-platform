@@ -30,7 +30,7 @@ Zero Operator Access (ZOA) Trusted Actions provide a mediated, auditable mechani
 | Script logic + RBAC rules | TA author | `trusted-actions/` directory (ConfigMap, future: separate repo) |
 | Job boilerplate (image, volumes, entrypoint, resources) | Platform/infra team | `zoa-job-config` ConfigMap in platform repo |
 | Job generation logic | Platform API code | Go code reads template + config, builds ManifestWork |
-| Infrastructure (namespace, SAs, Pod Identity) | Platform/infra team | `zoa-infra` ArgoCD app + Terraform |
+| Infrastructure (namespace, SAs, Pod Identity) | Platform/infra team | `zoa-jobs` ArgoCD app + Terraform |
 
 ### TA Template Format (What Authors Write)
 
@@ -258,7 +258,7 @@ Cleanup is **reconciler-driven**, not purely TTL-based:
 3. **TTL as safety net**: Jobs have `ttlSecondsAfterFinished: 3600` (1h) as backup GC in case reconciler fails to clean up.
 4. **Logs survive cleanup**: The entrypoint uploads `execution.log` to S3 before the Job exits, so troubleshooting data is available via the API even after the Pod/Job is deleted.
 
-**The ServiceAccount is NEVER deleted** — it's infrastructure managed by `zoa-infra`.
+**The ServiceAccount is NEVER deleted** — it's infrastructure managed by `zoa-jobs`.
 
 ### Service Account Strategy — Two-Job Split
 
@@ -294,8 +294,8 @@ Infrastructure is managed via ArgoCD (not ManifestWork):
 
 | Cluster Type | Mechanism | What's Created |
 |--------------|-----------|----------------|
-| RC | ArgoCD app `zoa-infra` in `argocd/config/shared/` | Namespace `zoa-jobs`, all privilege-profile SAs |
-| MC | ArgoCD app `zoa-infra` in `argocd/config/shared/` | Namespace `zoa-jobs`, all privilege-profile SAs |
+| RC | ArgoCD app `zoa-jobs` in `argocd/config/shared/` | Namespace `zoa-jobs`, all privilege-profile SAs |
+| MC | ArgoCD app `zoa-jobs` in `argocd/config/shared/` | Namespace `zoa-jobs`, all privilege-profile SAs |
 
 ManifestWork is used **only** as transport for TA executions (Job + per-execution RBAC + ConfigMap).
 
