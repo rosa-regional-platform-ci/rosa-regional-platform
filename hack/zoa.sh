@@ -52,7 +52,7 @@ _zoa_request() {
 }
 
 _zoa_poll() {
-  local id="$1" interval="${2:-3}" timeout="${3:-120}"
+  local id="$1" interval="${2:-5}" timeout="${3:-120}"
   local elapsed=0 exec_status result
 
   while (( elapsed < timeout )); do
@@ -322,6 +322,7 @@ _zoa_runs() {
       --scope)       query="${query:+${query}&}scope=$2"; shift 2 ;;
       --type)        query="${query:+${query}&}type=$2"; shift 2 ;;
       --output-status) query="${query:+${query}&}output_status=$2"; shift 2 ;;
+      --approval)    query="${query:+${query}&}approval_state=$2"; shift 2 ;;
       --dry-run)     query="${query:+${query}&}dry_run=true"; shift ;;
       --force)       query="${query:+${query}&}force=true"; shift ;;
       --since)       query="${query:+${query}&}since=$2"; shift 2 ;;
@@ -349,27 +350,27 @@ _zoa_runs() {
     def fmt_action: "\(.action)\(if .dry_run then " [DRY]" else "" end)\(if .force then " [FRC]" else "" end)";
     (.items // []) | if length == 0 then empty else
       .[] | [
+        fmt_ts(.created_at),
+        (.operator // "-"),
         .id,
         fmt_action,
+        fmt_params(.params),
+        (.target_cluster // "-"),
         .scope,
         (.type // "-"),
-        (.target_cluster // "-"),
         .status,
         (.output_status // "-"),
         fmt_dur(.runner_seconds),
         fmt_dur(.upload_seconds),
-        fmt_dur(.duration_seconds),
-        fmt_params(.params),
-        (.operator // "-"),
-        fmt_ts(.created_at)
+        fmt_dur(.duration_seconds)
       ] | @tsv
     end
   ' | {
-    printf "%-38s %-18s %-9s %-6s %-22s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
-      "ID" "ACTION" "SCOPE" "TYPE" "TARGET" "STATUS" "OUTPUT" "RUN" "UPL" "TOT" "PARAMS" "OPERATOR" "CREATED"
-    while IFS=$'\t' read -r _id _action _scope _type _target _status _output _run _upl _total _params _operator _created; do
-      printf "%-38s %-18s %-9s %-6s %-22s %-10s %-9s %-5s %-5s %-5s %-35s %-12s %s\n" \
-        "$_id" "$_action" "$_scope" "$_type" "$_target" "$_status" "$_output" "$_run" "$_upl" "$_total" "$_params" "$_operator" "$_created"
+    printf "%-19s %-12s %-38s %-25s %-30s %-22s %-9s %-6s %-10s %-9s %-5s %-5s %s\n" \
+      "CREATED_AT" "OPERATOR" "ID" "ACTION" "PARAMS" "TARGET" "SCOPE" "TYPE" "STATUS" "OUTPUT" "RUN" "UPL" "TOT"
+    while IFS=$'\t' read -r _created _operator _id _action _params _target _scope _type _status _output _run _upl _total; do
+      printf "%-19s %-12s %-38s %-25s %-30s %-22s %-9s %-6s %-10s %-9s %-5s %-5s %s\n" \
+        "$_created" "$_operator" "$_id" "$_action" "$_params" "$_target" "$_scope" "$_type" "$_status" "$_output" "$_run" "$_upl" "$_total"
     done
   } || echo "No executions found"
 }
@@ -383,6 +384,7 @@ _zoa_audit() {
       --action)      query="${query:+${query}&}action=$2"; shift 2 ;;
       --operator)    query="${query:+${query}&}operator=$2"; shift 2 ;;
       --method)      query="${query:+${query}&}method=$2"; shift 2 ;;
+      --approval)    query="${query:+${query}&}approval_state=$2"; shift 2 ;;
       --since)       query="${query:+${query}&}since=$2"; shift 2 ;;
       --limit)       query="${query:+${query}&}limit=$2"; shift 2 ;;
       -o)            format="$2"; shift 2 ;;
@@ -415,19 +417,19 @@ _zoa_audit() {
     return
   fi
 
-  printf "%-9s %-5s %-5s %-12s %-18s %-20s %-14s %-10s %s\n" \
-    "TIME" "METH" "CODE" "OPERATOR" "ACTION" "TARGET" "JIRA" "EXEC_ID" "PATH"
+  printf "%-19s %-5s %-5s %-12s %-25s %-20s %-14s %-14s %-38s %s\n" \
+    "TIMESTAMP" "METH" "CODE" "OPERATOR" "ACTION" "TARGET" "JIRA" "APPROVAL" "EXEC_ID" "PATH"
   printf '%s' "$resp" | "$_ZOA_JQ" -r '
     def dash(v): if v == "" or v == null then "-" else v end;
-    (.items // [])[] | [.timestamp, .method, (.status_code | tostring), .operator, dash(.action), dash(.target_cluster), dash(.jira), dash(.execution_id), .path] | @tsv
+    (.items // [])[] | [.timestamp, .method, (.status_code | tostring), .operator, dash(.action), dash(.target_cluster), dash(.jira), dash(.approval_state), dash(.execution_id), .path] | @tsv
   ' | \
-  while IFS=$'\t' read -r ts method scode op action target jira execid apath; do
-    local short_ts="${ts:11:8}"
-    local short_exec="${execid:0:8}"
-    [[ "$short_exec" == "-" ]] && short_exec=""
+  while IFS=$'\t' read -r ts method scode op action target jira approval execid apath; do
+    local short_ts="${ts:0:19}"
+    short_ts="${short_ts/T/ }"
+    [[ "$execid" == "-" ]] && execid=""
     local short_path="${apath#/api/v0/trusted-actions/}"
-    printf "%-9s %-5s %-5s %-12s %-18s %-20s %-14s %-10s %s\n" \
-      "$short_ts" "$method" "$scode" "$op" "$action" "$target" "$jira" "$short_exec" "$short_path"
+    printf "%-19s %-5s %-5s %-12s %-25s %-20s %-14s %-14s %-38s %s\n" \
+      "$short_ts" "$method" "$scode" "$op" "$action" "$target" "$jira" "$approval" "$execid" "$short_path"
   done
 }
 
@@ -533,29 +535,27 @@ Runs filters (all combinable):
   --output-status <s>      Filter by output status (pending|uploaded|failed)
   --action <name>          Filter by action name
   --operator <name>        Filter by operator
-  --scope <scope>          Filter by scope (kube-api|aws)
+  --scope <scope>          Filter by scope (kube-api|aws-api)
   --type <type>            Filter by type (read|write)
+  --approval <state>       Filter by approval state (not_required|pending|approved|rejected)
   --dry-run                Show only dry-run executions
   --force                  Show only forced executions
   --since <duration>       Filter by time (e.g. 1h, 24h, 7d)
   --limit <n>              Max results (default 20, max 100)
-  --json                   Raw JSON output (pipeable to jq)
 
 Get flags:
-  --logs                   Show logs instead of output
-  --all                    Show output + logs + metadata
-  --info                   Show metadata only (status, timing)
-  -o, --output             Output only (no metadata envelope, pipeable)
-  --json                   Raw JSON output
+  --output                 Include output content
+  --logs                   Include logs
+  --all                    Include output + logs + metadata
 
 Audit filters (all combinable):
   -t, --target <cluster>   Filter by target cluster
   --action <name>          Filter by action name
   --operator <name>        Filter by operator
   --method <method>        Filter by HTTP method (GET|POST)
+  --approval <state>       Filter by approval state (not_required|pending|approved|rejected)
   --since <duration>       Filter by time (e.g. 1h, 24h, 7d)
   --limit <n>              Max results (default 50, max 200)
-  --json                   Raw JSON output
 
 Environment:
   ZOA_API                  API Gateway URL (required)
@@ -593,16 +593,20 @@ Examples:
   zoa runs --action get_pods --operator slopezma --since 7d
   zoa runs --type write --since 12h
   zoa runs --scope kube-api --status succeeded --limit 50
+  zoa runs --approval not_required --since 7d
   zoa runs --dry-run --since 24h
   zoa runs --force --since 7d
-  zoa runs --json | jq '.items[] | select(.runner_seconds > 10)'
+  zoa runs -o json | jq '.items[] | select(.runner_seconds > 10)'
 
-  # Audit log
-  zoa audit --since 24h
-  zoa audit --operator slopezma --since 7d
-  zoa audit --action rollout_restart -t mc-useast1-1
-  zoa audit --method POST --since 1h
-  zoa audit --json | jq '.items[] | select(.status_code != 202)'
+  # Audit log (filters: --method, --action, --operator, -t, --approval, --since, --limit)
+  zoa audit                                               # last 50 entries
+  zoa audit --since 24h                                   # last 24 hours
+  zoa audit --method POST --since 1h                      # only executions (no GETs) last hour
+  zoa audit --operator slopezma --since 7d                # all activity by operator
+  zoa audit --action rollout_restart -t mc-useast1-1      # writes to a specific cluster
+  zoa audit --approval not_required --since 7d            # by approval state
+  zoa audit --limit 200 --since 7d                        # max history
+  zoa audit -o json | jq '.items[] | select(.status_code >= 400)'   # errors only
 
   # Discover available actions
   zoa actions
