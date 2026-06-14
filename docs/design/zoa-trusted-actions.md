@@ -1,6 +1,6 @@
 # Zero Operator Access — Trusted Actions Implementation
 
-**Last Updated Date**: 2026-06-12
+**Last Updated Date**: 2026-06-14
 
 ## Summary
 
@@ -27,14 +27,14 @@ Zero Operator Access (ZOA) Trusted Actions provide a mediated, auditable mechani
 
 | Concern | Owner | Where |
 |---------|-------|-------|
-| Script logic + RBAC rules | TA author | `trusted-actions/` directory (ConfigMap, future: separate repo) |
+| Script logic + RBAC rules | TA author | `argocd/config/regional-cluster/platform-api/ta-templates/` |
 | Job boilerplate (image, volumes, entrypoint, resources) | Platform/infra team | `zoa-job-config` ConfigMap in platform repo |
 | Job generation logic | Platform API code | Go code reads template + config, builds ManifestWork |
-| Infrastructure (namespace, SAs, Pod Identity) | Platform/infra team | `zoa-jobs` ArgoCD app + Terraform |
+| Infrastructure (namespace, SAs, Pod Identity) | Platform/infra team | `zoa-jobs` Helm chart (`argocd/config/shared/zoa-jobs/`) + Terraform |
 
 ### TA Template Format (What Authors Write)
 
-Each TA is a minimal YAML file — just metadata, RBAC rules, parameters, and script:
+Each TA is a minimal YAML file with these core fields: `name`, `scope`, `type`, `description`, `authorization`, `params`, and `script`. Kube-scoped TAs also declare an `rbac` section.
 
 ```yaml
 name: get_nodes
@@ -86,7 +86,7 @@ script: |
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `authorization` | `{approval: none}` | Authorization policy; `approval: none` means no approval needed. Future: structured approval requirements (min_count, ttl, approver rules) |
+| `authorization` | `{approval: none}` | Authorization policy. All current TAs use `approval: none`. Future structured policies will gate dispatch behind approvers. |
 | `write_cooldown_seconds` | `0` (uses global default) | Per-TA write cooldown override |
 | `dry_run_action` | `""` | Read TA to execute when `dry_run: true` is set (write TAs only) |
 
@@ -128,7 +128,7 @@ AWS-scoped TAs use static ServiceAccounts (`zoa-aws-read`, `zoa-aws-write`) with
 
 - Scripts MUST write structured output to `/artifacts/output.json` (JSON format, machine-parseable)
 - All output (stdout + stderr interleaved) is captured to `execution.log` via `tee` in the entrypoint
-- The entrypoint uploads `execution.log` to S3 unconditionally on exit (success or failure) via a trap
+- The uploader Job reads the output ConfigMap and uploads `execution.log` and `output.json` to S3
 - Write TAs SHOULD include `affected_resources` in output.json for audit:
   ```json
   {
@@ -256,9 +256,9 @@ Cleanup is **reconciler-driven**, not purely TTL-based:
 1. **On terminal status (succeeded, failed, timed_out)**: The Platform API reconciler deletes the ResourceBundle from Maestro via gRPC. Maestro Agent cascades deletion to all resources on the MC (Job, Pod, ConfigMap, RBAC).
 2. **Race-safe ordering**: ResourceBundle is deleted BEFORE DynamoDB status is updated. If RB deletion fails, status stays `pending`/`running` and the reconciler retries on the next tick.
 3. **TTL as safety net**: Jobs have `ttlSecondsAfterFinished: 3600` (1h) as backup GC in case reconciler fails to clean up.
-4. **Logs survive cleanup**: The entrypoint uploads `execution.log` to S3 before the Job exits, so troubleshooting data is available via the API even after the Pod/Job is deleted.
+4. **Logs survive cleanup**: The uploader Job uploads `execution.log` to S3 before resources are deleted, so troubleshooting data is available via the API even after the Pod/Job is garbage-collected.
 
-**The ServiceAccount is NEVER deleted** — it's infrastructure managed by `zoa-jobs`.
+Static ServiceAccounts (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`) are infrastructure managed by the `zoa-jobs` chart and are never deleted. Per-execution runner SAs and all other ManifestWork resources are removed on completion.
 
 ### Service Account Strategy — Two-Job Split
 
@@ -275,7 +275,7 @@ ZOA uses a split SA model separating operational permissions from output transpo
 
 1. **Per-execution SA for kube TAs**: `zoa-runner-<exec-id>` is created dynamically in the ManifestWork. No Pod Identity — perfect K8s audit attribution.
 2. **Static SAs for AWS TAs**: `zoa-aws-read` and `zoa-aws-write` require pre-provisioned Pod Identity. They have **no access to the ZOA S3 bucket**.
-3. **Dedicated uploader SA**: Only `zoa-uploader` can write to S3. Uploader Kubernetes RBAC is generated dynamically per execution in the ManifestWork (the static `uploader-rbac.yaml` Helm template was removed), scoped with `resourceNames` to the specific output ConfigMap and runner Job.
+3. **Dedicated uploader SA**: Only `zoa-uploader` can write to S3. Uploader Kubernetes RBAC is generated dynamically per execution in the ManifestWork, scoped with `resourceNames` to the specific output ConfigMap and runner Job.
 4. **No SA has both**: No single SA has both operational permissions AND S3 write access.
 
 **Audit chain:**
@@ -290,12 +290,12 @@ ZOA uses a split SA model separating operational permissions from output transpo
 
 ### Namespace and Infrastructure Pre-creation
 
-Infrastructure is managed via ArgoCD (not ManifestWork):
+Infrastructure is deployed via the `zoa-jobs` Helm chart at `argocd/config/shared/zoa-jobs/`. The root ArgoCD ApplicationSet discovers shared charts and deploys them to both Regional and Management clusters with `CreateNamespace=true`.
 
 | Cluster Type | Mechanism | What's Created |
 |--------------|-----------|----------------|
-| RC | ArgoCD app `zoa-jobs` in `argocd/config/shared/` | Namespace `zoa-jobs`, all privilege-profile SAs |
-| MC | ArgoCD app `zoa-jobs` in `argocd/config/shared/` | Namespace `zoa-jobs`, all privilege-profile SAs |
+| RC | ApplicationSet → `zoa-jobs` chart | Namespace `zoa-jobs`, static SAs |
+| MC | ApplicationSet → `zoa-jobs` chart | Namespace `zoa-jobs`, static SAs (execution target) |
 
 ManifestWork is used **only** as transport for TA executions (Job + per-execution RBAC + ConfigMap).
 
@@ -333,8 +333,11 @@ A custom "swiss knife" image built for ZOA jobs, based on UBI9 for FIPS complian
 | `POST` | `/api/v0/trusted-actions/{action}/run` | Execute a Trusted Action |
 | `GET` | `/api/v0/trusted-actions/runs/{id}` | Get execution |
 | `GET` | `/api/v0/trusted-actions/runs` | List executions (paginated) |
+| `GET` | `/api/v0/trusted-actions/audit` | List API call audit log (paginated) |
 | `GET` | `/api/v0/trusted-actions` | List available TAs (catalog) |
 | `GET` | `/api/v0/trusted-actions/{action}` | Describe a specific TA (params, description, metadata) |
+
+`POST /{action}/run` returns **202 Accepted** with `{id, status: "pending"}` — execution is asynchronous. The CLI polls until terminal status unless `--no-wait` is set.
 
 #### Create Request Body
 
@@ -360,7 +363,7 @@ All `POST /trusted-actions/{action}/run` calls require a `jira` field:
 
 #### Query Parameters for GET /runs/{id}
 
-Uses a single `fields` parameter for selecting response content:
+Uses an `include` parameter for selecting response content:
 
 | Request | Returns |
 |---------|---------|
@@ -386,6 +389,7 @@ The API proxies S3 content directly — no presigned URLs exposed to consumers.
 | `output_status` | — | Filter by output status: `pending`, `uploaded`, `failed` |
 | `dry_run` | — | Filter: `true` or `false` |
 | `force` | — | Filter: `true` or `false` |
+| `approval_state` | — | Filter by approval state: `not_required`, `pending`, `approved`, `rejected` |
 | `since` | — | Only runs after this timestamp |
 | `sort` | `desc` | Sort by created_at |
 
@@ -400,6 +404,7 @@ The API proxies S3 content directly — no presigned URLs exposed to consumers.
   "scope": "kube-api",
   "type": "read",
   "jira": "ROSAENG-1234",
+  "approval_state": "not_required",
   "status": "succeeded",
   "revision": "a1b2c3d",
   "created_at": "2026-06-08T12:00:00Z",
@@ -426,6 +431,26 @@ The API proxies S3 content directly — no presigned URLs exposed to consumers.
 | `succeeded` | Job completed successfully (exit 0) |
 | `failed` | Job failed (non-zero exit) |
 | `timed_out` | Execution exceeded per-TA or global timeout — reconciler force-cleaned |
+
+#### Query Parameters for GET /audit
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `limit` | 50 | Number of entries to return (max 200) |
+| `action` | — | Filter by TA name |
+| `target` | — | Filter by target cluster |
+| `operator` | — | Filter by who made the call |
+| `method` | — | Filter by HTTP method (`GET`, `POST`) |
+| `approval_state` | — | Filter by approval state |
+| `since` | — | Only entries after this timestamp |
+
+#### Parameter Validation Errors
+
+When a request includes unknown params, the API returns HTTP 400 with contextual messages:
+
+- No params defined: `unknown parameter 'X'; this action accepts no parameters`
+- With params defined: `unknown parameter 'X'; allowed parameters: a, b, c`
+- Top-level field passed as param: appends `('X' is a top-level request field, not a param)`
 
 #### List Response Format
 
@@ -493,6 +518,30 @@ Example AWS-scoped TA:
 }
 ```
 
+### Available Trusted Actions
+
+#### AWS-scoped (`aws-api`)
+
+| Action | Type | Params | Description |
+|--------|------|--------|-------------|
+| `list_eks_clusters` | read | — | List all EKS clusters in the target account region |
+| `describe_eks_cluster` | read | `name` (required) | Describe an EKS cluster by name |
+| `list_vpc_endpoints` | read | — | List VPC endpoints in the target account region |
+| `describe_vpc_endpoint` | read | `name` (required) | Describe a VPC endpoint by name |
+
+#### Kubernetes-scoped (`kube-api`)
+
+| Action | Type | Params | Description |
+|--------|------|--------|-------------|
+| `get_pods` | read | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | List or get pods |
+| `get_nodes` | read | `name`, `label_selector`, `verbose` | List or get nodes |
+| `get_namespaces` | read | `name`, `verbose` | List or get namespaces |
+| `get_events` | read | `namespace`, `all_namespaces`, `field_selector`, `verbose` | List events |
+| `get_deployments` | read | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | List or get deployments |
+| `get_resource` | read | `resource`, `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | Get arbitrary resource type |
+| `rollout_restart` | write | `namespace`, `name` (required) | Rolling restart of a deployment |
+| `delete_pod` | write | `namespace`, `name` (required) | Delete a pod (must have owner references) |
+
 ### CLI Design
 
 Designed around SRE muscle memory — mirrors `kubectl`/`oc` patterns with familiar flags.
@@ -532,6 +581,7 @@ zoa <verb> [resource] [flags]
 | `zoa runs --action get_pods` | `GET /runs?action=get_pods` | Filter by action |
 | `zoa runs --dry-run` | `GET /runs?dry_run=true` | Filter dry-run executions only |
 | `zoa runs --force` | `GET /runs?force=true` | Filter forced executions only |
+| `zoa runs --approval not_required` | `GET /runs?approval_state=not_required` | Filter by approval state |
 | `zoa runs --since 1h` | `GET /runs?since=1h` | Filter by time |
 | `zoa actions` | `GET /trusted-actions` | List available TAs (formatted table) |
 | `zoa describe <action>` | `GET /trusted-actions/{action}` | Formatted TA metadata + params table |
@@ -541,7 +591,17 @@ zoa <verb> [resource] [flags]
 | `zoa audit --operator slopezma` | `GET /audit?operator=slopezma` | Filter audit by operator |
 | `zoa audit --action rollout_restart` | `GET /audit?action=rollout_restart` | Filter audit by action |
 | `zoa audit --method POST` | `GET /audit?method=POST` | Filter audit by HTTP method |
+| `zoa audit --approval not_required` | `GET /audit?approval_state=not_required` | Filter audit by approval state |
 | `zoa audit --since 24h` | `GET /audit?since=24h` | Filter audit by time |
+
+**Polling interval:** 5 seconds (CLI default when waiting for execution completion).
+
+**Table columns:**
+
+- `zoa runs`: `CREATED_AT`, `OPERATOR`, `ID`, `ACTION`, `PARAMS`, `TARGET`, `SCOPE`, `TYPE`, `STATUS`, `OUTPUT`, `RUN`, `UPL`, `TOT`
+- `zoa audit`: `TIMESTAMP`, `METH`, `CODE`, `OPERATOR`, `ACTION`, `TARGET`, `JIRA`, `APPROVAL`, `EXEC_ID`, `PATH`
+
+**Global flag:** `-o json` on any command returns raw JSON instead of formatted output.
 
 **ID Format**: Execution IDs are standard UUID v4 (e.g., `fa65418c-f4eb-4f5c-8314-baaeb695ba7d`).
 Full UUIDs are required for `get`, `logs`, and other ID-based operations. The `✓ <id>`
@@ -650,6 +710,7 @@ $ zoa audit --since 24h
 $ zoa audit --operator slopezma --since 7d
 $ zoa audit --action rollout_restart -t mc-useast1-1
 $ zoa audit --method POST --since 1h
+$ zoa audit --approval not_required --since 7d
 $ zoa audit -o json | jq '.items[] | select(.status_code != 202)'
 ```
 
@@ -746,13 +807,11 @@ Platform API Reconciler (5s loop):                                              
   → DynamoDB (status, durations, output_status, revision, updated_at)
 ```
 
-### TA Versioning and Future Separate Repo
+### TA Versioning
 
-- Today: TAs are stored in a directory within the platform repo, packed into a ConfigMap, mounted into Platform API
-- Future: TAs move to their own repo with independent release cycle
-- Platform API reads from a mounted directory — it doesn't care about the source
+- TAs are stored in `argocd/config/regional-cluster/platform-api/ta-templates/`, packed into a ConfigMap, and mounted into Platform API
 - Every execution records the `revision` (Git SHA) of the TA used in DynamoDB and on all K8s resources
-- Platform admins control which revision is active per environment (promotion pipeline)
+- Platform admins control which revision is active per environment via ArgoCD sync
 
 ## Alternatives Considered
 
@@ -768,16 +827,16 @@ Platform API Reconciler (5s loop):                                              
 
 ## Design Rationale
 
-- **Justification**: The privilege-profile model (5 stable SAs) balances auditability, operational simplicity, and Pod Identity constraints. Separating TA authoring (script + RBAC) from execution boilerplate (image, wrapper, resources) enables independent evolution of each concern.
+- **Justification**: The split SA model (per-execution runner + static uploader/AWS SAs) balances auditability, operational simplicity, and Pod Identity constraints. Separating TA authoring (script + RBAC) from execution boilerplate (image, wrapper, resources) enables independent evolution of each concern.
 - **Evidence**: ARO-HCP uses a similar pattern with Maestro for ManifestWork dispatch. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern at scale for OSD/ROSA operations.
-- **Comparison**: Per-execution SAs offer perfect K8s audit granularity but require infrastructure changes per execution. Stable SAs trade some K8s audit granularity (profile-level, not execution-level) for zero infrastructure overhead per execution. Rich labels on all resources compensate by enabling correlation via kube audit logs.
+- **Comparison**: Per-execution runner SAs provide execution-level K8s audit attribution. Static AWS and uploader SAs satisfy Pod Identity constraints while keeping IAM association count bounded. Rich labels on all resources enable correlation via kube audit logs.
 
 ## Consequences
 
 ### Positive
 
 - TA authors write ~15 lines of YAML (name + rbac + script) — no boilerplate
-- Scales to hundreds of TAs with only 5 IAM roles total
+- Split SA model keeps operational and transport permissions isolated
 - Image, entrypoint, and resources managed centrally — single place to update
 - Full audit trail across DynamoDB + S3 + K8s resources (labels on everything), including required Jira ticket
 - Git revision tracked on every resource and in DynamoDB
@@ -822,9 +881,9 @@ Platform API Reconciler (5s loop):                                              
 
 ### Operability:
 
-- Adding a new TA: create YAML file in `trusted-actions/`, push, ArgoCD syncs ConfigMap
+- Adding a new TA: create YAML in `argocd/config/regional-cluster/platform-api/ta-templates/`, push, ArgoCD syncs ConfigMap
 - Updating the image/wrapper: change `zoa-job-config` values, ArgoCD syncs, Platform API hot-reloads
-- Adding a new privilege profile: update Terraform (IAM role + Pod Identity), ArgoCD (SA), and Platform API (profile mapping)
+- Adding a new static SA profile: update `zoa-jobs` chart, Terraform (IAM role + Pod Identity), and Platform API (scope mapping)
 - Debugging: `zoa logs <id>` → full execution log from S3 (available even after Job/Pod GC)
 
 ---

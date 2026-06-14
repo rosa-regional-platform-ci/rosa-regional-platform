@@ -1,6 +1,6 @@
 # Zero Operator Access (ZOA) — Security Model
 
-**Last Updated Date**: 2026-06-12
+**Last Updated Date**: 2026-06-14
 
 ## Summary
 
@@ -67,6 +67,17 @@ Platform API extracts from the SigV4-authenticated request:
 | `operator` | Parsed from ARN session name | `slopezma` |
 
 These are recorded with every execution — no way to execute a TA without identity.
+
+### Authorization and Approval
+
+All current TAs declare `authorization.approval: none`. Executions record `approval_state: not_required` in DynamoDB; audit entries carry the same field. The approval lifecycle supports future gated TAs:
+
+| State | Meaning |
+|-------|---------|
+| `not_required` | TA policy does not require approval (all current TAs) |
+| `pending` | Approval required but not yet obtained |
+| `approved` | Required approvals obtained; execution authorized |
+| `rejected` | Approval explicitly denied |
 
 ### No Shared Credentials
 
@@ -232,13 +243,13 @@ x-amz-meta-target: mc-useast1-1
 | TA execution requested | DynamoDB (executions) | 365 days (TTL) | `zoa runs` |
 | Full execution log | S3 | 365 days | `zoa logs <id>` |
 | Structured output | S3 | 365 days | `zoa get <id>` |
-| Jira ticket correlation | DynamoDB (`jira` field) | 365 days (TTL) | `zoa get <id> --info` |
+| Jira ticket correlation | DynamoDB (`jira` field) | 365 days (TTL) | `zoa get <id>` |
 | All API calls (POST + GET) | DynamoDB (audit table) | 365 days (TTL) | `zoa audit` |
 | API Gateway access | CloudTrail | 90 days (configurable) | AWS Console |
 | Kubernetes API calls from Job | MC audit log | Cluster-dependent | kubectl audit |
 | ResourceBundle lifecycle | Maestro server logs | Log retention | kubectl logs |
 
-**Audit table design**: Every audited call (POST /run, GET /runs, GET /runs/{id}, GET /audit) is recorded with consistent fields: id, account_id, caller_arn, operator, method, path (full URI), action, target_cluster, execution_id, jira, status_code, timestamp. Fields not applicable to a call type are empty strings. Catalog/describe endpoints are not audited (public metadata, high frequency).
+**Audit table design**: Every audited call (`POST /run`, `GET /runs`, `GET /runs/{id}`, `GET /audit`) is recorded with consistent fields: `id`, `account_id`, `caller_arn`, `operator`, `method`, `path` (full URI), `action`, `target_cluster`, `execution_id`, `jira`, `approval_state`, `status_code`, `timestamp`. Fields not applicable to a call type are empty strings. The sort key uses nanosecond-precision timestamps (`2006-01-02T15:04:05.000000000Z`) for uniqueness. Catalog/describe endpoints are not audited (public metadata, high frequency).
 
 ### Correlation Keys
 
@@ -258,16 +269,16 @@ MC audit logs → SA + pod labels map to execution-id
 - S3: Versioning enabled, lifecycle prevents deletion before 365 days
 - K8s audit logs: Cluster-level, not modifiable by workloads
 
-## Two-Job Architecture: Design Rationale
+## Two-Job Architecture
 
-### Motivation
+### Design Goals
 
-The two-job architecture was adopted based on team feedback:
+The two-job architecture enforces privilege separation:
 
 1. **SA isolation**: Runner SAs carry only Kubernetes RBAC permissions — no AWS credentials for S3
 2. **Reduced blast radius**: A compromised TA script cannot exfiltrate to S3
-3. **Perfect K8s audit attribution**: Per-execution SAs (`zoa-runner-<exec-id>`) identify exactly which execution performed each K8s action
-4. **Clear separation of concerns**: Operational actions (runner) vs. output transport (uploader) are distinct
+3. **K8s audit attribution**: Per-execution SAs (`zoa-runner-<exec-id>`) identify exactly which execution performed each K8s action
+4. **Separation of concerns**: Operational actions (runner) and output transport (uploader) are distinct
 
 ### Architecture
 
@@ -314,12 +325,12 @@ ManifestWork contains:
 - Shared PVC between Jobs (eliminates size limit but adds provisioning)
 - Runner direct S3 upload for specific large-output TAs (breaks isolation but pragmatic)
 
-**Uploader RBAC is dynamic per execution**: The static `uploader-rbac.yaml` Helm template was removed. Platform API now generates a `Role`/`RoleBinding` pair (`zoa-uploader-<exec-id>`) in each ManifestWork, scoped with `resourceNames` to:
+**Uploader RBAC is dynamic per execution**: Platform API generates a `Role`/`RoleBinding` pair (`zoa-uploader-<exec-id>`) in each ManifestWork, scoped with `resourceNames` to:
 
 - The specific output ConfigMap (`zoa-output-<exec-id>`)
 - The specific runner Job (`zoa-<exec-id>`)
 
-The `zoa-uploader` ServiceAccount remains static (required for Pod Identity/IRSA), but its Kubernetes permissions are least-privilege per execution.
+The `zoa-uploader` ServiceAccount is static (required for Pod Identity), but its Kubernetes permissions are least-privilege per execution.
 
 **Uploader SA is static**: All upload operations share one SA (`zoa-uploader`). This is acceptable because:
 
@@ -386,7 +397,7 @@ spec:
 | AC-3 (Access Enforcement) | Per-execution RBAC, per-execution SA, SigV4 auth |
 | AC-6 (Least Privilege) | RBAC scoped to declared resources only |
 | AU-2 (Audit Events) | DynamoDB records all executions + separate audit table records all API calls |
-| AU-3 (Content of Audit Records) | Executions: operator, jira, action, target, timestamp, duration, status, dry_run, force. Audit: method, path (full URI), action, target, execution_id, jira, status_code |
+| AU-3 (Content of Audit Records) | Executions: operator, jira, action, target, approval_state, timestamp, duration, status, dry_run, force. Audit: method, path (full URI), action, target, execution_id, jira, approval_state, status_code |
 | AU-9 (Protection of Audit Info) | S3 versioning, no-delete lifecycle, KMS encryption, DynamoDB TTL (365d) |
 | AU-12 (Audit Generation) | Automatic — all audited API calls recorded; rejections (400/429) also captured |
 | CM-7 (Least Functionality) | No shell access, no arbitrary commands — only pre-approved TAs |

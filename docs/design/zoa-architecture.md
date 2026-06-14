@@ -1,6 +1,6 @@
 # Zero Operator Access (ZOA) — Architecture
 
-**Last Updated Date**: 2026-06-12
+**Last Updated Date**: 2026-06-14
 
 ## Summary
 
@@ -404,14 +404,16 @@ TTL: ttl attribute (epoch seconds) — records auto-expire after 365 days
 ```
 Table: <env>-regional-zoa-audit-log
   PK: accountId (String)
-  SK: timestamp (String, RFC3339)
+  SK: timestamp (String, RFC3339 with nanosecond precision — format 2006-01-02T15:04:05.000000000Z)
 
 Fields (all present on every entry, empty string when N/A):
   id, callerArn, operator, method, path, action, targetCluster,
-  executionId, jira, statusCode
+  executionId, jira, approvalState, statusCode
 
 TTL: ttl attribute (epoch seconds) — entries auto-expire after 365 days
 ```
+
+The sort key uses nanosecond-precision timestamps to guarantee uniqueness when multiple API calls arrive in the same second. `approvalState` mirrors the execution's approval lifecycle (`not_required`, `pending`, `approved`, `rejected`).
 
 Records every audited API call with consistent fields. Audited endpoints:
 - `POST /{action}/run` — populates action, targetCluster, executionId, jira
@@ -459,12 +461,26 @@ terraform/modules/zoa/
   └── outputs.tf        # Table name, audit table name, bucket name, KMS ARN (consumed by bootstrap)
 ```
 
+### Kubernetes Infrastructure (`zoa-jobs` Helm Chart)
+
+Static ZOA infrastructure is deployed via the `zoa-jobs` Helm chart at `argocd/config/shared/zoa-jobs/`. The root ArgoCD ApplicationSet discovers charts under `argocd/config/shared/*` and deploys them to both Regional and Management clusters with `CreateNamespace=true`, which creates the `zoa-jobs` namespace automatically.
+
+The chart provisions static ServiceAccounts (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`, plus breakglass SAs). Pod Identity associations for AWS-scoped SAs are wired via Terraform (`terraform/modules/zoa/` and `terraform/modules/zoa-job-pod-identity/`). Per-execution resources (runner SA, RBAC, Jobs, ConfigMaps) are created dynamically by each ManifestWork on the target MC.
+
 ## TA Template System
+
+Each TA template defines: `name`, `scope`, `type`, `description`, `authorization`, `params`, and `script`. Kube-scoped TAs also include an `rbac` section. Optional fields include `timeout_seconds`, `write_cooldown_seconds`, and `dry_run_action`.
+
+**Scopes:** `kube-api` (Kubernetes operations), `aws-api` (AWS CLI operations)
+
+**Types:** `read`, `write`
+
+**Authorization:** `authorization.approval: none` on all current TAs. The API records `approval_state` on every execution and audit entry. Future TAs may require approval; runtime states are `not_required`, `pending`, `approved`, and `rejected`.
 
 ### How TAs Are Loaded
 
 ```
-TA YAML files (in platform repo or future separate repo)
+TA YAML files (argocd/config/regional-cluster/platform-api/ta-templates/)
   │
   ▼ (Helm template packs them into ConfigMap)
 ConfigMap: zoa-ta-templates (mounted into Platform API pod at /templates/)
@@ -564,10 +580,10 @@ Every execution produces audit data at multiple layers:
 
 | Layer | What's Recorded | Query Method |
 |-------|----------------|--------------|
-| Platform API (DynamoDB) | execution_id, operator, caller_arn, jira, action, target, status, duration, revision, updated_at, dry_run, force | `zoa runs` CLI or direct API |
+| Platform API (DynamoDB) | execution_id, operator, caller_arn, jira, action, target, status, approval_state, duration, revision, updated_at, dry_run, force | `zoa runs` CLI or direct API |
 | S3 (artifacts) | Full execution log, structured output | `zoa logs <id>` or `zoa get <id>` |
 | Kubernetes (labels on all resources) | execution-id, operator, action, scope, type, revision, target | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
-| Platform API (DynamoDB audit table) | Every audited API call: method, path (full URI), action, target, execution_id, jira, operator, status_code, timestamp | `zoa audit` CLI |
+| Platform API (DynamoDB audit table) | Every audited API call: method, path (full URI), action, target, execution_id, jira, approval_state, operator, status_code, timestamp | `zoa audit` CLI |
 | AWS CloudTrail | SigV4 caller identity on API Gateway invocation | CloudTrail console |
 | Maestro (MQTT events) | ManifestWork create/delete events with metadata | Maestro server logs |
 
@@ -584,18 +600,9 @@ DynamoDB: execution metadata + timing
 
 ## Future Considerations
 
-### Per-Execution SA (Alternative Security Model)
-
-See [ZOA Security Model](./zoa-security-model.md) for a detailed comparison of the current shared-SA model vs. a per-execution dynamic SA model with parallel uploader Jobs.
-
 ### TA Repository Separation
 
-TAs will move to their own Git repository:
-
-- Platform repo references a specific commit hash of the TA repo
-- Hash is promoted between environments (dev → staging → prod)
-- Allows independent release cycles for TA definitions vs. platform infrastructure
-- Platform API just reads from a mounted directory — source is transparent
+TAs may move to their own Git repository with independent release cycles. Platform API reads from a mounted directory — the source is transparent. A promotion pipeline would control which revision is active per environment.
 
 ### Breakglass API
 
@@ -603,16 +610,18 @@ A future `/api/v0/breakglass/` endpoint will provide escalated access patterns:
 
 - Requires additional approval workflow (not just SigV4 auth)
 - Different CLI verb: `zoa breakglass ...` (deliberately more typing)
-- Uses elevated static ServiceAccounts (`breakglass-read-sa`, `breakglass-write-sa`)
+- Uses elevated static ServiceAccounts (`zoa-breakglass-read`, `zoa-breakglass-write`)
 - Stricter audit requirements and time limits
 
-### Authorization and Approval Workflow
+### Approval Workflow
 
-Currently any authenticated caller can execute any TA. Future work:
+All current TAs declare `authorization.approval: none`, and executions record `approval_state: not_required`. The data model supports future approval-gated TAs:
 
-- Permission model: which operators can run which TAs on which targets
-- Approval workflow: write TAs with `approval_required: true` will require peer approval before dispatch (field exposed in TA templates and Describe API; not enforced yet)
-- Time-limited grants: temporary elevation with auto-expiry
+- `pending` — awaiting required approvers
+- `approved` — authorized to proceed
+- `rejected` — explicitly denied
+
+When enabled, write TAs with structured approval policies will require peer approval before dispatch. `approval_state` is tracked on both execution records and audit entries.
 
 ---
 
