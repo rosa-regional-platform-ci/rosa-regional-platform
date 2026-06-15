@@ -12,7 +12,7 @@ This document details the security architecture for ZOA Trusted Actions: how pri
 
 | Threat                                           | Mitigation                                                                                                                     |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Operator runs arbitrary commands on MC           | Only pre-defined TAs can be executed — no shell access, no kubectl proxy                                                       |
+| Operator runs arbitrary commands on clusters     | Only pre-defined TAs can be executed — no shell access, no kubectl proxy                                                       |
 | Operator accesses secrets/data beyond their need | Per-execution RBAC limits access to exactly what the TA declares                                                               |
 | Operator acts without attribution                | Every execution records caller identity (ARN, account, operator name) and required Jira ticket                                 |
 | Compromised TA escalates privileges              | TA script runs with scoped Role, cannot self-modify SA or create privileged resources                                          |
@@ -48,7 +48,7 @@ This document details the security architecture for ZOA Trusted Actions: how pri
 └─────────────────────────────────────────┘
 ```
 
-The ZOA system operates at the boundary between Zone B and Zone C. Platform API (Zone B) generates RBAC but cannot enforce it — Kubernetes API server on MC (Zone C) enforces RBAC at runtime.
+The ZOA system operates at the boundary between Zone B and Zone C. Platform API (Zone B) generates RBAC but cannot enforce it — the Kubernetes API server on the target cluster (Zone B or C) enforces RBAC at runtime.
 
 ## Identity and Authentication
 
@@ -89,7 +89,7 @@ All current TAs declare `authorization.approval: none`. Executions record `appro
 
 ### Per-Execution RBAC (Dynamic)
 
-Every TA execution creates its own Role/ClusterRole + Binding on the MC:
+Every TA execution creates its own Role/ClusterRole + Binding on the target cluster:
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -230,16 +230,16 @@ x-amz-meta-target: mc-useast1-1
 
 ### What's Recorded Where
 
-| Event                         | Storage                 | Retention              | Query           |
-| ----------------------------- | ----------------------- | ---------------------- | --------------- |
-| TA execution requested        | DynamoDB (executions)   | 365 days (TTL)         | `zoa runs`      |
-| Full execution log            | S3                      | 365 days               | `zoa logs <id>` |
-| Structured output             | S3                      | 365 days               | `zoa get <id>`  |
-| Jira ticket correlation       | DynamoDB (`jira` field) | 365 days (TTL)         | `zoa get <id>`  |
-| All API calls (POST + GET)    | DynamoDB (audit table)  | 365 days (TTL)         | `zoa audit`     |
-| API Gateway access            | CloudTrail              | 90 days (configurable) | AWS Console     |
-| Kubernetes API calls from Job | MC audit log            | Cluster-dependent      | kubectl audit   |
-| ResourceBundle lifecycle      | Maestro server logs     | Log retention          | kubectl logs    |
+| Event                         | Storage                  | Retention              | Query           |
+| ----------------------------- | ------------------------ | ---------------------- | --------------- |
+| TA execution requested        | DynamoDB (executions)    | 365 days (TTL)         | `zoa runs`      |
+| Full execution log            | S3                       | 365 days               | `zoa logs <id>` |
+| Structured output             | S3                       | 365 days               | `zoa get <id>`  |
+| Jira ticket correlation       | DynamoDB (`jira` field)  | 365 days (TTL)         | `zoa get <id>`  |
+| All API calls (POST + GET)    | DynamoDB (audit table)   | 365 days (TTL)         | `zoa audit`     |
+| API Gateway access            | CloudTrail               | 90 days (configurable) | AWS Console     |
+| Kubernetes API calls from Job | Target cluster audit log | Cluster-dependent      | kubectl audit   |
+| ResourceBundle lifecycle      | Maestro server logs      | Log retention          | kubectl logs    |
 
 **Audit table design**: Every audited call (`POST /run`, `GET /runs`, `GET /runs/{id}`, `GET /audit`) is recorded with consistent fields: `id`, `account_id`, `caller_arn`, `operator`, `method`, `path` (full URI), `action`, `target_cluster`, `execution_id`, `jira`, `approval_state`, `status_code`, `timestamp`. Fields not applicable to a call type are empty strings. The sort key uses nanosecond-precision timestamps (`2006-01-02T15:04:05.000000000Z`) for uniqueness. Catalog/describe endpoints are not audited (public metadata, high frequency).
 
@@ -251,8 +251,8 @@ All layers use `execution-id` as the primary correlation key:
 CloudTrail → API Gateway request with execution-id in response
 DynamoDB → execution record with full metadata
 S3 → objects keyed by execution-id
-MC K8s resources → labels with zoa.rosa.io/execution-id
-MC audit logs → SA + pod labels map to execution-id
+Target cluster K8s resources → labels with zoa.rosa.io/execution-id
+Target cluster audit logs → SA + pod labels map to execution-id
 ```
 
 ### Immutability
@@ -308,7 +308,7 @@ ManifestWork contains:
 | **Resource count per execution** | ~11 (SA, TA RBAC, output CM, output RBAC, uploader RBAC, scripts CM, runner Job, upload Job) |
 | **Output size limit**            | 1MB (ConfigMap limit for inter-job transfer)                                                 |
 | **Latency overhead**             | +3-10s (uploader waits for runner completion + S3 upload)                                    |
-| **IAM associations**             | 1 uploader SA per MC (static, pre-provisioned via Terraform)                                 |
+| **IAM associations**             | Pod Identity per target cluster (RC + each MC, static, pre-provisioned via Terraform)        |
 
 ### Known Constraints
 

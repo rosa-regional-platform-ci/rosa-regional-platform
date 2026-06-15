@@ -258,7 +258,7 @@ script: |
 
 Cleanup is **reconciler-driven**, not purely TTL-based:
 
-1. **On terminal status (succeeded, failed, timed_out)**: The Platform API reconciler deletes the ResourceBundle from Maestro via gRPC. Maestro Agent cascades deletion to all resources on the MC (Job, Pod, ConfigMap, RBAC).
+1. **On terminal status (succeeded, failed, timed_out)**: The Platform API reconciler deletes the ResourceBundle from Maestro via gRPC. Maestro Agent cascades deletion to all resources on the target cluster (Job, Pod, ConfigMap, RBAC).
 2. **Race-safe ordering**: ResourceBundle is deleted BEFORE DynamoDB status is updated. If RB deletion fails, status stays `pending`/`running` and the reconciler retries on the next tick.
 3. **TTL as safety net**: Jobs have `ttlSecondsAfterFinished: 3600` (1h) as backup GC in case reconciler fails to clean up.
 4. **Logs survive cleanup**: The uploader Job uploads `execution.log` to S3 before resources are deleted, so troubleshooting data is available via the API even after the Pod/Job is garbage-collected.
@@ -548,27 +548,10 @@ Example AWS-scoped TA:
 
 ### Available Trusted Actions
 
-#### AWS-scoped (`aws-api`)
+The source of truth for available TAs is the TA template directory:
+`argocd/config/regional-cluster/platform-api/ta-templates/`
 
-| Action                  | Type | Params            | Description                                        |
-| ----------------------- | ---- | ----------------- | -------------------------------------------------- |
-| `list_eks_clusters`     | read | —                 | List all EKS clusters in the target account region |
-| `describe_eks_cluster`  | read | `name` (required) | Describe an EKS cluster by name                    |
-| `list_vpc_endpoints`    | read | —                 | List VPC endpoints in the target account region    |
-| `describe_vpc_endpoint` | read | `name` (required) | Describe a VPC endpoint by name                    |
-
-#### Kubernetes-scoped (`kube-api`)
-
-| Action            | Type  | Params                                                                         | Description                               |
-| ----------------- | ----- | ------------------------------------------------------------------------------ | ----------------------------------------- |
-| `get_pods`        | read  | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose`             | List or get pods                          |
-| `get_nodes`       | read  | `name`, `label_selector`, `verbose`                                            | List or get nodes                         |
-| `get_namespaces`  | read  | `name`, `verbose`                                                              | List or get namespaces                    |
-| `get_events`      | read  | `namespace`, `all_namespaces`, `field_selector`, `verbose`                     | List events                               |
-| `get_deployments` | read  | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose`             | List or get deployments                   |
-| `get_resource`    | read  | `resource`, `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | Get arbitrary resource type               |
-| `rollout_restart` | write | `namespace`, `name` (required)                                                 | Rolling restart of a deployment           |
-| `delete_pod`      | write | `namespace`, `name` (required)                                                 | Delete a pod (must have owner references) |
+Each YAML file defines one TA. Use `zoa actions` (CLI) or `GET /trusted-actions` (API) to list the current catalog at runtime.
 
 ### CLI Design
 
@@ -832,7 +815,7 @@ Operator (zoa run) → Platform API → Maestro (gRPC CreateManifestWork) → Ma
 Platform API Reconciler (5s loop):                                                             │
   ← Maestro (GetManifestWork) ← feedbackRules (succeeded/failed + Job timestamps) ←───────────┘
   → Compute: runner_seconds, upload_seconds, duration_seconds
-  → Delete ResourceBundle (on terminal status, race-safe → cascades cleanup on MC)
+  → Delete ResourceBundle (on terminal status, race-safe → cascades cleanup on target cluster)
   → DynamoDB (status, durations, output_status, revision, updated_at)
 ```
 
@@ -857,7 +840,7 @@ Platform API Reconciler (5s loop):                                              
 ## Design Rationale
 
 - **Justification**: The split SA model (per-execution runner + static uploader/AWS SAs) balances auditability, operational simplicity, and Pod Identity constraints. Separating TA authoring (script + RBAC) from execution boilerplate (image, wrapper, resources) enables independent evolution of each concern.
-- **Evidence**: ARO-HCP validates Maestro as a reliable ManifestWork dispatch mechanism at scale across management clusters. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern for OSD/ROSA operations.
+- **Evidence**: Maestro is the current transport layer for ManifestWork dispatch across ROSA HCP v2 (regionality), ARO-HCP, and GCP-HCP — a proven mechanism at scale. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern for OSD/ROSA operations.
 - **Comparison**: Per-execution runner SAs provide execution-level K8s audit attribution. Static AWS and uploader SAs satisfy Pod Identity constraints while keeping IAM association count bounded. Rich labels on all resources enable correlation via kube audit logs.
 
 ## Consequences

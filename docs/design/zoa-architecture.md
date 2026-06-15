@@ -42,7 +42,8 @@ ZOA eliminates all of these by making every operational action:
 │                        │                   │              │                      │
 │                        │  ┌─────────────┐  │              │                      │
 │                        │  │ DynamoDB     │  │              │                      │
-│                        │  │ (executions) │  │              │                      │
+│                        │  │ (executions  │  │              │                      │
+│                        │  │  + audit)    │  │              │                      │
 │                        │  └─────────────┘  │              │                      │
 │                        │                   │              │                      │
 │                        │  ┌─────────────┐  │              │                      │
@@ -50,6 +51,11 @@ ZOA eliminates all of these by making every operational action:
 │                        │  │ (artifacts)  │  │              │                      │
 │                        │  └─────────────┘  │              │                      │
 │                        └───────────────────┘              │                      │
+│                                                            │                      │
+│  ┌──────────────────┐                                     │                      │
+│  │  Maestro Agent    │ ◄──────────────────────────────────┘ (RC-targeted TAs)    │
+│  │  (applies MW)     │                                     │                      │
+│  └──────────────────┘                                     │                      │
 └───────────────────────────────────────────────────────────┼──────────────────────┘
                                                             │
                                                             │ MQTT (no direct network)
@@ -62,7 +68,7 @@ ZOA eliminates all of these by making every operational action:
 │                                                  │  (applies MW)     │            │
 │                                                  └────────┬─────────┘            │
 │                                                           │                      │
-│                         Namespace: zoa-jobs                │                      │
+│   Namespace: zoa-jobs (same structure exists on RC)        │                      │
 │                        ┌──────────────────────────────────┼──────────────┐       │
 │                        │                                  ▼              │       │
 │                        │  ┌─────────────────┐  ┌────────────────────┐  │       │
@@ -84,16 +90,17 @@ ZOA eliminates all of these by making every operational action:
 
 ### Component Responsibilities
 
-| Component              | Location       | Role                                                    |
-| ---------------------- | -------------- | ------------------------------------------------------- |
-| **API Gateway**        | AWS (regional) | SigV4 authentication, request routing                   |
-| **Platform API**       | RC (EKS pod)   | TA validation, job generation, dispatch, reconciliation |
-| **Maestro Server**     | RC (EKS pod)   | ManifestWork storage, MQTT distribution                 |
-| **Maestro Agent**      | MC (EKS pod)   | Applies ManifestWorks, reports status via MQTT          |
-| **DynamoDB**           | AWS (regional) | Execution metadata, audit trail, status tracking        |
-| **S3**                 | AWS (regional) | Artifact storage (output.json, execution.log)           |
-| **KMS**                | AWS (regional) | Encryption at rest for DynamoDB and S3                  |
-| **zoa-jobs namespace** | MC             | Execution environment (Jobs, RBAC, ConfigMaps)          |
+| Component                 | Location          | Role                                                    |
+| ------------------------- | ----------------- | ------------------------------------------------------- |
+| **API Gateway**           | AWS (regional)    | SigV4 authentication, request routing                   |
+| **Platform API**          | RC (EKS pod)      | TA validation, job generation, dispatch, reconciliation |
+| **Maestro Server**        | RC (EKS pod)      | ManifestWork storage, MQTT distribution                 |
+| **Maestro Agent**         | RC + MC (EKS pod) | Applies ManifestWorks, reports status via MQTT          |
+| **DynamoDB (executions)** | AWS (regional)    | Execution metadata, status tracking                     |
+| **DynamoDB (audit)**      | AWS (regional)    | API call audit trail                                    |
+| **S3**                    | AWS (regional)    | Artifact storage (output.json, execution.log)           |
+| **KMS**                   | AWS (regional)    | Encryption at rest for DynamoDB and S3                  |
+| **zoa-jobs namespace**    | RC + MC           | Execution environment (Jobs, RBAC, ConfigMaps)          |
 
 ## Request Flow — Sequence Diagram
 
@@ -108,7 +115,7 @@ sequenceDiagram
     participant MS as Maestro Server
     participant MQTT as MQTT Broker
     participant MA as Maestro Agent
-    participant MC as MC Kubernetes API
+    participant MC as Target Cluster K8s API
     participant Runner as Runner Job
     participant CM as ConfigMap
     participant Uploader as Uploader Job
@@ -130,7 +137,7 @@ sequenceDiagram
     MA->>MQTT: Report "Applied" status
     MQTT->>MS: Status feedback
 
-    Note over Op,S3: 3. Execution (Two-Job model on MC)
+    Note over Op,S3: 3. Execution (Two-Job model on target cluster)
     MC->>Runner: Start runner Job (per-exec SA)
     MC->>Uploader: Start uploader Job (static SA)
     Runner->>Runner: Execute /zoa/run.sh
@@ -159,29 +166,31 @@ sequenceDiagram
 
 ### Per-Endpoint Data Flow Summary
 
-| Endpoint                   | Components Touched                                                  |
-| -------------------------- | ------------------------------------------------------------------- |
-| `POST /{action}/run`       | API Gateway → Platform API → DynamoDB → Maestro → MQTT → Agent → MC |
-| `GET /runs/{id}`           | API Gateway → Platform API → DynamoDB + S3                          |
-| `GET /runs`                | API Gateway → Platform API → DynamoDB                               |
-| `GET /` (catalog)          | API Gateway → Platform API (in-memory registry)                     |
-| `GET /{action}` (describe) | API Gateway → Platform API (in-memory registry)                     |
-| `GET /audit`               | API Gateway → Platform API → DynamoDB (audit table)                 |
+| Endpoint                   | Components Touched                                                                           |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| `POST /{action}/run`       | API Gateway → Platform API → DynamoDB (executions) → Maestro → MQTT → Agent → Target (RC/MC) |
+| `GET /runs/{id}`           | API Gateway → Platform API → DynamoDB (executions) + S3                                      |
+| `GET /runs`                | API Gateway → Platform API → DynamoDB (executions)                                           |
+| `GET /` (catalog)          | API Gateway → Platform API (in-memory registry)                                              |
+| `GET /{action}` (describe) | API Gateway → Platform API (in-memory registry)                                              |
+| `GET /audit`               | API Gateway → Platform API → DynamoDB (audit table)                                          |
 
 ## Network Architecture
 
 ### Key Constraint: No Direct Network Path from RC to MC
 
-The Regional Cluster cannot reach the Management Cluster's Kubernetes API directly. All communication flows through Maestro's MQTT-based protocol:
+The Regional Cluster cannot reach the Management Cluster's Kubernetes API directly. All communication to MCs flows through Maestro's MQTT-based protocol:
 
 ```
-RC → Maestro Server (gRPC) → MQTT Broker → Maestro Agent (MC) → MC Kubernetes API
+RC → Maestro Server (gRPC) → MQTT Broker → Maestro Agent (target) → Target Kubernetes API
 ```
+
+For MC-targeted TAs, the MQTT path crosses the network boundary. For RC-targeted TAs, the Maestro Agent on the RC applies the ManifestWork locally.
 
 This means:
 
 - Platform API cannot kubectl into the MC
-- Status feedback flows back the same path: MC → MQTT → Maestro Server → Platform API (gRPC)
+- Status feedback flows back the same path: Target → MQTT → Maestro Server → Platform API (gRPC)
 - Output must be uploaded to S3 directly from the MC (the RC cannot pull it)
 
 ### Authentication Flow
@@ -259,7 +268,7 @@ Operator: zoa run get_pods -t mc-useast1-1 -n maestro
          ▼
 Platform API receives POST /api/v0/trusted-actions/get_pods/run
   - Validates SigV4 identity
-  - Validates required `jira` field (e.g. ROSAENG-1234)
+  - Validates required fields: `target_cluster` and `jira` (e.g. ROSAENG-1234)
   - Loads TA template from registry (ConfigMap)
   - Validates params (namespace required for get_pods)
   - Enforces write cooldown and max-concurrent limits (write TAs; skipped for dry-run and force)
@@ -276,13 +285,13 @@ Platform API receives POST /api/v0/trusted-actions/get_pods/run
 ```
 Maestro Server
   - Stores ResourceBundle in database
-  - Publishes to MQTT topic for target MC consumer
+  - Publishes to MQTT topic for target cluster consumer (RC or MC)
          │
          ▼ MQTT
          │
-Maestro Agent (on MC)
+Maestro Agent (on target cluster — RC or MC)
   - Receives ManifestWork via MQTT subscription
-  - Applies all manifests to MC Kubernetes API:
+  - Applies all manifests to target cluster Kubernetes API:
     1. ServiceAccount: zoa-runner-<exec-id> (per-execution)
     2. ClusterRole/Role (per-execution RBAC)
     3. ClusterRoleBinding/RoleBinding → runner SA
@@ -298,7 +307,7 @@ Maestro Agent (on MC)
 ### 3. Execution (Two-Job Model)
 
 ```
-Kubernetes Job Controller (on MC) — starts BOTH Jobs in parallel:
+Kubernetes Job Controller (on target cluster) — starts BOTH Jobs in parallel:
 
 Runner Job (zoa-<exec-id>):
   - SA: zoa-runner-<exec-id> (per-execution, Kubernetes-only permissions)
@@ -441,14 +450,13 @@ Bucket: <env>-regional-zoa-outputs-<account-id>
 
 ### IAM Roles (Pod Identity)
 
-| Role                       | Associated SA   | Cluster | Permissions                                                               |
-| -------------------------- | --------------- | ------- | ------------------------------------------------------------------------- |
-| `<env>-zoa-uploader-role`  | `zoa-uploader`  | MC      | `s3:PutObject` on ZOA bucket + `kms:GenerateDataKey`, `kms:Encrypt`       |
-| `<env>-zoa-aws-read-role`  | `zoa-aws-read`  | MC      | AWS read actions (EKS, VPC, etc.) — no S3/KMS on ZOA bucket               |
-| `<env>-zoa-aws-write-role` | `zoa-aws-write` | MC      | AWS write actions — no S3/KMS on ZOA bucket                               |
-| `<env>-platform-api-role`  | `platform-api`  | RC      | `s3:GetObject` on ZOA bucket + `kms:Decrypt` + `dynamodb:*` on ZOA tables |
+| Role                      | Associated SAs                                  | Cluster | Permissions                                                  |
+| ------------------------- | ----------------------------------------------- | ------- | ------------------------------------------------------------ |
+| `<env>-zoa-job`           | `zoa-uploader`, `zoa-aws-read`, `zoa-aws-write` | RC      | `s3:PutObject` + `kms:GenerateDataKey` + AWS read (EKS, VPC) |
+| `<mgmt-id>-zoa-job`       | `zoa-uploader`, `zoa-aws-read`, `zoa-aws-write` | MC      | `s3:PutObject` + `kms:GenerateDataKey` + AWS read (EKS, VPC) |
+| `<env>-platform-api-role` | `platform-api`                                  | RC      | `s3:GetObject` + `kms:Decrypt` + `dynamodb:*` on ZOA tables  |
 
-> **Note**: Static SAs (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`) are deployed to **both** RC and MC via the shared `zoa-jobs` Helm chart, but Pod Identity associations (and therefore AWS access) are only wired for the MC where TA Jobs execute. The RC instances exist as infrastructure-ready placeholders.
+Pod Identity associations are wired on **both** RC and MC — TAs can target either cluster type. The `aws-api-read` policy grows incrementally as new AWS-scoped TAs are added, keeping only the minimum required permissions for implemented TAs (currently: `eks:ListClusters`, `eks:DescribeCluster`, `ec2:DescribeVpcEndpoints`).
 
 **Key design principle**: Runner SAs (`zoa-runner-<exec-id>`, `zoa-aws-read`, `zoa-aws-write`) have **zero** access to the ZOA S3 bucket. Only `zoa-uploader` can write to S3, ensuring SA isolation between operational actions and output transport.
 
@@ -575,20 +583,20 @@ Jobs have `ttlSecondsAfterFinished: 3600` in the ManifestWork Job spec. This is 
 | output.json                   | S3                     | 365 days                   |
 | execution.log                 | S3                     | 365 days                   |
 | API call audit log            | DynamoDB (audit table) | 365 days (TTL auto-expiry) |
-| K8s resources (Job, RBAC, CM) | MC                     | Deleted on completion      |
+| K8s resources (Job, RBAC, CM) | Target cluster (RC/MC) | Deleted on completion      |
 
 ## Audit Trail
 
 Every execution produces audit data at multiple layers:
 
-| Layer                                | What's Recorded                                                                                                                       | Query Method                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Platform API (DynamoDB)              | execution_id, operator, caller_arn, jira, action, target, status, approval_state, duration, revision, updated_at, dry_run, force      | `zoa runs` CLI or direct API                        |
-| S3 (artifacts)                       | Full execution log, structured output                                                                                                 | `zoa logs <id>` or `zoa get <id>`                   |
-| Kubernetes (labels on all resources) | execution-id, operator, action, scope, type, revision, target                                                                         | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
-| Platform API (DynamoDB audit table)  | Every audited API call: method, path (full URI), action, target, execution_id, jira, approval_state, operator, status_code, timestamp | `zoa audit` CLI                                     |
-| AWS CloudTrail                       | SigV4 caller identity on API Gateway invocation                                                                                       | CloudTrail console                                  |
-| Maestro (MQTT events)                | ManifestWork create/delete events with metadata                                                                                       | Maestro server logs                                 |
+| Layer                                    | What's Recorded                                                                                                                       | Query Method                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Platform API (DynamoDB executions table) | execution_id, operator, caller_arn, jira, action, target, status, approval_state, duration, revision, updated_at, dry_run, force      | `zoa runs` CLI or direct API                        |
+| S3 (artifacts)                           | Full execution log, structured output                                                                                                 | `zoa logs <id>` or `zoa get <id>`                   |
+| Kubernetes (labels on all resources)     | execution-id, operator, action, scope, type, revision, target                                                                         | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
+| Platform API (DynamoDB audit table)      | Every audited API call: method, path (full URI), action, target, execution_id, jira, approval_state, operator, status_code, timestamp | `zoa audit` CLI                                     |
+| AWS CloudTrail                           | SigV4 caller identity on API Gateway invocation                                                                                       | CloudTrail console                                  |
+| Maestro (MQTT events)                    | ManifestWork create/delete events with metadata                                                                                       | Maestro server logs                                 |
 
 ### Correlation
 
