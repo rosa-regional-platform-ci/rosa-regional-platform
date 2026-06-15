@@ -18,6 +18,11 @@ output "subnet_id" {
   value       = aws_subnet.build.id
 }
 
+output "instance_profile_name" {
+  description = "IAM instance profile for Packer build instances — pass as iam_instance_profile in make build"
+  value       = aws_iam_instance_profile.build_instance.name
+}
+
 output "assume_role_command" {
   description = "Shell command to export temporary credentials before running make build"
   value       = <<-EOT

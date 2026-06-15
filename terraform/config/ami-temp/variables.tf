@@ -14,11 +14,11 @@ variable "ami_consumer_account_ids" {
   }
 }
 
-variable "trusted_principal_arn" {
-  description = "IAM ARN (user or role) allowed to assume the packer-ami-build role"
-  type        = string
+variable "trusted_principal_arns" {
+  description = "IAM ARNs (users or roles) allowed to assume the packer-ami-build role"
+  type        = list(string)
   validation {
-    condition     = can(regex("^arn:aws:iam::[0-9]{12}:(user|role)/.+$", var.trusted_principal_arn))
-    error_message = "trusted_principal_arn must be a valid IAM user or role ARN (arn:aws:iam::<account>:user/<name> or :role/<name>)"
+    condition     = alltrue([for arn in var.trusted_principal_arns : can(regex("^arn:aws:iam::[0-9]{12}:(user|role)/.+$", arn))])
+    error_message = "Each entry must be a valid IAM user or role ARN (arn:aws:iam::<account>:user/<name> or :role/<name>)"
   }
 }

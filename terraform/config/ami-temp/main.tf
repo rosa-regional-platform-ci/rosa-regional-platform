@@ -15,7 +15,7 @@ resource "aws_iam_role" "packer" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { AWS = var.trusted_principal_arn }
+      Principal = { AWS = var.trusted_principal_arns }
       Action    = "sts:AssumeRole"
     }]
   })
@@ -52,6 +52,20 @@ resource "aws_kms_key" "ami" {
           "kms:GenerateDataKeyWithoutPlaintext",
           "kms:ReEncryptFrom",
           "kms:ReEncryptTo",
+        ]
+        Resource = "*"
+      },
+      {
+        # Build instance writes to its KMS-encrypted EBS root volume during provisioning
+        Sid    = "AllowBuildInstanceRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.build_instance.arn
+        }
+        Action = [
+          "kms:CreateGrant",
+          "kms:DescribeKey",
+          "kms:GenerateDataKeyWithoutPlaintext",
         ]
         Resource = "*"
       },
@@ -163,6 +177,12 @@ resource "aws_iam_policy" "ami_builder" {
         ]
         Resource = aws_kms_key.ami.arn
       },
+      {
+        # Required so packer-ami-build can pass the build instance profile to ec2:RunInstances
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
+        Resource = aws_iam_role.build_instance.arn
+      },
     ]
   })
 
@@ -172,6 +192,79 @@ resource "aws_iam_policy" "ami_builder" {
 resource "aws_iam_role_policy_attachment" "packer" {
   role       = aws_iam_role.packer.name
   policy_arn = aws_iam_policy.ami_builder.arn
+}
+
+# -----------------------------------------------------------------------------
+# IAM role and instance profile for the Packer build EC2 instance
+#
+# Distinct from packer-ami-build (used by the Packer process itself). The build
+# instance needs credentials to pull the pause container from ECR and to write
+# to the KMS-encrypted EBS root volume during provisioning.
+# Pass the profile name as iam_instance_profile in the make k8s command.
+# -----------------------------------------------------------------------------
+
+resource "aws_iam_role" "build_instance" {
+  name = "packer-ami-build-instance"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { temporary = "true" }
+}
+
+resource "aws_iam_role_policy" "build_instance" {
+  name = "ami-build-instance"
+  role = aws_iam_role.build_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = "arn:aws:ecr:${var.region}:602401143452:repository/*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:ListBucket"]
+        Resource = [
+          "arn:aws:s3:::amazon-eks/*",
+          "arn:aws:s3:::amazon-eks",
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:CreateGrant",
+          "kms:DescribeKey",
+          "kms:GenerateDataKeyWithoutPlaintext",
+        ]
+        Resource = aws_kms_key.ami.arn
+      },
+    ]
+  })
+}
+
+resource "aws_iam_instance_profile" "build_instance" {
+  name = "packer-ami-build-instance"
+  role = aws_iam_role.build_instance.name
+
+  tags = { temporary = "true" }
 }
 
 # -----------------------------------------------------------------------------
