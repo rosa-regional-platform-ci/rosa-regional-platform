@@ -119,13 +119,13 @@ resource "aws_eks_cluster" "main" {
 
   kubernetes_network_config {
     elastic_load_balancing {
-      enabled = !var.enable_karpenter
+      enabled = true
     }
   }
 
   storage_config {
     block_storage {
-      enabled = !var.enable_karpenter
+      enabled = true
     }
   }
 
