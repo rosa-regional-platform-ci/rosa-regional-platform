@@ -13,23 +13,26 @@ spec:
     defaultObjectStorageConfig:
       name: {{ .Values.objectStore.secretName }}
       key: objstore.yml
+    {{- if .Values.receive.additionalArgs }}
+    additionalArgs:
+      {{- range .Values.receive.additionalArgs }}
+      - {{ . | quote }}
+      {{- end }}
+    {{- end }}
     hashrings:
       - name: default
         replicas: {{ .Values.receive.replicas }}
         tsdbConfig:
           retention: {{ .Values.receive.retention }}
+        {{- if .Values.receive.tooFarInFutureTimeWindow }}
+        tooFarInFutureTimeWindow: {{ .Values.receive.tooFarInFutureTimeWindow }}
+        {{- end }}
         resourceRequirements:
           requests:
             cpu: {{ .Values.receive.resources.requests.cpu }}
             memory: {{ .Values.receive.resources.requests.memory }}
           limits:
             memory: {{ .Values.receive.resources.limits.memory }}
-        {{- if .Values.receive.additionalArgs }}
-        additionalArgs:
-          {{- range .Values.receive.additionalArgs }}
-          - {{ . | quote }}
-          {{- end }}
-        {{- end }}
         storage:
           size: {{ .Values.receive.storage.size }}
           {{- if .Values.receive.storage.storageClass }}

@@ -22,7 +22,8 @@ receive:
     - "--enable-auto-gomemlimit"
     - "--auto-gomemlimit.ratio=0.9"
     - "--tsdb.wal-compression"
-    - "--tsdb.too-far-in-future.time-window=5m"
+
+  tooFarInFutureTimeWindow: 5m
 
   resources:
     requests:
