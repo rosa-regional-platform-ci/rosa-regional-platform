@@ -227,7 +227,7 @@ resource "aws_iam_instance_profile" "karpenter_node" {
 # Each target account's node role must be allowed to use that key.
 # -----------------------------------------------------------------------------
 resource "aws_iam_role_policy" "karpenter_node_kms" {
-  count = var.enable_karpenter ? 1 : 0
+  count = var.enable_karpenter && var.ami_kms_key_arn != "" ? 1 : 0
   name  = "karpenter-node-kms-cross-account"
   role  = aws_iam_role.eks_auto_mode_node.id
 
@@ -236,7 +236,7 @@ resource "aws_iam_role_policy" "karpenter_node_kms" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["kms:CreateGrant", "kms:DescribeKey"]
-      Resource = "arn:aws:kms:us-east-1:791666871613:key/2c6dbc7a-70ed-4193-ad57-35b48fb4c8bd"
+      Resource = var.ami_kms_key_arn
     }]
   })
 }

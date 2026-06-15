@@ -77,3 +77,9 @@ variable "enable_karpenter" {
   default     = false
 }
 
+variable "ami_kms_key_arn" {
+  description = "ARN of the CMK in the AMI build account (791666871613) used to encrypt RHEL FIPS node AMI snapshots. Required for cross-account AMI launch via Karpenter."
+  type        = string
+  default     = ""
+}
+
