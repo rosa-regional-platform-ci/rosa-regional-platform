@@ -417,8 +417,8 @@ _zoa_audit() {
     return
   fi
 
-  printf "%-19s %-5s %-5s %-12s %-25s %-20s %-14s %-14s %-38s %s\n" \
-    "TIMESTAMP" "METH" "CODE" "OPERATOR" "ACTION" "TARGET" "JIRA" "APPROVAL" "EXEC_ID" "PATH"
+  printf "%-19s %-6s %-5s %-12s %-25s %-20s %-14s %-14s %-38s %s\n" \
+    "TIMESTAMP" "METHOD" "CODE" "OPERATOR" "ACTION" "TARGET" "JIRA" "APPROVAL" "EXEC_ID" "PATH"
   printf '%s' "$resp" | "$_ZOA_JQ" -r '
     def dash(v): if v == "" or v == null then "-" else v end;
     (.items // [])[] | [.timestamp, .method, (.status_code | tostring), .operator, dash(.action), dash(.target_cluster), dash(.jira), dash(.approval_state), dash(.execution_id), .path] | @tsv
@@ -428,7 +428,7 @@ _zoa_audit() {
     short_ts="${short_ts/T/ }"
     [[ "$execid" == "-" ]] && execid=""
     local short_path="${apath#/api/v0/trusted-actions/}"
-    printf "%-19s %-5s %-5s %-12s %-25s %-20s %-14s %-14s %-38s %s\n" \
+    printf "%-19s %-6s %-5s %-12s %-25s %-20s %-14s %-14s %-38s %s\n" \
       "$short_ts" "$method" "$scode" "$op" "$action" "$target" "$jira" "$approval" "$execid" "$short_path"
   done
 }

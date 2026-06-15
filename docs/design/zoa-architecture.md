@@ -84,16 +84,16 @@ ZOA eliminates all of these by making every operational action:
 
 ### Component Responsibilities
 
-| Component | Location | Role |
-|-----------|----------|------|
-| **API Gateway** | AWS (regional) | SigV4 authentication, request routing |
-| **Platform API** | RC (EKS pod) | TA validation, job generation, dispatch, reconciliation |
-| **Maestro Server** | RC (EKS pod) | ManifestWork storage, MQTT distribution |
-| **Maestro Agent** | MC (EKS pod) | Applies ManifestWorks, reports status via MQTT |
-| **DynamoDB** | AWS (regional) | Execution metadata, audit trail, status tracking |
-| **S3** | AWS (regional) | Artifact storage (output.json, execution.log) |
-| **KMS** | AWS (regional) | Encryption at rest for DynamoDB and S3 |
-| **zoa-jobs namespace** | MC | Execution environment (Jobs, RBAC, ConfigMaps) |
+| Component              | Location       | Role                                                    |
+| ---------------------- | -------------- | ------------------------------------------------------- |
+| **API Gateway**        | AWS (regional) | SigV4 authentication, request routing                   |
+| **Platform API**       | RC (EKS pod)   | TA validation, job generation, dispatch, reconciliation |
+| **Maestro Server**     | RC (EKS pod)   | ManifestWork storage, MQTT distribution                 |
+| **Maestro Agent**      | MC (EKS pod)   | Applies ManifestWorks, reports status via MQTT          |
+| **DynamoDB**           | AWS (regional) | Execution metadata, audit trail, status tracking        |
+| **S3**                 | AWS (regional) | Artifact storage (output.json, execution.log)           |
+| **KMS**                | AWS (regional) | Encryption at rest for DynamoDB and S3                  |
+| **zoa-jobs namespace** | MC             | Execution environment (Jobs, RBAC, ConfigMaps)          |
 
 ## Request Flow — Sequence Diagram
 
@@ -159,14 +159,14 @@ sequenceDiagram
 
 ### Per-Endpoint Data Flow Summary
 
-| Endpoint | Components Touched |
-|----------|-------------------|
-| `POST /{action}/run` | API Gateway → Platform API → DynamoDB → Maestro → MQTT → Agent → MC |
-| `GET /runs/{id}` | API Gateway → Platform API → DynamoDB + S3 |
-| `GET /runs` | API Gateway → Platform API → DynamoDB |
-| `GET /` (catalog) | API Gateway → Platform API (in-memory registry) |
-| `GET /{action}` (describe) | API Gateway → Platform API (in-memory registry) |
-| `GET /audit` | API Gateway → Platform API → DynamoDB (audit table) |
+| Endpoint                   | Components Touched                                                  |
+| -------------------------- | ------------------------------------------------------------------- |
+| `POST /{action}/run`       | API Gateway → Platform API → DynamoDB → Maestro → MQTT → Agent → MC |
+| `GET /runs/{id}`           | API Gateway → Platform API → DynamoDB + S3                          |
+| `GET /runs`                | API Gateway → Platform API → DynamoDB                               |
+| `GET /` (catalog)          | API Gateway → Platform API (in-memory registry)                     |
+| `GET /{action}` (describe) | API Gateway → Platform API (in-memory registry)                     |
+| `GET /audit`               | API Gateway → Platform API → DynamoDB (audit table)                 |
 
 ## Network Architecture
 
@@ -380,7 +380,7 @@ Operator sees structured output (pipeable to jq)
 
 ## Infrastructure
 
-### DynamoDB Table
+### DynamoDB Executions Table
 
 ```
 Table: <env>-regional-zoa-executions
@@ -416,6 +416,7 @@ TTL: ttl attribute (epoch seconds) — entries auto-expire after 365 days
 The sort key uses nanosecond-precision timestamps to guarantee uniqueness when multiple API calls arrive in the same second. `approvalState` mirrors the execution's approval lifecycle (`not_required`, `pending`, `approved`, `rejected`).
 
 Records every audited API call with consistent fields. Audited endpoints:
+
 - `POST /{action}/run` — populates action, targetCluster, executionId, jira
 - `GET /runs/{id}` — populates executionId (accessed ID)
 - `GET /runs` — identity + path only
@@ -440,12 +441,14 @@ Bucket: <env>-regional-zoa-outputs-<account-id>
 
 ### IAM Roles (Pod Identity)
 
-| Role | Associated SA | Permissions |
-|------|---------------|-------------|
-| `<env>-zoa-uploader-role` | `zoa-uploader` (MC) | `s3:PutObject` on ZOA bucket + `kms:GenerateDataKey`, `kms:Encrypt` |
-| `<env>-zoa-aws-read-role` | `zoa-aws-read` (MC) | AWS read actions (DescribeInstances, etc.) — no S3/KMS on ZOA bucket |
-| `<env>-zoa-aws-write-role` | `zoa-aws-write` (MC) | AWS write actions — no S3/KMS on ZOA bucket |
-| `<env>-platform-api-role` | `platform-api` (RC) | `s3:GetObject` on ZOA bucket + `kms:Decrypt` + `dynamodb:*` on ZOA table |
+| Role                       | Associated SA   | Cluster | Permissions                                                               |
+| -------------------------- | --------------- | ------- | ------------------------------------------------------------------------- |
+| `<env>-zoa-uploader-role`  | `zoa-uploader`  | MC      | `s3:PutObject` on ZOA bucket + `kms:GenerateDataKey`, `kms:Encrypt`       |
+| `<env>-zoa-aws-read-role`  | `zoa-aws-read`  | MC      | AWS read actions (EKS, VPC, etc.) — no S3/KMS on ZOA bucket               |
+| `<env>-zoa-aws-write-role` | `zoa-aws-write` | MC      | AWS write actions — no S3/KMS on ZOA bucket                               |
+| `<env>-platform-api-role`  | `platform-api`  | RC      | `s3:GetObject` on ZOA bucket + `kms:Decrypt` + `dynamodb:*` on ZOA tables |
+
+> **Note**: Static SAs (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`) are deployed to **both** RC and MC via the shared `zoa-jobs` Helm chart, but Pod Identity associations (and therefore AWS access) are only wired for the MC where TA Jobs execute. The RC instances exist as infrastructure-ready placeholders.
 
 **Key design principle**: Runner SAs (`zoa-runner-<exec-id>`, `zoa-aws-read`, `zoa-aws-write`) have **zero** access to the ZOA S3 bucket. Only `zoa-uploader` can write to S3, ensuring SA isolation between operational actions and output transport.
 
@@ -525,18 +528,18 @@ What Platform API generates (full ManifestWork with ~200 lines of K8s manifests)
 
 The Job "frame" is NOT defined by TA authors. It comes from `zoa-job-config` ConfigMap:
 
-| Config | Default | Purpose |
-|--------|---------|---------|
-| `image` | `quay.io/slopezz/zoa-tools:latest` | Container image |
-| `cpu_request` | `25m` | Pod CPU request |
-| `memory_request` | `64Mi` | Pod memory request |
-| `cpu_limit` | `250m` | Pod CPU limit |
-| `memory_limit` | `256Mi` | Pod memory limit |
-| `ttl_seconds` | `3600` | K8s TTL after job completion (safety GC) |
-| `execution_timeout_seconds` | `1800` | Global timeout for reconciler |
-| `write_cooldown_seconds` | `300` | Global write cooldown (seconds) between same action on same target |
-| `max_concurrent_per_target` | `10` | Max running + pending executions per target cluster |
-| `entrypoint.sh` | (wrapper script) | Logging, ConfigMap output patch, exit handling |
+| Config                      | Default                            | Purpose                                                            |
+| --------------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| `image`                     | `quay.io/slopezz/zoa-tools:latest` | Container image                                                    |
+| `cpu_request`               | `25m`                              | Pod CPU request                                                    |
+| `memory_request`            | `64Mi`                             | Pod memory request                                                 |
+| `cpu_limit`                 | `250m`                             | Pod CPU limit                                                      |
+| `memory_limit`              | `256Mi`                            | Pod memory limit                                                   |
+| `ttl_seconds`               | `3600`                             | K8s TTL after job completion (safety GC)                           |
+| `execution_timeout_seconds` | `1800`                             | Global timeout for reconciler                                      |
+| `write_cooldown_seconds`    | `300`                              | Global write cooldown (seconds) between same action on same target |
+| `max_concurrent_per_target` | `10`                               | Max running + pending executions per target cluster                |
+| `entrypoint.sh`             | (wrapper script)                   | Logging, ConfigMap output patch, exit handling                     |
 
 Changing any of these updates ALL future TA executions — no per-TA changes needed.
 
@@ -562,30 +565,30 @@ Changing any of these updates ALL future TA executions — no per-TA changes nee
 
 ### Safety Net (TTL)
 
-Jobs have `ttlSecondsAfterFinished: 3600`. If reconciler cleanup fails, Kubernetes TTL controller garbage-collects the completed Job after 1 hour. This is a backup — normal cleanup happens in seconds via the reconciler.
+Jobs have `ttlSecondsAfterFinished: 3600` in the ManifestWork Job spec. This is a native Kubernetes feature — the TTL controller garbage-collects completed Jobs after the specified duration. If reconciler cleanup fails, this ensures Jobs don't accumulate. Normal cleanup happens in seconds via the reconciler.
 
 ### What Persists After Cleanup
 
-| What | Where | Retention |
-|------|-------|-----------|
-| Execution metadata | DynamoDB | 365 days (TTL auto-expiry) |
-| output.json | S3 | 365 days |
-| execution.log | S3 | 365 days |
-| API call audit log | DynamoDB (audit table) | 365 days (TTL auto-expiry) |
-| K8s resources (Job, RBAC, CM) | MC | Deleted on completion |
+| What                          | Where                  | Retention                  |
+| ----------------------------- | ---------------------- | -------------------------- |
+| Execution metadata            | DynamoDB               | 365 days (TTL auto-expiry) |
+| output.json                   | S3                     | 365 days                   |
+| execution.log                 | S3                     | 365 days                   |
+| API call audit log            | DynamoDB (audit table) | 365 days (TTL auto-expiry) |
+| K8s resources (Job, RBAC, CM) | MC                     | Deleted on completion      |
 
 ## Audit Trail
 
 Every execution produces audit data at multiple layers:
 
-| Layer | What's Recorded | Query Method |
-|-------|----------------|--------------|
-| Platform API (DynamoDB) | execution_id, operator, caller_arn, jira, action, target, status, approval_state, duration, revision, updated_at, dry_run, force | `zoa runs` CLI or direct API |
-| S3 (artifacts) | Full execution log, structured output | `zoa logs <id>` or `zoa get <id>` |
-| Kubernetes (labels on all resources) | execution-id, operator, action, scope, type, revision, target | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
-| Platform API (DynamoDB audit table) | Every audited API call: method, path (full URI), action, target, execution_id, jira, approval_state, operator, status_code, timestamp | `zoa audit` CLI |
-| AWS CloudTrail | SigV4 caller identity on API Gateway invocation | CloudTrail console |
-| Maestro (MQTT events) | ManifestWork create/delete events with metadata | Maestro server logs |
+| Layer                                | What's Recorded                                                                                                                       | Query Method                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Platform API (DynamoDB)              | execution_id, operator, caller_arn, jira, action, target, status, approval_state, duration, revision, updated_at, dry_run, force      | `zoa runs` CLI or direct API                        |
+| S3 (artifacts)                       | Full execution log, structured output                                                                                                 | `zoa logs <id>` or `zoa get <id>`                   |
+| Kubernetes (labels on all resources) | execution-id, operator, action, scope, type, revision, target                                                                         | `kubectl get jobs -l zoa.rosa.io/operator=slopezma` |
+| Platform API (DynamoDB audit table)  | Every audited API call: method, path (full URI), action, target, execution_id, jira, approval_state, operator, status_code, timestamp | `zoa audit` CLI                                     |
+| AWS CloudTrail                       | SigV4 caller identity on API Gateway invocation                                                                                       | CloudTrail console                                  |
+| Maestro (MQTT events)                | ManifestWork create/delete events with metadata                                                                                       | Maestro server logs                                 |
 
 ### Correlation
 
@@ -594,7 +597,7 @@ Given an execution ID, you can trace the full chain:
 ```
 DynamoDB: execution metadata + timing
   → S3: full execution log + structured output
-  → MC (while running): kubectl get jobs -l zoa.rosa.io/execution-id=<id>
+  → Target cluster (MC/RC, while running): kubectl get jobs -l zoa.rosa.io/execution-id=<id>
   → CloudTrail: API Gateway access log for the POST request
 ```
 

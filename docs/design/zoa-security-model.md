@@ -10,17 +10,17 @@ This document details the security architecture for ZOA Trusted Actions: how pri
 
 ### Threats Mitigated
 
-| Threat | Mitigation |
-|--------|-----------|
-| Operator runs arbitrary commands on MC | Only pre-defined TAs can be executed — no shell access, no kubectl proxy |
-| Operator accesses secrets/data beyond their need | Per-execution RBAC limits access to exactly what the TA declares |
-| Operator acts without attribution | Every execution records caller identity (ARN, account, operator name) and required Jira ticket |
-| Compromised TA escalates privileges | TA script runs with scoped Role, cannot self-modify SA or create privileged resources |
-| Rapid repeated write actions | Write cooldown (global 300s default, per-TA override) with `force` bypass; `force` flag recorded in execution record for audit |
-| Target cluster overload | Max concurrent per target (default 10 running + pending; dry-run and force excluded); `force` flag recorded for audit |
-| Stale credentials persist | No long-lived kubeconfigs — all access is ephemeral (Job exits → resources deleted) |
-| S3 output exfiltrated | Bucket is encrypted (SSE-KMS), no presigned URLs exposed, API proxies content |
-| Log tampering | S3 versioning enabled, lifecycle prevents deletion before 365 days |
+| Threat                                           | Mitigation                                                                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Operator runs arbitrary commands on MC           | Only pre-defined TAs can be executed — no shell access, no kubectl proxy                                                       |
+| Operator accesses secrets/data beyond their need | Per-execution RBAC limits access to exactly what the TA declares                                                               |
+| Operator acts without attribution                | Every execution records caller identity (ARN, account, operator name) and required Jira ticket                                 |
+| Compromised TA escalates privileges              | TA script runs with scoped Role, cannot self-modify SA or create privileged resources                                          |
+| Rapid repeated write actions                     | Write cooldown (global 300s default, per-TA override) with `force` bypass; `force` flag recorded in execution record for audit |
+| Target cluster overload                          | Max concurrent per target (default 10 running + pending; dry-run and force excluded); `force` flag recorded for audit          |
+| Stale credentials persist                        | No long-lived kubeconfigs — all access is ephemeral (Job exits → resources deleted)                                            |
+| S3 output exfiltrated                            | Bucket is encrypted (SSE-KMS), no presigned URLs exposed, API proxies content                                                  |
+| Log tampering                                    | S3 versioning enabled, lifecycle prevents deletion before 365 days                                                             |
 
 ### Trust Boundaries
 
@@ -60,11 +60,11 @@ AWS STS → Temporary Credentials → SigV4 Signature → API Gateway → Platfo
 
 Platform API extracts from the SigV4-authenticated request:
 
-| Field | Source | Example |
-|-------|--------|---------|
-| `account_id` | API Gateway context | `123456789012` |
-| `caller_arn` | API Gateway context | `arn:aws:sts::123456789012:assumed-role/DevAccess/slopezma` |
-| `operator` | Parsed from ARN session name | `slopezma` |
+| Field        | Source                       | Example                                                     |
+| ------------ | ---------------------------- | ----------------------------------------------------------- |
+| `account_id` | API Gateway context          | `123456789012`                                              |
+| `caller_arn` | API Gateway context          | `arn:aws:sts::123456789012:assumed-role/DevAccess/slopezma` |
+| `operator`   | Parsed from ARN session name | `slopezma`                                                  |
 
 These are recorded with every execution — no way to execute a TA without identity.
 
@@ -72,12 +72,12 @@ These are recorded with every execution — no way to execute a TA without ident
 
 All current TAs declare `authorization.approval: none`. Executions record `approval_state: not_required` in DynamoDB; audit entries carry the same field. The approval lifecycle supports future gated TAs:
 
-| State | Meaning |
-|-------|---------|
+| State          | Meaning                                               |
+| -------------- | ----------------------------------------------------- |
 | `not_required` | TA policy does not require approval (all current TAs) |
-| `pending` | Approval required but not yet obtained |
-| `approved` | Required approvals obtained; execution authorized |
-| `rejected` | Approval explicitly denied |
+| `pending`      | Approval required but not yet obtained                |
+| `approved`     | Required approvals obtained; execution authorized     |
+| `rejected`     | Approval explicitly denied                            |
 
 ### No Shared Credentials
 
@@ -131,12 +131,12 @@ roleRef:
 
 ZOA uses a split SA model for privilege separation:
 
-| SA | Lifecycle | Kubernetes Access | AWS Access |
-|----|-----------|------------------|------------|
-| `zoa-runner-<exec-id>` | Per-execution (dynamic) | Per-execution Role only | **None** |
-| `zoa-uploader` | Static (infra) | Per-execution Role (dynamic, `resourceNames`-scoped) | `s3:PutObject` + `kms:Encrypt` |
-| `zoa-aws-read` | Static (infra) | Per-execution Role | AWS read-only APIs (no S3 on ZOA bucket) |
-| `zoa-aws-write` | Static (infra) | Per-execution Role | AWS read-write APIs (no S3 on ZOA bucket) |
+| SA                     | Lifecycle               | Kubernetes Access                                    | AWS Access                                |
+| ---------------------- | ----------------------- | ---------------------------------------------------- | ----------------------------------------- |
+| `zoa-runner-<exec-id>` | Per-execution (dynamic) | Per-execution Role only                              | **None**                                  |
+| `zoa-uploader`         | Static (infra)          | Per-execution Role (dynamic, `resourceNames`-scoped) | `s3:PutObject` + `kms:Encrypt`            |
+| `zoa-aws-read`         | Static (infra)          | Per-execution Role                                   | AWS read-only APIs (no S3 on ZOA bucket)  |
+| `zoa-aws-write`        | Static (infra)          | Per-execution Role                                   | AWS read-write APIs (no S3 on ZOA bucket) |
 
 **Key design decisions:**
 
@@ -167,11 +167,11 @@ This is visible in code review. Any new TA or RBAC change requires PR approval.
 
 #### Layer 2: Platform API Validation (Runtime)
 
-Platform API can enforce additional constraints:
+Platform API enforces runtime constraints before dispatch:
 
-- Deny-list certain resources (e.g., reject any TA requesting `secrets` access)
-- Require elevated approval for sensitive resources
-- Block specific namespaces (HCP control plane namespaces)
+- **Implemented**: Rejects any TA requesting `secrets` access in HCP namespaces (`clusters-*` prefix) — `validateSecretsPolicy` in jobbuilder
+- **Planned**: Require elevated approval for sensitive resources
+- **Planned**: Additional namespace deny-listing beyond HCP namespaces
 
 #### Layer 3: Runner SA Isolation (Two-Job Architecture)
 
@@ -179,7 +179,7 @@ Even if a Role grants `secrets` access, the runner SA has no AWS credentials at 
 
 - `zoa-runner-<exec-id>` has zero AWS IAM permissions — it cannot exfiltrate to any AWS destination
 - Only `zoa-uploader` has S3 access, and it only reads from the output ConfigMap (not from the cluster)
-- Kubernetes NetworkPolicy restricts egress from `zoa-jobs` namespace
+- NetworkPolicy (planned) will further restrict egress from `zoa-jobs` namespace
 
 #### Layer 4: Audit and Detection
 
@@ -187,15 +187,7 @@ Any attempt to access secrets would be:
 
 - Recorded in Kubernetes audit logs (SA + pod labels identify the execution)
 - Correlated to the operator via DynamoDB execution record
-- Detectable via audit log alerting rules
-
-### Current Policy: No Secrets TA Until Approval Workflow
-
-The `get_secrets` TA is deferred until an approval workflow is implemented. When it's enabled:
-
-- Requires peer approval before dispatch
-- Outputs only secret metadata (keys, not values) by default
-- Full values require additional elevation with time-limited grant
+- Queryable via `zoa audit` for post-incident investigation
 
 ## S3 Output Security
 
@@ -238,16 +230,16 @@ x-amz-meta-target: mc-useast1-1
 
 ### What's Recorded Where
 
-| Event | Storage | Retention | Query |
-|-------|---------|-----------|-------|
-| TA execution requested | DynamoDB (executions) | 365 days (TTL) | `zoa runs` |
-| Full execution log | S3 | 365 days | `zoa logs <id>` |
-| Structured output | S3 | 365 days | `zoa get <id>` |
-| Jira ticket correlation | DynamoDB (`jira` field) | 365 days (TTL) | `zoa get <id>` |
-| All API calls (POST + GET) | DynamoDB (audit table) | 365 days (TTL) | `zoa audit` |
-| API Gateway access | CloudTrail | 90 days (configurable) | AWS Console |
-| Kubernetes API calls from Job | MC audit log | Cluster-dependent | kubectl audit |
-| ResourceBundle lifecycle | Maestro server logs | Log retention | kubectl logs |
+| Event                         | Storage                 | Retention              | Query           |
+| ----------------------------- | ----------------------- | ---------------------- | --------------- |
+| TA execution requested        | DynamoDB (executions)   | 365 days (TTL)         | `zoa runs`      |
+| Full execution log            | S3                      | 365 days               | `zoa logs <id>` |
+| Structured output             | S3                      | 365 days               | `zoa get <id>`  |
+| Jira ticket correlation       | DynamoDB (`jira` field) | 365 days (TTL)         | `zoa get <id>`  |
+| All API calls (POST + GET)    | DynamoDB (audit table)  | 365 days (TTL)         | `zoa audit`     |
+| API Gateway access            | CloudTrail              | 90 days (configurable) | AWS Console     |
+| Kubernetes API calls from Job | MC audit log            | Cluster-dependent      | kubectl audit   |
+| ResourceBundle lifecycle      | Maestro server logs     | Log retention          | kubectl logs    |
 
 **Audit table design**: Every audited call (`POST /run`, `GET /runs`, `GET /runs/{id}`, `GET /audit`) is recorded with consistent fields: `id`, `account_id`, `caller_arn`, `operator`, `method`, `path` (full URI), `action`, `target_cluster`, `execution_id`, `jira`, `approval_state`, `status_code`, `timestamp`. Fields not applicable to a call type are empty strings. The sort key uses nanosecond-precision timestamps (`2006-01-02T15:04:05.000000000Z`) for uniqueness. Catalog/describe endpoints are not audited (public metadata, high frequency).
 
@@ -307,16 +299,16 @@ ManifestWork contains:
 
 ### Properties
 
-| Aspect | Value |
-|--------|-------|
-| **SA for TA script** | `zoa-runner-<exec-id>` (per-execution, no AWS creds) |
-| **SA for S3 upload** | `zoa-uploader` (static, Pod Identity, per-execution K8s RBAC via `resourceNames`) |
-| **AWS creds in TA Job** | No — dynamic SA has no Pod Identity |
-| **K8s audit attribution** | Per-execution (e.g., `zoa-runner-fa65418c`) |
+| Aspect                           | Value                                                                                        |
+| -------------------------------- | -------------------------------------------------------------------------------------------- |
+| **SA for TA script**             | `zoa-runner-<exec-id>` (per-execution, no AWS creds)                                         |
+| **SA for S3 upload**             | `zoa-uploader` (static, Pod Identity, per-execution K8s RBAC via `resourceNames`)            |
+| **AWS creds in TA Job**          | No — dynamic SA has no Pod Identity                                                          |
+| **K8s audit attribution**        | Per-execution (e.g., `zoa-runner-fa65418c`)                                                  |
 | **Resource count per execution** | ~11 (SA, TA RBAC, output CM, output RBAC, uploader RBAC, scripts CM, runner Job, upload Job) |
-| **Output size limit** | 1MB (ConfigMap limit for inter-job transfer) |
-| **Latency overhead** | +3-10s (uploader waits for runner completion + S3 upload) |
-| **IAM associations** | 1 uploader SA per MC (static, pre-provisioned via Terraform) |
+| **Output size limit**            | 1MB (ConfigMap limit for inter-job transfer)                                                 |
+| **Latency overhead**             | +3-10s (uploader waits for runner completion + S3 upload)                                    |
+| **IAM associations**             | 1 uploader SA per MC (static, pre-provisioned via Terraform)                                 |
 
 ### Known Constraints
 
@@ -340,17 +332,19 @@ The `zoa-uploader` ServiceAccount is static (required for Pod Identity), but its
 
 ## FIPS Compliance
 
-| Component | FIPS Control |
-|-----------|-------------|
-| S3 encryption | SSE-KMS with FIPS-validated KMS endpoint |
-| TLS | FIPS-validated TLS libraries in RHEL UBI9 base image |
+| Component      | FIPS Control                                          |
+| -------------- | ----------------------------------------------------- |
+| S3 encryption  | SSE-KMS with FIPS-validated KMS endpoint              |
+| TLS            | FIPS-validated TLS libraries in RHEL UBI9 base image  |
 | AWS CLI in job | Uses FIPS endpoints when `AWS_USE_FIPS_ENDPOINT=true` |
-| DynamoDB | FIPS endpoint via VPC Gateway Endpoint |
-| MQTT (Maestro) | TLS 1.2+ with FIPS-validated cipher suites |
+| DynamoDB       | FIPS endpoint via VPC Gateway Endpoint                |
+| MQTT (Maestro) | TLS 1.2+ with FIPS-validated cipher suites            |
 
-## Network Security
+## Network Security (Planned)
 
 ### zoa-jobs Namespace Policies
+
+> **Status**: Not yet deployed. The following NetworkPolicy is planned for a future iteration to restrict TA Job egress.
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -383,7 +377,7 @@ spec:
           protocol: TCP
 ```
 
-**Denied by default:**
+**When deployed, denied by default:**
 
 - No internet egress (no arbitrary HTTP calls from TA scripts)
 - No lateral movement to other namespaces
@@ -391,21 +385,21 @@ spec:
 
 ## Summary of Controls
 
-| NIST Control | ZOA Implementation |
-|--------------|-------------------|
-| AC-2 (Account Management) | STS temporary credentials, no shared accounts |
-| AC-3 (Access Enforcement) | Per-execution RBAC, per-execution SA, SigV4 auth |
-| AC-6 (Least Privilege) | RBAC scoped to declared resources only |
-| AU-2 (Audit Events) | DynamoDB records all executions + separate audit table records all API calls |
-| AU-3 (Content of Audit Records) | Executions: operator, jira, action, target, approval_state, timestamp, duration, status, dry_run, force. Audit: method, path (full URI), action, target, execution_id, jira, approval_state, status_code |
-| AU-9 (Protection of Audit Info) | S3 versioning, no-delete lifecycle, KMS encryption, DynamoDB TTL (365d) |
-| AU-12 (Audit Generation) | Automatic — all audited API calls recorded; rejections (400/429) also captured |
-| CM-7 (Least Functionality) | No shell access, no arbitrary commands — only pre-approved TAs |
-| IA-2 (Identification and Authentication) | SigV4 + STS, caller ARN extracted per request |
-| SC-8 (Transmission Confidentiality) | TLS 1.2+ on all channels (API, MQTT, S3) |
-| SC-13 (Cryptographic Protection) | FIPS-validated KMS, SSE-KMS at rest |
-| SC-28 (Protection of Information at Rest) | SSE-KMS for S3 and DynamoDB |
-| SI-4 (Information System Monitoring) | Reconciler loop monitors execution status continuously |
+| NIST Control                              | ZOA Implementation                                                                                                                                                                                       |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-2 (Account Management)                 | STS temporary credentials, no shared accounts                                                                                                                                                            |
+| AC-3 (Access Enforcement)                 | Per-execution RBAC, per-execution SA, SigV4 auth                                                                                                                                                         |
+| AC-6 (Least Privilege)                    | RBAC scoped to declared resources only                                                                                                                                                                   |
+| AU-2 (Audit Events)                       | DynamoDB records all executions + separate audit table records all API calls                                                                                                                             |
+| AU-3 (Content of Audit Records)           | Executions: operator, jira, action, target, approval_state, timestamp, duration, status, dry_run, force. Audit: method, path (full URI), action, target, execution_id, jira, approval_state, status_code |
+| AU-9 (Protection of Audit Info)           | S3 versioning, no-delete lifecycle, KMS encryption, DynamoDB TTL (365d)                                                                                                                                  |
+| AU-12 (Audit Generation)                  | Automatic — all audited API calls recorded; rejections (400/429) also captured                                                                                                                           |
+| CM-7 (Least Functionality)                | No shell access, no arbitrary commands — only pre-approved TAs                                                                                                                                           |
+| IA-2 (Identification and Authentication)  | SigV4 + STS, caller ARN extracted per request                                                                                                                                                            |
+| SC-8 (Transmission Confidentiality)       | TLS 1.2+ on all channels (API, MQTT, S3)                                                                                                                                                                 |
+| SC-13 (Cryptographic Protection)          | FIPS-validated KMS, SSE-KMS at rest                                                                                                                                                                      |
+| SC-28 (Protection of Information at Rest) | SSE-KMS for S3 and DynamoDB                                                                                                                                                                              |
+| SI-4 (Information System Monitoring)      | Reconciler loop monitors execution status continuously                                                                                                                                                   |
 
 ---
 

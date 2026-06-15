@@ -25,12 +25,12 @@ Zero Operator Access (ZOA) Trusted Actions provide a mediated, auditable mechani
 
 ### Separation of Concerns
 
-| Concern | Owner | Where |
-|---------|-------|-------|
-| Script logic + RBAC rules | TA author | `argocd/config/regional-cluster/platform-api/ta-templates/` |
-| Job boilerplate (image, volumes, entrypoint, resources) | Platform/infra team | `zoa-job-config` ConfigMap in platform repo |
-| Job generation logic | Platform API code | Go code reads template + config, builds ManifestWork |
-| Infrastructure (namespace, SAs, Pod Identity) | Platform/infra team | `zoa-jobs` Helm chart (`argocd/config/shared/zoa-jobs/`) + Terraform |
+| Concern                                                 | Owner               | Where                                                                |
+| ------------------------------------------------------- | ------------------- | -------------------------------------------------------------------- |
+| Script logic + RBAC rules                               | TA author           | `argocd/config/regional-cluster/platform-api/ta-templates/`          |
+| Job boilerplate (image, volumes, entrypoint, resources) | Platform/infra team | `zoa-job-config` ConfigMap in platform repo                          |
+| Job generation logic                                    | Platform API code   | Go code reads template + config, builds ManifestWork                 |
+| Infrastructure (namespace, SAs, Pod Identity)           | Platform/infra team | `zoa-jobs` Helm chart (`argocd/config/shared/zoa-jobs/`) + Terraform |
 
 ### TA Template Format (What Authors Write)
 
@@ -84,11 +84,11 @@ script: |
 
 **Optional template fields:**
 
-| Field | Default | Description |
-|-------|---------|-------------|
-| `authorization` | `{approval: none}` | Authorization policy. All current TAs use `approval: none`. Future structured policies will gate dispatch behind approvers. |
-| `write_cooldown_seconds` | `0` (uses global default) | Per-TA write cooldown override |
-| `dry_run_action` | `""` | Read TA to execute when `dry_run: true` is set (write TAs only) |
+| Field                    | Default                   | Description                                                                                                                 |
+| ------------------------ | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `authorization`          | `{approval: none}`        | Authorization policy. All current TAs use `approval: none`. Future structured policies will gate dispatch behind approvers. |
+| `write_cooldown_seconds` | `0` (uses global default) | Per-TA write cooldown override                                                                                              |
+| `dry_run_action`         | `""`                      | Read TA to execute when `dry_run: true` is set (write TAs only)                                                             |
 
 **No Job, no ConfigMap, no volumes, no image** — Platform API generates all of that.
 
@@ -133,7 +133,12 @@ AWS-scoped TAs use static ServiceAccounts (`zoa-aws-read`, `zoa-aws-write`) with
   ```json
   {
     "affected_resources": [
-      {"kind": "Pod", "namespace": "maestro", "name": "maestro-xyz", "action": "deleted"}
+      {
+        "kind": "Pod",
+        "namespace": "maestro",
+        "name": "maestro-xyz",
+        "action": "deleted"
+      }
     ],
     "summary": "Pod replaced successfully, controller will recreate"
   }
@@ -262,14 +267,14 @@ Static ServiceAccounts (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`) are inf
 
 ### Service Account Strategy — Two-Job Split
 
-ZOA uses a split SA model separating operational permissions from output transport:
+ZOA uses a split SA model separating operational permissions from output transport (see [Dispatch Flow](#dispatch-flow-two-job-architecture) for the full network diagram):
 
-| ServiceAccount | Lifecycle | Kubernetes Access | AWS Access (Pod Identity) |
-|----------------|-----------|-------------------|--------------------------|
-| `zoa-runner-<exec-id>` | Per-execution (dynamic) | Per-execution Role only | **None** |
-| `zoa-uploader` | Static (infra) | Per-execution Role (dynamic, `resourceNames`-scoped) | `s3:PutObject` + `kms:Encrypt` |
-| `zoa-aws-read` | Static (infra) | Per-execution Role | AWS read-only APIs (no S3 on ZOA bucket) |
-| `zoa-aws-write` | Static (infra) | Per-execution Role | AWS read-write APIs (no S3 on ZOA bucket) |
+| ServiceAccount         | Lifecycle               | Kubernetes Access                                    | AWS Access (Pod Identity)                 |
+| ---------------------- | ----------------------- | ---------------------------------------------------- | ----------------------------------------- |
+| `zoa-runner-<exec-id>` | Per-execution (dynamic) | Per-execution Role only                              | **None**                                  |
+| `zoa-uploader`         | Static (infra)          | Per-execution Role (dynamic, `resourceNames`-scoped) | `s3:PutObject` + `kms:Encrypt`            |
+| `zoa-aws-read`         | Static (infra)          | Per-execution Role                                   | AWS read-only APIs (no S3 on ZOA bucket)  |
+| `zoa-aws-write`        | Static (infra)          | Per-execution Role                                   | AWS read-write APIs (no S3 on ZOA bucket) |
 
 **Key design decisions:**
 
@@ -280,22 +285,22 @@ ZOA uses a split SA model separating operational permissions from output transpo
 
 **Audit chain:**
 
-| Layer | What's Recorded | Identifies |
-|-------|----------------|------------|
-| Platform API (DynamoDB executions) | `execution_id`, `operator`, `jira`, `action`, `target`, `params`, `revision`, `updated_at`, `dry_run`, `force`, timestamps | Who requested what, when, why (Jira), and how (dry-run/forced) |
-| Platform API (DynamoDB audit table) | `method`, `path` (full URI), `action`, `target_cluster`, `execution_id`, `jira`, `operator`, `status_code`, `timestamp` | Every API call (including reads and rejections) |
-| ManifestWork + all resources | Labels: `zoa.rosa.io/execution-id`, `zoa.rosa.io/operator`, `zoa.rosa.io/action`, `zoa.rosa.io/revision` | Full traceability on every K8s resource |
-| Kubernetes audit logs | Per-execution SA name (`zoa-runner-<exec-id>`) + pod labels | Perfect execution-level attribution |
-| S3 object metadata | `x-amz-meta-execution-id`, `x-amz-meta-operator` | Output ownership |
+| Layer                               | What's Recorded                                                                                                            | Identifies                                                     |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Platform API (DynamoDB executions)  | `execution_id`, `operator`, `jira`, `action`, `target`, `params`, `revision`, `updated_at`, `dry_run`, `force`, timestamps | Who requested what, when, why (Jira), and how (dry-run/forced) |
+| Platform API (DynamoDB audit table) | `method`, `path` (full URI), `action`, `target_cluster`, `execution_id`, `jira`, `operator`, `status_code`, `timestamp`    | Every API call (including reads and rejections)                |
+| ManifestWork + all resources        | Labels: `zoa.rosa.io/execution-id`, `zoa.rosa.io/operator`, `zoa.rosa.io/action`, `zoa.rosa.io/revision`                   | Full traceability on every K8s resource                        |
+| Kubernetes audit logs               | Per-execution SA name (`zoa-runner-<exec-id>`) + pod labels                                                                | Perfect execution-level attribution                            |
+| S3 object metadata                  | `x-amz-meta-execution-id`, `x-amz-meta-operator`                                                                           | Output ownership                                               |
 
 ### Namespace and Infrastructure Pre-creation
 
 Infrastructure is deployed via the `zoa-jobs` Helm chart at `argocd/config/shared/zoa-jobs/`. The root ArgoCD ApplicationSet discovers shared charts and deploys them to both Regional and Management clusters with `CreateNamespace=true`.
 
-| Cluster Type | Mechanism | What's Created |
-|--------------|-----------|----------------|
-| RC | ApplicationSet → `zoa-jobs` chart | Namespace `zoa-jobs`, static SAs |
-| MC | ApplicationSet → `zoa-jobs` chart | Namespace `zoa-jobs`, static SAs (execution target) |
+| Cluster Type | Mechanism                         | What's Created                                      |
+| ------------ | --------------------------------- | --------------------------------------------------- |
+| RC           | ApplicationSet → `zoa-jobs` chart | Namespace `zoa-jobs`, static SAs                    |
+| MC           | ApplicationSet → `zoa-jobs` chart | Namespace `zoa-jobs`, static SAs (execution target) |
 
 ManifestWork is used **only** as transport for TA executions (Job + per-execution RBAC + ConfigMap).
 
@@ -307,16 +312,16 @@ A custom "swiss knife" image built for ZOA jobs, based on UBI9 for FIPS complian
 
 **Included tools:**
 
-| Tool | Source | Purpose |
-|------|--------|---------|
-| `kubectl` | OpenShift mirror | Kubernetes API operations |
-| `oc` | OpenShift mirror | OpenShift-specific operations |
-| `aws` | AWS CLI v2 | AWS API operations + S3 upload |
-| `jq` | UBI package | JSON processing |
-| `yq` | GitHub release | YAML processing |
-| `python3` | UBI package | Complex scripting |
-| `bash` | UBI package | Shell scripting |
-| `curl` | UBI package | HTTP operations |
+| Tool      | Source           | Purpose                        |
+| --------- | ---------------- | ------------------------------ |
+| `kubectl` | OpenShift mirror | Kubernetes API operations      |
+| `oc`      | OpenShift mirror | OpenShift-specific operations  |
+| `aws`     | AWS CLI v2       | AWS API operations + S3 upload |
+| `jq`      | UBI package      | JSON processing                |
+| `yq`      | GitHub release   | YAML processing                |
+| `python3` | UBI package      | Complex scripting              |
+| `bash`    | UBI package      | Shell scripting                |
+| `curl`    | UBI package      | HTTP operations                |
 
 **Image source**: `images/zoa-tools/Dockerfile` in this repository.
 
@@ -328,14 +333,14 @@ A custom "swiss knife" image built for ZOA jobs, based on UBI9 for FIPS complian
 
 #### Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v0/trusted-actions/{action}/run` | Execute a Trusted Action |
-| `GET` | `/api/v0/trusted-actions/runs/{id}` | Get execution |
-| `GET` | `/api/v0/trusted-actions/runs` | List executions (paginated) |
-| `GET` | `/api/v0/trusted-actions/audit` | List API call audit log (paginated) |
-| `GET` | `/api/v0/trusted-actions` | List available TAs (catalog) |
-| `GET` | `/api/v0/trusted-actions/{action}` | Describe a specific TA (params, description, metadata) |
+| Method | Path                                   | Description                                            | Audited |
+| ------ | -------------------------------------- | ------------------------------------------------------ | ------- |
+| `POST` | `/api/v0/trusted-actions/{action}/run` | Execute a Trusted Action                               | Yes     |
+| `GET`  | `/api/v0/trusted-actions/runs/{id}`    | Get execution                                          | Yes     |
+| `GET`  | `/api/v0/trusted-actions/runs`         | List executions (paginated)                            | Yes     |
+| `GET`  | `/api/v0/trusted-actions/audit`        | List API call audit log (paginated)                    | Yes     |
+| `GET`  | `/api/v0/trusted-actions`              | List available TAs (catalog)                           | No      |
+| `GET`  | `/api/v0/trusted-actions/{action}`     | Describe a specific TA (params, description, metadata) | No      |
 
 `POST /{action}/run` returns **202 Accepted** with `{id, status: "pending"}` — execution is asynchronous. The CLI polls until terminal status unless `--no-wait` is set.
 
@@ -347,51 +352,51 @@ All `POST /trusted-actions/{action}/run` calls require a `jira` field:
 {
   "target_cluster": "mc-useast1-1",
   "jira": "ROSAENG-1234",
-  "params": {"namespace": "maestro", "name": "maestro-abc-123"},
+  "params": { "namespace": "maestro", "name": "maestro-abc-123" },
   "force": false,
   "dry_run": false
 }
 ```
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `target_cluster` | Yes | Target management cluster |
-| `jira` | Yes | Jira ticket (stored in DynamoDB, returned in execution records) |
-| `params` | No | TA parameters (all values are strings) |
-| `force` | No | Bypass write cooldown (default: `false`) |
-| `dry_run` | No | Execute `dry_run_action` instead (default: `false`) |
+| Field            | Required | Description                                                     |
+| ---------------- | -------- | --------------------------------------------------------------- |
+| `target_cluster` | Yes      | Target management cluster                                       |
+| `jira`           | Yes      | Jira ticket (stored in DynamoDB, returned in execution records) |
+| `params`         | No       | TA parameters (all values are strings)                          |
+| `force`          | No       | Bypass write cooldown (default: `false`)                        |
+| `dry_run`        | No       | Execute `dry_run_action` instead (default: `false`)             |
 
 #### Query Parameters for GET /runs/{id}
 
 Uses an `include` parameter for selecting response content:
 
-| Request | Returns |
-|---------|---------|
-| `GET /runs/{id}` | metadata only (default) |
-| `GET /runs/{id}?include=output` | metadata + output |
-| `GET /runs/{id}?include=logs` | metadata + execution.log content |
-| `GET /runs/{id}?include=output,logs` | metadata + output + logs |
+| Request                              | Returns                          |
+| ------------------------------------ | -------------------------------- |
+| `GET /runs/{id}`                     | metadata only (default)          |
+| `GET /runs/{id}?include=output`      | metadata + output                |
+| `GET /runs/{id}?include=logs`        | metadata + execution.log content |
+| `GET /runs/{id}?include=output,logs` | metadata + output + logs         |
 
 The API proxies S3 content directly — no presigned URLs exposed to consumers.
 
 #### Query Parameters for GET /runs (List)
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `limit` | 20 | Number of runs to return (max 100) |
-| `page` | 1 | Page number |
-| `status` | — | Filter: `pending`, `running`, `succeeded`, `failed`, `timed_out` |
-| `action` | — | Filter by TA name |
-| `target` | — | Filter by target cluster |
-| `operator` | — | Filter by who ran it |
-| `scope` | — | Filter by scope: `kube-api`, `aws-api` |
-| `type` | — | Filter by type: `read`, `write` |
-| `output_status` | — | Filter by output status: `pending`, `uploaded`, `failed` |
-| `dry_run` | — | Filter: `true` or `false` |
-| `force` | — | Filter: `true` or `false` |
-| `approval_state` | — | Filter by approval state: `not_required`, `pending`, `approved`, `rejected` |
-| `since` | — | Only runs after this timestamp |
-| `sort` | `desc` | Sort by created_at |
+| Parameter        | Default | Description                                                                 |
+| ---------------- | ------- | --------------------------------------------------------------------------- |
+| `limit`          | 20      | Number of runs to return (max 100)                                          |
+| `page`           | 1       | Page number                                                                 |
+| `status`         | —       | Filter: `pending`, `running`, `succeeded`, `failed`, `timed_out`            |
+| `action`         | —       | Filter by TA name                                                           |
+| `target`         | —       | Filter by target cluster                                                    |
+| `operator`       | —       | Filter by who ran it                                                        |
+| `scope`          | —       | Filter by scope: `kube-api`, `aws-api`                                      |
+| `type`           | —       | Filter by type: `read`, `write`                                             |
+| `output_status`  | —       | Filter by output status: `pending`, `uploaded`, `failed`                    |
+| `dry_run`        | —       | Filter: `true` or `false`                                                   |
+| `force`          | —       | Filter: `true` or `false`                                                   |
+| `approval_state` | —       | Filter by approval state: `not_required`, `pending`, `approved`, `rejected` |
+| `since`          | —       | Only runs after this timestamp                                              |
+| `sort`           | `desc`  | Sort by created_at                                                          |
 
 #### Response Format
 
@@ -424,25 +429,25 @@ The API proxies S3 content directly — no presigned URLs exposed to consumers.
 
 **Execution statuses:**
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Execution created, ManifestWork dispatched but not yet applied |
-| `running` | ManifestWork applied, Job running on target cluster |
-| `succeeded` | Job completed successfully (exit 0) |
-| `failed` | Job failed (non-zero exit) |
+| Status      | Meaning                                                                |
+| ----------- | ---------------------------------------------------------------------- |
+| `pending`   | Execution created, ManifestWork dispatched but not yet applied         |
+| `running`   | ManifestWork applied, Job running on target cluster                    |
+| `succeeded` | Job completed successfully (exit 0)                                    |
+| `failed`    | Job failed (non-zero exit)                                             |
 | `timed_out` | Execution exceeded per-TA or global timeout — reconciler force-cleaned |
 
 #### Query Parameters for GET /audit
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `limit` | 50 | Number of entries to return (max 200) |
-| `action` | — | Filter by TA name |
-| `target` | — | Filter by target cluster |
-| `operator` | — | Filter by who made the call |
-| `method` | — | Filter by HTTP method (`GET`, `POST`) |
-| `approval_state` | — | Filter by approval state |
-| `since` | — | Only entries after this timestamp |
+| Parameter        | Default | Description                           |
+| ---------------- | ------- | ------------------------------------- |
+| `limit`          | 50      | Number of entries to return (max 200) |
+| `action`         | —       | Filter by TA name                     |
+| `target`         | —       | Filter by target cluster              |
+| `operator`       | —       | Filter by who made the call           |
+| `method`         | —       | Filter by HTTP method (`GET`, `POST`) |
+| `approval_state` | —       | Filter by approval state              |
+| `since`          | —       | Only entries after this timestamp     |
 
 #### Parameter Validation Errors
 
@@ -472,13 +477,28 @@ When a request includes unknown params, the API returns HTTP 400 with contextual
   "scope": "kube-api",
   "type": "read",
   "description": "List or get nodes in the target cluster with status and resource information",
-  "authorization": {"approval": "none"},
+  "authorization": { "approval": "none" },
   "write_cooldown_seconds": 0,
   "dry_run_action": "",
   "params": [
-    {"name": "name", "required": false, "default": "", "description": "Specific node name (omit to list all)"},
-    {"name": "label_selector", "required": false, "default": "", "description": "Label selector to filter nodes (e.g. node-role.kubernetes.io/worker=)"},
-    {"name": "verbose", "required": false, "default": "false", "description": "Return full JSON output instead of compact summary"}
+    {
+      "name": "name",
+      "required": false,
+      "default": "",
+      "description": "Specific node name (omit to list all)"
+    },
+    {
+      "name": "label_selector",
+      "required": false,
+      "default": "",
+      "description": "Label selector to filter nodes (e.g. node-role.kubernetes.io/worker=)"
+    },
+    {
+      "name": "verbose",
+      "required": false,
+      "default": "false",
+      "description": "Return full JSON output instead of compact summary"
+    }
   ]
 }
 ```
@@ -491,12 +511,20 @@ Example write TA with dry-run and cooldown:
   "scope": "kube-api",
   "type": "write",
   "description": "Perform a rolling restart of a deployment",
-  "authorization": {"approval": "none"},
+  "authorization": { "approval": "none" },
   "write_cooldown_seconds": 300,
   "dry_run_action": "get_deployments",
   "params": [
-    {"name": "namespace", "required": true, "description": "Namespace of the deployment"},
-    {"name": "name", "required": true, "description": "Name of the deployment to restart"}
+    {
+      "name": "namespace",
+      "required": true,
+      "description": "Namespace of the deployment"
+    },
+    {
+      "name": "name",
+      "required": true,
+      "description": "Name of the deployment to restart"
+    }
   ]
 }
 ```
@@ -509,11 +537,11 @@ Example AWS-scoped TA:
   "scope": "aws-api",
   "type": "read",
   "description": "Describe an EKS cluster by name in the target account region",
-  "authorization": {"approval": "none"},
+  "authorization": { "approval": "none" },
   "write_cooldown_seconds": 0,
   "dry_run_action": "",
   "params": [
-    {"name": "name", "required": true, "description": "EKS cluster name"}
+    { "name": "name", "required": true, "description": "EKS cluster name" }
   ]
 }
 ```
@@ -522,30 +550,30 @@ Example AWS-scoped TA:
 
 #### AWS-scoped (`aws-api`)
 
-| Action | Type | Params | Description |
-|--------|------|--------|-------------|
-| `list_eks_clusters` | read | — | List all EKS clusters in the target account region |
-| `describe_eks_cluster` | read | `name` (required) | Describe an EKS cluster by name |
-| `list_vpc_endpoints` | read | — | List VPC endpoints in the target account region |
-| `describe_vpc_endpoint` | read | `name` (required) | Describe a VPC endpoint by name |
+| Action                  | Type | Params            | Description                                        |
+| ----------------------- | ---- | ----------------- | -------------------------------------------------- |
+| `list_eks_clusters`     | read | —                 | List all EKS clusters in the target account region |
+| `describe_eks_cluster`  | read | `name` (required) | Describe an EKS cluster by name                    |
+| `list_vpc_endpoints`    | read | —                 | List VPC endpoints in the target account region    |
+| `describe_vpc_endpoint` | read | `name` (required) | Describe a VPC endpoint by name                    |
 
 #### Kubernetes-scoped (`kube-api`)
 
-| Action | Type | Params | Description |
-|--------|------|--------|-------------|
-| `get_pods` | read | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | List or get pods |
-| `get_nodes` | read | `name`, `label_selector`, `verbose` | List or get nodes |
-| `get_namespaces` | read | `name`, `verbose` | List or get namespaces |
-| `get_events` | read | `namespace`, `all_namespaces`, `field_selector`, `verbose` | List events |
-| `get_deployments` | read | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | List or get deployments |
-| `get_resource` | read | `resource`, `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | Get arbitrary resource type |
-| `rollout_restart` | write | `namespace`, `name` (required) | Rolling restart of a deployment |
-| `delete_pod` | write | `namespace`, `name` (required) | Delete a pod (must have owner references) |
+| Action            | Type  | Params                                                                         | Description                               |
+| ----------------- | ----- | ------------------------------------------------------------------------------ | ----------------------------------------- |
+| `get_pods`        | read  | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose`             | List or get pods                          |
+| `get_nodes`       | read  | `name`, `label_selector`, `verbose`                                            | List or get nodes                         |
+| `get_namespaces`  | read  | `name`, `verbose`                                                              | List or get namespaces                    |
+| `get_events`      | read  | `namespace`, `all_namespaces`, `field_selector`, `verbose`                     | List events                               |
+| `get_deployments` | read  | `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose`             | List or get deployments                   |
+| `get_resource`    | read  | `resource`, `namespace`, `all_namespaces`, `name`, `label_selector`, `verbose` | Get arbitrary resource type               |
+| `rollout_restart` | write | `namespace`, `name` (required)                                                 | Rolling restart of a deployment           |
+| `delete_pod`      | write | `namespace`, `name` (required)                                                 | Delete a pod (must have owner references) |
 
 ### CLI Design
 
 Designed around SRE muscle memory — mirrors `kubectl`/`oc` patterns with familiar flags.
-Implementation: `hack/zoa.sh` (source in `.zshrc`).
+Implementation: `hack/zoa.sh` (source in `.zshrc`). This is a temporary shell wrapper used for rapid API design iteration — a proper Go CLI will follow in a dedicated repository.
 
 #### Setup
 
@@ -563,43 +591,43 @@ zoa <verb> [resource] [flags]
 
 #### Commands
 
-| Command | API Call | Behavior |
-|---------|----------|----------|
-| `zoa run <action> -t <cluster> --jira <ticket>` | POST + poll + GET output | **Synchronous** — waits, prints result |
-| `zoa run <action> --no-wait` | POST only | Async — prints ID immediately |
-| `zoa get <id>` | `GET /runs/{id}` | Formatted metadata summary (default) |
-| `zoa get <id> --output` | `GET /runs/{id}?include=output` | Metadata header + output content |
-| `zoa get <id> --logs` | `GET /runs/{id}?include=logs` | Metadata header + logs |
-| `zoa get <id> --all` | `GET /runs/{id}?include=output,logs` | Metadata header + output + logs |
-| `zoa get <id> -o json` | `GET /runs/{id}` | Raw JSON metadata |
-| `zoa get <id> --output -o json` | `GET /runs/{id}?include=output` | Raw JSON with output |
-| `zoa logs <id>` | `GET /runs/{id}?include=logs` | Raw logs (shortcut) |
-| `zoa runs` | `GET /runs` | List recent executions (formatted table) |
-| `zoa runs -o json` | `GET /runs` | Raw JSON list response |
-| `zoa runs -t <cluster>` | `GET /runs?target=<cluster>` | Filter by target |
-| `zoa runs --status failed` | `GET /runs?status=failed` | Filter by status |
-| `zoa runs --action get_pods` | `GET /runs?action=get_pods` | Filter by action |
-| `zoa runs --dry-run` | `GET /runs?dry_run=true` | Filter dry-run executions only |
-| `zoa runs --force` | `GET /runs?force=true` | Filter forced executions only |
-| `zoa runs --approval not_required` | `GET /runs?approval_state=not_required` | Filter by approval state |
-| `zoa runs --since 1h` | `GET /runs?since=1h` | Filter by time |
-| `zoa actions` | `GET /trusted-actions` | List available TAs (formatted table) |
-| `zoa describe <action>` | `GET /trusted-actions/{action}` | Formatted TA metadata + params table |
-| `zoa describe <action> -o json` | `GET /trusted-actions/{action}` | Raw JSON describe response |
-| `zoa audit` | `GET /audit` | List API call audit log (formatted table) |
-| `zoa audit -o json` | `GET /audit` | Raw JSON audit log |
-| `zoa audit --operator slopezma` | `GET /audit?operator=slopezma` | Filter audit by operator |
-| `zoa audit --action rollout_restart` | `GET /audit?action=rollout_restart` | Filter audit by action |
-| `zoa audit --method POST` | `GET /audit?method=POST` | Filter audit by HTTP method |
-| `zoa audit --approval not_required` | `GET /audit?approval_state=not_required` | Filter audit by approval state |
-| `zoa audit --since 24h` | `GET /audit?since=24h` | Filter audit by time |
+| Command                                         | API Call                                 | Behavior                                  |
+| ----------------------------------------------- | ---------------------------------------- | ----------------------------------------- |
+| `zoa run <action> -t <cluster> --jira <ticket>` | POST + poll + GET output                 | **Synchronous** — waits, prints result    |
+| `zoa run <action> --no-wait`                    | POST only                                | Async — prints ID immediately             |
+| `zoa get <id>`                                  | `GET /runs/{id}`                         | Formatted metadata summary (default)      |
+| `zoa get <id> --output`                         | `GET /runs/{id}?include=output`          | Metadata header + output content          |
+| `zoa get <id> --logs`                           | `GET /runs/{id}?include=logs`            | Metadata header + logs                    |
+| `zoa get <id> --all`                            | `GET /runs/{id}?include=output,logs`     | Metadata header + output + logs           |
+| `zoa get <id> -o json`                          | `GET /runs/{id}`                         | Raw JSON metadata                         |
+| `zoa get <id> --output -o json`                 | `GET /runs/{id}?include=output`          | Raw JSON with output                      |
+| `zoa logs <id>`                                 | `GET /runs/{id}?include=logs`            | Raw logs (shortcut)                       |
+| `zoa runs`                                      | `GET /runs`                              | List recent executions (formatted table)  |
+| `zoa runs -o json`                              | `GET /runs`                              | Raw JSON list response                    |
+| `zoa runs -t <cluster>`                         | `GET /runs?target=<cluster>`             | Filter by target                          |
+| `zoa runs --status failed`                      | `GET /runs?status=failed`                | Filter by status                          |
+| `zoa runs --action get_pods`                    | `GET /runs?action=get_pods`              | Filter by action                          |
+| `zoa runs --dry-run`                            | `GET /runs?dry_run=true`                 | Filter dry-run executions only            |
+| `zoa runs --force`                              | `GET /runs?force=true`                   | Filter forced executions only             |
+| `zoa runs --approval not_required`              | `GET /runs?approval_state=not_required`  | Filter by approval state                  |
+| `zoa runs --since 1h`                           | `GET /runs?since=1h`                     | Filter by time                            |
+| `zoa actions`                                   | `GET /trusted-actions`                   | List available TAs (formatted table)      |
+| `zoa describe <action>`                         | `GET /trusted-actions/{action}`          | Formatted TA metadata + params table      |
+| `zoa describe <action> -o json`                 | `GET /trusted-actions/{action}`          | Raw JSON describe response                |
+| `zoa audit`                                     | `GET /audit`                             | List API call audit log (formatted table) |
+| `zoa audit -o json`                             | `GET /audit`                             | Raw JSON audit log                        |
+| `zoa audit --operator slopezma`                 | `GET /audit?operator=slopezma`           | Filter audit by operator                  |
+| `zoa audit --action rollout_restart`            | `GET /audit?action=rollout_restart`      | Filter audit by action                    |
+| `zoa audit --method POST`                       | `GET /audit?method=POST`                 | Filter audit by HTTP method               |
+| `zoa audit --approval not_required`             | `GET /audit?approval_state=not_required` | Filter audit by approval state            |
+| `zoa audit --since 24h`                         | `GET /audit?since=24h`                   | Filter audit by time                      |
 
 **Polling interval:** 5 seconds (CLI default when waiting for execution completion).
 
 **Table columns:**
 
 - `zoa runs`: `CREATED_AT`, `OPERATOR`, `ID`, `ACTION`, `PARAMS`, `TARGET`, `SCOPE`, `TYPE`, `STATUS`, `OUTPUT`, `RUN`, `UPL`, `TOT`
-- `zoa audit`: `TIMESTAMP`, `METH`, `CODE`, `OPERATOR`, `ACTION`, `TARGET`, `JIRA`, `APPROVAL`, `EXEC_ID`, `PATH`
+- `zoa audit`: `TIMESTAMP`, `METHOD`, `CODE`, `OPERATOR`, `ACTION`, `TARGET`, `JIRA`, `APPROVAL`, `EXEC_ID`, `PATH`
 
 **Global flag:** `-o json` on any command returns raw JSON instead of formatted output.
 
@@ -609,20 +637,20 @@ confirmation on stderr shows the full UUID — copy-paste from `zoa runs` output
 
 #### Run Flags (mirrors kubectl)
 
-| Flag | Param | Description |
-|------|-------|-------------|
-| `-t, --target <cluster>` | `target_cluster` | Target cluster (**required**) |
-| `--jira <ticket>` | `jira` | Jira ticket (**required**, e.g. `ROSAENG-1234`) |
-| `-n <namespace>` | `namespace` | Namespace |
-| `-A` | `all_namespaces=true` | All namespaces |
-| `-l <selector>` | `label_selector` | Label selector (kubectl `-l` syntax) |
-| `-v, --verbose` | `verbose=true` | Full JSON output (no compact) |
-| `--resource <type>` | `resource` | Resource type (for `get_resource`) |
-| `--name <name>` | `name` | Resource name (read TAs: single fetch; write TAs: target resource) |
-| `--force` | `force=true` | Bypass write cooldown |
-| `--dry-run` | `dry_run=true` | Execute `dry_run_action` instead (preview) |
-| `--no-wait` | — | Don't poll; return ID immediately |
-| `--param key=value` | arbitrary | Pass any param not covered by flags |
+| Flag                     | Param                 | Description                                                        |
+| ------------------------ | --------------------- | ------------------------------------------------------------------ |
+| `-t, --target <cluster>` | `target_cluster`      | Target cluster (**required**)                                      |
+| `--jira <ticket>`        | `jira`                | Jira ticket (**required**, e.g. `ROSAENG-1234`)                    |
+| `-n <namespace>`         | `namespace`           | Namespace                                                          |
+| `-A`                     | `all_namespaces=true` | All namespaces                                                     |
+| `-l <selector>`          | `label_selector`      | Label selector (kubectl `-l` syntax)                               |
+| `-v, --verbose`          | `verbose=true`        | Full JSON output (no compact)                                      |
+| `--resource <type>`      | `resource`            | Resource type (for `get_resource`)                                 |
+| `--name <name>`          | `name`                | Resource name (read TAs: single fetch; write TAs: target resource) |
+| `--force`                | `force=true`          | Bypass write cooldown                                              |
+| `--dry-run`              | `dry_run=true`        | Execute `dry_run_action` instead (preview)                         |
+| `--no-wait`              | —                     | Don't poll; return ID immediately                                  |
+| `--param key=value`      | arbitrary             | Pass any param not covered by flags                                |
 
 #### Output Contract
 
@@ -761,6 +789,7 @@ dry_run_action: get_deployments
 ```
 
 When `dry_run: true` is set, Platform API executes the referenced read TA instead. The execution record stores:
+
 - `action`: the originally requested action (e.g. `rollout_restart`)
 - `executed_action`: the substituted read action (e.g. `get_deployments`)
 - `dry_run: true`
@@ -817,18 +846,18 @@ Platform API Reconciler (5s loop):                                              
 
 1. **Per-execution ServiceAccount with dynamic Pod Identity**: Each TA execution creates its own SA and wires Pod Identity dynamically. Rejected because EKS Pod Identity requires Terraform/API calls per SA (cannot be done from within a ManifestWork), adding minutes of latency and significant IAM complexity.
 
-2. **Single shared ServiceAccount**: One SA (`zoa-job-runner`) for all TAs. Rejected because Kubernetes audit logs only show SA identity — all TAs would be indistinguishable at the K8s audit level.
+2. **Single shared ServiceAccount**: One SA (`zoa-job-runner`) for all TAs. Rejected because Kubernetes audit logs only show SA identity — all TAs would be indistinguishable at the K8s audit level. Additionally, a shared SA bound to N possible Roles means parallel executions share permissions — any running TA would have access to RBAC granted for a different concurrent TA.
 
 3. **IRSA (IAM Roles for Service Accounts)**: Allows per-SA roles via annotations. Rejected because IRSA is not fully supported in EKS Auto Mode and is being deprecated in favor of Pod Identity.
 
-4. **Sidecar container for S3 upload**: A separate container watches `/artifacts` and uploads. Rejected in favor of a simpler wrapper approach — sidecars add complexity around container ordering and completion detection.
+4. **Sidecar container for S3 upload**: A separate container watches `/artifacts` and uploads. Rejected because sidecars add complexity around container ordering and completion detection. Additionally, containers in the same Pod share the same ServiceAccount — the runner would inherit S3 write permissions, breaking the isolation between operational actions and output transport.
 
 5. **Full ManifestWork templates (Job + RBAC defined by TA author)**: TA authors define the entire ManifestWork content including Job spec. Rejected because it couples boilerplate (image, volumes, resources, entrypoint) to each TA, requiring all TAs to be updated when infrastructure changes (e.g., image bump).
 
 ## Design Rationale
 
 - **Justification**: The split SA model (per-execution runner + static uploader/AWS SAs) balances auditability, operational simplicity, and Pod Identity constraints. Separating TA authoring (script + RBAC) from execution boilerplate (image, wrapper, resources) enables independent evolution of each concern.
-- **Evidence**: ARO-HCP uses a similar pattern with Maestro for ManifestWork dispatch. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern at scale for OSD/ROSA operations.
+- **Evidence**: ARO-HCP validates Maestro as a reliable ManifestWork dispatch mechanism at scale across management clusters. The `openshift/managed-scripts` project validates the "swiss knife image + script" pattern for OSD/ROSA operations.
 - **Comparison**: Per-execution runner SAs provide execution-level K8s audit attribution. Static AWS and uploader SAs satisfy Pod Identity constraints while keeping IAM association count bounded. Rich labels on all resources enable correlation via kube audit logs.
 
 ## Consequences
@@ -850,8 +879,7 @@ Platform API Reconciler (5s loop):                                              
 ### Negative
 
 - Custom image requires maintenance (updates, CVE patches, FIPS recertification)
-- Platform API has more generation logic (builds ManifestWork programmatically vs. simple template rendering)
-- 1MB ConfigMap limit constrains inter-job output transfer size
+- 1MB ConfigMap limit constrains inter-job output transfer size (~10-15k lines of JSON — more than sufficient for operational queries)
 
 ## Cross-Cutting Concerns
 
@@ -864,6 +892,7 @@ Platform API Reconciler (5s loop):                                              
 - Jobs run with `runAsNonRoot: true`
 - TTL-based cleanup ensures ephemeral resources don't accumulate
 - Revision tracking ensures traceability to specific TA definitions
+- Kubernetes audit logs correlate directly to executions via per-execution SA names (`zoa-runner-<exec-id>`) and pod labels (`zoa.rosa.io/execution-id`, `zoa.rosa.io/operator`, `zoa.rosa.io/action`)
 
 ### Reliability:
 
@@ -875,7 +904,7 @@ Platform API Reconciler (5s loop):                                              
 ### Cost:
 
 - DynamoDB on-demand pricing (~$1.25/million writes)
-- S3 Standard with lifecycle policy (365-day retention for FedRAMP)
+- S3 Standard with Intelligent-Tiering transition at 30 days + 365-day expiration (FedRAMP retention)
 - 5 Pod Identity associations per cluster (negligible)
 - One custom container image build pipeline
 
@@ -883,8 +912,9 @@ Platform API Reconciler (5s loop):                                              
 
 - Adding a new TA: create YAML in `argocd/config/regional-cluster/platform-api/ta-templates/`, push, ArgoCD syncs ConfigMap
 - Updating the image/wrapper: change `zoa-job-config` values, ArgoCD syncs, Platform API hot-reloads
+- **Future**: TAs, the `zoa-tools` container image, and the Go CLI will move to a dedicated repository with independent release cycles
 - Adding a new static SA profile: update `zoa-jobs` chart, Terraform (IAM role + Pod Identity), and Platform API (scope mapping)
-- Debugging: `zoa logs <id>` → full execution log from S3 (available even after Job/Pod GC)
+- Debugging: `zoa logs <id>` → full execution log from S3 (available even after Job/Pod GC, including when the runner Job failed)
 
 ---
 
