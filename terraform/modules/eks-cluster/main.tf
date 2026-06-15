@@ -231,14 +231,6 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "metrics_server" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "metrics-server"
-
-  # Pin to the Auto Mode system pool — FIPS nodes are the default for all
-  # other workloads and metrics-server does not require FIPS.
-  configuration_values = jsonencode({
-    nodeSelector = {
-      "eks.amazonaws.com/nodepool" = "system"
-    }
-  })
 }
 
 # bootstrap_self_managed_addons = false prevents EKS from auto-installing VPC
