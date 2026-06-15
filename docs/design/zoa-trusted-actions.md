@@ -211,6 +211,7 @@ data:
   execution_timeout_seconds: "1800"
   write_cooldown_seconds: "300"
   max_concurrent_per_target: "10"
+  dynamodb_ttl_days: "365"
   entrypoint.sh: |
     #!/bin/bash
     set -uo pipefail
@@ -242,6 +243,18 @@ data:
     kubectl patch configmap "${OUTPUT_CONFIGMAP}" -n "${JOB_NAMESPACE}" --type=merge -p "${PATCH}"
     exit ${EXIT_CODE}
 ```
+
+**Design Rationale**:
+
+The `zoa-job-config` ConfigMap serves as the centralized source of truth for all Job-level configuration. Key design decisions:
+
+- **Wrapper scripts (`entrypoint.sh`, `upload_entrypoint.sh`)**: Embedded in the ConfigMap rather than baked into the container image. This allows hotfixing execution behavior (e.g., output capture, logging format) without rebuilding the `zoa-tools` image.
+- **Base64 encoding for inter-job transfer**: The runner Job writes `execution.log` and `output.json` to the output ConfigMap as `binaryData` (base64-encoded). This avoids YAML escaping issues with arbitrary script output while staying within Kubernetes API limits (~10-15k lines of output).
+- **Two-job parallel execution**: Runner and uploader Jobs run independently, each with its own ServiceAccount. The uploader uses `kubectl wait` on the runner Job, then reads the output ConfigMap. This avoids shared ServiceAccount permission leakage between execution and upload concerns.
+- **Exit code preservation**: The runner captures `PIPESTATUS[0]` from the TA script and propagates it both to the ConfigMap (for the reconciler) and as the container exit code (for Kubernetes Job status).
+- **Stdout + stderr capture**: All script output is captured via `tee` to `/artifacts/execution.log`, ensuring the full execution trace is available in S3 even if the runner Pod is garbage-collected.
+- **ConfigMap checksum annotation**: The Platform API Deployment uses a checksum of the `zoa-job-config` ConfigMap content as a pod annotation. When the ConfigMap changes (e.g., new image version, updated entrypoint), ArgoCD detects the annotation change and triggers a rolling update of the API pods, which then hot-reload the new config on startup.
+- **`dynamodb_ttl_days`**: Controls DynamoDB record retention for both execution and audit tables. Configurable without image rebuild (default: 365 days for FedRAMP compliance).
 
 TA authors can optionally override resources for heavy tasks:
 

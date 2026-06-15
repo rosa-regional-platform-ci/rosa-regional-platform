@@ -87,6 +87,7 @@ platformApi:
     executionTimeoutSeconds: "1800"
     writeCooldownSeconds: "300"
     maxConcurrentPerTarget: "10"
+    dynamodbTTLDays: "365"
     jobResources:
       requests:
         cpu: "25m"

@@ -19,6 +19,7 @@ data:
   upload_timeout_seconds: {{ .Values.platformApi.zoa.uploadTimeoutSeconds | default "120" | quote }}
   write_cooldown_seconds: {{ .Values.platformApi.zoa.writeCooldownSeconds | default "300" | quote }}
   max_concurrent_per_target: {{ .Values.platformApi.zoa.maxConcurrentPerTarget | default "10" | quote }}
+  dynamodb_ttl_days: {{ .Values.platformApi.zoa.dynamodbTTLDays | default "365" | quote }}
   entrypoint.sh: |
     #!/bin/bash
     set -uo pipefail
