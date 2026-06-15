@@ -192,57 +192,26 @@ The `revision` label tracks which Git commit of the TA definition was used — s
 
 ### Job Boilerplate Configuration
 
-Managed via a ConfigMap (`zoa-job-config`) in the platform repo, NOT hardcoded in API code:
+Managed via a ConfigMap (`zoa-job-config`) in the platform repo, NOT hardcoded in API code. The ConfigMap contains scalar configuration fields plus two embedded wrapper scripts (`entrypoint.sh` and `upload_entrypoint.sh`).
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: zoa-job-config
-  namespace: platform-api
-data:
-  image: "quay.io/slopezz/zoa-tools:latest"
-  revision: "<injected from ArgoCD git_revision>"
-  cpu_request: "25m"
-  memory_request: "64Mi"
-  cpu_limit: "250m"
-  memory_limit: "256Mi"
-  ttl_seconds: "3600"
-  execution_timeout_seconds: "1800"
-  write_cooldown_seconds: "300"
-  max_concurrent_per_target: "10"
-  dynamodb_ttl_days: "365"
-  entrypoint.sh: |
-    #!/bin/bash
-    set -uo pipefail
-    ts() { date -u '+%H:%M:%S'; }
-    EXEC_LOG="/artifacts/execution.log"
+Source: [`argocd/config/regional-cluster/platform-api/templates/zoa-job-config-configmap.yaml`](../../argocd/config/regional-cluster/platform-api/templates/zoa-job-config-configmap.yaml)
 
-    {
-      echo "[$(ts)] runner starting"
-      echo "[zoa] execution_id=${RUN_ID} action=${ACTION_NAME} target=${CLUSTER_ID}"
-      echo "[zoa] operator=${OPERATOR} scope=${SCOPE} type=${TYPE}"
-      echo "[zoa] revision=${REVISION}"
-      echo "[zoa] started_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-      echo "---"
-      /zoa/run.sh
-    } 2>&1 | tee "$EXEC_LOG"
-    EXIT_CODE=${PIPESTATUS[0]}
+**Configuration fields:**
 
-    {
-      echo "---"
-      echo "[$(ts)] exit_code=${EXIT_CODE}"
-      echo "[$(ts)] patching configmap"
-    } | tee -a "$EXEC_LOG"
-
-    # Patch output ConfigMap with base64-encoded log + output for uploader
-    LOG_B64=$(base64 -w0 "$EXEC_LOG")
-    PATCH="{\"binaryData\":{\"execution.log\":\"${LOG_B64}\""
-    [ -f /artifacts/output.json ] && PATCH="${PATCH},\"output.json\":\"$(base64 -w0 /artifacts/output.json)\""
-    PATCH="${PATCH}},\"data\":{\"exit-code\":\"${EXIT_CODE}\"}}"
-    kubectl patch configmap "${OUTPUT_CONFIGMAP}" -n "${JOB_NAMESPACE}" --type=merge -p "${PATCH}"
-    exit ${EXIT_CODE}
-```
+| Field                            | Default          | Purpose                                                  |
+| -------------------------------- | ---------------- | -------------------------------------------------------- |
+| `image`                          | (required)       | `zoa-tools` container image                              |
+| `revision`                       | (injected)       | ArgoCD `git_revision` for traceability                   |
+| `cpu_request` / `memory_request` | `25m` / `64Mi`   | Runner + uploader resource requests                      |
+| `cpu_limit` / `memory_limit`     | `250m` / `256Mi` | Runner + uploader resource limits                        |
+| `ttl_seconds`                    | `3600`           | Kubernetes Job `ttlSecondsAfterFinished` (backup GC)     |
+| `execution_timeout_seconds`      | `1800`           | Global default execution timeout                         |
+| `upload_timeout_seconds`         | `120`            | Uploader wait timeout for runner completion              |
+| `write_cooldown_seconds`         | `300`            | Global write cooldown between same action on same target |
+| `max_concurrent_per_target`      | `10`             | Max active (running + pending) executions per target     |
+| `dynamodb_ttl_days`              | `365`            | DynamoDB record retention for execution and audit tables |
+| `entrypoint.sh`                  | (script)         | Runner wrapper: captures output, patches ConfigMap       |
+| `upload_entrypoint.sh`           | (script)         | Uploader wrapper: waits for runner, uploads to S3        |
 
 **Design Rationale**:
 
@@ -250,8 +219,8 @@ The `zoa-job-config` ConfigMap serves as the centralized source of truth for all
 
 - **Wrapper scripts (`entrypoint.sh`, `upload_entrypoint.sh`)**: Embedded in the ConfigMap rather than baked into the container image. This allows hotfixing execution behavior (e.g., output capture, logging format) without rebuilding the `zoa-tools` image.
 - **Base64 encoding for inter-job transfer**: The runner Job writes `execution.log` and `output.json` to the output ConfigMap as `binaryData` (base64-encoded). This avoids YAML escaping issues with arbitrary script output while staying within Kubernetes API limits (~10-15k lines of output).
-- **Two-job parallel execution**: Runner and uploader Jobs run independently, each with its own ServiceAccount. The uploader uses `kubectl wait` on the runner Job, then reads the output ConfigMap. This avoids shared ServiceAccount permission leakage between execution and upload concerns.
-- **Exit code preservation**: The runner captures `PIPESTATUS[0]` from the TA script and propagates it both to the ConfigMap (for the reconciler) and as the container exit code (for Kubernetes Job status).
+- **Two-job parallel dispatch**: Both runner and uploader Jobs are created simultaneously in the same ManifestWork to avoid time overhead. The uploader starts immediately and uses `kubectl wait` to block until the runner completes (either success or failure). Once the runner finishes, the uploader reads the output ConfigMap and uploads artifacts to S3. This parallel creation eliminates sequential dispatch latency — the uploader is already scheduled and waiting by the time the runner finishes. Each Job uses its own ServiceAccount, which also avoids shared permission leakage between execution and upload concerns.
+- **Exit code preservation**: The runner captures `PIPESTATUS[0]` from the TA script and propagates it both to the ConfigMap (for the uploader/reconciler) and as the container exit code (for Kubernetes Job status). Crucially, the ConfigMap patch happens _before_ the runner exits — so even when the TA script fails, the output and logs are still written to the ConfigMap and subsequently uploaded to S3, making debugging of failed TAs straightforward.
 - **Stdout + stderr capture**: All script output is captured via `tee` to `/artifacts/execution.log`, ensuring the full execution trace is available in S3 even if the runner Pod is garbage-collected.
 - **ConfigMap checksum annotation**: The Platform API Deployment uses a checksum of the `zoa-job-config` ConfigMap content as a pod annotation. When the ConfigMap changes (e.g., new image version, updated entrypoint), ArgoCD detects the annotation change and triggers a rolling update of the API pods, which then hot-reload the new config on startup.
 - **`dynamodb_ttl_days`**: Controls DynamoDB record retention for both execution and audit tables. Configurable without image rebuild (default: 365 days for FedRAMP compliance).
