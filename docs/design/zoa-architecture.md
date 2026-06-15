@@ -131,9 +131,9 @@ sequenceDiagram
     API-->>Op: 202 {id, status: "pending"}
 
     Note over Op,S3: 2. Dispatch (MQTT, no direct network)
-    MS->>MQTT: Publish ManifestWork to MC topic
+    MS->>MQTT: Publish ManifestWork to target cluster topic
     MQTT->>MA: Deliver ManifestWork
-    MA->>MC: Apply manifests (SA, RBAC, CMs, Jobs)
+    MA->>MC: Apply manifests (SA, RBAC, CMs, Jobs) on target cluster
     MA->>MQTT: Report "Applied" status
     MQTT->>MS: Status feedback
 
@@ -153,7 +153,7 @@ sequenceDiagram
     API->>MS: gRPC GetManifestWork (poll feedback)
     MS-->>API: feedbackRules: succeeded/failed + Job timestamps
     API->>MS: gRPC DeleteManifestWork (cleanup)
-    MA->>MC: Delete all ZOA resources from MC
+    MA->>MC: Delete all ZOA resources from target cluster
     API->>DB: Update: status, runner_seconds, upload_seconds, duration_seconds, output_status
 
     Note over Op,S3: 5. Retrieval
@@ -189,9 +189,9 @@ For MC-targeted TAs, the MQTT path crosses the network boundary. For RC-targeted
 
 This means:
 
-- Platform API cannot kubectl into the MC
+- Platform API cannot kubectl into remote clusters
 - Status feedback flows back the same path: Target → MQTT → Maestro Server → Platform API (gRPC)
-- Output must be uploaded to S3 directly from the MC (the RC cannot pull it)
+- Output must be uploaded to S3 directly from the target cluster (via the uploader Job)
 
 ### Authentication Flow
 
@@ -223,19 +223,19 @@ Maestro (gRPC CreateManifestWork)
   │ No additional auth — internal service call within RC
   │
   ▼
-MQTT → Maestro Agent → Job on MC
+MQTT → Maestro Agent → Job on target cluster
 ```
 
 ### S3 Output Pipeline (Two-Job Architecture)
 
 ```
-Runner Job (on MC)
+Runner Job (on target cluster)
   │
   │ SA: zoa-runner-<exec-id> (per-execution, no S3 access)
   │ Writes output to ConfigMap: zoa-output-<exec-id>
   │
   ▼
-Uploader Job (on MC)
+Uploader Job (on target cluster)
   │
   │ SA: zoa-uploader → IAM Role (S3 PutObject + KMS Encrypt)
   │ Waits for runner job to complete
@@ -360,7 +360,7 @@ Platform API Reconciler (5-second loop on RC)
   │     │     │     upload_seconds  = uploader.completionTime - runner.completionTime
   │     │     │     duration_seconds = now - created_at (total wall-clock)
   │     │     ├── Delete ResourceBundle from Maestro (gRPC)
-  │     │     │     └── Cascades: Agent removes ManifestWork → all resources on MC
+  │     │     │     └── Cascades: Agent removes ManifestWork → all resources on target cluster
   │     │     └── Update DynamoDB: status, completed_at, updated_at, runner_seconds,
   │     │                          upload_seconds, duration_seconds, output_status (uploaded|failed)
   │     │
@@ -450,13 +450,13 @@ Bucket: <env>-regional-zoa-outputs-<account-id>
 
 ### IAM Roles (Pod Identity)
 
-| Role                      | Associated SAs                                  | Cluster | Permissions                                                  |
-| ------------------------- | ----------------------------------------------- | ------- | ------------------------------------------------------------ |
-| `<env>-zoa-job`           | `zoa-uploader`, `zoa-aws-read`, `zoa-aws-write` | RC      | `s3:PutObject` + `kms:GenerateDataKey` + AWS read (EKS, VPC) |
-| `<mgmt-id>-zoa-job`       | `zoa-uploader`, `zoa-aws-read`, `zoa-aws-write` | MC      | `s3:PutObject` + `kms:GenerateDataKey` + AWS read (EKS, VPC) |
-| `<env>-platform-api-role` | `platform-api`                                  | RC      | `s3:GetObject` + `kms:Decrypt` + `dynamodb:*` on ZOA tables  |
+| Role                         | Associated SAs                                  | Cluster | Permissions                                                  |
+| ---------------------------- | ----------------------------------------------- | ------- | ------------------------------------------------------------ |
+| `<regional-id>-zoa-job`      | `zoa-uploader`, `zoa-aws-read`, `zoa-aws-write` | RC      | `s3:PutObject` + `kms:GenerateDataKey` + AWS read (EKS, VPC) |
+| `<management-id>-zoa-job`    | `zoa-uploader`, `zoa-aws-read`, `zoa-aws-write` | MC      | `s3:PutObject` + `kms:GenerateDataKey` + AWS read (EKS, VPC) |
+| `<regional-id>-platform-api` | `platform-api`                                  | RC      | `s3:GetObject` + `kms:Decrypt` + `dynamodb:*` on ZOA tables  |
 
-Pod Identity associations are wired on **both** RC and MC — TAs can target either cluster type. The `aws-api-read` policy grows incrementally as new AWS-scoped TAs are added, keeping only the minimum required permissions for implemented TAs (currently: `eks:ListClusters`, `eks:DescribeCluster`, `ec2:DescribeVpcEndpoints`).
+Pod Identity associations are wired on **both** RC and MC — TAs can target either cluster type. The `aws-api-read` and `aws-api-write` policies grow incrementally as new AWS-scoped TAs are added, granting only the minimum required permissions for implemented TAs — never more.
 
 **Key design principle**: Runner SAs (`zoa-runner-<exec-id>`, `zoa-aws-read`, `zoa-aws-write`) have **zero** access to the ZOA S3 bucket. Only `zoa-uploader` can write to S3, ensuring SA isolation between operational actions and output transport.
 
@@ -476,7 +476,7 @@ terraform/modules/zoa/
 
 Static ZOA infrastructure is deployed via the `zoa-jobs` Helm chart at `argocd/config/shared/zoa-jobs/`. The root ArgoCD ApplicationSet discovers charts under `argocd/config/shared/*` and deploys them to both Regional and Management clusters with `CreateNamespace=true`, which creates the `zoa-jobs` namespace automatically.
 
-The chart provisions static ServiceAccounts (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`, plus breakglass SAs). Pod Identity associations for AWS-scoped SAs are wired via Terraform (`terraform/modules/zoa/` and `terraform/modules/zoa-job-pod-identity/`). Per-execution resources (runner SA, RBAC, Jobs, ConfigMaps) are created dynamically by each ManifestWork on the target MC.
+The chart provisions static ServiceAccounts (`zoa-uploader`, `zoa-aws-read`, `zoa-aws-write`, plus breakglass SAs). Pod Identity associations for AWS-scoped SAs are wired via Terraform (`terraform/modules/zoa/` and `terraform/modules/zoa-job-pod-identity/`). Per-execution resources (runner SA, RBAC, Jobs, ConfigMaps) are created dynamically by each ManifestWork on the target cluster.
 
 ## TA Template System
 
@@ -559,7 +559,7 @@ Changing any of these updates ALL future TA executions — no per-TA changes nee
 1. Reconciler detects Job terminal status (succeeded/failed) via ManifestWork feedback
 2. Reconciler deletes ResourceBundle from Maestro (gRPC)
 3. Maestro Agent removes ManifestWork from its local state
-4. Agent cascades deletion: Job, Pod, ConfigMap, Role, RoleBinding — all removed from MC
+4. Agent cascades deletion: Job, Pod, ConfigMap, Role, RoleBinding — all removed from target cluster
 5. Reconciler updates DynamoDB with terminal status and duration
 ```
 
@@ -573,7 +573,7 @@ Changing any of these updates ALL future TA executions — no per-TA changes nee
 
 ### Safety Net (TTL)
 
-Jobs have `ttlSecondsAfterFinished: 3600` in the ManifestWork Job spec. This is a native Kubernetes feature — the TTL controller garbage-collects completed Jobs after the specified duration. If reconciler cleanup fails, this ensures Jobs don't accumulate. Normal cleanup happens in seconds via the reconciler.
+Jobs include `ttlSecondsAfterFinished: 3600` in their spec. This is a native Kubernetes Job feature — the built-in TTL-after-finished controller garbage-collects completed Jobs after the specified duration. The ManifestWork simply delivers the Job manifest with this field set; the cleanup is handled entirely by the Kubernetes Job controller, not by Maestro. If reconciler cleanup fails, this ensures Jobs don't accumulate. Normal cleanup happens in seconds via the reconciler.
 
 ### What Persists After Cleanup
 

@@ -11,7 +11,7 @@ Zero Operator Access (ZOA) Trusted Actions provide a mediated, auditable mechani
 - **Problem Statement**: Operators currently require direct kubectl/AWS CLI access to diagnose and remediate cluster issues. This violates Zero Operator Access principles by creating persistent, unaudited access paths. We need a system that allows operational tasks to be executed exclusively through predefined, auditable channels.
 - **Constraints**:
   - EKS Pod Identity allows only one IAM role per ServiceAccount per namespace
-  - Maestro ManifestWork is the only transport mechanism from RC to MC (no direct network path)
+  - Maestro ManifestWork is the transport mechanism to target clusters (no direct network path from RC to MC)
   - ManifestWork `feedbackRules` status values are size-limited (~1KB per field, 128KB total via MQTT)
   - All output must be stored in S3 (not in ManifestWork status)
   - Must be FIPS-compliant for FedRAMP
