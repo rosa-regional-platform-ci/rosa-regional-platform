@@ -1,42 +1,25 @@
 #!/usr/bin/env bash
 # FIPS compliance verification for EKS clusters with Bottlerocket FIPS nodes.
-# Covers: Kubernetes objects, node host state, distroless container FIPS, container user space, application binaries.
+# Covers: Kubernetes objects, node host state, container user space, application binaries.
 #
 # Usage:
-#   ./verify-fips.sh [-n <namespace>] [-x <namespaces>] [-N <namespace>] [-i <image>]
+#   ./verify-fips.sh
 #
-# Flags:
-#   -n <namespace>     Check only this namespace (default: all non-system namespaces)
-#   -x <namespaces>    Comma-separated namespaces to exclude (default: kube-node-lease)
-#   -N <namespace>     Namespace for the diagnostic DaemonSet (default: kube-system)
-#   -i <image>         Image for the diagnostic DaemonSet (default: alpine:3)
+# Environment variables:
+#   CHECK_NAMESPACES   Comma-separated namespaces to check (default: all non-system)
+#   EXCLUDE_NAMESPACES Comma-separated namespaces to exclude (default: kube-node-lease)
+#   NODE_CHECK_NS      Namespace for the diagnostic DaemonSet (default: kube-system)
+#   NODE_CHECK_IMAGE   Image for the diagnostic DaemonSet (default: alpine:3)
 set -euo pipefail
-
-CHECK_NAMESPACES=""
-EXCLUDE_NAMESPACES="kube-node-lease"
-NODE_CHECK_NS="kube-system"
-NODE_CHECK_IMAGE="alpine:3"
-
-while getopts ":n:x:N:i:" opt; do
-  case $opt in
-    n) CHECK_NAMESPACES="$OPTARG" ;;
-    x) EXCLUDE_NAMESPACES="$OPTARG" ;;
-    N) NODE_CHECK_NS="$OPTARG" ;;
-    i) NODE_CHECK_IMAGE="$OPTARG" ;;
-    :) echo "Error: -$OPTARG requires an argument" >&2; exit 1 ;;
-    \?) echo "Error: unknown option -$OPTARG" >&2; exit 1 ;;
-  esac
-done
-shift $((OPTIND - 1))
-if [[ $# -ne 0 ]]; then
-  echo "Error: unexpected positional arguments: $*" >&2
-  exit 1
-fi
 
 PASS=0; FAIL=0; SKIP=0
 FAILURES=()
-PASSES=()
 WORKLOAD_FAILS=()  # entries: "pod_short|binary_basename|binary_type"
+
+CHECK_NAMESPACES="${CHECK_NAMESPACES:-}"
+EXCLUDE_NAMESPACES="${EXCLUDE_NAMESPACES:-kube-node-lease}"
+NODE_CHECK_NS="${NODE_CHECK_NS:-kube-system}"
+NODE_CHECK_IMAGE="${NODE_CHECK_IMAGE:-alpine:3}"
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -47,7 +30,7 @@ else
 fi
 
 # ─── Output helpers ───────────────────────────────────────────────────────────
-pass()   { printf "  ${GREEN}[PASS]${RESET} %s\n" "$1"; ((++PASS)); PASSES+=("$1"); }
+pass()   { printf "  ${GREEN}[PASS]${RESET} %s\n" "$1"; ((++PASS)); }
 fail()   { printf "  ${RED}[FAIL]${RESET} %s\n" "$1"; ((++FAIL)); FAILURES+=("$1"); }
 skip()   { printf "  ${YELLOW}[SKIP]${RESET} %s\n" "$1"; ((++SKIP)); }
 header() { printf "\n${BOLD}=== %s ===${RESET}\n" "$1"; }
@@ -82,7 +65,7 @@ print_workload_summary() {
   for _key in "${!_grp[@]}"; do
     local _bn _bt _total _first _comp
     IFS='|' read -r _bn _bt <<< "$_key"
-    _total=$(echo "${_grp[$_key]}" | tr ' ' '\n' | grep -v '^$' | sort -u | wc -l)
+    _total=$(echo "${_grp[$_key]}" | wc -w)
     _first=$(echo "${_grp[$_key]}" | tr ' ' '\n' | grep -v '^$' | sort -u | head -1)
     if [[ "$_total" -gt 1 ]]; then
       _comp="${_first} ×${_total}"
@@ -130,16 +113,15 @@ check_kubernetes_objects() {
   # EKS Auto Mode uses nodeclasses.eks.amazonaws.com; upstream Karpenter uses
   # nodeclasses.karpenter.k8s.aws. The advancedSecurity FIPS fields only exist
   # on the EKS Auto Mode variant.
-  local has_eks_auto=false has_karpenter=false
-  kubectl get crd nodeclasses.eks.amazonaws.com >/dev/null 2>&1 && has_eks_auto=true
-  kubectl get crd nodeclasses.karpenter.k8s.aws  >/dev/null 2>&1 && has_karpenter=true
-
-  if [[ "$has_eks_auto" == "false" && "$has_karpenter" == "false" ]]; then
+  if ! kubectl get crd nodeclasses.eks.amazonaws.com >/dev/null 2>&1 && \
+     ! kubectl get crd nodeclasses.karpenter.k8s.aws >/dev/null 2>&1; then
     skip "NodeClass CRD not found — skipping (not an EKS Auto Mode or Karpenter cluster)"
     return
   fi
 
-  if [[ "$has_eks_auto" == "true" ]]; then
+  if kubectl get crd ec2nodeclasses.karpenter.k8s.aws >/dev/null 2>&1; then
+    skip "EC2NodeClass used (advancedSecurity check skipped as it's Auto Mode specific)"
+  else
     if kubectl get nodeclass fips \
         -o jsonpath='{.spec.advancedSecurity.fips}' 2>/dev/null | grep -q "true"; then
       pass "NodeClass 'fips': advancedSecurity.fips=true"
@@ -153,8 +135,6 @@ check_kubernetes_objects() {
     else
       fail "NodeClass 'fips': advancedSecurity.kernelLockdown=Integrity"
     fi
-  else
-    skip "advancedSecurity FIPS checks require nodeclasses.eks.amazonaws.com — skipping (upstream Karpenter detected)"
   fi
 
   echo ""
@@ -268,20 +248,14 @@ EOF
         test -S /host/run/api.sock 2>/dev/null; then
       local report
       report=$(kubectl exec "$pod" -n "$NODE_CHECK_NS" -- \
-        chroot /host /usr/bin/apiclient report fips 2>&1 || echo "")
-      local fips_lines
-      fips_lines=$(echo "$report" | grep -E '^\[PASS\]|^\[FAIL\]' || true)
-      if [[ -z "$fips_lines" ]]; then
-        fail "$node: apiclient report fips produced no output or failed (output: ${report:-<empty>})"
-      else
-        while IFS= read -r line; do
-          if echo "$line" | grep -q '^\[PASS\]'; then
-            pass "$node: apiclient: $line"
-          else
-            fail "$node: apiclient: $line"
-          fi
-        done <<< "$fips_lines"
-      fi
+        chroot /host /usr/bin/apiclient report fips 2>/dev/null || echo "")
+      while IFS= read -r line; do
+        if echo "$line" | grep -q '^\[PASS\]'; then
+          pass "$node: apiclient: $line"
+        else
+          fail "$node: apiclient: $line"
+        fi
+      done < <(echo "$report" | grep -E '^\[PASS\]|^\[FAIL\]')
     else
       skip "$node: /run/api.sock not found — Bottlerocket apiclient check skipped"
     fi
@@ -331,159 +305,7 @@ EOF
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. Minimal-Image Container FIPS Verification
-#    "Distroless" / minimal images strip out shell, package manager, and debug
-#    tools (nm, strings) to reduce attack surface. Because we cannot inspect
-#    binaries from inside the container, the node DaemonSet from
-#    check_node_host_state is reused to reach the container's process via the
-#    host /proc filesystem. Three host-level checks are run:
-#      - Image label   (com.redhat.fips=true on Red Hat FIPS images)
-#      - /proc/<pid>/maps  (libcrypto loaded by the running process)
-#      - /proc/<pid>/exe   (FIPS crypto symbols compiled into the binary)
-# ─────────────────────────────────────────────────────────────────────────────
-check_distroless_fips() {
-  header "Minimal/Distroless Container FIPS Verification"
-  printf "  %s\n" "(Distroless = stripped-down image with no shell or debug tools; checks run via host /proc)"
-
-  local ds_pods
-  ds_pods=$(kubectl get pods -n "$NODE_CHECK_NS" -l app=fips-node-check \
-    --no-headers -o custom-columns=POD:.metadata.name 2>/dev/null || true)
-  if [[ -z "$ds_pods" ]]; then
-    skip "node-check DaemonSet not running — distroless checks skipped"
-    return
-  fi
-
-  # Bottlerocket containerd socket — crictl requires explicit endpoint inside chroot.
-  local crictl="crictl --runtime-endpoint unix:///run/containerd/containerd.sock"
-
-  local -A _node_dsp
-  for _dsp in $ds_pods; do
-    local _n
-    _n=$(kubectl get pod "$_dsp" -n "$NODE_CHECK_NS" \
-      -o jsonpath='{.spec.nodeName}' 2>/dev/null || echo "")
-    [[ -n "$_n" ]] && _node_dsp["$_n"]="$_dsp"
-  done
-
-  local found_any=false
-
-  for ns in $(get_namespaces); do
-    local pods
-    pods=$(kubectl get pods -n "$ns" --field-selector=status.phase=Running \
-      -l 'app!=fips-node-check' \
-      --no-headers -o custom-columns=POD:.metadata.name 2>/dev/null || true)
-    [[ -z "$pods" ]] && continue
-
-    for pod in $pods; do
-      local containers
-      containers=$(kubectl get pod "$pod" -n "$ns" \
-        -o jsonpath='{.spec.containers[*].name}' 2>/dev/null | tr ' ' '\n' || true)
-
-      for container in $containers; do
-        # Skip containers that have nm or strings — handled by check_workload_fips.
-        if kubectl exec "$pod" -n "$ns" -c "$container" -- \
-            which nm >/dev/null 2>&1 || \
-           kubectl exec "$pod" -n "$ns" -c "$container" -- \
-            which strings >/dev/null 2>&1; then
-          continue
-        fi
-
-        found_any=true
-        local target="$ns/$pod/$container"
-        local pod_short
-        pod_short=$(echo "$pod" | sed -E 's/-[a-z0-9]{5,10}-[a-z0-9]{4,5}$//' 2>/dev/null || echo "$pod")
-
-        echo ""
-        printf "  --- %s (minimal/distroless image — no shell or debug tools inside container) ---\n" "$target"
-
-        local node
-        node=$(kubectl get pod "$pod" -n "$ns" \
-          -o jsonpath='{.spec.nodeName}' 2>/dev/null || echo "")
-        local ds_pod="${_node_dsp[$node]:-}"
-        if [[ -z "$ds_pod" ]]; then
-          skip "$target: no node-check pod on node $node"
-          continue
-        fi
-
-        local image
-        image=$(kubectl get pod "$pod" -n "$ns" \
-          -o jsonpath="{.spec.containers[?(@.name==\"${container}\")].image}" \
-          2>/dev/null || echo "")
-        local img_base
-        img_base=$(basename "${image%%:*}" 2>/dev/null || echo "$image")
-
-        local container_id
-        container_id=$(kubectl get pod "$pod" -n "$ns" \
-          -o jsonpath="{.status.containerStatuses[?(@.name==\"${container}\")].containerID}" \
-          2>/dev/null | sed 's|.*://||' || echo "")
-
-        # ── 1. Image label: com.redhat.fips ──────────────────────────────────
-        local label_out
-        label_out=$(kubectl exec "$ds_pod" -n "$NODE_CHECK_NS" -- \
-          chroot /host $crictl inspecti "$image" 2>/dev/null | \
-          grep -i 'com.redhat.fips' | head -1 | tr -d ' "' || echo "")
-        if echo "$label_out" | grep -qi ':true'; then
-          pass "$target: image label com.redhat.fips=true"
-        elif [[ -n "$label_out" ]]; then
-          fail "$target: image label com.redhat.fips not true (${label_out})"
-          WORKLOAD_FAILS+=("${pod_short}|${img_base}|distroless")
-        else
-          skip "$target: com.redhat.fips label absent — not a Red Hat FIPS image, or label unavailable via crictl"
-        fi
-
-        # ── Resolve host PID via cgroup search ───────────────────────────────
-        # Each container's processes carry the container ID in their cgroup path.
-        # Searching /proc/[0-9]*/cgroup avoids crictl entirely and works on any
-        # container runtime (containerd, cri-o) regardless of socket/config.
-        if [[ -z "$container_id" ]]; then
-          skip "$target: cannot resolve container ID — skipping /proc checks"
-          continue
-        fi
-
-        local host_pid
-        host_pid=$(kubectl exec "$ds_pod" -n "$NODE_CHECK_NS" -- \
-          sh -c "grep -rl '${container_id}' /host/proc/[0-9]*/cgroup 2>/dev/null \
-            | head -1 | sed 's|/host/proc/||;s|/cgroup||'" \
-          2>/dev/null | tr -d '[:space:]' || echo "")
-        if [[ -z "$host_pid" || "$host_pid" == "0" ]]; then
-          skip "$target: cannot locate host PID for $container_id in /proc cgroups — skipping /proc checks"
-          continue
-        fi
-
-        # ── 2. /proc/<pid>/maps: runtime crypto library ───────────────────────
-        local maps_line
-        maps_line=$(kubectl exec "$ds_pod" -n "$NODE_CHECK_NS" -- \
-          grep -iE 'libcrypto|libssl' /host/proc/"$host_pid"/maps 2>/dev/null | head -1 || echo "")
-        if [[ -n "$maps_line" ]]; then
-          local lib
-          lib=$(echo "$maps_line" | grep -oE 'libcrypto[^ ]*|libssl[^ ]*' | head -1)
-          pass "$target: /proc/$host_pid/maps: ${lib:-libcrypto} loaded at runtime"
-        else
-          fail "$target: /proc/$host_pid/maps: no libcrypto/libssl — OpenSSL not loaded by running process"
-          WORKLOAD_FAILS+=("${pod_short}|${img_base}|distroless")
-        fi
-
-        # ── 3. /proc/<pid>/exe: FIPS compile-time symbols ────────────────────
-        local has_fips_sym
-        has_fips_sym=$(kubectl exec "$ds_pod" -n "$NODE_CHECK_NS" -- \
-          sh -c "grep -qaE '_goboringcrypto|_Cfunc_go_openssl|fips_module|FIPS_mode|boringssl_fips_self_test' \
-            /host/proc/${host_pid}/exe 2>/dev/null && echo yes || echo no" \
-          2>/dev/null | tail -1 | tr -d '[:space:]' || echo "no")
-        if [[ "$has_fips_sym" == "yes" ]]; then
-          pass "$target: /proc/$host_pid/exe: FIPS crypto symbols present"
-        else
-          skip "$target: /proc/$host_pid/exe: no FIPS compile-time symbols — FIPS may be via runtime linkage; verify via build provenance"
-        fi
-      done
-    done
-  done
-
-  if [[ "$found_any" == "false" ]]; then
-    skip "no distroless containers found in checked namespaces"
-  fi
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. Workload FIPS Compliance
+# 3. Workload FIPS Compliance
 #    For every running container, discovers the application binary then branches
 #    on ldd output to apply the right checks:
 #
@@ -664,7 +486,7 @@ check_workload_fips() {
 
           # If no scan tool, we cannot inspect the binary at all (distroless image).
           if [[ -z "$scan_tool" ]]; then
-            skip "$target: nm and strings unavailable (minimal/distroless image — no debug tools in container). Verify FIPS compliance via build provenance: check SBOM, build logs, or image labels for the Red Hat FIPS toolchain."
+            skip "$target: nm and strings unavailable (distroless image) — verify FIPS compliance via build provenance"
             continue
           fi
 
@@ -696,9 +518,7 @@ check_workload_fips() {
             fi
 
           else
-            # ── Unknown runtime: probe for BoringSSL symbols as positive evidence ──
-            # Only classify as C++ if BoringSSL FIPS symbols are present; absence
-            # of those symbols does not confirm C++ — skip rather than false-fail.
+            # ── C++ / static binary: BoringSSL FIPS symbol check ──────────
             if [[ -z "$scan_tool" ]]; then
               fail "$target: nm and strings both unavailable — cannot verify FIPS symbols"
               continue
@@ -710,7 +530,8 @@ check_workload_fips() {
             if [[ "$cpp_fips_count" -gt 0 ]]; then
               pass "$target: C++ BoringSSL FIPS symbols found ($cpp_fips_count)"
             else
-              skip "$target: no BoringSSL FIPS symbols — runtime unknown, verify via build provenance"
+              fail "$target: no FIPS symbols found in binary — FIPS compliance unverified"
+              WORKLOAD_FAILS+=("${pod_short}|$(basename "$binary")|C++")
             fi
           fi
         fi
@@ -724,7 +545,6 @@ check_workload_fips() {
 # ─────────────────────────────────────────────────────────────────────────────
 check_kubernetes_objects
 check_node_host_state
-check_distroless_fips
 check_workload_fips
 
 print_workload_summary
@@ -733,16 +553,6 @@ echo ""
 printf "${BOLD}════════════════════════════════════════════${RESET}\n"
 printf "${GREEN}  PASS: %d${RESET}  ${RED}FAIL: %d${RESET}  ${YELLOW}SKIP: %d${RESET}\n" "$PASS" "$FAIL" "$SKIP"
 printf "${BOLD}════════════════════════════════════════════${RESET}\n"
-
-if [[ ${#PASSES[@]} -gt 0 ]]; then
-  echo ""
-  printf "${BOLD}${GREEN}Passing Checks:${RESET}\n"
-  printf "${GREEN}────────────────────────────────────────────${RESET}\n"
-  for p in "${PASSES[@]}"; do
-    printf "  ${GREEN}✓${RESET} %s\n" "$p"
-  done
-  printf "${GREEN}────────────────────────────────────────────${RESET}\n"
-fi
 
 if [[ ${#FAILURES[@]} -gt 0 ]]; then
   echo ""

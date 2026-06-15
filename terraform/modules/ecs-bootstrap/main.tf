@@ -153,6 +153,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
             [ -f "$_NODEPOOL_VALUES" ] && _VALUES_FLAG="-f $_NODEPOOL_VALUES"
             helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
               --set global.cluster_name="$CLUSTER_NAME" \
+              --set global.apiserver_endpoint="$EKS_ENDPOINT" \
+              --set global.cluster_ca="$EKS_CA" \
+              --set global.service_cidr="$SERVICE_CIDR" \
               $_VALUES_FLAG \
               | kubectl apply --server-side -f -
             echo "✓ FIPS NodePool applied"
