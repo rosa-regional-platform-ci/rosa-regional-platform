@@ -62,7 +62,11 @@ resource "aws_iam_role_policy" "task_bootstrap" {
           "eks:CreateAddon",
           "eks:ListAddons"
         ]
-        Resource = var.eks_cluster_arn
+        Resource = [
+          var.eks_cluster_arn,
+          "arn:aws:eks:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:addon/${var.eks_cluster_name}/*/*",
+          "arn:aws:eks:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:nodegroup/${var.eks_cluster_name}/*/*"
+        ]
       },
       {
         # eks:DescribeAddon and eks:UpdateAddon operate on the addon resource type,

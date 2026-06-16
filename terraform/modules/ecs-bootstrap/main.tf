@@ -103,6 +103,39 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # Configure kubectl for EKS
           aws eks update-kubeconfig --name $CLUSTER_NAME
 
+          # Capture cluster endpoint/CA/CIDR so the ArgoCD cluster identity
+          # secret carries them as annotations. The regional-cluster ApplicationSet
+          # reads these to populate eksNodePool Helm values — specifically the
+          # EC2NodeClass userData which nodeadm on each RHEL worker reads from
+          # IMDS. Without the real endpoint, RHEL nodes cannot join the cluster.
+          EKS_ENDPOINT=$(aws eks describe-cluster --name "$CLUSTER_NAME" --query 'cluster.endpoint' --output text)
+          EKS_CA=$(aws eks describe-cluster --name "$CLUSTER_NAME" --query 'cluster.certificateAuthority.data' --output text)
+          SERVICE_CIDR=$(aws eks describe-cluster --name "$CLUSTER_NAME" --query 'cluster.kubernetesNetworkConfig.serviceIpv4Cidr' --output text)
+
+          # Install Karpenter before seeding the NodePool. Karpenter must be
+          # running so it can provision RHEL workload nodes as soon as the
+          # NodePool is created. Skipped when KARPENTER_CONTROLLER_ROLE_ARN
+          # is unset (Auto Mode clusters do not use Karpenter).
+          if [ -n "$${KARPENTER_CONTROLLER_ROLE_ARN:-}" ]; then
+            if ! helm status karpenter -n kube-system > /dev/null 2>&1; then
+              echo "Installing Karpenter..."
+              helm upgrade --install karpenter \
+                oci://public.ecr.aws/karpenter/karpenter \
+                --namespace kube-system \
+                --version "1.4.0" \
+                --set settings.clusterName="$CLUSTER_NAME" \
+                --set "settings.interruptionQueue=$CLUSTER_NAME-karpenter" \
+                --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$KARPENTER_CONTROLLER_ROLE_ARN" \
+                --set "tolerations[0].key=karpenter.sh/controller" \
+                --set "tolerations[0].operator=Exists" \
+                --set "tolerations[0].effect=NoSchedule" \
+                --wait --timeout=5m
+              echo "✓ Karpenter installed"
+            else
+              echo "✓ Karpenter already installed, skipping"
+            fi
+          fi
+
           # Seed the FIPS NodePool only on first bootstrap. On subsequent
           # runs (resync), ArgoCD owns this resource via the eks-nodepool
           # chart — we must not re-apply it to avoid Server-Side Apply
@@ -110,22 +143,27 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # values file so the initial NodePool matches what ArgoCD will
           # enforce, avoiding Karpenter provisioning nodes with default
           # instance types before ArgoCD syncs.
-          if ! kubectl get nodepool workloads 2>/dev/null; then
+          # CLUSTER_SHORT strips "-cluster" suffix to get the NodePool name
+          # prefix: "management-cluster" → "management-workloads".
+          CLUSTER_SHORT="$${CLUSTER_TYPE%-cluster}"
+          if [ -n "$${KARPENTER_CONTROLLER_ROLE_ARN:-}" ] && ! kubectl get nodepool "$${CLUSTER_SHORT}-workloads" 2>/dev/null; then
             echo "Applying FIPS NodeClass and workloads NodePool from chart..."
             _NODEPOOL_VALUES="$REPO_DIR/deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-values-$CLUSTER_TYPE.yaml"
             _VALUES_FLAG=""
             [ -f "$_NODEPOOL_VALUES" ] && _VALUES_FLAG="-f $_NODEPOOL_VALUES"
             helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
               --set global.cluster_name="$CLUSTER_NAME" \
+              --set global.apiserver_endpoint="$EKS_ENDPOINT" \
+              --set global.cluster_ca="$EKS_CA" \
+              --set global.service_cidr="$SERVICE_CIDR" \
               $_VALUES_FLAG \
               | kubectl apply --server-side -f -
             echo "✓ FIPS NodePool applied"
           else
-            echo "✓ FIPS NodePool already exists, skipping (managed by ArgoCD)"
+            echo "✓ FIPS NodePool already exists or Karpenter not enabled, skipping (managed by ArgoCD)"
           fi
 
-          # Wait for coredns and metrics-server (managed by the built-in system pool)
-          # to be active before installing ArgoCD.
+          # Wait for coredns and metrics-server to be active before installing ArgoCD.
           for ADDON in coredns metrics-server; do
             echo "Waiting for $ADDON to be active..."
             aws eks wait addon-active \
@@ -217,6 +255,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
               zoa_table_name: "$ZOA_TABLE_NAME"
               zoa_audit_table_name: "$ZOA_AUDIT_TABLE_NAME"
               zoa_bucket_name: "$ZOA_BUCKET_NAME"
+              eks_endpoint: "$EKS_ENDPOINT"
+              eks_ca: "$EKS_CA"
+              service_cidr: "$SERVICE_CIDR"
           type: Opaque
           stringData:
             name: in-cluster
@@ -281,6 +322,10 @@ resource "aws_ecs_task_definition" "bootstrap" {
         {
           name  = "MANAGEMENT_CLUSTERS"
           value = var.management_clusters
+        },
+        {
+          name  = "KARPENTER_CONTROLLER_ROLE_ARN"
+          value = var.karpenter_controller_role_arn
         }
       ]
 

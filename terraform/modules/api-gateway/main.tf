@@ -144,6 +144,13 @@ resource "aws_api_gateway_account" "main" {
   depends_on = [aws_iam_role_policy_attachment.api_gateway_cloudwatch]
 }
 
+# IAM changes are eventually consistent; wait 30 s after the account-level
+# CloudWatch role is set before any stage update tries to use it.
+resource "time_sleep" "api_gateway_account_propagation" {
+  depends_on      = [aws_api_gateway_account.main]
+  create_duration = "30s"
+}
+
 # =============================================================================
 # FedRAMP AU-09: KMS Key for API Gateway Access Log Encryption
 # =============================================================================
@@ -253,7 +260,7 @@ resource "aws_api_gateway_stage" "main" {
 
   depends_on = [
     aws_cloudwatch_log_group.api_gateway_access,
-    aws_api_gateway_account.main,
+    time_sleep.api_gateway_account_propagation,
   ]
 }
 

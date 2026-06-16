@@ -68,6 +68,9 @@ spec:
               rhobs_api_url: '{{ .metadata.annotations.rhobs_api_url }}'
               dns_zone_operator_role_arn: '{{ .metadata.annotations.dns_zone_operator_role_arn }}'
               git_revision: '{{ .metadata.annotations.git_revision }}'
+              apiserver_endpoint: '{{ .metadata.annotations.eks_endpoint }}'
+              cluster_ca: '{{ .metadata.annotations.eks_ca }}'
+              service_cidr: '{{ .metadata.annotations.service_cidr }}'
             platformApi:
               targetGroup:
                 arn: '{{ .metadata.annotations.api_target_group_arn }}'

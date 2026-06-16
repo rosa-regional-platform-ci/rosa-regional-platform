@@ -71,3 +71,15 @@ variable "enable_pod_security_standards" {
   default     = true
 }
 
+variable "enable_karpenter" {
+  description = "Install Karpenter and its supporting infrastructure (bootstrap node group, IRSA, SQS interruption queue). Set to true only for management clusters that use RHEL FIPS workload nodes."
+  type        = bool
+  default     = false
+}
+
+variable "ami_kms_key_arn" {
+  description = "ARN of the CMK in the AMI build account (791666871613) used to encrypt RHEL FIPS node AMI snapshots. Required for cross-account AMI launch via Karpenter."
+  type        = string
+  default     = ""
+}
+

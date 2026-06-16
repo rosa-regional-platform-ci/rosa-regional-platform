@@ -5,10 +5,13 @@ metadata:
 spec:
   weight: 100
   template:
+    metadata:
+      labels:
+        eks.amazonaws.com/compute-type: ec2
     spec:
       nodeClassRef:
-        group: eks.amazonaws.com
-        kind: NodeClass
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
         name: fips
       requirements:
         - key: karpenter.sh/capacity-type
