@@ -178,10 +178,13 @@ resource "aws_iam_policy" "ami_builder" {
         Resource = aws_kms_key.ami.arn
       },
       {
-        # Required so packer-ami-build can pass the build instance profile to ec2:RunInstances
-        Effect   = "Allow"
-        Action   = "iam:PassRole"
-        Resource = aws_iam_role.build_instance.arn
+        # Packer calls GetInstanceProfile to validate it exists, then PassRole when calling RunInstances
+        Effect = "Allow"
+        Action = ["iam:GetInstanceProfile", "iam:PassRole"]
+        Resource = [
+          aws_iam_role.build_instance.arn,
+          aws_iam_instance_profile.build_instance.arn,
+        ]
       },
     ]
   })
