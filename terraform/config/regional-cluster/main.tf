@@ -166,6 +166,8 @@ module "regional_cluster" {
   private_subnet_ids              = module.vpc.private_subnet_ids
   cluster_security_group_id       = module.vpc.cluster_security_group_id
   vpc_endpoints_security_group_id = module.vpc.vpc_endpoints_security_group_id
+  enable_karpenter                = true
+  ami_kms_key_arn                 = "arn:aws:kms:us-east-1:791666871613:key/e30afe58-8a83-4fa2-bb71-8b982265b33a"
 }
 
 # =============================================================================
@@ -188,6 +190,8 @@ module "ecs_bootstrap" {
 
   thanos_kms_key_arn = module.thanos_infrastructure.kms_key_arn
   loki_kms_key_arn   = module.loki_infrastructure.kms_key_arn
+
+  karpenter_controller_role_arn = module.regional_cluster.karpenter_controller_role_arn
 
   management_clusters = var.management_clusters
 }
@@ -253,6 +257,11 @@ module "rhobs_api_gateway" {
 
   # Method-level observability
   metrics_enabled = var.rhobs_apigw_metrics_enabled
+
+  # aws_api_gateway_account (the account-level CloudWatch Logs role) is a
+  # singleton managed by module.api_gateway. The RHOBS stage also writes
+  # access logs, so it must not update before that account setting is applied.
+  depends_on = [module.api_gateway]
 }
 
 # =============================================================================

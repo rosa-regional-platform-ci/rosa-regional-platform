@@ -115,12 +115,6 @@ resource "aws_eks_cluster" "main" {
     enabled       = true
     node_pools    = ["system"]
     node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
   }
 
   kubernetes_network_config {
@@ -141,6 +135,75 @@ resource "aws_eks_cluster" "main" {
     aws_iam_role_policy_attachment.eks_cluster_managed,
     aws_cloudwatch_log_group.eks_cluster,
     aws_kms_key.eks_secrets
+  ]
+}
+
+# -----------------------------------------------------------------------------
+# Bootstrap node group — runs only the Karpenter controller.
+# Uses AL2023 (not RHEL) intentionally: this group exists only to provide
+# capacity for the Karpenter controller pod before Karpenter can provision
+# RHEL workload nodes.
+#
+# The launch template injects InstanceIdNodeName=true into the merged NodeConfig
+# so that the kubelet registers using the EC2 instance ID as the node name.
+# This is required when the cluster uses API auth mode access entries, which
+# authenticate nodes as system:node:<instance-id> via {{SessionName}}.
+# Without it, the kubelet registers as the private DNS hostname and the Node
+# Authorizer rejects all API calls, leaving the node group stuck in CREATING.
+# -----------------------------------------------------------------------------
+resource "aws_launch_template" "karpenter_bootstrap" {
+  count       = var.enable_karpenter ? 1 : 0
+  name_prefix = "${local.cluster_id}-karpenter-bootstrap-"
+
+  # AL2023 managed node groups require MIME multipart format — raw JSON is
+  # silently ignored by EKS and featureGates never reach nodeadm.
+  user_data = base64encode(join("\n", [
+    "MIME-Version: 1.0",
+    "Content-Type: multipart/mixed; boundary=\"==NODECONFIG==\"",
+    "",
+    "--==NODECONFIG==",
+    "Content-Type: application/node.eks.aws",
+    "",
+    "---",
+    "apiVersion: node.eks.aws/v1alpha1",
+    "kind: NodeConfig",
+    "spec:",
+    "  featureGates:",
+    "    InstanceIdNodeName: true",
+    "--==NODECONFIG==--",
+  ]))
+}
+
+resource "aws_eks_node_group" "karpenter_bootstrap" {
+  count = var.enable_karpenter ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${local.cluster_id}-karpenter-bootstrap"
+  node_role_arn   = aws_iam_role.eks_auto_mode_node.arn
+  subnet_ids      = var.private_subnet_ids
+
+  ami_type       = "AL2023_x86_64_STANDARD"
+  instance_types = ["t3.medium"]
+
+  scaling_config {
+    desired_size = 2
+    min_size     = 2
+    max_size     = 3
+  }
+
+  launch_template {
+    id      = aws_launch_template.karpenter_bootstrap[0].id
+    version = aws_launch_template.karpenter_bootstrap[0].latest_version
+  }
+
+  labels = {
+    "karpenter.sh/controller" = "true"
+  }
+
+  depends_on = [
+    aws_eks_cluster.main,
+    aws_eks_addon.vpc_cni,
+    aws_eks_addon.kube_proxy,
   ]
 }
 
@@ -168,6 +231,22 @@ resource "aws_eks_addon" "coredns" {
 resource "aws_eks_addon" "metrics_server" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "metrics-server"
+}
+
+# bootstrap_self_managed_addons = false prevents EKS from auto-installing VPC
+# CNI and kube-proxy. Auto Mode manages both on the regional cluster, so that
+# is correct there. On the management cluster (Karpenter, no Auto Mode) they
+# must be installed explicitly or nodes join but cannot get pod IPs.
+resource "aws_eks_addon" "vpc_cni" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "vpc-cni"
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "kube-proxy"
 }
 
 resource "aws_eks_addon" "pod_identity" {

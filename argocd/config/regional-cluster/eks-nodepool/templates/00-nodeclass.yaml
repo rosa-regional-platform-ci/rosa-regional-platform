@@ -1,5 +1,5 @@
-apiVersion: eks.amazonaws.com/v1
-kind: NodeClass
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
 metadata:
   name: fips
 spec:
@@ -10,6 +10,28 @@ spec:
   securityGroupSelectorTerms:
     - tags:
         aws:eks:cluster-name: "{{ .Values.global.cluster_name }}"
-  advancedSecurity:
-    fips: true
-    kernelLockdown: Integrity
+  amiFamily: Custom
+  amiSelectorTerms:
+    {{- range .Values.eksNodeClass.amiIds }}
+    - id: {{ . }}
+    {{- end }}
+  metadataOptions:
+    httpEndpoint: enabled
+    httpTokens: required
+    httpPutResponseHopLimit: 2
+  userData: |
+    {
+      "apiVersion": "node.eks.aws/v1alpha1",
+      "kind": "NodeConfig",
+      "spec": {
+        "cluster": {
+          "name": "{{ .Values.global.cluster_name }}",
+          "apiServerEndpoint": "{{ .Values.global.apiserver_endpoint }}",
+          "certificateAuthority": "{{ .Values.global.cluster_ca }}",
+          "cidr": "{{ .Values.global.service_cidr }}"
+        },
+        "featureGates": {
+          "InstanceIdNodeName": true
+        }
+      }
+    }
