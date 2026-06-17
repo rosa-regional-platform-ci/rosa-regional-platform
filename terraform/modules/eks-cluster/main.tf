@@ -270,29 +270,24 @@ resource "aws_eks_addon" "metrics_server" {
 # is correct there. On the management cluster (Karpenter, no Auto Mode) they
 # must be installed explicitly or nodes join but cannot get pod IPs.
 #
-# configuration_values clears the compute-type=auto nodeSelector that EKS Auto
-# Mode injects into these DaemonSets. Without this override, Karpenter's
-# scheduling simulation rejects every new ec2 node because it sees that these
-# DaemonSets (which would land on the node) require compute-type=auto, making
-# the node incompatible with the regional-workloads NodePool.
+# NOTE: vpc-cni and kube-proxy add-on schemas do not expose nodeSelector as a
+# configurable field. EKS Auto Mode injects compute-type=auto into these
+# DaemonSets at the cluster level. If Karpenter scheduling simulation fails due
+# to that nodeSelector, remove it manually:
+#   kubectl patch ds -n kube-system aws-node --type=merge \
+#     -p '{"spec":{"template":{"spec":{"nodeSelector":{"eks.amazonaws.com/compute-type":null}}}}}'
+#   kubectl patch ds -n kube-system kube-proxy --type=merge \
+#     -p '{"spec":{"template":{"spec":{"nodeSelector":{"eks.amazonaws.com/compute-type":null}}}}}'
 resource "aws_eks_addon" "vpc_cni" {
   count        = var.enable_karpenter ? 1 : 0
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "vpc-cni"
-
-  configuration_values = jsonencode({
-    nodeSelector = {}
-  })
 }
 
 resource "aws_eks_addon" "kube_proxy" {
   count        = var.enable_karpenter ? 1 : 0
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "kube-proxy"
-
-  configuration_values = jsonencode({
-    nodeSelector = {}
-  })
 }
 
 resource "aws_eks_addon" "pod_identity" {
