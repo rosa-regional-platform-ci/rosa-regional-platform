@@ -247,6 +247,21 @@ resource "aws_eks_addon" "metrics_server" {
     nodeSelector = {
       "karpenter.sh/nodepool" = "regional-workloads"
     }
+    affinity = {
+      podAntiAffinity = {
+        preferredDuringSchedulingIgnoredDuringExecution = [{
+          weight = 100
+          podAffinityTerm = {
+            labelSelector = {
+              matchLabels = {
+                "app.kubernetes.io/name" = "metrics-server"
+              }
+            }
+            topologyKey = "kubernetes.io/hostname"
+          }
+        }]
+      }
+    }
   }) : null
 }
 
