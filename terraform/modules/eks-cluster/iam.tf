@@ -267,9 +267,9 @@ resource "aws_iam_role_policy" "karpenter_controller_kms" {
       },
       {
         # kms:GrantIsForAWSResource is only set on CreateGrant calls, not on crypto ops.
-        Sid    = "AllowCrossAccountAMIKeyGrant"
-        Effect = "Allow"
-        Action = ["kms:CreateGrant"]
+        Sid      = "AllowCrossAccountAMIKeyGrant"
+        Effect   = "Allow"
+        Action   = ["kms:CreateGrant"]
         Resource = var.ami_kms_key_arn
         Condition = {
           Bool = { "kms:GrantIsForAWSResource" = "true" }

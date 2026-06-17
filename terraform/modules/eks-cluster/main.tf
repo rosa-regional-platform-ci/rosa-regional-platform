@@ -217,20 +217,37 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
 # - AWS Secrets Store CSI Driver Provider: Secret mounting (DaemonSet, safe pre-node)
 #
 # CoreDNS and metrics-server are declared here so Terraform creates them before
-# the ECS bootstrap task runs. The built-in "system" pool provides nodes for them
-# to schedule on, so there is no deadlock. Without this declaration, a fresh cluster
-# has no coredns/metrics-server addons and the bootstrap wait-addon-active call fails
+# the ECS bootstrap task runs. Without this declaration, a fresh cluster has no
+# coredns/metrics-server addons and the bootstrap wait-addon-active call fails
 # with ResourceNotFoundException.
+#
+# When Karpenter is enabled, both are pinned to the regional-workloads NodePool
+# (RHEL FIPS nodes) via nodeSelector. CoreDNS and metrics-server are standard Go
+# binaries that run correctly under kernel FIPS enforcement — there is no
+# technical or compliance reason to segregate them onto AL2023 system nodes.
+# Karpenter provisions a FIPS node on demand, so there is no scheduling deadlock.
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_addon" "coredns" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "coredns"
+
+  configuration_values = var.enable_karpenter ? jsonencode({
+    nodeSelector = {
+      "karpenter.sh/nodepool" = "regional-workloads"
+    }
+  }) : null
 }
 
 resource "aws_eks_addon" "metrics_server" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "metrics-server"
+
+  configuration_values = var.enable_karpenter ? jsonencode({
+    nodeSelector = {
+      "karpenter.sh/nodepool" = "regional-workloads"
+    }
+  }) : null
 }
 
 # bootstrap_self_managed_addons = false prevents EKS from auto-installing VPC
