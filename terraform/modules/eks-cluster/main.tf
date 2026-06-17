@@ -269,21 +269,39 @@ resource "aws_eks_addon" "metrics_server" {
 # CNI and kube-proxy. Auto Mode manages both on the regional cluster, so that
 # is correct there. On the management cluster (Karpenter, no Auto Mode) they
 # must be installed explicitly or nodes join but cannot get pod IPs.
+#
+# configuration_values clears the compute-type=auto nodeSelector that EKS Auto
+# Mode injects into these DaemonSets. Without this override, Karpenter's
+# scheduling simulation rejects every new ec2 node because it sees that these
+# DaemonSets (which would land on the node) require compute-type=auto, making
+# the node incompatible with the regional-workloads NodePool.
 resource "aws_eks_addon" "vpc_cni" {
   count        = var.enable_karpenter ? 1 : 0
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "vpc-cni"
+
+  configuration_values = jsonencode({
+    nodeSelector = {}
+  })
 }
 
 resource "aws_eks_addon" "kube_proxy" {
   count        = var.enable_karpenter ? 1 : 0
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "kube-proxy"
+
+  configuration_values = jsonencode({
+    nodeSelector = {}
+  })
 }
 
 resource "aws_eks_addon" "pod_identity" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "eks-pod-identity-agent"
+
+  configuration_values = jsonencode({
+    nodeSelector = {}
+  })
 }
 
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)
