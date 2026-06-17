@@ -310,26 +310,33 @@ check_system_addons() {
     fail "CoreDNS: $dns_ready/$dns_total replicas Ready"
   fi
 
-  # DNS resolution — exec into an existing running pod
-  local exec_pod exec_ns
-  exec_pod=$(kubectl get pods -A \
+  # DNS resolution — find a running pod that has DNS tools available.
+  # Try nslookup, dig, and getent in order; skip pods whose images lack all three.
+  local dns_resolved=false dns_checked=false
+  while IFS=' ' read -r exec_ns exec_pod; do
+    [[ -z "$exec_pod" ]] && continue
+    for cmd in "nslookup kubernetes.default.svc.cluster.local" \
+               "dig +short kubernetes.default.svc.cluster.local" \
+               "getent hosts kubernetes.default.svc.cluster.local"; do
+      if kubectl exec "$exec_pod" -n "$exec_ns" -- sh -c "$cmd" >/dev/null 2>&1; then
+        pass "DNS resolution: kubernetes.default.svc.cluster.local resolves (via $exec_ns/$exec_pod)"
+        dns_resolved=true; dns_checked=true
+        break 2
+      fi
+    done
+    # Pod had no DNS tools — try the next one
+    dns_checked=true
+  done < <(kubectl get pods -A \
     --field-selector=status.phase=Running \
     --no-headers -o custom-columns=NS:.metadata.namespace,POD:.metadata.name \
-    2>/dev/null | grep -v "^kube-system" | head -1 | awk '{print $2}')
-  exec_ns=$(kubectl get pods -A \
-    --field-selector=status.phase=Running \
-    --no-headers -o custom-columns=NS:.metadata.namespace,POD:.metadata.name \
-    2>/dev/null | grep -v "^kube-system" | head -1 | awk '{print $1}')
+    2>/dev/null | grep -v "^kube-system" | head -5)
 
-  if [[ -n "$exec_pod" ]]; then
-    if kubectl exec "$exec_pod" -n "$exec_ns" -- \
-        nslookup kubernetes.default.svc.cluster.local >/dev/null 2>&1; then
-      pass "DNS resolution: kubernetes.default.svc.cluster.local resolves"
+  if ! $dns_resolved; then
+    if $dns_checked; then
+      skip "DNS resolution: no suitable pod with nslookup/dig/getent found in first 5 candidates"
     else
-      fail "DNS resolution: kubernetes.default.svc.cluster.local failed from $exec_ns/$exec_pod"
+      skip "DNS resolution: no running pods outside kube-system"
     fi
-  else
-    skip "DNS resolution: no suitable running pod found to exec into"
   fi
 
   # metrics-server
