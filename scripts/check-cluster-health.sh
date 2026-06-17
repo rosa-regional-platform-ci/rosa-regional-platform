@@ -134,6 +134,15 @@ check_node_health() {
     pass "All $total node(s) Ready"
   else
     fail "$not_ready/$total node(s) not Ready"
+    # Show which conditions are failing on each not-ready node
+    echo "$nodes" | jq -r '.items[] |
+      . as $node |
+      .status.conditions[] |
+      select(.type != "Ready" and .status == "True" and .reason != "KubeletHasNoDiskPressure" and .reason != "KubeletHasSufficientMemory" and .reason != "KubeletHasSufficientPID") |
+      "    \($node.metadata.name): \(.type)=\(.status) — \(.message)" ,
+      (.status.conditions[] | select(.type == "Ready" and .status != "True") |
+       "    \($node.metadata.name): Ready=\(.status) — \(.message)")
+    ' 2>/dev/null | sort -u | sed 's/^//' || true
   fi
 
   if [[ -n "$fips_nodes" ]]; then
@@ -195,22 +204,18 @@ metadata:
     app: ${FIPS_NODE_CHECK_POD_PREFIX}
 spec:
   nodeName: ${node}
+  hostPID: true
   restartPolicy: Never
   tolerations:
   - operator: Exists
   containers:
   - name: check
     image: public.ecr.aws/amazonlinux/amazonlinux:2023
-    command: ["sh", "-c", "cat /proc/sys/crypto/fips_enabled && grep -oE '^ID=.*' /etc/os-release | head -1"]
+    # hostPID:true shares the host PID namespace, so /proc is the host's /proc.
+    # /proc/1/root gives a view into init's root filesystem for host OS details.
+    command: ["sh", "-c", "cat /proc/sys/crypto/fips_enabled && grep -oE '^ID=.*' /proc/1/root/etc/os-release | head -1"]
     securityContext:
       privileged: true
-    volumeMounts:
-    - name: host-root
-      mountPath: /host
-  volumes:
-  - name: host-root
-    hostPath:
-      path: /
 EOF
 
     # Wait up to 30s for the pod to complete
@@ -347,37 +352,110 @@ check_system_addons() {
   fi
 }
 
+# Print the most recent FailedScheduling event or container error for a pod.
+# Usage: diagnose_pod <namespace> <pod> <phase>
+diagnose_pod() {
+  local ns="$1" pod="$2" phase="$3"
+
+  if [[ "$phase" == "Pending" ]]; then
+    # FailedScheduling events carry the scheduler's rejection reason
+    local sched_msg
+    sched_msg=$(kubectl get events -n "$ns" \
+      --field-selector "involvedObject.name=${pod},reason=FailedScheduling" \
+      --sort-by='.lastTimestamp' \
+      --no-headers -o custom-columns=MSG:.message \
+      2>/dev/null | tail -1)
+    if [[ -n "$sched_msg" ]]; then
+      printf "      Scheduler: %s\n" "$sched_msg"
+      return
+    fi
+    # Karpenter uses a Warning event with reason=NotYetProvisioned or Unschedulable
+    local karp_msg
+    karp_msg=$(kubectl get events -n "$ns" \
+      --field-selector "involvedObject.name=${pod}" \
+      --sort-by='.lastTimestamp' \
+      --no-headers -o custom-columns=REASON:.reason,MSG:.message \
+      2>/dev/null | grep -iE "NoNodeAvailable|Unschedulable|NotYetProvisioned|Incompatible" | tail -1)
+    [[ -n "$karp_msg" ]] && printf "      Karpenter: %s\n" "$karp_msg"
+  else
+    # For Failed/CrashLoopBackOff: show container state reason and last log lines
+    local container_state
+    container_state=$(kubectl get pod "$pod" -n "$ns" -o json 2>/dev/null | \
+      jq -r '.status.containerStatuses[]? |
+        "\(.name): \(
+          if .state.waiting then "Waiting/\(.state.waiting.reason) — \(.state.waiting.message // "")"
+          elif .state.terminated then "Exited(\(.state.terminated.exitCode)) — \(.state.terminated.reason) \(.state.terminated.message // "")"
+          else .state | keys[0]
+          end)"' 2>/dev/null || echo "")
+    if [[ -n "$container_state" ]]; then
+      echo "$container_state" | while IFS= read -r line; do
+        printf "      Container: %s\n" "$line"
+      done
+    fi
+    # Last 5 log lines for the first failed container
+    local first_container
+    first_container=$(kubectl get pod "$pod" -n "$ns" \
+      -o jsonpath='{.spec.containers[0].name}' 2>/dev/null || echo "")
+    if [[ -n "$first_container" ]]; then
+      local logs
+      logs=$(kubectl logs "$pod" -n "$ns" -c "$first_container" --tail=5 --previous 2>/dev/null \
+        || kubectl logs "$pod" -n "$ns" -c "$first_container" --tail=5 2>/dev/null \
+        || echo "")
+      if [[ -n "$logs" ]]; then
+        printf "      Last logs:\n"
+        echo "$logs" | while IFS= read -r line; do
+          printf "        %s\n" "$line"
+        done
+      fi
+    fi
+  fi
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Workload Scheduling Recovery
-#    Checks that previously-pending workloads are now running.
+#    Checks that previously-pending workloads are now running and diagnoses
+#    pods that are Pending, Failed, or in CrashLoopBackOff.
 # ─────────────────────────────────────────────────────────────────────────────
 check_workload_recovery() {
   header "Workload Scheduling Recovery"
 
-  # Check for pods that have been Pending longer than PENDING_WARN seconds
-  local long_pending
-  long_pending=$(kubectl get pods -A \
-    --field-selector=status.phase=Pending \
-    --no-headers -o custom-columns=\
-'NS:.metadata.namespace,POD:.metadata.name,AGE:.metadata.creationTimestamp' \
-    2>/dev/null | while read -r ns pod ts; do
-      # Skip pods we know can't schedule (fips-node-check on full nodes)
-      [[ "$pod" == fips-node-check-* ]] && continue
-      age_seconds=$(( $(date +%s) - $(date -d "$ts" +%s 2>/dev/null || echo "$(date +%s)") ))
-      if [[ "$age_seconds" -gt "$PENDING_WARN" ]]; then
-        echo "$ns/$pod (${age_seconds}s)"
-      fi
-    done || true)
+  # Collect all unhealthy pods (Pending > threshold, Failed, or CrashLoopBackOff)
+  local unhealthy_pods
+  unhealthy_pods=$(kubectl get pods -A -o json 2>/dev/null | jq -r '
+    .items[] |
+    . as $pod |
+    ($pod.metadata.namespace + " " + $pod.metadata.name + " " + $pod.status.phase + " " +
+     ($pod.metadata.creationTimestamp // "")) as $base |
+    if $pod.status.phase == "Pending" or $pod.status.phase == "Failed" then
+      $base
+    elif ($pod.status.containerStatuses // [] | any(.state.waiting.reason // "" | test("CrashLoopBackOff|OOMKilled|Error|ImagePullBackOff|ErrImagePull"))) then
+      ($pod.metadata.namespace + " " + $pod.metadata.name + " CrashLoopBackOff " + ($pod.metadata.creationTimestamp // ""))
+    else empty
+    end
+  ' 2>/dev/null || echo "")
 
-  if [[ -z "$long_pending" ]]; then
-    pass "No pods Pending longer than ${PENDING_WARN}s"
-  else
-    local count
-    count=$(echo "$long_pending" | grep -c . || echo "0")
-    fail "$count pod(s) Pending longer than ${PENDING_WARN}s:"
-    echo "$long_pending" | while IFS= read -r line; do
-      printf "    ${RED}✗${RESET} %s\n" "$line"
-    done
+  local any_bad=false
+  while IFS=' ' read -r ns pod phase ts; do
+    [[ -z "$ns" ]] && continue
+    [[ "$pod" == "${FIPS_NODE_CHECK_POD_PREFIX}"* ]] && continue
+
+    # For Pending pods, check age threshold
+    if [[ "$phase" == "Pending" ]]; then
+      local age_seconds=0
+      if [[ -n "$ts" ]]; then
+        age_seconds=$(( $(date +%s) - $(date -d "$ts" +%s 2>/dev/null || echo "$(date +%s)") ))
+      fi
+      [[ "$age_seconds" -le "$PENDING_WARN" ]] && continue
+    fi
+
+    any_bad=true
+    printf "  ${RED}[FAIL]${RESET} %s/%s (phase=%s)\n" "$ns" "$pod" "$phase"
+    ((++FAIL)); FAILURES+=("$ns/$pod: $phase")
+    diagnose_pod "$ns" "$pod" "$phase"
+  done <<< "$unhealthy_pods"
+
+  if ! $any_bad; then
+    pass "No unhealthy pods (Pending>${PENDING_WARN}s, Failed, CrashLoopBackOff)"
   fi
 
   # Spot-check key namespaces affected by the compute-type conflict
@@ -387,17 +465,22 @@ check_workload_recovery() {
       continue
     fi
 
-    local total running pending
+    local total running pending unhealthy
     total=$(kubectl get pods -n "$ns" --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
     running=$(kubectl get pods -n "$ns" --field-selector=status.phase=Running \
       --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
     pending=$(kubectl get pods -n "$ns" --field-selector=status.phase=Pending \
       --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
+    unhealthy=$(kubectl get pods -n "$ns" --no-headers 2>/dev/null \
+      | grep -cE 'CrashLoopBackOff|OOMKilled|Error|ImagePullBackOff' || echo "0")
 
-    if [[ "$pending" -eq 0 && "$running" -gt 0 ]]; then
-      pass "$ns: $running/$total pods Running, 0 Pending"
+    if [[ "$pending" -eq 0 && "$unhealthy" -eq 0 && "$running" -gt 0 ]]; then
+      pass "$ns: $running/$total pods Running"
     elif [[ "$pending" -gt 0 ]]; then
+      # Already diagnosed above in the global pass; just surface the summary
       fail "$ns: $pending/$total pods still Pending"
+    elif [[ "$unhealthy" -gt 0 ]]; then
+      fail "$ns: $unhealthy pod(s) in error state (CrashLoopBackOff/OOMKilled/Error)"
     else
       skip "$ns: no pods found"
     fi
