@@ -393,3 +393,9 @@ variable "management_clusters" {
   type        = string
   default     = ""
 }
+
+variable "karpenter_version" {
+  description = "Karpenter Helm chart version to install via the ECS bootstrap task"
+  type        = string
+  default     = "1.13.0"
+}
