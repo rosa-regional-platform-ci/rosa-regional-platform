@@ -188,48 +188,20 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
 # coredns/metrics-server addons and the bootstrap wait-addon-active call fails
 # with ResourceNotFoundException.
 #
-# When Karpenter is enabled, both are pinned to the regional-workloads NodePool
-# (RHEL FIPS nodes) via nodeSelector. CoreDNS and metrics-server are standard Go
-# binaries that run correctly under kernel FIPS enforcement — there is no
-# technical or compliance reason to segregate them onto AL2023 system nodes.
-# Karpenter provisions a FIPS node on demand, so there is no scheduling deadlock.
+# No nodeSelector is set — these addons must schedule on whatever nodes exist at
+# bootstrap time (the AL2023 karpenter-bootstrap node group). Pinning them to
+# RHEL nodes would deadlock fresh clusters: CoreDNS needs RHEL nodes, RHEL nodes
+# need Karpenter, Karpenter needs CoreDNS for DNS to call EC2 APIs.
 # -----------------------------------------------------------------------------
 
 resource "aws_eks_addon" "coredns" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "coredns"
-
-  configuration_values = var.enable_karpenter ? jsonencode({
-    nodeSelector = {
-      "karpenter.sh/nodepool" = "regional-workloads"
-    }
-  }) : null
 }
 
 resource "aws_eks_addon" "metrics_server" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "metrics-server"
-
-  configuration_values = var.enable_karpenter ? jsonencode({
-    nodeSelector = {
-      "karpenter.sh/nodepool" = "regional-workloads"
-    }
-    affinity = {
-      podAntiAffinity = {
-        preferredDuringSchedulingIgnoredDuringExecution = [{
-          weight = 100
-          podAffinityTerm = {
-            labelSelector = {
-              matchLabels = {
-                "app.kubernetes.io/name" = "metrics-server"
-              }
-            }
-            topologyKey = "kubernetes.io/hostname"
-          }
-        }]
-      }
-    }
-  }) : null
 }
 
 resource "aws_eks_addon" "pod_identity" {
