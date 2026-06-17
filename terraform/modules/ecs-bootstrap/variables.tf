@@ -71,3 +71,9 @@ variable "karpenter_controller_role_arn" {
   default     = ""
 }
 
+variable "karpenter_version" {
+  description = "Karpenter Helm chart version to install (e.g. \"1.13.0\")"
+  type        = string
+  default     = "1.13.0"
+}
+

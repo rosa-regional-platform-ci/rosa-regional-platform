@@ -71,6 +71,7 @@ module "ecs_bootstrap" {
   repository_branch = var.repository_branch
 
   karpenter_controller_role_arn = module.management_cluster.karpenter_controller_role_arn
+  karpenter_version             = var.karpenter_version
 }
 
 # =============================================================================

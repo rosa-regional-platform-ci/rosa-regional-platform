@@ -122,7 +122,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               helm upgrade --install karpenter \
                 oci://public.ecr.aws/karpenter/karpenter \
                 --namespace kube-system \
-                --version "1.4.0" \
+                --version "$${KARPENTER_VERSION}" \
                 --set settings.clusterName="$CLUSTER_NAME" \
                 --set "settings.interruptionQueue=$CLUSTER_NAME-karpenter" \
                 --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$KARPENTER_CONTROLLER_ROLE_ARN" \
@@ -326,6 +326,10 @@ resource "aws_ecs_task_definition" "bootstrap" {
         {
           name  = "KARPENTER_CONTROLLER_ROLE_ARN"
           value = var.karpenter_controller_role_arn
+        },
+        {
+          name  = "KARPENTER_VERSION"
+          value = var.karpenter_version
         }
       ]
 
