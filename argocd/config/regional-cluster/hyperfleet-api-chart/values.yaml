@@ -89,7 +89,7 @@ hyperfleet-api-chart:
         # -- Additional labels for PrometheusRule discovery
         additionalLabels: {}
         # -- Namespace to create the PrometheusRule in (defaults to release namespace)
-        namespace: "hyperfleet-system"
+        namespace: ""
         # -- Alert rule configuration
         rules:
           # -- Alert when a deletion is stuck
@@ -116,7 +116,7 @@ hyperfleet-api-chart:
       # -- Additional labels for ServiceMonitor discovery
       labels: {}
       # -- Namespace to create the ServiceMonitor in (defaults to release namespace)
-      namespace: "hyperfleet-system"
+      namespace: ""
 
 # SecretProviderClass configuration for AWS Pod Identity
 secretProviderClass:
