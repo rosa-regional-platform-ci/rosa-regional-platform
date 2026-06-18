@@ -29,6 +29,6 @@ spec:
           "apiServerEndpoint": "{{ .Values.global.apiserver_endpoint }}",
           "certificateAuthority": "{{ .Values.global.cluster_ca }}",
           "cidr": "{{ .Values.global.service_cidr }}"
-        },
+        }
       }
     }
