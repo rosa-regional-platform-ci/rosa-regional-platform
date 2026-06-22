@@ -6,7 +6,7 @@ env:
 phases:
   install:
     commands:
-      - chmod +x ./scripts/bootstrap-argocd.sh ./scripts/pipeline-common/init-terraform-backend.sh ./scripts/pipeline-common/bootstrap-argocd-wrapper.sh
+      - chmod +x ./scripts/bootstrap-argocd.sh
 
   build:
     on-failure: RETRY-1

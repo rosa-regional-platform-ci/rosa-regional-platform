@@ -5,17 +5,13 @@ The break glass SOPs are the last resort of troubleshooting. It requires a JIRA 
 The general process is
 
 1. Requirement: Bastion is enabled in the RC or MC.
-1. Access the AWS account of the RC or MC (`export AWS_PROFILE=...`).
-1. Init the remote terraform backend for the environment
+1. Connect to the bastion via the appropriate Make target:
    ```bash
-   scripts/dev/init-remote-backend.sh <regional | management> <environment>
+   make int-bastion-rc    # or: make int-bastion-mc
    ```
 1. Follow the SOP.
 
 ## Cleanup
 
-After you are done, stop the bastion ECS task to avoid ongoing costs:
-
-```bash
-scripts/dev/bastion-tasks-cleanup.sh <regional | management>
-```
+Bastion ECS tasks have a configured stop timeout and will terminate automatically.
+To stop them manually, use the AWS Console or CLI to stop the ECS task in the bastion service.

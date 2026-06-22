@@ -147,13 +147,11 @@ The script proceeds automatically once the connection is authorized.
 Requires `enable_bastion: true` in config. Use the respective account's credentials (Regional for the RC bastion, Management for the MC bastion):
 
 ```bash
-# Connect to the regional cluster bastion (default)
-export AWS_PROFILE=<regional-profile>
-./scripts/dev/bastion-connect.sh
+# Connect to the regional cluster bastion
+make int-bastion-rc    # or: make ephemeral-bastion-rc ID=<id>
 
 # Connect to the management cluster bastion
-export AWS_PROFILE=<management-profile>
-./scripts/dev/bastion-connect.sh management
+make int-bastion-mc    # or: make ephemeral-bastion-mc ID=<id>
 ```
 
 ### 4.2 Verify ArgoCD applications

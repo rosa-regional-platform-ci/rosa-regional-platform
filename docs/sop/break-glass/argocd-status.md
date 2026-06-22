@@ -9,7 +9,7 @@ Verify that all ArgoCD applications are synced and healthy on a Regional or Mana
 1. Follow the [general break-glass prerequisites](README.md).
 2. Connect to the bastion:
    ```bash
-   scripts/dev/bastion-connect.sh regional    # or: management
+   make int-bastion-rc    # or: make int-bastion-mc
    ```
 
 ## ArgoCD UI
@@ -17,10 +17,10 @@ Verify that all ArgoCD applications are synced and healthy on a Regional or Mana
 To access the ArgoCD UI, port-forward from your laptop:
 
 ```bash
-scripts/dev/bastion-port-forward.sh argocd regional    # or: management
+make int-port-forward-rc    # or: make int-port-forward-mc
 ```
 
-The script will print the admin password and the local URL to access the UI.
+Select `argocd` when prompted. The script will print the admin password and the local URL.
 
 ## Check Application Sync Status
 

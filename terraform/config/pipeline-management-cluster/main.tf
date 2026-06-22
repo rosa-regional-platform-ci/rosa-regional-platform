@@ -457,24 +457,21 @@ resource "aws_codebuild_project" "iot_mint" {
     type                        = "LINUX_CONTAINER"
     image_pull_credentials_type = "CODEBUILD"
 
-    # AWS region for the deployment
+    environment_variable {
+      name  = "TARGET_ACCOUNT_ID"
+      value = var.target_account_id
+    }
     environment_variable {
       name  = "TARGET_REGION"
       value = var.target_region
     }
-    # Unique identifier for this management cluster pipeline
     environment_variable {
       name  = "MANAGEMENT_ID"
       value = var.management_id
     }
-    # Environment name (staging/production/e2e)
     environment_variable {
       name  = "ENVIRONMENT"
       value = var.target_environment
-    }
-    environment_variable {
-      name  = "PLATFORM_IMAGE"
-      value = var.codebuild_image
     }
   }
 
