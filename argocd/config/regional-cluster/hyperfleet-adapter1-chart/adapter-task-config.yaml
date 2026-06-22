@@ -131,19 +131,14 @@ preconditions:
       - name: "cloudUrl"
         expression: "spec.cloudUrl"
 
-    # check if the cluster is not ready
     conditions:
-      - field: "readyConditionStatus"
-        operator: "equals"
-        value: "False"
       - field: "specDeletionRequested"
         operator: "equals"
         value: "False"
 
   - name: "validationCheck"
-    # Valid CEL expression
     expression: |
-      readyConditionStatus == "False" && specDeletionRequested == "False"
+      specDeletionRequested == "False"
 
 # Resources with valid K8s manifests
 resources:
