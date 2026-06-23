@@ -34,6 +34,7 @@ RUN dnf install -y \
         make \
         jq \
         unzip \
+        xz \
         python3-pip \
         findutils \
         gnupg2 \
@@ -166,17 +167,18 @@ ARG CURL_RETRY_DELAY
 ARG CURL_MAX_TIME
 RUN arch=$(uname -m) && \
     case "${arch}" in \
-        x86_64)  LEAKTK_ARCH="amd64" ;; \
+        x86_64)  LEAKTK_ARCH="x86_64" ;; \
         aarch64) LEAKTK_ARCH="arm64" ;; \
     esac && \
-    LEAKTK_TAR="leaktk_${LEAKTK_VERSION}_linux_${LEAKTK_ARCH}.tar.gz" && \
+    LEAKTK_TAR="leaktk-${LEAKTK_VERSION}-linux-${LEAKTK_ARCH}.tar.xz" && \
+    LEAKTK_CHECKSUMS="leaktk_${LEAKTK_VERSION}_checksums.txt" && \
     LEAKTK_BASE="https://github.com/leaktk/leaktk/releases/download/v${LEAKTK_VERSION}" && \
     curl --retry ${CURL_RETRY} --retry-delay ${CURL_RETRY_DELAY} --max-time ${CURL_MAX_TIME} -fsSLO "${LEAKTK_BASE}/${LEAKTK_TAR}" && \
-    curl --retry ${CURL_RETRY} --retry-delay ${CURL_RETRY_DELAY} --max-time ${CURL_MAX_TIME} -fsSLO "${LEAKTK_BASE}/checksums.txt" && \
-    grep "${LEAKTK_TAR}" checksums.txt | sha256sum -c - && \
-    tar -xzf "${LEAKTK_TAR}" -C /usr/local/bin leaktk && \
+    curl --retry ${CURL_RETRY} --retry-delay ${CURL_RETRY_DELAY} --max-time ${CURL_MAX_TIME} -fsSLO "${LEAKTK_BASE}/${LEAKTK_CHECKSUMS}" && \
+    grep "${LEAKTK_TAR}" "${LEAKTK_CHECKSUMS}" | sha256sum -c - && \
+    tar -xJf "${LEAKTK_TAR}" -C /usr/local/bin leaktk && \
     chmod +x /usr/local/bin/leaktk && \
-    rm -f "${LEAKTK_TAR}" checksums.txt && \
+    rm -f "${LEAKTK_TAR}" "${LEAKTK_CHECKSUMS}" && \
     leaktk version
 
 # Pre-create cache directories writable by any UID (OpenShift runs as random UID)
