@@ -190,6 +190,10 @@ module "ecs_bootstrap" {
   loki_kms_key_arn   = module.loki_infrastructure.kms_key_arn
 
   management_clusters = var.management_clusters
+
+  zoa_table_name       = var.enable_zoa ? module.zoa[0].table_name : ""
+  zoa_audit_table_name = var.enable_zoa ? module.zoa[0].audit_table_name : ""
+  zoa_bucket_name      = var.enable_zoa ? module.zoa[0].bucket_name : ""
 }
 
 # =============================================================================

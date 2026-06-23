@@ -281,6 +281,18 @@ resource "aws_ecs_task_definition" "bootstrap" {
         {
           name  = "MANAGEMENT_CLUSTERS"
           value = var.management_clusters
+        },
+        {
+          name  = "ZOA_TABLE_NAME"
+          value = var.zoa_table_name
+        },
+        {
+          name  = "ZOA_AUDIT_TABLE_NAME"
+          value = var.zoa_audit_table_name
+        },
+        {
+          name  = "ZOA_BUCKET_NAME"
+          value = var.zoa_bucket_name
         }
       ]
 

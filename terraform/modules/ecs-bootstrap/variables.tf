@@ -65,3 +65,21 @@ variable "management_clusters" {
   default     = ""
 }
 
+variable "zoa_table_name" {
+  description = "DynamoDB table name for ZOA executions"
+  type        = string
+  default     = ""
+}
+
+variable "zoa_audit_table_name" {
+  description = "DynamoDB table name for ZOA audit log"
+  type        = string
+  default     = ""
+}
+
+variable "zoa_bucket_name" {
+  description = "S3 bucket name for ZOA execution outputs"
+  type        = string
+  default     = ""
+}
+
