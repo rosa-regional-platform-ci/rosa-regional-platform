@@ -18,5 +18,6 @@
   "regional_id": "eph-895beb-regional",
   "eph_prefix": "eph-895beb",
   "iot_log_level": "WARN",
-  "management_clusters_info": [{"account_id": "129678139271", "id": "eph-895beb-mc01"}]
+  "management_clusters_info": [{"account_id": "129678139271", "id": "eph-895beb-mc01"}],
+  "delete": true
 }
