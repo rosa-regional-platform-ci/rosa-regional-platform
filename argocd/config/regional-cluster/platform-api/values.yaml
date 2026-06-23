@@ -18,7 +18,7 @@ platformApi:
     name: platform-api
     image:
       repository: quay.io/cdoan0/rosa-regional-platform-api
-      tag: "cdoan-latest"
+      tag: "cdoan-poc-v2"
       pullPolicy: Always
 
     # Application arguments
