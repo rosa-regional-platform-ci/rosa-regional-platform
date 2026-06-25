@@ -78,7 +78,6 @@ spec:
               app:
                 args:
                   fleetDbClusterName: '{{ .metadata.annotations.fleet_db_cluster_name }}'
-                  awsRegion: '{{ .metadata.labels.aws_region }}'
                   dynamodbRegion: '{{ .metadata.annotations.dynamodb_region }}'
                   dynamodbPrefix: '{{ .metadata.annotations.dynamodb_prefix }}'
               zoa:

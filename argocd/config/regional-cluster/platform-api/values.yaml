@@ -26,7 +26,6 @@ platformApi:
       logLevel: info
       logFormat: json
       fleetDbClusterName: ""
-      awsRegion: us-east-2
       allowedAccounts: "123456789012"
       dynamodbRegion: us-east-2
       dynamodbPrefix: rosa
