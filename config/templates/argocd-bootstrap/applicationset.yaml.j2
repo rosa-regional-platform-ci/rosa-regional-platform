@@ -81,6 +81,7 @@ spec:
                   fleetDbClusterName: '{{ '{{ .metadata.annotations.fleet_db_cluster_name }}' }}'
                   dynamodbRegion: '{{ '{{ .metadata.annotations.dynamodb_region }}' }}'
                   dynamodbPrefix: '{{ '{{ .metadata.annotations.dynamodb_prefix }}' }}'
+                  oidcIssuerBaseURL: 'https://{{ '{{ .metadata.annotations.oidc_cloudfront_domain }}' }}'
               zoa:
                 tableName: '{{ '{{ .metadata.annotations.zoa_table_name }}' }}'
                 auditTableName: '{{ '{{ .metadata.annotations.zoa_audit_table_name }}' }}'

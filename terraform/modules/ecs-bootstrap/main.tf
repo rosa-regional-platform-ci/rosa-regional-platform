@@ -219,6 +219,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               zoa_audit_table_name: "$ZOA_AUDIT_TABLE_NAME"
               zoa_bucket_name: "$ZOA_BUCKET_NAME"
               fleet_db_cluster_name: "$FLEET_DB_CLUSTER_NAME"
+              oidc_cloudfront_domain: "$OIDC_CLOUDFRONT_DOMAIN"
           type: Opaque
           stringData:
             name: in-cluster

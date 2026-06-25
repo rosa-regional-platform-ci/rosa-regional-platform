@@ -15,13 +15,13 @@ locals {
   account_suffix = substr(data.aws_caller_identity.current.account_id, -8, 8)
 
   # Resource naming: {name_prefix}-{resource-type}
-  artifact_bucket_name       = "${local.name_prefix}-artifacts-${local.account_suffix}"
-  codebuild_role_name        = "${local.name_prefix}-codebuild-role"
-  codepipeline_role_name     = "${local.name_prefix}-codepipeline-role"
+  artifact_bucket_name   = "${local.name_prefix}-artifacts-${local.account_suffix}"
+  codebuild_role_name    = "${local.name_prefix}-codebuild-role"
+  codepipeline_role_name = "${local.name_prefix}-codepipeline-role"
   apply_project_name     = "${local.name_prefix}-apply"
   bootstrap_project_name = "${local.name_prefix}-bootstrap"
   register_project_name  = "${local.name_prefix}-register"
-  pipeline_name              = "${local.name_prefix}-pipe"
+  pipeline_name          = "${local.name_prefix}-pipe"
 
   # Repository URL constructed from github_repository variable
   repository_url = "https://github.com/${var.github_repository}.git"

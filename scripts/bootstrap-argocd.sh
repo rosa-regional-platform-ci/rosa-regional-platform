@@ -75,6 +75,7 @@ if [[ "$CLUSTER_TYPE" == "regional-cluster" ]]; then
     ZOA_AUDIT_TABLE_NAME=$(echo "$OUTPUTS" | jq -r '.zoa_audit_table_name.value // ""')
     ZOA_BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.zoa_bucket_name.value // ""')
     FLEET_DB_CLUSTER_NAME=$(echo "$OUTPUTS" | jq -r '.fleet_db_cluster_name.value // ""')
+    OIDC_CLOUDFRONT_DOMAIN=$(echo "$OUTPUTS" | jq -r '.oidc_cloudfront_domain.value // ""')
 else
     API_TARGET_GROUP_ARN=""
     THANOS_TARGET_GROUP_ARN=""
@@ -86,6 +87,7 @@ else
     ZOA_AUDIT_TABLE_NAME=""
     ZOA_BUCKET_NAME=""
     FLEET_DB_CLUSTER_NAME=""
+    OIDC_CLOUDFRONT_DOMAIN=""
 fi
 
 RHOBS_API_URL="${RHOBS_API_URL:-}"
@@ -122,7 +124,8 @@ RUN_TASK_OUTPUT=$(aws ecs run-task \
         {\"name\": \"ZOA_TABLE_NAME\", \"value\": \"$ZOA_TABLE_NAME\"},
         {\"name\": \"ZOA_AUDIT_TABLE_NAME\", \"value\": \"$ZOA_AUDIT_TABLE_NAME\"},
         {\"name\": \"ZOA_BUCKET_NAME\", \"value\": \"$ZOA_BUCKET_NAME\"},
-        {\"name\": \"FLEET_DB_CLUSTER_NAME\", \"value\": \"$FLEET_DB_CLUSTER_NAME\"}
+        {\"name\": \"FLEET_DB_CLUSTER_NAME\", \"value\": \"$FLEET_DB_CLUSTER_NAME\"},
+        {\"name\": \"OIDC_CLOUDFRONT_DOMAIN\", \"value\": \"$OIDC_CLOUDFRONT_DOMAIN\"}
       ]
     }]
   }" 2>&1)
