@@ -15,15 +15,14 @@ locals {
   account_suffix = substr(data.aws_caller_identity.current.account_id, -8, 8)
 
   # Resource naming: {name_prefix}-{resource-type}
-  artifact_bucket_name   = "${local.name_prefix}-artifacts-${local.account_suffix}"
-  codebuild_role_name    = "${local.name_prefix}-codebuild-role"
-  codepipeline_role_name = "${local.name_prefix}-codepipeline-role"
-  apply_project_name     = "${local.name_prefix}-apply"
-  bootstrap_project_name = "${local.name_prefix}-bootstrap"
-  iot_mint_project_name          = "${local.name_prefix}-iot-mint"
-  dynamodb_mint_project_name     = "${local.name_prefix}-dynamodb-mint"
-  register_project_name          = "${local.name_prefix}-register"
-  pipeline_name          = "${local.name_prefix}-pipe"
+  artifact_bucket_name       = "${local.name_prefix}-artifacts-${local.account_suffix}"
+  codebuild_role_name        = "${local.name_prefix}-codebuild-role"
+  codepipeline_role_name     = "${local.name_prefix}-codepipeline-role"
+  apply_project_name         = "${local.name_prefix}-apply"
+  bootstrap_project_name     = "${local.name_prefix}-bootstrap"
+  dynamodb_mint_project_name = "${local.name_prefix}-dynamodb-mint"
+  register_project_name      = "${local.name_prefix}-register"
+  pipeline_name              = "${local.name_prefix}-pipe"
 
   # Repository URL constructed from github_repository variable
   repository_url = "https://github.com/${var.github_repository}.git"
@@ -70,8 +69,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_mint.name}",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.iot_mint.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.dynamodb_mint.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.dynamodb_mint.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.register.name}",
@@ -116,8 +113,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         Effect = "Allow"
         Action = [
-          # IoT - For minting Maestro agent certificates (same-account case)
-          "iot:*",
           # EC2/VPC - Full permissions for networking infrastructure
           "ec2:*",
           # EKS - Full permissions for cluster management
@@ -138,7 +133,7 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "ecs:StopTask",
           "ecs:DescribeTasks",
           "ecs:ListTasks",
-          # Secrets Manager - For Maestro agent secrets
+          # Secrets Manager - For ECS bootstrap and cluster secrets
           "secretsmanager:*",
           # IAM - For creating cluster roles and policies
           "iam:CreateRole",
@@ -264,7 +259,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = [
           aws_codebuild_project.management_apply.arn,
           aws_codebuild_project.management_bootstrap.arn,
-          aws_codebuild_project.iot_mint.arn,
           aws_codebuild_project.dynamodb_mint.arn,
           aws_codebuild_project.register.arn
         ]
@@ -277,7 +271,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = [
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_apply.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}",
-          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.iot_mint.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.dynamodb_mint.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.register.name}"
         ]
@@ -448,47 +441,7 @@ resource "aws_codebuild_project" "management_bootstrap" {
   }
 }
 
-# CodeBuild Project - IoT Certificate Mint (runs in RC account context)
-resource "aws_codebuild_project" "iot_mint" {
-  name          = local.iot_mint_project_name
-  service_role  = aws_iam_role.codebuild_role.arn
-  build_timeout = 30
-
-  artifacts {
-    type = "CODEPIPELINE"
-  }
-
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = var.codebuild_image
-    type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "CODEBUILD"
-
-    environment_variable {
-      name  = "TARGET_ACCOUNT_ID"
-      value = var.target_account_id
-    }
-    environment_variable {
-      name  = "TARGET_REGION"
-      value = var.target_region
-    }
-    environment_variable {
-      name  = "MANAGEMENT_ID"
-      value = var.management_id
-    }
-    environment_variable {
-      name  = "ENVIRONMENT"
-      value = var.target_environment
-    }
-  }
-
-  source {
-    type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-management-cluster/buildspec-iot-mint.yml"
-  }
-}
-
-# CodeBuild Project - DynamoDB Mint (runs in RC account context, parallel with Mint-IoT)
+# CodeBuild Project - DynamoDB Mint (runs in RC account context)
 resource "aws_codebuild_project" "dynamodb_mint" {
   name          = local.dynamodb_mint_project_name
   service_role  = aws_iam_role.codebuild_role.arn
@@ -636,30 +589,8 @@ resource "aws_codepipeline" "regional_pipeline" {
   }
 
   stage {
-    name = "Mint-IoT"
+    name = "Mint"
 
-    action {
-      name             = "MintIoTCertificate"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["iot_mint_output"]
-      version          = "1"
-
-      configuration = {
-        ProjectName = aws_codebuild_project.iot_mint.name
-        EnvironmentVariables = jsonencode([
-          {
-            name  = "IS_DESTROY"
-            value = "#{variables.IS_DESTROY}"
-            type  = "PLAINTEXT"
-          }
-        ])
-      }
-    }
-
-    # Runs in parallel with MintIoTCertificate — creates DynamoDB tables in the RC account
     action {
       name             = "MintDynamoDB"
       category         = "Build"

@@ -19,9 +19,9 @@ locals {
   common_tags = merge(
     var.tags,
     {
-      ManagedBy          = "terraform"
-      Module             = "kube-applier-dynamodb"
-      ManagementCluster  = var.mc_name
+      ManagedBy         = "terraform"
+      Module            = "kube-applier-dynamodb"
+      ManagementCluster = var.mc_name
     }
   )
 
@@ -127,6 +127,7 @@ resource "aws_dynamodb_resource_policy" "specs" {
       # are NOT valid in DynamoDB table resource policies — they are covered by
       # the identity-based policy on the MC kube-applier role (kube-applier/iam.tf).
       Action = [
+        "dynamodb:DescribeTable",
         "dynamodb:GetItem",
         "dynamodb:Scan",
         "dynamodb:Query",

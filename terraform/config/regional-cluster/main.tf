@@ -354,34 +354,6 @@ module "dns_zone_operator" {
 }
 
 # =============================================================================
-# Maestro Infrastructure Module - VPC from vpc module, node SG from EKS
-# =============================================================================
-
-module "maestro_infrastructure" {
-  source = "../../modules/maestro-infrastructure"
-
-  # Required variables from EKS cluster
-  regional_id                           = var.regional_id
-  vpc_id                                = module.vpc.vpc_id
-  private_subnets                       = module.vpc.private_subnet_ids
-  eks_cluster_name                      = module.regional_cluster.cluster_name
-  eks_cluster_security_group_id         = module.vpc.cluster_security_group_id
-  eks_cluster_primary_security_group_id = module.regional_cluster.node_security_group_id
-
-  bastion_enabled           = var.enable_bastion
-  bastion_security_group_id = var.enable_bastion ? module.bastion[0].security_group_id : null
-
-  db_instance_class      = var.maestro_db_instance_class
-  db_multi_az            = var.maestro_db_multi_az
-  db_deletion_protection = var.maestro_db_deletion_protection
-
-  mqtt_topic_prefix = var.maestro_mqtt_topic_prefix
-
-  # IoT Core logging
-  iot_log_level = var.iot_log_level
-}
-
-# =============================================================================
 # Authorization Module
 # =============================================================================
 
@@ -429,15 +401,17 @@ locals {
 }
 
 module "kube_applier_dynamodb" {
-  count  = var.enable_kube_applier_dynamodb && length(local.mc_ids) > 0 ? 1 : 0
+  for_each = {
+    for entry in local.mc_entries :
+    element(split(":", entry), 0) => element(split(":", entry), 1)
+  }
   source = "../../modules/kube-applier-dynamodb"
 
-  regional_id            = var.regional_id
-  management_cluster_ids = local.mc_ids
-
-  billing_mode                  = var.kube_applier_dynamodb_billing_mode
-  enable_point_in_time_recovery = var.kube_applier_dynamodb_enable_pitr
-  enable_deletion_protection    = var.kube_applier_dynamodb_deletion_protection
+  mc_name           = each.key
+  mc_aws_account_id = each.value
+  rc_id             = var.regional_id
+  aws_region        = var.region
+  enable_pitr       = var.kube_applier_dynamodb_enable_pitr
 }
 
 # =============================================================================
@@ -494,7 +468,7 @@ resource "aws_iam_role_policy" "hyperfleet_operator_fleet_db" {
 }
 
 resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
-  count = var.fleet_db_cluster_arn != "" && var.enable_kube_applier_dynamodb ? 1 : 0
+  count = var.fleet_db_cluster_arn != "" && length(local.mc_ids) > 0 ? 1 : 0
   name  = "${var.regional_id}-hyperfleet-operator-dynamodb"
   role  = aws_iam_role.hyperfleet_operator[0].id
 
@@ -566,32 +540,6 @@ resource "aws_iam_role_policy" "platform_api_fleet_db" {
       }
     ]
   })
-}
-
-# =============================================================================
-# HyperFleet Infrastructure Module - MQ broker provisions in parallel with EKS
-# =============================================================================
-
-module "hyperfleet_infrastructure" {
-  source = "../../modules/hyperfleet-infrastructure"
-
-  # Required variables from EKS cluster
-  regional_id                           = var.regional_id
-  vpc_id                                = module.vpc.vpc_id
-  private_subnets                       = module.vpc.private_subnet_ids
-  eks_cluster_name                      = module.regional_cluster.cluster_name
-  eks_cluster_security_group_id         = module.vpc.cluster_security_group_id
-  eks_cluster_primary_security_group_id = module.regional_cluster.node_security_group_id
-
-  bastion_enabled           = var.enable_bastion
-  bastion_security_group_id = var.enable_bastion ? module.bastion[0].security_group_id : null
-
-  db_instance_class      = var.hyperfleet_db_instance_class
-  db_multi_az            = var.hyperfleet_db_multi_az
-  db_deletion_protection = var.hyperfleet_db_deletion_protection
-
-  mq_instance_type   = var.hyperfleet_mq_instance_type
-  mq_deployment_mode = var.hyperfleet_mq_deployment_mode
 }
 
 # =============================================================================

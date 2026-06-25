@@ -112,15 +112,6 @@ spec:
                   bucketNames:
                     chunks: '{{ '{{ .metadata.labels.cluster_name }}' }}-loki-logs-{{ '{{ .metadata.annotations.aws_account_id }}' }}'
                     ruler: '{{ '{{ .metadata.labels.cluster_name }}' }}-loki-logs-{{ '{{ .metadata.annotations.aws_account_id }}' }}'
-            hyperfleetApi:
-              aws:
-                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
-            hyperfleetSentinel:
-              aws:
-                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
-            hyperfleetAdapter:
-              aws:
-                region: '{{ '{{ .metadata.labels.aws_region }}' }}'
         path: '{{ '{{ .path.path }}' }}'
         repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
         targetRevision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'

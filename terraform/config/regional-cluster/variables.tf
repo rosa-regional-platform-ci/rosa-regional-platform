@@ -185,44 +185,6 @@ variable "rhobs_apigw_metrics_enabled" {
   default     = true
 }
 
-# Maestro Configuration Variables
-# =============================================================================
-
-variable "maestro_db_instance_class" {
-  description = "RDS instance class for Maestro PostgreSQL database"
-  type        = string
-  default     = "db.t4g.micro"
-}
-
-variable "maestro_db_multi_az" {
-  description = "Enable Multi-AZ deployment for Maestro RDS (recommended for production)"
-  type        = bool
-  default     = false
-}
-
-variable "maestro_db_deletion_protection" {
-  description = "Enable deletion protection for Maestro RDS instance (recommended for production)"
-  type        = bool
-  default     = false
-}
-
-variable "maestro_mqtt_topic_prefix" {
-  description = "Prefix for MQTT topics used by Maestro"
-  type        = string
-  default     = "maestro/consumers"
-}
-
-variable "iot_log_level" {
-  description = "AWS IoT Core default log level (DISABLED, ERROR, WARN, INFO, DEBUG)"
-  type        = string
-  default     = "WARN"
-
-  validation {
-    condition     = contains(["DISABLED", "ERROR", "WARN", "INFO", "DEBUG"], var.iot_log_level)
-    error_message = "iot_log_level must be one of: DISABLED, ERROR, WARN, INFO, DEBUG"
-  }
-}
-
 # =============================================================================
 # Authorization Configuration Variables
 # =============================================================================
@@ -261,26 +223,8 @@ variable "authz_frontend_api_service_account" {
 # kube-applier DynamoDB Configuration Variables
 # =============================================================================
 
-variable "enable_kube_applier_dynamodb" {
-  description = "Enable DynamoDB tables for kube-applier-aws desire-based resource distribution"
-  type        = bool
-  default     = false
-}
-
-variable "kube_applier_dynamodb_billing_mode" {
-  description = "DynamoDB billing mode for kube-applier tables (PAY_PER_REQUEST or PROVISIONED)"
-  type        = string
-  default     = "PAY_PER_REQUEST"
-}
-
 variable "kube_applier_dynamodb_enable_pitr" {
   description = "Enable point-in-time recovery for kube-applier DynamoDB tables (recommended for production)"
-  type        = bool
-  default     = false
-}
-
-variable "kube_applier_dynamodb_deletion_protection" {
-  description = "Enable deletion protection for kube-applier DynamoDB tables (recommended for production)"
   type        = bool
   default     = false
 }
@@ -299,45 +243,6 @@ variable "fleet_db_cluster_arn" {
   description = "ARN of the fleet-db EKS cluster (used for IAM DescribeCluster permissions)"
   type        = string
   default     = ""
-}
-
-# =============================================================================
-# HyperFleet Configuration Variables
-# =============================================================================
-
-variable "hyperfleet_db_instance_class" {
-  description = "RDS instance class for HyperFleet PostgreSQL database"
-  type        = string
-  default     = "db.t4g.micro"
-}
-
-variable "hyperfleet_db_multi_az" {
-  description = "Enable Multi-AZ deployment for HyperFleet RDS (recommended for production)"
-  type        = bool
-  default     = false
-}
-
-variable "hyperfleet_db_deletion_protection" {
-  description = "Enable deletion protection for HyperFleet RDS instance (recommended for production)"
-  type        = bool
-  default     = false
-}
-
-variable "hyperfleet_mq_instance_type" {
-  description = "Amazon MQ instance type for HyperFleet RabbitMQ broker"
-  type        = string
-  default     = "mq.m5.large"
-}
-
-variable "hyperfleet_mq_deployment_mode" {
-  description = "Amazon MQ deployment mode (SINGLE_INSTANCE or CLUSTER_MULTI_AZ)"
-  type        = string
-  default     = "SINGLE_INSTANCE"
-
-  validation {
-    condition     = contains(["SINGLE_INSTANCE", "CLUSTER_MULTI_AZ"], var.hyperfleet_mq_deployment_mode)
-    error_message = "Deployment mode must be SINGLE_INSTANCE or CLUSTER_MULTI_AZ"
-  }
 }
 
 # =============================================================================
