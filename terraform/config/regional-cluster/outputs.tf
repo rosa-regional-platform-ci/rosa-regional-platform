@@ -35,9 +35,19 @@ output "private_subnets" {
   value       = module.vpc.private_subnet_ids
 }
 
+output "vpc_cidr" {
+  description = "VPC CIDR block"
+  value       = module.vpc.vpc_cidr
+}
+
 output "cluster_security_group_id" {
   description = "EKS cluster security group ID"
   value       = module.vpc.cluster_security_group_id
+}
+
+output "fleet_db_cluster_security_group_id" {
+  description = "Fleet-DB EKS cluster security group ID"
+  value       = aws_security_group.fleet_db_cluster.id
 }
 
 output "node_security_group_id" {
@@ -260,12 +270,22 @@ output "authz_configuration_summary" {
 
 output "hyperfleet_operator_role_arn" {
   description = "IAM role ARN for hyperfleet-operator (Pod Identity)"
-  value       = var.fleet_db_cluster_arn != "" ? aws_iam_role.hyperfleet_operator[0].arn : ""
+  value       = aws_iam_role.hyperfleet_operator.arn
 }
 
 output "fleet_db_cluster_name" {
-  description = "Fleet-DB EKS cluster name (passed to operator and platform-api for IAM auth)"
-  value       = var.fleet_db_cluster_name
+  description = "Fleet-DB EKS cluster name (used by operator and platform-api for IAM auth)"
+  value       = module.fleet_db_cluster.cluster_name
+}
+
+output "fleet_db_cluster_arn" {
+  description = "Fleet-DB EKS cluster ARN"
+  value       = module.fleet_db_cluster.cluster_arn
+}
+
+output "fleet_db_cluster_endpoint" {
+  description = "Fleet-DB EKS cluster API server endpoint"
+  value       = module.fleet_db_cluster.cluster_endpoint
 }
 
 # =============================================================================

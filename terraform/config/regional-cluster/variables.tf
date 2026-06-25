@@ -229,21 +229,6 @@ variable "kube_applier_dynamodb_enable_pitr" {
   default     = false
 }
 
-# =============================================================================
-# Fleet-DB Configuration Variables
-# =============================================================================
-
-variable "fleet_db_cluster_name" {
-  description = "EKS cluster name of the fleet-db (kube-apiserver database for hyperfleet CRDs)"
-  type        = string
-  default     = ""
-}
-
-variable "fleet_db_cluster_arn" {
-  description = "ARN of the fleet-db EKS cluster (used for IAM DescribeCluster permissions)"
-  type        = string
-  default     = ""
-}
 
 # =============================================================================
 # Regional OIDC Configuration Variables

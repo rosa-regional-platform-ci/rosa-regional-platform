@@ -397,12 +397,15 @@ bounds checking). This is used for DNS: `api.{name}.{hash4}.{baseDomain}`.
 
 ### Fleet-DB EKS Cluster
 
-New Terraform config: `terraform/config/fleet-db/`
+Provisioned inline in `terraform/config/regional-cluster/main.tf` as a second EKS cluster
+sharing the regional VPC.
 
-- Reuses `modules/eks-cluster` with `cluster_type = "fleet-db"`
-- Requires updating `modules/eks-cluster/variables.tf:10` validation to allow `"fleet-db"`
+- Reuses `modules/eks-cluster` with `cluster_type = "fleet-db"`, `cluster_id = "${regional_id}-fleet-db"`
+- Shares the RC's VPC, subnets, NAT gateways, and VPC endpoints
+- Has its own cluster security group for isolation
 - No worker node scheduling (system node pool runs for coredns)
-- Fully private, same as other clusters
+- Fully private, same as the regional cluster
+- Supports future sharding — additional fleet-db clusters are additional module calls in the same VPC
 
 ### DynamoDB Tables
 
@@ -528,9 +531,8 @@ hyperfleet-operator/
 - Scaffold operator repo with kubebuilder
 - Define all three CRD types in `api/v1alpha1/`
 - Generate CRD YAML and DeepCopy
-- Fleet-db Terraform config (reuse `modules/eks-cluster`)
+- Fleet-db EKS cluster in regional-cluster config (reuses `modules/eks-cluster`)
 - DynamoDB table Terraform module
-- Update `modules/eks-cluster` validation
 
 **Validates**: CRDs apply to a cluster, `kubectl get clusters.hyperfleet.io` works.
 
@@ -577,16 +579,16 @@ HostedCluster created → status flows back → Cluster CR shows Available=True.
 
 - Helm chart for the operator
 - ArgoCD Application chart in rosa-regional-platform
-- Fleet-db EKS cluster provisioning
+- Fleet-db EKS cluster provisioned with regional-cluster
 - DynamoDB table provisioning
 - IAM roles and pod identity
 - ServiceMonitor + PrometheusRule
 
 ### Phase 6: Cutover
 
-1. Deploy fleet-db cluster
+1. Deploy regional cluster (fleet-db is provisioned automatically)
 2. Deploy operator on RC (installs CRDs on fleet-db at startup)
-4. Switch platform API to fleet-db backend
+3. Switch platform API to fleet-db backend
 5. Remove hyperfleet-api, hyperfleet-sentinel, hyperfleet-adapter, Maestro deployments
 
 ---

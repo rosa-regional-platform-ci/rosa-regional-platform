@@ -18,10 +18,9 @@ locals {
   artifact_bucket_name       = "${local.name_prefix}-artifacts-${local.account_suffix}"
   codebuild_role_name        = "${local.name_prefix}-codebuild-role"
   codepipeline_role_name     = "${local.name_prefix}-codepipeline-role"
-  apply_project_name         = "${local.name_prefix}-apply"
-  bootstrap_project_name     = "${local.name_prefix}-bootstrap"
-  dynamodb_mint_project_name = "${local.name_prefix}-dynamodb-mint"
-  register_project_name      = "${local.name_prefix}-register"
+  apply_project_name     = "${local.name_prefix}-apply"
+  bootstrap_project_name = "${local.name_prefix}-bootstrap"
+  register_project_name  = "${local.name_prefix}-register"
   pipeline_name              = "${local.name_prefix}-pipe"
 
   # Repository URL constructed from github_repository variable
@@ -69,8 +68,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_apply.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.management_bootstrap.name}:*",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.dynamodb_mint.name}",
-          "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.dynamodb_mint.name}:*",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.register.name}",
           "arn:aws:logs:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${aws_codebuild_project.register.name}:*"
         ]
@@ -185,8 +182,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "kms:ListGrants",
           "kms:RevokeGrant",
           "kms:RetireGrant",
-          # DynamoDB - For kube-applier DynamoDB table provisioning (same-account case)
-          "dynamodb:*",
           # Logs - For EKS control plane logs and ECS task logs
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
@@ -259,7 +254,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = [
           aws_codebuild_project.management_apply.arn,
           aws_codebuild_project.management_bootstrap.arn,
-          aws_codebuild_project.dynamodb_mint.arn,
           aws_codebuild_project.register.arn
         ]
       },
@@ -271,7 +265,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Resource = [
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_apply.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.management_bootstrap.name}",
-          "arn:aws:codebuild:*:*:project/${aws_codebuild_project.dynamodb_mint.name}",
           "arn:aws:codebuild:*:*:project/${aws_codebuild_project.register.name}"
         ]
       }
@@ -441,46 +434,6 @@ resource "aws_codebuild_project" "management_bootstrap" {
   }
 }
 
-# CodeBuild Project - DynamoDB Mint (runs in RC account context)
-resource "aws_codebuild_project" "dynamodb_mint" {
-  name          = local.dynamodb_mint_project_name
-  service_role  = aws_iam_role.codebuild_role.arn
-  build_timeout = 30
-
-  artifacts {
-    type = "CODEPIPELINE"
-  }
-
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = var.codebuild_image
-    type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "CODEBUILD"
-
-    environment_variable {
-      name  = "TARGET_ACCOUNT_ID"
-      value = var.target_account_id
-    }
-    environment_variable {
-      name  = "TARGET_REGION"
-      value = var.target_region
-    }
-    environment_variable {
-      name  = "MANAGEMENT_ID"
-      value = var.management_id
-    }
-    environment_variable {
-      name  = "ENVIRONMENT"
-      value = var.target_environment
-    }
-  }
-
-  source {
-    type      = "CODEPIPELINE"
-    buildspec = "terraform/config/pipeline-management-cluster/buildspec-dynamodb-mint.yml"
-  }
-}
-
 # CodeBuild Project - Register MC with Regional Cluster API
 resource "aws_codebuild_project" "register" {
   name          = local.register_project_name
@@ -584,31 +537,6 @@ resource "aws_codepipeline" "regional_pipeline" {
         ConnectionArn    = data.aws_codestarconnections_connection.github.arn
         FullRepositoryId = var.github_repository
         BranchName       = var.github_branch
-      }
-    }
-  }
-
-  stage {
-    name = "Mint"
-
-    action {
-      name             = "MintDynamoDB"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["dynamodb_mint_output"]
-      version          = "1"
-
-      configuration = {
-        ProjectName = aws_codebuild_project.dynamodb_mint.name
-        EnvironmentVariables = jsonencode([
-          {
-            name  = "IS_DESTROY"
-            value = "#{variables.IS_DESTROY}"
-            type  = "PLAINTEXT"
-          }
-        ])
       }
     }
   }

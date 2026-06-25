@@ -3,8 +3,7 @@
 #
 # Creates the six DynamoDB tables used by kube-applier-aws for one Management
 # Cluster. These tables live in the Regional Cluster (RC) account and are
-# provisioned by the Mint-DynamoDB CodePipeline stage, which assumes RC account
-# credentials (analogous to the Mint-IoT stage for Maestro).
+# provisioned inline from regional-cluster/main.tf.
 #
 # Table naming follows the kube-applier-aws convention:
 #   Prefix (--specs-table):  mc-{mc}-specs

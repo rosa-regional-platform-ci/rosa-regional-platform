@@ -415,6 +415,95 @@ module "kube_applier_dynamodb" {
 }
 
 # =============================================================================
+# Fleet-DB EKS Cluster
+#
+# Fleet-DB is a workerless EKS cluster whose kube-apiserver acts as the
+# database for hyperfleet CRDs. It shares the regional VPC (subnets, NAT
+# gateways, VPC endpoints) but has its own cluster security group for
+# isolation. No workloads are scheduled — only the EKS control plane ENIs
+# live in the subnets.
+# =============================================================================
+
+locals {
+  fleet_db_id = "${var.regional_id}-fleet-db"
+}
+
+resource "aws_security_group" "fleet_db_cluster" {
+  name        = "${local.fleet_db_id}-cluster-sg"
+  description = "EKS cluster control plane security group for fleet-db"
+  vpc_id      = module.vpc.vpc_id
+  tags        = { Name = "${local.fleet_db_id}-cluster-sg" }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "fleet_db_cluster_https" {
+  security_group_id = aws_security_group.fleet_db_cluster.id
+  description       = "Allow VPC to communicate with fleet-db API server"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  cidr_ipv4         = module.vpc.vpc_cidr
+}
+
+resource "aws_vpc_security_group_egress_rule" "fleet_db_cluster_vpc_internal" {
+  security_group_id = aws_security_group.fleet_db_cluster.id
+  description       = "Allow all internal VPC communication"
+  ip_protocol       = "-1"
+  cidr_ipv4         = module.vpc.vpc_cidr
+}
+
+module "fleet_db_cluster" {
+  source = "../../modules/eks-cluster-workerless"
+
+  cluster_id                = local.fleet_db_id
+  private_subnet_ids        = module.vpc.private_subnet_ids
+  cluster_security_group_id = aws_security_group.fleet_db_cluster.id
+}
+
+# =============================================================================
+# Fleet-DB Access Entries
+#
+# The hyperfleet-operator and platform-api authenticate to fleet-db's
+# kube-apiserver using IAM (presigned STS tokens via eksauth). Each needs
+# an EKS access entry on this cluster.
+# =============================================================================
+
+resource "aws_eks_access_entry" "fleet_db_hyperfleet_operator" {
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = aws_iam_role.hyperfleet_operator.arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "fleet_db_hyperfleet_operator" {
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = aws_iam_role.hyperfleet_operator.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.fleet_db_hyperfleet_operator]
+}
+
+resource "aws_eks_access_entry" "fleet_db_platform_api" {
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = module.authz.frontend_api_role_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "fleet_db_platform_api" {
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = module.authz.frontend_api_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.fleet_db_platform_api]
+}
+
+# =============================================================================
 # Hyperfleet Operator IAM (Pod Identity)
 #
 # The hyperfleet-operator runs on the RC, watches CRs on fleet-db, and
@@ -424,7 +513,6 @@ module "kube_applier_dynamodb" {
 # =============================================================================
 
 resource "aws_iam_role" "hyperfleet_operator" {
-  count       = var.fleet_db_cluster_arn != "" ? 1 : 0
   name        = "${var.regional_id}-hyperfleet-operator"
   description = "IAM role for hyperfleet-operator with DynamoDB and fleet-db access"
 
@@ -450,9 +538,8 @@ resource "aws_iam_role" "hyperfleet_operator" {
 }
 
 resource "aws_iam_role_policy" "hyperfleet_operator_fleet_db" {
-  count = var.fleet_db_cluster_arn != "" ? 1 : 0
-  name  = "${var.regional_id}-hyperfleet-operator-fleet-db"
-  role  = aws_iam_role.hyperfleet_operator[0].id
+  name = "${var.regional_id}-hyperfleet-operator-fleet-db"
+  role = aws_iam_role.hyperfleet_operator.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -461,16 +548,16 @@ resource "aws_iam_role_policy" "hyperfleet_operator_fleet_db" {
         Sid      = "EKSDescribeFleetDB"
         Effect   = "Allow"
         Action   = ["eks:DescribeCluster"]
-        Resource = [var.fleet_db_cluster_arn]
+        Resource = [module.fleet_db_cluster.cluster_arn]
       }
     ]
   })
 }
 
 resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
-  count = var.fleet_db_cluster_arn != "" && length(local.mc_ids) > 0 ? 1 : 0
+  count = length(local.mc_ids) > 0 ? 1 : 0
   name  = "${var.regional_id}-hyperfleet-operator-dynamodb"
-  role  = aws_iam_role.hyperfleet_operator[0].id
+  role  = aws_iam_role.hyperfleet_operator.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -503,11 +590,10 @@ resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
 }
 
 resource "aws_eks_pod_identity_association" "hyperfleet_operator" {
-  count           = var.fleet_db_cluster_arn != "" ? 1 : 0
   cluster_name    = module.regional_cluster.cluster_name
   namespace       = "hyperfleet-system"
   service_account = "hyperfleet-operator"
-  role_arn        = aws_iam_role.hyperfleet_operator[0].arn
+  role_arn        = aws_iam_role.hyperfleet_operator.arn
 
   tags = {
     Name      = "${var.regional_id}-hyperfleet-operator-pod-identity"
@@ -525,9 +611,8 @@ resource "aws_eks_pod_identity_association" "hyperfleet_operator" {
 # =============================================================================
 
 resource "aws_iam_role_policy" "platform_api_fleet_db" {
-  count = var.fleet_db_cluster_arn != "" ? 1 : 0
-  name  = "${var.regional_id}-platform-api-fleet-db"
-  role  = module.authz.frontend_api_role_name
+  name = "${var.regional_id}-platform-api-fleet-db"
+  role = module.authz.frontend_api_role_name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -536,7 +621,7 @@ resource "aws_iam_role_policy" "platform_api_fleet_db" {
         Sid      = "EKSDescribeFleetDB"
         Effect   = "Allow"
         Action   = ["eks:DescribeCluster"]
-        Resource = [var.fleet_db_cluster_arn]
+        Resource = [module.fleet_db_cluster.cluster_arn]
       }
     ]
   })

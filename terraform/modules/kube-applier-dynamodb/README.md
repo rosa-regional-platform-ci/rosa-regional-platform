@@ -1,8 +1,8 @@
 # kube-applier-dynamodb Module
 
 Creates the six DynamoDB tables and backend IAM role for `kube-applier-aws` for one
-Management Cluster. Runs in the **Regional Cluster account** via the `Mint-DynamoDB`
-CodePipeline stage.
+Management Cluster. Runs in the **Regional Cluster account**, invoked from
+`regional-cluster/main.tf`.
 
 ## Tables Created
 
