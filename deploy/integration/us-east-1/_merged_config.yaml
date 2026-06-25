@@ -126,6 +126,9 @@ applications:
       # @doc applications.regional-cluster.eksNodePool.instanceFamilies Instance families for the regional Karpenter NodePool.
       # @used-by applications.regional-cluster.eksNodePool.instanceFamilies _context
       instanceFamilies: "{{ regional_cluster.node_instance_families }}"
+    # @doc applications.regional-cluster.baseDomain DNS base domain for HostedClusters (deployment_name.dns.domain).
+    # @used-by applications.regional-cluster.baseDomain _context
+    baseDomain: "{% if dns.domain %}{{ deployment_name }}.{{ dns.domain }}{% endif %}"
     pagerduty:
       # @doc applications.regional-cluster.pagerduty.enabled Enable PagerDuty alerting in the monitoring stack.
       # @used-by applications.regional-cluster.pagerduty.enabled _context

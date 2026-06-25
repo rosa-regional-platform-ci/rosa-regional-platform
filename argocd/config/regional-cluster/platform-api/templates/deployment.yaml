@@ -48,6 +48,9 @@ spec:
             - --metrics-port={{ .Values.platformApi.app.args.metricsPort }}
             - --dynamodb-region={{ .Values.platformApi.app.args.dynamodbRegion }}
             - --dynamodb-prefix={{ .Values.platformApi.app.args.dynamodbPrefix }}
+            {{- if .Values.platformApi.app.args.oidcIssuerBaseURL }}
+            - --oidc-issuer-base-url={{ .Values.platformApi.app.args.oidcIssuerBaseURL }}
+            {{- end }}
           {{- if .Values.platformApi.zoa.enabled }}
           env:
             - name: ZOA_ENABLED

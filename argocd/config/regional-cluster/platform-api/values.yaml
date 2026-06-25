@@ -30,6 +30,7 @@ platformApi:
       allowedAccounts: "123456789012"
       dynamodbRegion: us-east-2
       dynamodbPrefix: rosa
+      oidcIssuerBaseURL: ""
       apiPort: 8000
       healthPort: 8081
       metricsPort: 9090
