@@ -1022,6 +1022,8 @@ cmd_e2e() {
         -e "AWS_REGION=$region" \
         -e "E2E_REF=$e2e_ref" \
         -e "E2E_REPO=$e2e_repo" \
+        -e "CLI_REF=${CLI_REF:-main}" \
+        -e "CLI_REPO=${CLI_REPO:-}" \
         -e "E2E_SKIP_CLEANUP=${E2E_SKIP_CLEANUP:-}" \
         "$CI_IMAGE" \
         bash ci/e2e-tests.sh
