@@ -258,6 +258,50 @@ variable "authz_frontend_api_service_account" {
 }
 
 # =============================================================================
+# kube-applier DynamoDB Configuration Variables
+# =============================================================================
+
+variable "enable_kube_applier_dynamodb" {
+  description = "Enable DynamoDB tables for kube-applier-aws desire-based resource distribution"
+  type        = bool
+  default     = false
+}
+
+variable "kube_applier_dynamodb_billing_mode" {
+  description = "DynamoDB billing mode for kube-applier tables (PAY_PER_REQUEST or PROVISIONED)"
+  type        = string
+  default     = "PAY_PER_REQUEST"
+}
+
+variable "kube_applier_dynamodb_enable_pitr" {
+  description = "Enable point-in-time recovery for kube-applier DynamoDB tables (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "kube_applier_dynamodb_deletion_protection" {
+  description = "Enable deletion protection for kube-applier DynamoDB tables (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+# =============================================================================
+# Fleet-DB Configuration Variables
+# =============================================================================
+
+variable "fleet_db_cluster_name" {
+  description = "EKS cluster name of the fleet-db (kube-apiserver database for hyperfleet CRDs)"
+  type        = string
+  default     = ""
+}
+
+variable "fleet_db_cluster_arn" {
+  description = "ARN of the fleet-db EKS cluster (used for IAM DescribeCluster permissions)"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
 # HyperFleet Configuration Variables
 # =============================================================================
 

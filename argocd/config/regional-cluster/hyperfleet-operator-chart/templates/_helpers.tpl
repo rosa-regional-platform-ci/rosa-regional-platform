@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "maestro-agent.name" -}}
+{{- define "hyperfleet-operator.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "maestro-agent.fullname" -}}
+{{- define "hyperfleet-operator.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "maestro-agent.chart" -}}
+{{- define "hyperfleet-operator.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "maestro-agent.labels" -}}
-helm.sh/chart: {{ include "maestro-agent.chart" . }}
-{{ include "maestro-agent.selectorLabels" . }}
+{{- define "hyperfleet-operator.labels" -}}
+helm.sh/chart: {{ include "hyperfleet-operator.chart" . }}
+{{ include "hyperfleet-operator.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -43,15 +43,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "maestro-agent.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "maestro-agent.name" . }}
+{{- define "hyperfleet-operator.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "hyperfleet-operator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app: maestro-agent
-{{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "maestro-agent.serviceAccountName" -}}
-{{- .Values.maestroAgent.maestro.serviceAccount }}
 {{- end }}

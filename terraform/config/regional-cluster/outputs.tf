@@ -379,6 +379,15 @@ output "hyperfleet_configuration_summary" {
 }
 
 # =============================================================================
+# Hyperfleet Operator Outputs
+# =============================================================================
+
+output "hyperfleet_operator_role_arn" {
+  description = "IAM role ARN for hyperfleet-operator (Pod Identity)"
+  value       = var.fleet_db_cluster_arn != "" ? aws_iam_role.hyperfleet_operator[0].arn : ""
+}
+
+# =============================================================================
 # CloudWatch Exporter Outputs
 # =============================================================================
 

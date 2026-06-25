@@ -418,6 +418,157 @@ module "zoa" {
 }
 
 # =============================================================================
+# kube-applier DynamoDB Tables (Desire-based resource distribution)
+#
+# Creates the 6 DynamoDB tables per MC that kube-applier-aws uses, plus a
+# global uniqueness table for cluster ID and DNS deduplication.
+# =============================================================================
+
+locals {
+  mc_ids = [for entry in local.mc_entries : element(split(":", entry), 0)]
+}
+
+module "kube_applier_dynamodb" {
+  count  = var.enable_kube_applier_dynamodb && length(local.mc_ids) > 0 ? 1 : 0
+  source = "../../modules/kube-applier-dynamodb"
+
+  regional_id            = var.regional_id
+  management_cluster_ids = local.mc_ids
+
+  billing_mode                  = var.kube_applier_dynamodb_billing_mode
+  enable_point_in_time_recovery = var.kube_applier_dynamodb_enable_pitr
+  enable_deletion_protection    = var.kube_applier_dynamodb_deletion_protection
+}
+
+# =============================================================================
+# Hyperfleet Operator IAM (Pod Identity)
+#
+# The hyperfleet-operator runs on the RC, watches CRs on fleet-db, and
+# writes/reads DynamoDB desire tables. It needs:
+# - EKS DescribeCluster on fleet-db (to discover endpoint + CA for IAM auth)
+# - DynamoDB write on specs tables, read on status tables
+# =============================================================================
+
+resource "aws_iam_role" "hyperfleet_operator" {
+  count       = var.fleet_db_cluster_arn != "" ? 1 : 0
+  name        = "${var.regional_id}-hyperfleet-operator"
+  description = "IAM role for hyperfleet-operator with DynamoDB and fleet-db access"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = [
+        "sts:AssumeRole",
+        "sts:TagSession"
+      ]
+    }]
+  })
+
+  tags = {
+    Name      = "${var.regional_id}-hyperfleet-operator-role"
+    Component = "hyperfleet-operator"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy" "hyperfleet_operator_fleet_db" {
+  count = var.fleet_db_cluster_arn != "" ? 1 : 0
+  name  = "${var.regional_id}-hyperfleet-operator-fleet-db"
+  role  = aws_iam_role.hyperfleet_operator[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "EKSDescribeFleetDB"
+        Effect   = "Allow"
+        Action   = ["eks:DescribeCluster"]
+        Resource = [var.fleet_db_cluster_arn]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
+  count = var.fleet_db_cluster_arn != "" && var.enable_kube_applier_dynamodb ? 1 : 0
+  name  = "${var.regional_id}-hyperfleet-operator-dynamodb"
+  role  = aws_iam_role.hyperfleet_operator[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "DynamoDBWriteSpecs"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-specs-*"]
+      },
+      {
+        Sid    = "DynamoDBReadStatus"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-status-*"]
+      }
+    ]
+  })
+}
+
+resource "aws_eks_pod_identity_association" "hyperfleet_operator" {
+  count           = var.fleet_db_cluster_arn != "" ? 1 : 0
+  cluster_name    = module.regional_cluster.cluster_name
+  namespace       = "hyperfleet-system"
+  service_account = "hyperfleet-operator"
+  role_arn        = aws_iam_role.hyperfleet_operator[0].arn
+
+  tags = {
+    Name      = "${var.regional_id}-hyperfleet-operator-pod-identity"
+    Component = "hyperfleet-operator"
+    ManagedBy = "terraform"
+  }
+}
+
+# =============================================================================
+# Platform API Fleet-DB Access
+#
+# The platform API needs EKS DescribeCluster on fleet-db to authenticate
+# via presigned STS tokens (same IAM auth pattern as the operator).
+# This policy is added to the existing platform-api role from the authz module.
+# =============================================================================
+
+resource "aws_iam_role_policy" "platform_api_fleet_db" {
+  count = var.fleet_db_cluster_arn != "" ? 1 : 0
+  name  = "${var.regional_id}-platform-api-fleet-db"
+  role  = module.authz.frontend_api_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "EKSDescribeFleetDB"
+        Effect   = "Allow"
+        Action   = ["eks:DescribeCluster"]
+        Resource = [var.fleet_db_cluster_arn]
+      }
+    ]
+  })
+}
+
+# =============================================================================
 # HyperFleet Infrastructure Module - MQ broker provisions in parallel with EKS
 # =============================================================================
 
