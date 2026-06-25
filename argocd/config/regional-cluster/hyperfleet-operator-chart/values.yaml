@@ -12,6 +12,8 @@ hyperfleet-operator-chart:
     targetRevision: main
     path: charts/hyperfleet-operator
 
+  baseDomain: ""
+
   syncPolicy:
     automated:
       prune: true

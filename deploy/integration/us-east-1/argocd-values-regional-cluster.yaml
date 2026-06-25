@@ -10,5 +10,7 @@ eksNodePool:
   - m8i
   - m7i
 baseDomain: us-east-1.int0.rosa.devshift.net
+hyperfleet-operator-chart:
+  baseDomain: 0.us-east-1.int0.rosa.devshift.net
 pagerduty:
   enabled: true

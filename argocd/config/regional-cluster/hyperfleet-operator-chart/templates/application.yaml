@@ -19,7 +19,7 @@ spec:
         {{- end }}
         awsRegion: {{ .Values.global.aws_region }}
         fleetDBClusterName: {{ .Values.global.fleet_db_cluster_name }}
-        baseDomain: {{ .Values.baseDomain }}
+        baseDomain: {{ index .Values "hyperfleet-operator-chart" "baseDomain" }}
 
   destination:
     server: https://kubernetes.default.svc
