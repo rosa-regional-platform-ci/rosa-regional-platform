@@ -387,6 +387,11 @@ output "hyperfleet_operator_role_arn" {
   value       = var.fleet_db_cluster_arn != "" ? aws_iam_role.hyperfleet_operator[0].arn : ""
 }
 
+output "fleet_db_cluster_name" {
+  description = "Fleet-DB EKS cluster name (passed to operator and platform-api for IAM auth)"
+  value       = var.fleet_db_cluster_name
+}
+
 # =============================================================================
 # CloudWatch Exporter Outputs
 # =============================================================================

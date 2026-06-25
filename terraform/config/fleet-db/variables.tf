@@ -71,3 +71,19 @@ variable "enable_bastion" {
   type        = bool
   default     = false
 }
+
+# =============================================================================
+# Fleet-DB Access Configuration
+# =============================================================================
+
+variable "hyperfleet_operator_role_arn" {
+  description = "IAM role ARN of the hyperfleet-operator (from regional-cluster). Creates an EKS access entry so the operator can authenticate to fleet-db via IAM."
+  type        = string
+  default     = ""
+}
+
+variable "platform_api_role_arn" {
+  description = "IAM role ARN of the platform-api (from regional-cluster). Creates an EKS access entry so the API can authenticate to fleet-db via IAM."
+  type        = string
+  default     = ""
+}

@@ -13,10 +13,12 @@ spec:
     targetRevision: {{ index .Values "hyperfleet-operator-chart" "source" "targetRevision" }}
     path: {{ index .Values "hyperfleet-operator-chart" "source" "path" }}
     helm:
-      {{- if index .Values "hyperfleet-operator-chart" "helmValues" }}
       values: |
+        {{- if index .Values "hyperfleet-operator-chart" "helmValues" }}
         {{- toYaml (index .Values "hyperfleet-operator-chart" "helmValues") | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        awsRegion: {{ .Values.global.aws_region }}
+        fleetDBClusterName: {{ .Values.global.fleet_db_cluster_name }}
 
   destination:
     server: https://kubernetes.default.svc

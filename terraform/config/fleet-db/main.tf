@@ -70,6 +70,54 @@ module "ecs_bootstrap" {
 }
 
 # =============================================================================
+# Fleet-DB Access Entries
+#
+# The hyperfleet-operator and platform-api authenticate to fleet-db's
+# kube-apiserver using IAM (presigned STS tokens via eksauth). Each needs
+# an EKS access entry on this cluster.
+# =============================================================================
+
+resource "aws_eks_access_entry" "hyperfleet_operator" {
+  count         = var.hyperfleet_operator_role_arn != "" ? 1 : 0
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = var.hyperfleet_operator_role_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "hyperfleet_operator" {
+  count         = var.hyperfleet_operator_role_arn != "" ? 1 : 0
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = var.hyperfleet_operator_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.hyperfleet_operator]
+}
+
+resource "aws_eks_access_entry" "platform_api" {
+  count         = var.platform_api_role_arn != "" ? 1 : 0
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = var.platform_api_role_arn
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "platform_api" {
+  count         = var.platform_api_role_arn != "" ? 1 : 0
+  cluster_name  = module.fleet_db_cluster.cluster_name
+  principal_arn = var.platform_api_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.platform_api]
+}
+
+# =============================================================================
 # Bastion Module (Optional)
 # =============================================================================
 

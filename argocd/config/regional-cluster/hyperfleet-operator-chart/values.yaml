@@ -20,7 +20,7 @@ hyperfleet-operator-chart:
   helmValues:
     image:
       repository: quay.io/cbusse_openshift/hyperfleet-operator
-      tag: "0.1.0"
+      tag: "0.1.0-a"
       pullPolicy: IfNotPresent
 
     replicaCount: 1
