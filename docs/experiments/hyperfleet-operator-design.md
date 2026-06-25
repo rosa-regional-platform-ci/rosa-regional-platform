@@ -421,8 +421,7 @@ New Terraform module: `terraform/modules/kube-applier-dynamodb/`
 ### ArgoCD
 
 - New chart: `argocd/config/regional-cluster/hyperfleet-operator-chart/`
-- Register fleet-db as an ArgoCD Cluster (for CRD deployment)
-- CRDs synced to fleet-db via ArgoCD Application or operator bootstrap
+- CRDs are installed on fleet-db by the operator at startup
 
 ---
 
@@ -586,8 +585,7 @@ HostedCluster created → status flows back → Cluster CR shows Available=True.
 ### Phase 6: Cutover
 
 1. Deploy fleet-db cluster
-2. Register CRDs
-3. Deploy operator on RC
+2. Deploy operator on RC (installs CRDs on fleet-db at startup)
 4. Switch platform API to fleet-db backend
 5. Remove hyperfleet-api, hyperfleet-sentinel, hyperfleet-adapter, Maestro deployments
 
