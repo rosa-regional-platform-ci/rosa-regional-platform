@@ -581,9 +581,21 @@ resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
         Action = [
           "dynamodb:GetItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "dynamodb:DescribeTable"
         ]
         Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-status-*"]
+      },
+      {
+        Sid    = "DynamoDBStatusStreams"
+        Effect = "Allow"
+        Action = [
+          "dynamodbstreams:DescribeStream",
+          "dynamodbstreams:GetRecords",
+          "dynamodbstreams:GetShardIterator",
+          "dynamodbstreams:ListStreams"
+        ]
+        Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-status-readdesires/stream/*"]
       }
     ]
   })
