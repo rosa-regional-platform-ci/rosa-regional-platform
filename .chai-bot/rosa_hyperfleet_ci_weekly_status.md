@@ -16,6 +16,7 @@ Fetch the CI configuration from:
 Use `fetch_web_content` to retrieve this YAML file. It defines all tests including periodic jobs with `cron:` schedules.
 
 **Track these 2 periodic jobs:**
+
 - `nightly-ephemeral` (test name `as: nightly-ephemeral`)
 - `nightly-integration` (test name `as: nightly-integration`)
 
@@ -27,11 +28,13 @@ The full Prow job names follow the pattern:
 For each job, collect **all builds from the last 7 days** (not a fixed build count). Use Prow CI tools or `fetch_web_content` on the job-history page. Filter builds by timestamp to include only those from the past 7 days. Calculate each job's pass rate over that window.
 
 **Important:** Track each run with its date for the trend table:
+
 - For each run, record: date, pass/fail status, build ID
 - Format date as "MonDD" (e.g., "Jun13", "Jun14", "Jun19")
 - Runs are ordered: oldest run first → newest run last (left to right)
 
 **Also collect previous week data (8-14 days ago)** for the overall trend comparison:
+
 - Calculate pass rate for the previous week (8-14 days ago)
 - Compare this week vs previous week to determine trend direction
 
@@ -40,6 +43,7 @@ For each job, collect **all builds from the last 7 days** (not a fixed build cou
 Look up the current status of the ROSA HyperFleet milestone epics. Use Jira tools to query these specific epics and their child story counts:
 
 **Milestone Epics to track:**
+
 - [ROSA-668](https://redhat.atlassian.net/browse/ROSA-668): Milestone 3 - HCPs run on EKS MCs
 - [ROSA-669](https://redhat.atlassian.net/browse/ROSA-669): Milestone 4 - Observability and Alerting
 - [ROSA-670](https://redhat.atlassian.net/browse/ROSA-670): Milestone 5 - CLM Integration
@@ -53,6 +57,7 @@ For each epic, report: how many stories closed, how many in progress, how many t
 ### 4. Find key PRs from the past week
 
 Search for recently opened or merged PRs from ALL contributors (not just one person) across these repos:
+
 - `openshift-online/rosa-hyperfleet` (main codebase)
 - `openshift-online/rosa-hyperfleet-api` (API repository)
 - `openshift-online/rosa-hyperfleet-cli` (CLI repository)
@@ -66,6 +71,7 @@ Use GitHub tools or `fetch_web_content` to find PRs from the last 7 days. Includ
 Query for documentation PRs created by the documentation bot (author matches bot username, title prefix `[docs-agent]`) across the same repositories.
 
 **Implementation:**
+
 ```bash
 # Get bot username first
 BOT_USER=$(gh api user --jq .login)
@@ -80,6 +86,7 @@ gh pr list --repo openshift-online/<repo> \
 ```
 
 **Filter to last 7 days:**
+
 - Count PRs created in the last 7 days (regardless of state)
 - Count how many are currently open
 - Count how many were merged in the last 7 days
@@ -122,6 +129,7 @@ integration:   ✅    ✅    ❌    ✅    ✅    ❌    ✅   5/7 (71%)
 ### Formatting rules
 
 **Job health section:**
+
 - Group jobs by health tier (:large_green_circle: first, then :large_yellow_circle:, then :red_circle:)
 - Show per-job pass rates
 - For jobs with 0 builds in the window, list them separately at the end
@@ -129,6 +137,7 @@ integration:   ✅    ✅    ❌    ✅    ✅    ❌    ✅   5/7 (71%)
 - Note if the latest run is failing for a job that otherwise has a good rate (e.g., "87%, latest failing")
 
 **7-Day trend table:**
+
 - Same format as the daily health report trend table
 - Use MonDD date headers (e.g., Jun13, Jun14, Jun19)
 - Show only runs from the past 7 days (may be fewer than 7 runs if jobs don't run daily)
@@ -138,6 +147,7 @@ integration:   ✅    ✅    ❌    ✅    ✅    ❌    ✅   5/7 (71%)
 - Use monospace/code block formatting for alignment
 
 **Overall trend section:**
+
 - Compare this week's pass rate to the previous week (8-14 days ago) for each job
 - Trend emoji and description:
   - :chart_with_upwards_trend: "Improving" — this week's overall pass rate is higher than last week
@@ -148,6 +158,7 @@ integration:   ✅    ✅    ❌    ✅    ✅    ❌    ✅   5/7 (71%)
 - If a job had no builds in one of the weeks, note it
 
 **Documentation section:**
+
 - Single line summary: `N doc PRs created this week, X open, Y merged`
 - If no doc PRs created this week: `:robot_face: No documentation PRs this week`
 - Count only PRs with `[docs-agent]` prefix authored by the bot
@@ -156,6 +167,7 @@ integration:   ✅    ✅    ❌    ✅    ✅    ❌    ✅   5/7 (71%)
 - "Merged" = PRs merged in last 7 days
 
 **Key activity section:**
+
 - Include merged PRs and notable open PRs
 - Link PRs as `(<url|#number>)` or `(<url|repo #number>)` for cross-repo
 - Group related PRs when it makes sense (e.g., "3 API enhancement PRs in review: ...")
@@ -163,6 +175,7 @@ integration:   ✅    ✅    ❌    ✅    ✅    ❌    ✅   5/7 (71%)
 - **Do not include bot's [docs-agent] PRs here** - they're already in the Documentation section
 
 **Overall:**
+
 - Keep the entire report in one message (no threaded replies for the weekly status)
 - Use Slack `mrkdwn` formatting
 - The report should be scannable in 30 seconds
