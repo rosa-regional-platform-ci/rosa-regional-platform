@@ -235,8 +235,8 @@ Present findings in this format:
 
 ## Reference: Job History URLs
 
-| Job                    | History URL                                                                                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Job                    | History URL                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `check-docs`           | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-hyperfleet-main-check-docs`           |
 | `terraform-validate`   | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-hyperfleet-main-terraform-validate`   |
 | `helm-lint`            | `https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-hyperfleet-main-helm-lint`            |

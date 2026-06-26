@@ -14,9 +14,9 @@ A reusable [step-registry workflow](https://github.com/openshift/release/tree/ma
 
 ## Workflow Steps
 
-| Step                                | Image                       | Purpose                                                              |
-| ----------------------------------- | --------------------------- | -------------------------------------------------------------------- |
-| `rosa-hyperfleet-image-push` | `ocp/4.21:cli`              | Copies CI-built image to quay.io using `oc image mirror`             |
+| Step                         | Image                | Purpose                                                              |
+| ---------------------------- | -------------------- | -------------------------------------------------------------------- |
+| `rosa-hyperfleet-image-push` | `ocp/4.21:cli`       | Copies CI-built image to quay.io using `oc image mirror`             |
 | `rosa-hyperfleet-provision`  | `rosa-hyperfleet-ci` | Calls ephemeral provider with YAML overrides, provisions environment |
 | `rosa-hyperfleet-e2e`        | `rosa-hyperfleet-ci` | Clones this repo, runs `./ci/e2e-tests.sh`                           |
 | `rosa-hyperfleet-teardown`   | `rosa-hyperfleet-ci` | Clones this repo, runs teardown                                      |
@@ -25,8 +25,8 @@ The `rosa-hyperfleet-ci` image is built from `ci/Containerfile` and promoted to 
 
 ## CI Credentials
 
-| Secret                                    | Purpose                                             |
-| ----------------------------------------- | --------------------------------------------------- |
+| Secret                             | Purpose                                             |
+| ---------------------------------- | --------------------------------------------------- |
 | `rosa-hyperfleet-dev-ci-quay-push` | Robot account for pushing to `quay.io/rrp-dev-ci/`  |
 | `rosa-hyperfleet-ephemeral-creds`  | AWS credentials for provisioning, e2e, and teardown |
 
