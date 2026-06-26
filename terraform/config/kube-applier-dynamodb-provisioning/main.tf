@@ -76,6 +76,10 @@ resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
         Sid    = "DynamoDBStatusStreams"
         Effect = "Allow"
         Action = [
+          "dynamodb:DescribeStream",
+          "dynamodb:GetRecords",
+          "dynamodb:GetShardIterator",
+          "dynamodb:ListStreams",
           "dynamodbstreams:DescribeStream",
           "dynamodbstreams:GetRecords",
           "dynamodbstreams:GetShardIterator",
