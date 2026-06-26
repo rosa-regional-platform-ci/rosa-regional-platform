@@ -14,9 +14,9 @@ A reusable [step-registry workflow](https://github.com/openshift/release/tree/ma
 
 ## Workflow Steps
 
-| Step                         | Image                | Purpose                                                              |
-| ---------------------------- | -------------------- | -------------------------------------------------------------------- |
-| `rosa-hyperfleet-image-push` | `ocp/4.21:cli`       | Copies CI-built image to quay.io using `oc image mirror`             |
+| Step                         | Image                       | Purpose                                                              |
+| ---------------------------- | --------------------------- | -------------------------------------------------------------------- |
+| `rosa-hyperfleet-image-push` | `ocp/4.21:cli`              | Copies CI-built image to quay.io using `oc image mirror`             |
 | `rosa-hyperfleet-provision`  | `rosa-regional-platform-ci` | Calls ephemeral provider with YAML overrides, provisions environment |
 | `rosa-hyperfleet-e2e`        | `rosa-regional-platform-ci` | Clones this repo, runs `./ci/e2e-tests.sh`                           |
 | `rosa-hyperfleet-teardown`   | `rosa-regional-platform-ci` | Clones this repo, runs teardown                                      |
