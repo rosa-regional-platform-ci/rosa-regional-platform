@@ -48,11 +48,12 @@ Work for the ROSA Regional Platform is tracked in Jira under two parent Outcomes
 - **[HPSTRAT-62](https://redhat.atlassian.net/browse/HPSTRAT-62)** ("Red Hat Cloud Data Sovereignty"): Feature-driven work covering the regional platform build-out (architecture, infrastructure, services, tooling).
 - **[HPSTRAT-11](https://redhat.atlassian.net/browse/HPSTRAT-11)** ("FedRAMP Moderate Technical Delivery"): Compliance work covering FedRAMP security controls, audit requirements, and certification readiness.
 
-Each Outcome contains **Feature** issues in the **ROSA** project representing milestones, identified by the `[Regionality]` prefix in their summary (e.g. "[Regionality] Milestone 5 - CLM Integration").
+Day-to-day engineering tasks (epics, stories, bugs) live in the **ROSAENG** project under the **[ROSA] HyperFleet** team (`customfield_10001`, id `0c538cd9-152b-49f6-ad7c-e2fa2f865809`).
 
-Day-to-day engineering tasks (epics, stories, bugs) live in the **ROSAENG** project under the **"ROSA Regionality Platform"** component.
+When creating ROSAENG issues:
 
-The portfolio view JQL combines both: the ROSAENG component filter plus the ROSA `[Regionality]` milestone Features by key.
+- Set the team via `additional_fields`: `{"customfield_10001": "0c538cd9-152b-49f6-ad7c-e2fa2f865809"}`
+- Do **not** set a component
 
 ## Development Guidelines
 
