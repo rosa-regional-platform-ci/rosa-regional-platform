@@ -219,16 +219,6 @@ variable "authz_frontend_api_service_account" {
   default     = "platform-api-sa"
 }
 
-# =============================================================================
-# kube-applier DynamoDB Configuration Variables
-# =============================================================================
-
-variable "kube_applier_dynamodb_enable_pitr" {
-  description = "Enable point-in-time recovery for kube-applier DynamoDB tables (recommended for production)"
-  type        = bool
-  default     = false
-}
-
 
 # =============================================================================
 # Regional OIDC Configuration Variables

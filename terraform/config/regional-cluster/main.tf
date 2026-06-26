@@ -390,31 +390,6 @@ module "zoa" {
 }
 
 # =============================================================================
-# kube-applier DynamoDB Tables (Desire-based resource distribution)
-#
-# Creates the 6 DynamoDB tables per MC that kube-applier-aws uses, plus a
-# global uniqueness table for cluster ID and DNS deduplication.
-# =============================================================================
-
-locals {
-  mc_ids = [for entry in local.mc_entries : element(split(":", entry), 0)]
-}
-
-module "kube_applier_dynamodb" {
-  for_each = {
-    for entry in local.mc_entries :
-    element(split(":", entry), 0) => element(split(":", entry), 1)
-  }
-  source = "../../modules/kube-applier-dynamodb"
-
-  mc_name           = each.key
-  mc_aws_account_id = each.value
-  rc_id             = var.regional_id
-  aws_region        = var.region
-  enable_pitr       = var.kube_applier_dynamodb_enable_pitr
-}
-
-# =============================================================================
 # Fleet-DB EKS Cluster
 #
 # Fleet-DB is a workerless EKS cluster whose kube-apiserver acts as the
@@ -549,53 +524,6 @@ resource "aws_iam_role_policy" "hyperfleet_operator_fleet_db" {
         Effect   = "Allow"
         Action   = ["eks:DescribeCluster"]
         Resource = [module.fleet_db_cluster.cluster_arn]
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "hyperfleet_operator_dynamodb" {
-  count = length(local.mc_ids) > 0 ? 1 : 0
-  name  = "${var.regional_id}-hyperfleet-operator-dynamodb"
-  role  = aws_iam_role.hyperfleet_operator.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "DynamoDBWriteSpecs"
-        Effect = "Allow"
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:Scan"
-        ]
-        Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-specs-*"]
-      },
-      {
-        Sid    = "DynamoDBReadStatus"
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:Scan",
-          "dynamodb:DescribeTable"
-        ]
-        Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-status-*"]
-      },
-      {
-        Sid    = "DynamoDBStatusStreams"
-        Effect = "Allow"
-        Action = [
-          "dynamodbstreams:DescribeStream",
-          "dynamodbstreams:GetRecords",
-          "dynamodbstreams:GetShardIterator",
-          "dynamodbstreams:ListStreams"
-        ]
-        Resource = [for name in local.mc_ids : "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${name}-status-readdesires/stream/*"]
       }
     ]
   })
