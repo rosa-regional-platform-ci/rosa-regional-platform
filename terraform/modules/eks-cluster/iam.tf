@@ -278,3 +278,39 @@ resource "aws_iam_role_policy" "karpenter_controller_kms" {
     ]
   })
 }
+
+# -----------------------------------------------------------------------------
+# EBS CSI Driver IRSA
+#
+# Allows the aws-ebs-csi-driver addon's controller ServiceAccount to call EBS
+# APIs for volume provisioning. Required because Auto Mode block storage is
+# disabled — the standard ebs.csi.aws.com provisioner handles PVC lifecycle
+# with zone-based topology instead of compute-type=auto topology.
+# -----------------------------------------------------------------------------
+resource "aws_iam_role" "ebs_csi_controller" {
+  count = var.enable_karpenter ? 1 : 0
+  name  = "${local.cluster_id}-ebs-csi-controller"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.eks[0].arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${replace(aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          "${replace(aws_iam_openid_connect_provider.eks[0].url, "https://", "")}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_controller" {
+  count      = var.enable_karpenter ? 1 : 0
+  role       = aws_iam_role.ebs_csi_controller[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}

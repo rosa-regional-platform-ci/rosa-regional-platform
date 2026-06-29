@@ -125,7 +125,7 @@ resource "aws_eks_cluster" "main" {
 
   storage_config {
     block_storage {
-      enabled = true
+      enabled = false
     }
   }
 
@@ -258,6 +258,19 @@ resource "aws_eks_addon" "kube_proxy" {
 resource "aws_eks_addon" "pod_identity" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "eks-pod-identity-agent"
+}
+
+# EBS CSI Driver - standard block storage for Karpenter (non-Auto Mode) clusters.
+# Auto Mode block storage is disabled above; this provides the ebs.csi.aws.com
+# provisioner with zone-based topology so PVCs are not locked to compute-type=auto.
+resource "aws_eks_addon" "aws_ebs_csi_driver" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "aws-ebs-csi-driver"
+
+  service_account_role_arn = aws_iam_role.ebs_csi_controller[0].arn
+
+  depends_on = [aws_eks_node_group.karpenter_bootstrap]
 }
 
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)

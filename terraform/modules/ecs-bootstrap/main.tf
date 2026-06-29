@@ -193,6 +193,28 @@ resource "aws_ecs_task_definition" "bootstrap" {
             echo "✓ $ADDON active"
           done
 
+          # Create the standard gp3 StorageClass using the EBS CSI driver.
+          # Auto Mode block storage is disabled on Karpenter clusters, so we
+          # provide our own StorageClass with zone-based topology (not compute-type=auto).
+          # Applied before ArgoCD so loki/thanos PVCs can be provisioned on first sync.
+          if [ -n "$${KARPENTER_CONTROLLER_ROLE_ARN:-}" ]; then
+            kubectl apply -f - <<'STORAGECLASS_EOF'
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+STORAGECLASS_EOF
+            echo "✓ gp3 StorageClass applied"
+          fi
+
           # Check if ArgoCD already exists
           if ! kubectl get deployment argocd-server -n argocd 2>/dev/null; then
             echo "Installing ArgoCD from repo chart..."
