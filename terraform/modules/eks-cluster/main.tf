@@ -196,6 +196,12 @@ resource "aws_eks_node_group" "karpenter_bootstrap" {
     version = aws_launch_template.karpenter_bootstrap[0].latest_version
   }
 
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
+
   labels = {
     "karpenter.sh/controller" = "true"
   }

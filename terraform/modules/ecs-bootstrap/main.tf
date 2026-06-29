@@ -129,6 +129,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
                 --set "tolerations[0].key=karpenter.sh/controller" \
                 --set "tolerations[0].operator=Exists" \
                 --set "tolerations[0].effect=NoSchedule" \
+                --set "tolerations[1].key=CriticalAddonsOnly" \
+                --set "tolerations[1].operator=Exists" \
+                --set "tolerations[1].effect=NoSchedule" \
                 --wait --timeout=5m
               echo "✓ Karpenter installed"
             else
@@ -161,6 +164,23 @@ resource "aws_ecs_task_definition" "bootstrap" {
             echo "✓ FIPS NodePool applied"
           else
             echo "✓ FIPS NodePool already exists or Karpenter not enabled, skipping (managed by ArgoCD)"
+          fi
+
+          # Wait for at least one Karpenter workload node to be Ready before installing
+          # ArgoCD. Without this, ArgoCD lands on the tainted bootstrap nodes, which
+          # fills them and prevents DaemonSet pods from scheduling. Skipped when
+          # Karpenter is not enabled (Auto Mode clusters use the system node pool).
+          if [ -n "$${KARPENTER_CONTROLLER_ROLE_ARN:-}" ]; then
+            echo "Waiting for a Karpenter workload node to be Ready (up to 10m)..."
+            for i in $(seq 1 40); do
+              if kubectl get nodes -l "karpenter.sh/nodepool=$${CLUSTER_SHORT}-workloads" --no-headers 2>/dev/null | grep -q " Ready "; then
+                echo "✓ Karpenter workload node Ready"
+                break
+              fi
+              [ "$i" -eq 40 ] && echo "WARNING: timed out waiting for Karpenter nodes, proceeding" && break
+              echo "  Waiting for Karpenter node... attempt $i/40"
+              sleep 15
+            done
           fi
 
           # Wait for coredns and metrics-server to be active before installing ArgoCD.
