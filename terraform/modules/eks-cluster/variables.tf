@@ -71,3 +71,21 @@ variable "enable_pod_security_standards" {
   default     = true
 }
 
+variable "node_group_min_size" {
+  description = "Minimum number of nodes in the managed node group"
+  type        = number
+  default     = 1
+}
+
+variable "node_group_max_size" {
+  description = "Maximum number of nodes in the managed node group"
+  type        = number
+  default     = 10
+}
+
+variable "node_group_desired_size" {
+  description = "Desired number of nodes in the managed node group"
+  type        = number
+  default     = 2
+}
+

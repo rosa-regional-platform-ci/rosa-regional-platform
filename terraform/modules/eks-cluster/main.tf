@@ -1,7 +1,7 @@
 # =============================================================================
 # EKS Cluster Configuration
 #
-# Creates a fully private EKS cluster with Auto Mode enabled.
+# Creates a fully private EKS cluster with a managed node group.
 # Includes KMS encryption for secrets, proper networking,
 # and managed addons for a complete cluster deployment.
 # VPC and networking are provided as inputs from the vpc module.
@@ -111,30 +111,6 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [var.cluster_security_group_id]
   }
 
-  compute_config {
-    enabled       = true
-    node_pools    = ["system"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
-  }
-
-  kubernetes_network_config {
-    elastic_load_balancing {
-      enabled = true
-    }
-  }
-
-  storage_config {
-    block_storage {
-      enabled = true
-    }
-  }
-
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 
   depends_on = [
@@ -154,7 +130,7 @@ resource "aws_eks_cluster" "main" {
 # - AWS Secrets Store CSI Driver Provider: Secret mounting (DaemonSet, safe pre-node)
 #
 # CoreDNS and metrics-server are declared here so Terraform creates them before
-# the ECS bootstrap task runs. The built-in "system" pool provides nodes for them
+# the ECS bootstrap task runs. The managed node group provides nodes for them
 # to schedule on, so there is no deadlock. Without this declaration, a fresh cluster
 # has no coredns/metrics-server addons and the bootstrap wait-addon-active call fails
 # with ResourceNotFoundException.
@@ -187,4 +163,36 @@ resource "aws_eks_addon" "aws_secrets_store_csi_driver_provider" {
       }
     }
   })
+}
+
+resource "aws_eks_addon" "vpc_cni" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "vpc-cni"
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "kube-proxy"
+}
+
+# -----------------------------------------------------------------------------
+# Managed Node Group
+# -----------------------------------------------------------------------------
+resource "aws_eks_node_group" "main" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${local.cluster_id}-nodes"
+  node_role_arn   = aws_iam_role.eks_node_group.arn
+  subnet_ids      = var.private_subnet_ids
+  instance_types  = ["m7i.large"]
+  ami_type        = "AL2023_x86_64_STANDARD"
+
+  scaling_config {
+    min_size     = var.node_group_min_size
+    max_size     = var.node_group_max_size
+    desired_size = var.node_group_desired_size
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.node_group_managed
+  ]
 }
