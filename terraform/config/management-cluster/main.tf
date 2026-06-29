@@ -50,7 +50,7 @@ module "management_cluster" {
   vpc_endpoints_security_group_id = module.vpc.vpc_endpoints_security_group_id
   enable_karpenter                = true
   karpenter_version               = "1.13.0"
-  ami_kms_key_arn                 = "arn:aws:kms:us-east-1:791666871613:key/2fce5913-a3a4-4f99-9950-c51f56214350" # var.ami_kms_key_arn
+  ami_kms_key_arn                 = var.ami_kms_key_arn
 }
 
 # =============================================================================

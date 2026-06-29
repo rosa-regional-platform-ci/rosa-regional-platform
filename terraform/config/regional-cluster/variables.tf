@@ -399,4 +399,5 @@ variable "management_clusters" {
 variable "ami_kms_key_arn" {
   description = "KMS key ARN used to encrypt the FIPS RHEL EKS AMI EBS volume (output of ami-temp config)"
   type        = string
+  default     = "arn:aws:kms:us-east-1:791666871613:key/2fce5913-a3a4-4f99-9950-c51f56214350"
 }
