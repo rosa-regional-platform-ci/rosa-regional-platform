@@ -283,9 +283,8 @@ resource "aws_iam_role_policy" "karpenter_controller_kms" {
 # EBS CSI Driver IRSA
 #
 # Allows the aws-ebs-csi-driver addon's controller ServiceAccount to call EBS
-# APIs for volume provisioning. Required because Auto Mode block storage is
-# disabled — the standard ebs.csi.aws.com provisioner handles PVC lifecycle
-# with zone-based topology instead of compute-type=auto topology.
+# APIs for volume provisioning. On Karpenter clusters Auto Mode is fully
+# disabled, so ebs.csi.aws.com handles PVCs with zone-based topology.
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "ebs_csi_controller" {
   count = var.enable_karpenter ? 1 : 0

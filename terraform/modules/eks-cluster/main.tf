@@ -111,21 +111,33 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [var.cluster_security_group_id]
   }
 
-  compute_config {
-    enabled       = true
-    node_pools    = ["system"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-  }
-
-  kubernetes_network_config {
-    elastic_load_balancing {
-      enabled = true
+  # AWS requires compute_config, elastic_load_balancing, and block_storage to
+  # all be enabled or all be disabled. Karpenter clusters disable all three:
+  # compute → Karpenter, storage → EBS CSI addon, ELB → Terraform-managed TGs.
+  dynamic "compute_config" {
+    for_each = var.enable_karpenter ? [] : [1]
+    content {
+      enabled       = true
+      node_pools    = ["system"]
+      node_role_arn = aws_iam_role.eks_auto_mode_node.arn
     }
   }
 
-  storage_config {
-    block_storage {
-      enabled = false
+  dynamic "kubernetes_network_config" {
+    for_each = var.enable_karpenter ? [] : [1]
+    content {
+      elastic_load_balancing {
+        enabled = true
+      }
+    }
+  }
+
+  dynamic "storage_config" {
+    for_each = var.enable_karpenter ? [] : [1]
+    content {
+      block_storage {
+        enabled = true
+      }
     }
   }
 
@@ -260,9 +272,9 @@ resource "aws_eks_addon" "pod_identity" {
   addon_name   = "eks-pod-identity-agent"
 }
 
-# EBS CSI Driver - standard block storage for Karpenter (non-Auto Mode) clusters.
-# Auto Mode block storage is disabled above; this provides the ebs.csi.aws.com
-# provisioner with zone-based topology so PVCs are not locked to compute-type=auto.
+# EBS CSI Driver - standard block storage for Karpenter clusters.
+# Auto Mode is disabled when enable_karpenter=true; this provides ebs.csi.aws.com
+# with zone-based topology instead of compute-type=auto topology.
 resource "aws_eks_addon" "aws_ebs_csi_driver" {
   count        = var.enable_karpenter ? 1 : 0
   cluster_name = aws_eks_cluster.main.name
