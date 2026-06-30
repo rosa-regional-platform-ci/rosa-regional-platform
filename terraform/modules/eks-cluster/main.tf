@@ -111,27 +111,30 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [var.cluster_security_group_id]
   }
 
-  compute_config {
-    enabled       = true
-    node_pools    = ["system"]
-    node_role_arn = aws_iam_role.eks_auto_mode_node.arn
-
-    # TODO: Enable IMDSv2 enforcement for security compliance
-    # node_pool_defaults configuration for launch template metadata_options
-    # is not yet supported in AWS provider 6.x for EKS Auto Mode.
-    # Will be implemented when provider support becomes available.
-    # See https://github.com/hashicorp/terraform-provider-aws/issues/40486
-  }
-
-  kubernetes_network_config {
-    elastic_load_balancing {
-      enabled = true
+  dynamic "compute_config" {
+    for_each = var.enable_karpenter ? [] : [1]
+    content {
+      enabled       = true
+      node_pools    = ["system"]
+      node_role_arn = aws_iam_role.eks_auto_mode_node.arn
     }
   }
 
-  storage_config {
-    block_storage {
-      enabled = true
+  dynamic "kubernetes_network_config" {
+    for_each = var.enable_karpenter ? [] : [1]
+    content {
+      elastic_load_balancing {
+        enabled = true
+      }
+    }
+  }
+
+  dynamic "storage_config" {
+    for_each = var.enable_karpenter ? [] : [1]
+    content {
+      block_storage {
+        enabled = true
+      }
     }
   }
 
@@ -173,6 +176,119 @@ resource "aws_eks_addon" "metrics_server" {
 resource "aws_eks_addon" "pod_identity" {
   cluster_name = aws_eks_cluster.main.name
   addon_name   = "eks-pod-identity-agent"
+}
+
+# -----------------------------------------------------------------------------
+# Karpenter Bootstrap Node Group
+#
+# AL2023 managed node group (t3.medium × 2, CriticalAddonsOnly:NoSchedule) that
+# provides fixed capacity for the Karpenter controller and VPC CNI daemonset
+# before any Karpenter-provisioned nodes exist. This breaks the bootstrap
+# deadlock: Karpenter cannot provision nodes for itself.
+#
+# IMDSv2 is enforced via the launch template. instanceIdNodeName: true in the
+# nodeadm NodeConfig ensures kubelet registers with the EC2 instance ID as the
+# node name, satisfying the API_AND_CONFIG_MAP auth mode SessionName constraint.
+# -----------------------------------------------------------------------------
+
+resource "aws_launch_template" "karpenter_bootstrap" {
+  count = var.enable_karpenter ? 1 : 0
+  name  = "${local.cluster_id}-karpenter-bootstrap"
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  # MIME multipart userData: EKS injects the primary NodeConfig (cluster endpoint,
+  # CA, CIDR) for managed node groups. This document is merged via nodeadm merge
+  # semantics, adding only instanceIdNodeName to the kubelet registration config.
+  user_data = base64encode(<<-USERDATA
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="==KARPENTER-BOOTSTRAP=="
+
+    --==KARPENTER-BOOTSTRAP==
+    Content-Type: application/node.eks.aws
+
+    ---
+    apiVersion: node.eks.aws/v1alpha1
+    kind: NodeConfig
+    spec:
+      instance:
+        localStorage:
+          strategy: Distributed
+      nodeadm:
+        instanceIdNodeName: true
+    --==KARPENTER-BOOTSTRAP==--
+  USERDATA
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags          = { "karpenter.sh/nodepool" = "bootstrap" }
+  }
+}
+
+resource "aws_eks_node_group" "karpenter_bootstrap" {
+  count           = var.enable_karpenter ? 1 : 0
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${local.cluster_id}-karpenter-bootstrap"
+  node_role_arn   = aws_iam_role.karpenter_node[0].arn
+  subnet_ids      = var.private_subnet_ids
+
+  ami_type = "AL2023_x86_64_STANDARD"
+
+  launch_template {
+    id      = aws_launch_template.karpenter_bootstrap[0].id
+    version = aws_launch_template.karpenter_bootstrap[0].latest_version
+  }
+
+  scaling_config {
+    desired_size = 2
+    min_size     = 2
+    max_size     = 2
+  }
+
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
+
+  tags = {
+    "karpenter.sh/discovery" = aws_eks_cluster.main.name
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.karpenter_node_managed]
+}
+
+# -----------------------------------------------------------------------------
+# Explicit Core Addons (Karpenter mode only)
+#
+# bootstrap_self_managed_addons = false prevents EKS from auto-installing these.
+# Auto Mode clusters receive VPC CNI and kube-proxy from the managed control
+# plane; Karpenter clusters must declare them explicitly.
+# -----------------------------------------------------------------------------
+
+resource "aws_eks_addon" "vpc_cni" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "vpc-cni"
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "kube-proxy"
+}
+
+resource "aws_eks_addon" "ebs_csi" {
+  count        = var.enable_karpenter ? 1 : 0
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "aws-ebs-csi-driver"
+
+  depends_on = [aws_eks_pod_identity_association.ebs_csi]
 }
 
 # AWS Secrets Store CSI Driver Provider (e.g. for Maestro agent secret mounting)
