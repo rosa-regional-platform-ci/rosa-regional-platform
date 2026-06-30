@@ -238,6 +238,9 @@ STORAGECLASS_EOF
               --set 'argo-cd.redisSecretInit.tolerations[0].key=CriticalAddonsOnly' \
               --set 'argo-cd.redisSecretInit.tolerations[0].operator=Exists' \
               --set 'argo-cd.redisSecretInit.tolerations[0].effect=NoSchedule' \
+              --set 'argo-cd.global.tolerations[0].key=CriticalAddonsOnly' \
+              --set 'argo-cd.global.tolerations[0].operator=Exists' \
+              --set 'argo-cd.global.tolerations[0].effect=NoSchedule' \
               --set-string 'argo-cd.controller.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
               --set-string 'argo-cd.server.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
               --set-string 'argo-cd.repoServer.annotations.argocd\.argoproj\.io/tracking-id=argocd:argoproj.io/Application:argocd/argocd' \
