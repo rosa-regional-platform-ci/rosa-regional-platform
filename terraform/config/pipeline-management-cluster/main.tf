@@ -24,6 +24,8 @@ locals {
   register_project_name  = "${local.name_prefix}-register"
   pipeline_name          = "${local.name_prefix}-pipe"
 
+
+
   # Repository URL constructed from github_repository variable
   repository_url = "https://github.com/${var.github_repository}.git"
 }
