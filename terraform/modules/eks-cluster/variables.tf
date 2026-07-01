@@ -78,7 +78,7 @@ variable "enable_pod_security_standards" {
 variable "enable_karpenter" {
   description = "Enable OSS Karpenter instead of EKS Auto Mode. Disables Auto Mode compute, storage, and load balancing blocks. Mutually exclusive with Auto Mode."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "karpenter_version" {
