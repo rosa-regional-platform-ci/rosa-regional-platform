@@ -116,42 +116,19 @@ true` enforces FIPS at the OS level. However, it couples storage, networking, an
 A managed node group provides two AL2023 nodes that Karpenter controller and other
 `CriticalAddonsOnly`-tolerating system pods can schedule on before any RHEL workload nodes exist.
 
-| Parameter           | Value                                            |
-| ------------------- | ------------------------------------------------ |
-| AMI family          | AL2023                                           |
-| Instance type       | `t3.medium`                                      |
-| Min / Max / Desired | 2 / 2 / 2                                        |
-| Taint               | `CriticalAddonsOnly=true:NoSchedule`             |
-| Node name format    | EC2 instance ID (via `InstanceIdNodeName: true`) |
+| Parameter           | Value                                |
+| ------------------- | ------------------------------------ |
+| AMI family          | AL2023                               |
+| Instance type       | `t3.medium`                          |
+| Min / Max / Desired | 2 / 2 / 2                            |
+| Taint               | `CriticalAddonsOnly=true:NoSchedule` |
 
-The launch template supplies `userData` as a MIME multipart document with two parts. The first
-part is the EKS-managed base `NodeConfig` (injected automatically by the managed node group). The
-second part is a supplemental `NodeConfig` containing only the `instanceIdNodeName: true` field;
-`nodeadm` merges it with the base config using last-write-wins field semantics. Only the fields
-present in the supplemental part are overridden — the cluster endpoint, CA, and service CIDR from
-the base config are preserved.
-
-```
-Content-Type: multipart/mixed; boundary="==BOUNDARY=="
-MIME-Version: 1.0
-
---==BOUNDARY==
-Content-Type: application/node.eks.aws
-
-# EKS-managed base NodeConfig is injected here by the managed node group.
-# Do not duplicate cluster, endpoint, or CA fields.
-
---==BOUNDARY==
-Content-Type: application/node.eks.aws
-
-apiVersion: node.eks.aws/v1alpha1
-kind: NodeConfig
-spec:
-  kubelet:
-    config:
-      instanceIdNodeName: true
---==BOUNDARY==--
-```
+No custom launch template is required. EKS managed node groups on AL2023 automatically set the
+IMDSv2 hop limit to 2 — sufficient for containerized workloads to reach IMDS across the VPC CNI
+veth pair. Node authentication is handled automatically by EKS regardless of node name format:
+managed node groups register kubelet with the EC2 instance ID as the node name by default when
+the cluster uses `API_AND_CONFIG_MAP` authentication mode, satisfying the
+`system:node:{{SessionName}}` access entry pattern without a supplemental `NodeConfig`.
 
 ### EC2NodeClass
 
