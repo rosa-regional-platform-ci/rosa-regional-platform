@@ -118,7 +118,9 @@ resource "aws_ecs_task_definition" "bootstrap" {
           # EC2NodeClass CRDs (karpenter.sh/v1, karpenter.k8s.aws/v1) don't
           # exist until Karpenter is installed. ArgoCD adopts this release
           # via its self-managed Karpenter Application after bootstrap.
-          if ! kubectl get deployment karpenter -n kube-system 2>/dev/null; then
+          _KARPENTER_READY=$(kubectl get deployment karpenter -n kube-system \
+            -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+          if [ -z "$_KARPENTER_READY" ] || [ "$_KARPENTER_READY" -lt 1 ]; then
             echo "Installing Karpenter $KARPENTER_VERSION..."
             _KARPENTER_QUEUE_NAME=$(basename "$KARPENTER_QUEUE_URL")
             helm upgrade --install karpenter \
@@ -134,7 +136,7 @@ resource "aws_ecs_task_definition" "bootstrap" {
               --wait --timeout=5m
             echo "✓ Karpenter installed"
           else
-            echo "✓ Karpenter already installed, skipping"
+            echo "✓ Karpenter ready (readyReplicas=$_KARPENTER_READY), skipping"
           fi
 
           # Always apply the EC2NodeClass and NodePool from the current chart.
