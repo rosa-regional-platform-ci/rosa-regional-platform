@@ -1,0 +1,15 @@
+aws-load-balancer-controller:
+  clusterName: "{{ .Values.global.cluster_name }}"
+
+  serviceAccount:
+    create: true
+    name: aws-load-balancer-controller
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    fsGroup: 65534
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
