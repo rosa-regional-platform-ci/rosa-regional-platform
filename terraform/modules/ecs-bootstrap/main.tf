@@ -114,47 +114,49 @@ resource "aws_ecs_task_definition" "bootstrap" {
             echo "✓ $ADDON active"
           done
 
-          # Install Karpenter before seeding the NodePool: the NodePool and
-          # EC2NodeClass CRDs (karpenter.sh/v1, karpenter.k8s.aws/v1) don't
-          # exist until Karpenter is installed. ArgoCD adopts this release
-          # via its self-managed Karpenter Application after bootstrap.
-          _KARPENTER_READY=$(kubectl get deployment karpenter -n kube-system \
-            -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
-          if [ -z "$_KARPENTER_READY" ] || [ "$_KARPENTER_READY" -lt 1 ]; then
-            echo "Installing Karpenter $KARPENTER_VERSION..."
-            _KARPENTER_QUEUE_NAME=$(basename "$KARPENTER_QUEUE_URL")
-            helm upgrade --install karpenter \
-              oci://public.ecr.aws/karpenter/karpenter \
-              --version "$KARPENTER_VERSION" \
-              --namespace kube-system \
-              --set "settings.clusterName=$CLUSTER_NAME" \
-              --set "settings.interruptionQueue=$_KARPENTER_QUEUE_NAME" \
-              --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$KARPENTER_CONTROLLER_ROLE_ARN" \
-              --set 'tolerations[0].key=CriticalAddonsOnly' \
-              --set 'tolerations[0].operator=Exists' \
-              --set 'tolerations[0].effect=NoSchedule' \
-              --wait --timeout=5m
-            echo "✓ Karpenter installed"
-          else
-            echo "✓ Karpenter ready (readyReplicas=$_KARPENTER_READY), skipping"
-          fi
+          if [ -n "$${KARPENTER_CONTROLLER_ROLE_ARN:-}" ]; then
+            # Install Karpenter before seeding the NodePool: the NodePool and
+            # EC2NodeClass CRDs (karpenter.sh/v1, karpenter.k8s.aws/v1) don't
+            # exist until Karpenter is installed. ArgoCD adopts this release
+            # via its self-managed Karpenter Application after bootstrap.
+            _KARPENTER_READY=$(kubectl get deployment karpenter -n kube-system \
+              -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+            if [ -z "$_KARPENTER_READY" ] || [ "$_KARPENTER_READY" -lt 1 ]; then
+              echo "Installing Karpenter $KARPENTER_VERSION..."
+              _KARPENTER_QUEUE_NAME=$(basename "$KARPENTER_QUEUE_URL")
+              helm upgrade --install karpenter \
+                oci://public.ecr.aws/karpenter/karpenter \
+                --version "$KARPENTER_VERSION" \
+                --namespace kube-system \
+                --set "settings.clusterName=$CLUSTER_NAME" \
+                --set "settings.interruptionQueue=$_KARPENTER_QUEUE_NAME" \
+                --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$KARPENTER_CONTROLLER_ROLE_ARN" \
+                --set 'tolerations[0].key=CriticalAddonsOnly' \
+                --set 'tolerations[0].operator=Exists' \
+                --set 'tolerations[0].effect=NoSchedule' \
+                --wait --timeout=5m
+              echo "✓ Karpenter installed"
+            else
+              echo "✓ Karpenter ready (readyReplicas=$_KARPENTER_READY), skipping"
+            fi
 
-          # Always apply the EC2NodeClass and NodePool from the current chart.
-          # kubectl apply --server-side is idempotent — it patches in-place.
-          # The original skip-if-exists guard caused a bootstrap bug: the first
-          # run seeded the EC2NodeClass with the wrong IAM role name, and all
-          # subsequent runs silently kept the broken spec, so Karpenter could
-          # never provision nodes. ArgoCD eventually owns these resources, but
-          # we must ensure the correct spec is present before ArgoCD is up.
-          echo "Applying FIPS EC2NodeClass and workloads NodePool from chart..."
-          _NODEPOOL_VALUES="$REPO_DIR/deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-values-$CLUSTER_TYPE.yaml"
-          _VALUES_FLAG=""
-          [ -f "$_NODEPOOL_VALUES" ] && _VALUES_FLAG="-f $_NODEPOOL_VALUES"
-          helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
-            --set global.cluster_name="$CLUSTER_NAME" \
-            $_VALUES_FLAG \
-            | kubectl apply --server-side -f -
-          echo "✓ FIPS EC2NodeClass and NodePool applied"
+            # Always apply the EC2NodeClass and NodePool from the current chart.
+            # kubectl apply --server-side is idempotent — it patches in-place.
+            # The original skip-if-exists guard caused a bootstrap bug: the first
+            # run seeded the EC2NodeClass with the wrong IAM role name, and all
+            # subsequent runs silently kept the broken spec, so Karpenter could
+            # never provision nodes. ArgoCD eventually owns these resources, but
+            # we must ensure the correct spec is present before ArgoCD is up.
+            echo "Applying FIPS EC2NodeClass and workloads NodePool from chart..."
+            _NODEPOOL_VALUES="$REPO_DIR/deploy/$ENVIRONMENT/$REGION_DEPLOYMENT/argocd-values-$CLUSTER_TYPE.yaml"
+            _VALUES_FLAG=""
+            [ -f "$_NODEPOOL_VALUES" ] && _VALUES_FLAG="-f $_NODEPOOL_VALUES"
+            helm template eks-nodepool "$REPO_DIR/argocd/config/$CLUSTER_TYPE/eks-nodepool" \
+              --set global.cluster_name="$CLUSTER_NAME" \
+              $_VALUES_FLAG \
+              | kubectl apply --server-side -f -
+            echo "✓ FIPS EC2NodeClass and NodePool applied"
+          fi
 
           # If a previous bootstrap run failed mid-install, the Helm release is
           # left in 'failed' state. Running helm upgrade on a failed HA ArgoCD
